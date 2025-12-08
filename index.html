@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vysti Marker</title>
   <style>
     body {
@@ -17,6 +18,16 @@
       margin-top: 20px;
       padding: 8px 16px;
       cursor: pointer;
+    }
+    fieldset {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 16px;
+    }
+    legend {
+      font-weight: 600;
+      padding: 0 6px;
     }
     #status {
       margin-top: 16px;
@@ -55,52 +66,103 @@
         <option value="foundation_5">Foundation 5 – Intro + body</option>
         <option value="foundation_6">Foundation 6 – Full essay</option>
         <option value="peel_paragraph">PEEL paragraph</option>
-        <!-- add/remove as you like -->
       </select>
     </label>
 
-    <label>
-      Author
-      <input type="text" id="author" />
-    </label>
+    <!-- Work 1 -->
+    <fieldset>
+      <legend>Work 1</legend>
+      <label>
+        Author
+        <input type="text" id="author" />
+      </label>
 
-    <label>
-      Title
-      <input type="text" id="title" />
-    </label>
+      <label>
+        Title
+        <input type="text" id="title" />
+      </label>
 
-    <label>
-      Author 2
-      <input type="text" id="author2" />
-    </label>
+      <label>
+        Title type
+        <select id="title_is_minor">
+          <option value="true" selected>Minor work — in "double quotes"</option>
+          <option value="false">Major work — italicized</option>
+        </select>
+      </label>
+    </fieldset>
 
-    <label>
-      Title 2
-      <input type="text" id="title2" />
-    </label>
+    <!-- Work 2 (optional) -->
+    <fieldset>
+      <legend>Work 2 (optional)</legend>
+      <label>
+        Author 2
+        <input type="text" id="author2" />
+      </label>
 
-    <label>
-      Author 3
-      <input type="text" id="author3" />
-    </label>
+      <label>
+        Title 2
+        <input type="text" id="title2" />
+      </label>
 
-    <label>
-      Title 3
-      <input type="text" id="title3" />
-    </label>
+      <label>
+        Title 2 type
+        <select id="title2_is_minor" disabled>
+          <option value="true" selected>Minor work — in "double quotes"</option>
+          <option value="false">Major work — italicized</option>
+        </select>
+      </label>
+    </fieldset>
+
+    <!-- Work 3 (optional) -->
+    <fieldset>
+      <legend>Work 3 (optional)</legend>
+      <label>
+        Author 3
+        <input type="text" id="author3" />
+      </label>
+
+      <label>
+        Title 3
+        <input type="text" id="title3" />
+      </label>
+
+      <label>
+        Title 3 type
+        <select id="title3_is_minor" disabled>
+          <option value="true" selected>Minor work — in "double quotes"</option>
+          <option value="false">Major work — italicized</option>
+        </select>
+      </label>
+    </fieldset>
 
     <button type="submit">Mark my essay(s)</button>
   </form>
 
-  <div id="status"></div>
+  <div id="status" role="status" aria-live="polite"></div>
 
   <script>
-    // Your deployed API
+    // Your deployed API (same URL as before)
     const API_URL = "https://vysti-marker-api.onrender.com/mark";
 
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
+
+    const title2Input = document.getElementById("title2");
+    const title3Input = document.getElementById("title3");
+    const title2Type = document.getElementById("title2_is_minor");
+    const title3Type = document.getElementById("title3_is_minor");
+
+    // Enable/disable the type pickers for 2/3 depending on whether a Title 2/3 is filled in
+    function syncTypePickers() {
+      title2Type.disabled = !title2Input.value.trim();
+      title3Type.disabled = !title3Input.value.trim();
+    }
+    ["input", "change"].forEach(evt => {
+      title2Input.addEventListener(evt, syncTypePickers);
+      title3Input.addEventListener(evt, syncTypePickers);
+    });
+    syncTypePickers();
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -112,12 +174,18 @@
       }
 
       const mode = document.getElementById("mode").value;
+
       const author = document.getElementById("author").value.trim();
       const title = document.getElementById("title").value.trim();
+      const titleIsMinor = document.getElementById("title_is_minor").value; // "true" | "false"
+
       const author2 = document.getElementById("author2").value.trim();
-      const title2 = document.getElementById("title2").value.trim();
+      const title2 = title2Input.value.trim();
+      const title2IsMinor = title2Type.value; // "true" | "false"
+
       const author3 = document.getElementById("author3").value.trim();
-      const title3 = document.getElementById("title3").value.trim();
+      const title3 = title3Input.value.trim();
+      const title3IsMinor = title3Type.value; // "true" | "false"
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
@@ -128,12 +196,24 @@
         const formData = new FormData();
         formData.append("file", file);
         formData.append("mode", mode);
+
         if (author) formData.append("author", author);
-        if (title) formData.append("title", title);
+        if (title) {
+          formData.append("title", title);
+          formData.append("text_is_minor_work", titleIsMinor);
+        }
+
         if (author2) formData.append("author2", author2);
-        if (title2) formData.append("title2", title2);
+        if (title2) {
+          formData.append("title2", title2);
+          formData.append("text_is_minor_work_2", title2IsMinor);
+        }
+
         if (author3) formData.append("author3", author3);
-        if (title3) formData.append("title3", title3);
+        if (title3) {
+          formData.append("title3", title3);
+          formData.append("text_is_minor_work_3", title3IsMinor);
+        }
 
         try {
           const response = await fetch(API_URL, {
