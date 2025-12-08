@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vysti Marker – Web Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 16px;
+      line-height: 1.5;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    input[type="file"], select, input[type="text"] {
+      margin-top: 6px;
+      width: 100%;
+      max-width: 100%;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    #status {
+      margin-top: 16px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Vysti Marker – Browser Test</h1>
+  <div class="card">
+    <label for="essayFile">Upload .docx essay</label>
+    <input type="file" id="essayFile" accept=".docx">
+
+    <label for="mode">Mode</label>
+    <select id="mode">
+      <option value="textual_analysis">Textual analysis</option>
+      <option value="reader_response">Reader response</option>
+      <option value="intertextual_analysis">Intertextual analysis</option>
+      <option value="analytic_frame">Analytic frame</option>
+    </select>
+
+    <label for="author">Author (optional)</label>
+    <input type="text" id="author" placeholder="M. F. K. Fisher">
+
+    <label for="title">Title (optional)</label>
+    <input type="text" id="title" placeholder="Young Hunger">
+
+    <button id="submitBtn">Mark my essay</button>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8000/mark"; // same as test_call_api.py
+
+    document.getElementById("submitBtn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("essayFile");
+      const modeSelect = document.getElementById("mode");
+      const authorInput = document.getElementById("author");
+      const titleInput = document.getElementById("title");
+      const statusEl = document.getElementById("status");
+
+      if (!fileInput.files[0]) {
+        statusEl.textContent = "Upload a .docx first.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);          // matches vysti_api.py
+      formData.append("mode", modeSelect.value);
+      if (authorInput.value.trim()) formData.append("author", authorInput.value.trim());
+      if (titleInput.value.trim())  formData.append("title", titleInput.value.trim());
+
+      statusEl.textContent = "Sending to Vysti Marker…";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          body: formData
+          // no API key header here
+        });
+
+        if (!response.ok) {
+          statusEl.textContent = "Error: " + response.status + " " + response.statusText;
+          return;
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = "my_essay_marked.docx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(downloadUrl);
+        statusEl.textContent = "Done. Check your downloads for the marked essay.";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Request failed: " + err;
+      }
+    });
+  </script>
+</body>
+</html>

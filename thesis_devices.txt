@@ -1,0 +1,446 @@
+# Thesis Device Words Configuration
+# Format: term,canonical_device
+# If term == canonical_device, it declares a canonical device
+# If term != canonical_device, it's a synonym for the canonical device
+
+# Core figurative / imagistic devices
+metaphor,metaphor
+simile,simile
+imagery,imagery
+symbol,symbol
+symbolism,symbolism
+image,image
+hyperbole,hyperbole
+personification,personification
+allegorical symbolism,symbolism
+allegory,allegory
+zoomorphication,zoomorphication
+antithesis,antithesis
+setting,setting
+action,action
+plot,plot
+character,character
+characterization,characterization
+
+# Diction / syntax / basic craft
+diction,diction
+syntax,syntax
+tone,tone
+description,description
+classification,classification
+enumeration,enumeration
+list,list
+listing,listing
+exemplification,exemplification
+narration,narration
+narrative,narrative
+story,story
+
+# From the workbook list: argument / logic / modes
+definition,definition
+comparison,comparison
+contrast,contrast
+imperative,imperative
+declarative,declarative
+hortative,hortative
+interrogative,interrogative
+paradox,paradox
+analogy,analogy
+allusion,allusion
+repetition,repetition
+bathos,bathos
+data,data
+quotation,quotation
+quotes,quotation
+quotations,quotation
+quoting,quotation
+quote,quotation
+statistic,statistic
+statistics,statistics
+hypophora,hypophora
+false dilemma,false dilemma
+false dilemmas,false dilemma
+binary,binary
+dichotomy,dichotomy
+bifurcation,bifurcation
+conflation,conflation
+cause,cause
+causal,causal
+argument,argument
+argumentation,argumentation
+process,process
+example,example
+
+# Fallacies / appeals / "move" words (we just care that they're rhetorical)
+fallacy,fallacy
+fallacies,fallacies
+appeal,appeal
+strawman,strawman
+slippery slope,slippery slope
+red herring,red herring
+hypothetical situation,hypothetical situations
+hypothetical situations,hypothetical situations
+false dilemma,false dilemma
+false dilemmas,false dilemma
+straw man argument,strawman
+straw man arguments,strawman
+appeal to false authority,appeal to false authority
+appeals to false authority,appeal to false authority
+appeal to the false authority of,appeal to false authority
+appeal to authority,appeal to authority
+appeals to authority,appeal to authority
+appeal to the authority of,appeal to authority
+appeal to expert authority,appeal to expert authority
+appeals to expert authority,appeal to expert authority
+appeal to the expert authority of,appeal to expert authority
+unqualified language,unqualified language
+tu quoque,tu quoque
+appeal to ignorance,appeal to ignorance
+appeals to ignorance,appeal to ignorance
+appeal to the ignorance of,appeal to ignorance
+false analogy,false analogy
+false analogies,false analogy
+false comparison,false comparison
+false comparisons,false comparison
+false equivalence,false equivalence
+false equivalences,false equivalence
+petitio principii,petitio principii
+bandwagon fallacy,bandwagon fallacy
+ad populum,ad populum
+ad Hitlerum,ad Hitlerum
+
+# Coordination / sentence-level schemes
+polysyndeton,polysyndeton
+asyndeton,asyndeton
+parallelism,parallelism
+antimetabole,antimetabole
+hyperbaton,hyperbaton
+tricolon,tricolon
+
+# Sound / patterning
+consonance,consonance
+assonance,assonance
+alliteration,alliteration
+rhyme,rhyme
+enjambment,enjambment
+caesura,caesura
+stanza,stanza
+
+# Wordplay / lexical
+homophone,homophone
+homonym,homonym
+capitonym,capitonym
+litotes,litotes
+collocation,collocation
+jargon,jargon
+malapropism,malapropism
+catachresis,catachresis
+aporia,aporia
+metalepsis,metalepsis
+
+# Pronouns / address / discourse
+focalization,focalization
+narrator,narrator
+character,character
+characters,characters
+characterization,characterization
+
+# Organization / structure / time
+organization,organization
+spatial,spatial
+temporal,temporal
+duration,duration
+plot,plot
+analepsis,analepsis
+prolepsis,prolepsis
+
+# Sentential types & constructions
+exclamatory,exclamatory
+parenthesis,parenthesis
+parenthetical,parenthetical
+conditional,conditional
+modal,modal
+cumulative,cumulative
+periodic,periodic
+
+# Big-ticket narrative / tragic stuff
+peripeteia,peripeteia
+anagnorisis,anagnorisis
+hubris,hubris
+hamartia,hamartia
+
+# Argument moves
+rebuttal,rebuttal
+counterclaim,counterclaim
+rhetorical question,rhetorical question
+rhetorical questions,rhetorical question  
+rhetorically questioning,rhetorical question
+rhetorical questioning,rhetorical question
+avoiding the question,avoiding the question
+ignoring questions,avoiding the question
+avoids questions,avoiding the question
+avoiding questions,avoiding the question
+ignore questions,avoiding the question
+ignores questions,avoiding the question
+
+# Misc rhetorical
+humor,humor
+anticipation,anticipation
+
+# Synonyms for thesis device words to improve semantic alignment
+# Maps alternative terms students might use to the canonical device names
+interview,quotation
+interviews,quotation
+interviewed,quotation
+describe,description
+describes,description
+describing,description
+statistical,data
+quantitative,data
+zoomorphic,zoomorphication
+zoomorphism,zoomorphication
+imageries,imagery
+images,image
+imagistic,imagery
+metaphorical,metaphor
+metaphorically,metaphor
+similes,simile
+symbolic,symbol
+symbolically,symbol
+allegorical,allegory
+allegorically,allegory
+hyperbolic,hyperbole
+hyperbolically,hyperbole
+hyperbolization,hyperbole
+personify,personification
+personifies,personification
+personified,personification
+personifying,personification
+anthropomorphic,personification
+anthropomorphism,personification
+imagistic,imagery
+evocation,imagery
+evocative,imagery
+evocatively,imagery
+descriptive imagery,imagery
+visual imagery,imagery
+auditory imagery,imagery
+tactile imagery,imagery
+olfactory imagery,imagery
+gustatory imagery,imagery
+motif,motif
+motifs,motif
+juxtaposition,antithesis
+antithetical oppositions,antithesis
+juxtapose,antithesis
+juxtaposes,antithesis
+juxtaposed,antithesis
+juxtaposing,antithesis
+word choice,diction
+sentence structure,syntax
+tone shift,tone
+tonal,tone
+tonally,tone
+descriptive,description
+descriptively,description
+narrative voice,narration
+narrator voice,narration
+storytelling,narration
+chronology,temporal
+chronological,temporal
+define,definition
+defines,definition
+defining,definition
+comparative,comparison
+contrastive,contrast
+analogical,analogy
+allusive,allusion
+allusively,allusion
+repetitive,repetition
+repetitively,repetition
+statistical evidence,data
+data point,data
+statistics-based,data
+exemplify,example
+exemplifies,example
+exemplified,example
+case study,example
+case studies,example
+causation,cause
+causal chain,cause
+causally,cause
+logical fallacy,fallacy
+false dichotomy,false dilemma
+false binary,false dilemma
+binary opposition,binary
+hasty generalization,fallacy
+circular reasoning,fallacy
+parallel,parallelism
+parallel structure,parallelism
+parenthetical phrase,parenthesis
+parenthetically,parenthesis
+conditional clause,conditional
+modal verb,modal
+rhythmic,rhythm
+rhythm,rhythm
+meter,meter
+metrical,meter
+scansion,scansion
+line break,enjambment
+line breaks,enjambment
+end-stopped,caesura
+end-stopping,caesura
+pun,pun
+puns,pun
+wordplay,wordplay
+ambiguity,ambiguity
+ambiguous,ambiguity
+ambiguously,ambiguity
+double meaning,ambiguity
+double entendre,ambiguity
+irony,irony
+ironic,irony
+ironically,irony
+sarcasm,sarcasm
+sarcastic,sarcasm
+sarcastically,sarcasm
+colloquial,colloquialism
+colloquialism,colloquialism
+vernacular,vernacular
+idiom,idiom
+idiomatic,idiom
+idiomatically,idiom
+slang,jargon
+technical language,jargon
+first-person,focalization
+second-person,focalization
+third-person,focalization
+limited narrator,focalization
+omniscient narrator,focalization
+free indirect discourse,focalization
+point of view,focalization
+PoV,focalization
+structure shift,structure
+framing device,organization
+frame narrative,organization
+circular structure,organization
+linear structure,organization
+nonlinear structure,organization
+flashback,analepsis
+flash-forward,prolepsis
+chronology,temporal
+chronological order,temporal
+in medias res,temporal
+declarative sentence,declarative
+imperative sentence,imperative
+interrogative sentence,interrogative
+exclamatory sentence,exclamation
+fragment,syntax
+catharsis,peripeteia
+tragic flaw,hamartia
+fate,hamartia
+foil,character
+foreshadowing,anticipation
+foreboding,anticipation
+climax,plot
+anticlimax,bathos
+refutation,rebuttal
+counter,rebuttal
+counterargument,counterclaim
+response,rebuttal
+humorous,humor
+satire,humor
+satirical,humor
+satirically,humor
+wit,humor
+witty,humor
+dramatic irony,irony
+verbal irony,irony
+situational irony,irony
+appeal to authority,appeal
+appeal to emotion,appeal
+appeal to logic,appeal
+amplification,enumeration
+storyline,plot
+scenery,setting
+background,setting
+visuals,imagery
+picture,image
+pictures,image
+Hyperbolizing,hyperbole
+Hyperbolize,hyperbole
+# General figurative / imagistic nominalizations
+metaphorization,metaphor
+similization,simile
+symbolization,symbol
+allegorization,allegory
+personification (noun already canonical),personification
+anthropomorphization,personification
+
+# Diction / syntax / craft nominalizations
+tonal shift,tone
+tonalization,tone
+descriptional,description
+classification system,classification
+enumerative structure,enumeration
+exemplification (already added),exemplification
+narrativization,narration
+
+# Argument / logic nominalizations
+definitional move,definition
+comparison/contrast,comparison
+contrastive move,contrast
+analogization,analogy
+recontextualization,analogy
+allusiveness,allusion
+repetition pattern,repetition
+argumentation structure,argumentation
+binarization,binary
+polarization,binary
+dichotomization,dichotomy
+process analysis,process
+
+# Sound / patterning
+alliterative pattern,alliteration
+assonantal pattern,assonance
+consonantal pattern,consonance
+rhythmic pattern,rhythm
+metrical pattern,meter
+enjambed line,enjambment
+caesural break,caesura
+
+# Wordplay / semantic nominalizations
+ambiguation,ambiguity
+ironicization,irony
+satirization,humor
+sarcastic tone,sarcasm
+idiomatic expression,idiom
+vernacularization,vernacular
+colloquialization,colloquialism
+
+# Pronouns / focalization nominalizations
+focalization shift,focalization
+perspectivization,focalization
+
+# Structure / organization nominalizations
+structural shift,structure
+temporal shift,temporal
+spatial arrangement,spatial
+chronologization,temporal
+duration shift,duration
+organizational structure,organization
+
+# Sentential nominalizations
+exclamatory construction,exclamation
+parenthetical insertion,parenthesis
+conditional structure,conditional
+modal construction,modal
+
+# Narrative / tragic nominalizations
+peripeteic turn,peripeteia
+anagnoristic moment,anagnorisis
+hubristic action,hubris
+hamartic failure,hamartia
+
+
+
