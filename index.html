@@ -141,19 +141,19 @@
   <div id="status" role="status" aria-live="polite"></div>
 
   <script>
-    // Your deployed API (same URL as before)
+    // Your deployed API endpoint
     const API_URL = "https://vysti-marker-api.onrender.com/mark";
 
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
 
+    // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
     const title2Input = document.getElementById("title2");
     const title3Input = document.getElementById("title3");
-    const title2Type = document.getElementById("title2_is_minor");
-    const title3Type = document.getElementById("title3_is_minor");
+    const title2Type  = document.getElementById("title2_is_minor");
+    const title3Type  = document.getElementById("title3_is_minor");
 
-    // Enable/disable the type pickers for 2/3 depending on whether a Title 2/3 is filled in
     function syncTypePickers() {
       title2Type.disabled = !title2Input.value.trim();
       title3Type.disabled = !title3Input.value.trim();
@@ -216,10 +216,7 @@
         }
 
         try {
-          const response = await fetch(API_URL, {
-            method: "POST",
-            body: formData,
-          });
+          const response = await fetch(API_URL, { method: "POST", body: formData });
 
           if (!response.ok) {
             const text = await response.text();
