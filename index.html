@@ -220,7 +220,6 @@
     const title3Type  = document.getElementById("title3_is_minor");
 
     // Per‑mode defaults for the visible rule toggles
-    // (These are UI defaults; the engine still has its own mode presets.)
     const MODE_RULE_DEFAULTS = {
       textual_analysis: {
         allowI: false,
@@ -328,20 +327,11 @@
       const defaults = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS["textual_analysis"];
 
       allowICheckbox.checked = !!defaults.allowI;
+      allowAudienceCheckbox.checked = !!defaults.allowAudience;
       noClosedThesisCheckbox.checked = !!defaults.noClosedThesis;
-
-      if (allowAudienceCheckbox) {
-        allowAudienceCheckbox.checked = !!defaults.allowAudience;
-      }
-      if (noBodyEvidenceCheckbox) {
-        noBodyEvidenceCheckbox.checked = !!defaults.noBodyEvidence;
-      }
-      if (allowIntroQuotesCheckbox) {
-        allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
-      }
-      if (allowContractionsCheckbox) {
-        allowContractionsCheckbox.checked = !!defaults.allowContractions;
-      }
+      noBodyEvidenceCheckbox.checked = !!defaults.noBodyEvidence;
+      allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
+      allowContractionsCheckbox.checked = !!defaults.allowContractions;
 
       if (modeHelp) {
         modeHelp.textContent = defaults.description;
@@ -422,18 +412,12 @@
         }
 
         // Rule settings: always send explicit booleans so backend matches the UI.
-        // allowI = checked means "do NOT forbid personal pronouns".
         formData.append("forbid_personal_pronouns", allowI ? "false" : "true");
-        // allowAudience = checked means "do NOT forbid reader/audience reference".
         formData.append("forbid_audience_reference", allowAudience ? "false" : "true");
-        // noClosedThesis = checked means "do NOT enforce closed thesis".
         formData.append("enforce_closed_thesis", noClosedThesis ? "false" : "true");
-        // noBodyEvidence = checked means "do NOT require a quotation in each body paragraph".
         formData.append("require_body_evidence", noBodyEvidence ? "false" : "true");
-        // allowIntroQuotes = checked means "allow quotations in intro (except thesis)".
         formData.append("allow_intro_summary_quotes", allowIntroQuotes ? "true" : "false");
-        formData.append("enforce_intro_quote_rule",  allowIntroQuotes ? "false" : "true");
-        // allowContractions = checked means "do NOT enforce the no‑contractions rule".
+        formData.append("enforce_intro_quote_rule", allowIntroQuotes ? "false" : "true");
         formData.append("enforce_contractions_rule", allowContractions ? "false" : "true");
 
         try {
