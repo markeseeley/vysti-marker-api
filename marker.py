@@ -528,6 +528,11 @@ class MarkerConfig:
     # in the first sentence and in the thesis statement.
     allow_intro_summary_quotes: bool = False
 
+    # If False, we do NOT use the generic "Avoid quotations in the introduction"
+    # rule at all. We still use "No quotations in thesis statements".
+    enforce_intro_quote_rule: bool = True
+
+
 
 class TeacherWork(NamedTuple):
     """Represents a teacher-supplied work (author + title + minor/major flag)."""
@@ -625,14 +630,22 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_thesis_organization = False
         cfg.enforce_topic_thesis_alignment = False
         cfg.enforce_off_topic = False
-        # We keep forbid_personal_pronouns=True here (still formal).
+        # Allow direct address to the reader/audience in argumentation
+        # ("Avoid referring to the reader or audience..." is off),
+        # but keep the ban on first-person pronouns by default.
+        cfg.forbid_audience_reference = False
+
 
     elif mode == "analytic_frame":
         # Analytic frame essays:
         # - Use the full textual-analysis rule set
         # - Support multiple works via author_name_2 / text_title_2 / author_name_3 / text_title_3
         # - Allow direct quotations in the *introductory summary* (between first sentence and thesis)
+        # - Turn OFF the generic "Avoid quotations in the introduction" rule
+        #   (but still forbid quotations in the thesis sentence itself).
         cfg.allow_intro_summary_quotes = True
+        cfg.enforce_intro_quote_rule = False
+
 
     # ---------- Foundation modes ----------
 
