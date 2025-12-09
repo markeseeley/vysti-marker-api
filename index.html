@@ -38,6 +38,17 @@
       font-size: 0.9rem;
       color: #555;
     }
+    fieldset p.help-text {
+      margin-top: 4px;
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .rules-group-title {
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -144,13 +155,40 @@
     <!-- Rule toggles -->
     <fieldset>
       <legend>Rule options (optional)</legend>
+      <p class="help-text">
+        Mode sets the defaults for this assignment. Use these switches to loosen or tighten rules.
+      </p>
+
+      <div class="rules-group-title">Voice &amp; audience</div>
       <label>
         <input type="checkbox" id="allow_i" />
         Allow first person (“I”, “we”, “our”) in this assignment
       </label>
       <label>
+        <input type="checkbox" id="allow_audience" />
+        Allow direct address to the reader or audience (“you”, “the reader”, “audience”)
+      </label>
+
+      <div class="rules-group-title">Thesis</div>
+      <label>
         <input type="checkbox" id="no_closed_thesis" />
         Do <strong>not</strong> enforce a closed thesis statement
+      </label>
+
+      <div class="rules-group-title">Evidence &amp; quotations</div>
+      <label>
+        <input type="checkbox" id="no_body_evidence" />
+        Do <strong>not</strong> require a quotation in every body paragraph
+      </label>
+      <label>
+        <input type="checkbox" id="allow_intro_quotes" />
+        Allow quotations in the introduction (except the thesis sentence)
+      </label>
+
+      <div class="rules-group-title">Style</div>
+      <label>
+        <input type="checkbox" id="allow_contractions" />
+        Allow contractions (“don't”, “can't”, “it's”) outside quotations
       </label>
     </fieldset>
 
@@ -169,7 +207,11 @@
 
     const modeSelect = document.getElementById("mode");
     const allowICheckbox = document.getElementById("allow_i");
+    const allowAudienceCheckbox = document.getElementById("allow_audience");
     const noClosedThesisCheckbox = document.getElementById("no_closed_thesis");
+    const noBodyEvidenceCheckbox = document.getElementById("no_body_evidence");
+    const allowIntroQuotesCheckbox = document.getElementById("allow_intro_quotes");
+    const allowContractionsCheckbox = document.getElementById("allow_contractions");
     const modeHelp = document.getElementById("modeHelp");
 
     const title2Input = document.getElementById("title2");
@@ -177,61 +219,106 @@
     const title2Type  = document.getElementById("title2_is_minor");
     const title3Type  = document.getElementById("title3_is_minor");
 
-    // Per‑mode defaults for the two visible rule toggles
+    // Per‑mode defaults for the visible rule toggles
+    // (These are UI defaults; the engine still has its own mode presets.)
     const MODE_RULE_DEFAULTS = {
       textual_analysis: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: false,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Textual analysis: formal mode, no first person, closed thesis required."
       },
       reader_response: {
         allowI: true,
+        allowAudience: true,
         noClosedThesis: false,
-        description: "Reader response: allows first person and addressing the reader; still expects a thesis by default."
+        noBodyEvidence: false,
+        allowIntroQuotes: false,
+        allowContractions: true,
+        description: "Reader response: personal voice allowed; still expects a thesis by default."
       },
       analytic_frame: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
-        description: "Analytic frame: allows quotations in the introduction; closed thesis still on by default."
+        noBodyEvidence: false,
+        allowIntroQuotes: true,
+        allowContractions: false,
+        description: "Analytic frame: multiple works allowed; quotations in the introduction are allowed."
       },
       argumentation: {
         allowI: false,
+        allowAudience: true,
         noClosedThesis: true,
-        description: "Argumentation: open thesis by default and looser topic‑sentence alignment; you can turn closed thesis back on below."
+        noBodyEvidence: false,
+        allowIntroQuotes: false,
+        allowContractions: false,
+        description: "Argumentation: open thesis by default; looser thesis/topic alignment; direct address to the reader allowed."
       },
       foundation_1: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: true,
+        noBodyEvidence: true,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Foundation 1: first sentence only; closed thesis and body‑paragraph rules are off."
       },
       foundation_2: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: true,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Foundation 2: first sentence + closed thesis."
       },
       foundation_3: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: true,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Foundation 3: full introduction with closed thesis."
       },
       foundation_4: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: true,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Foundation 4: introduction + first body topic sentence."
       },
       foundation_5: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: false,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Foundation 5: introduction + body paragraphs."
       },
       foundation_6: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: false,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "Foundation 6: full essay, full rule set."
       },
       peel_paragraph: {
         allowI: false,
+        allowAudience: false,
         noClosedThesis: false,
+        noBodyEvidence: false,
+        allowIntroQuotes: false,
+        allowContractions: false,
         description: "PEEL paragraph: single body paragraph with evidence."
       },
     };
@@ -239,8 +326,23 @@
     function applyModeDefaults() {
       const mode = modeSelect.value;
       const defaults = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS["textual_analysis"];
-      allowICheckbox.checked = defaults.allowI;
-      noClosedThesisCheckbox.checked = defaults.noClosedThesis;
+
+      allowICheckbox.checked = !!defaults.allowI;
+      noClosedThesisCheckbox.checked = !!defaults.noClosedThesis;
+
+      if (allowAudienceCheckbox) {
+        allowAudienceCheckbox.checked = !!defaults.allowAudience;
+      }
+      if (noBodyEvidenceCheckbox) {
+        noBodyEvidenceCheckbox.checked = !!defaults.noBodyEvidence;
+      }
+      if (allowIntroQuotesCheckbox) {
+        allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
+      }
+      if (allowContractionsCheckbox) {
+        allowContractionsCheckbox.checked = !!defaults.allowContractions;
+      }
+
       if (modeHelp) {
         modeHelp.textContent = defaults.description;
       }
@@ -285,7 +387,11 @@
       const title3IsMinor = title3Type.value;
 
       const allowI = allowICheckbox.checked;
+      const allowAudience = allowAudienceCheckbox.checked;
       const noClosedThesis = noClosedThesisCheckbox.checked;
+      const noBodyEvidence = noBodyEvidenceCheckbox.checked;
+      const allowIntroQuotes = allowIntroQuotesCheckbox.checked;
+      const allowContractions = allowContractionsCheckbox.checked;
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
@@ -318,8 +424,17 @@
         // Rule settings: always send explicit booleans so backend matches the UI.
         // allowI = checked means "do NOT forbid personal pronouns".
         formData.append("forbid_personal_pronouns", allowI ? "false" : "true");
+        // allowAudience = checked means "do NOT forbid reader/audience reference".
+        formData.append("forbid_audience_reference", allowAudience ? "false" : "true");
         // noClosedThesis = checked means "do NOT enforce closed thesis".
         formData.append("enforce_closed_thesis", noClosedThesis ? "false" : "true");
+        // noBodyEvidence = checked means "do NOT require a quotation in each body paragraph".
+        formData.append("require_body_evidence", noBodyEvidence ? "false" : "true");
+        // allowIntroQuotes = checked means "allow quotations in intro (except thesis)".
+        formData.append("allow_intro_summary_quotes", allowIntroQuotes ? "true" : "false");
+        formData.append("enforce_intro_quote_rule",  allowIntroQuotes ? "false" : "true");
+        // allowContractions = checked means "do NOT enforce the no‑contractions rule".
+        formData.append("enforce_contractions_rule", allowContractions ? "false" : "true");
 
         try {
           const response = await fetch(API_URL, {
