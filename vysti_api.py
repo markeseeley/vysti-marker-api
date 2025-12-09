@@ -9,7 +9,7 @@ app = FastAPI(title="Vysti Marker API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # loosened for dev; we can tighten later
+    allow_origins=["*"],   # loosened for dev; you can tighten this later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,13 +25,36 @@ def read_root():
 async def mark_essay(
     file: UploadFile = File(...),
     mode: str = Form("textual_analysis"),
+
+    # Primary work
     author: str | None = Form(None),
     title: str | None = Form(None),
+    text_is_minor_work: bool | None = Form(None),
+
+    # Second work (optional)
     author2: str | None = Form(None),
     title2: str | None = Form(None),
+    text_is_minor_work_2: bool | None = Form(None),
+
+    # Third work (optional)
     author3: str | None = Form(None),
     title3: str | None = Form(None),
+    text_is_minor_work_3: bool | None = Form(None),
+
+    # Rule toggles (optional)
+    forbid_personal_pronouns: bool | None = Form(None),
+    enforce_closed_thesis: bool | None = Form(None),
 ):
+    """
+    Mark a .docx essay using the Vysti engine.
+
+    Accepts up to three works (author/title) plus:
+      - text_is_minor_work, text_is_minor_work_2, text_is_minor_work_3
+      - forbid_personal_pronouns
+      - enforce_closed_thesis
+
+    These map directly onto MarkerConfig in marker.py.
+    """
     # 1. Basic validation
     if not file.filename.lower().endswith(".docx"):
         return JSONResponse(
@@ -44,30 +67,47 @@ async def mark_essay(
 
     # 3. Build teacher_config from form fields (matches MarkerConfig)
     teacher_config: dict = {}
+
+    # --- Works / titles ---
     if author:
         teacher_config["author_name"] = author
     if title:
         teacher_config["text_title"] = title
+    if text_is_minor_work is not None:
+        teacher_config["text_is_minor_work"] = text_is_minor_work
+
     if author2:
         teacher_config["author_name_2"] = author2
     if title2:
         teacher_config["text_title_2"] = title2
+    if text_is_minor_work_2 is not None:
+        teacher_config["text_is_minor_work_2"] = text_is_minor_work_2
+
     if author3:
         teacher_config["author_name_3"] = author3
     if title3:
         teacher_config["text_title_3"] = title3
+    if text_is_minor_work_3 is not None:
+        teacher_config["text_is_minor_work_3"] = text_is_minor_work_3
+
+    # --- Rule overrides ---
+    # These override the defaults chosen by get_preset_config(mode)
+    if forbid_personal_pronouns is not None:
+        teacher_config["forbid_personal_pronouns"] = forbid_personal_pronouns
+    if enforce_closed_thesis is not None:
+        teacher_config["enforce_closed_thesis"] = enforce_closed_thesis
 
     # 4. Call your engine
-    # mark_docx_bytes is defined in marker.py and returns (marked_bytes, metadata)
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
-        teacher_config=teacher_config,
-        # rules_path default "Vysti Rules for Writing.xlsx" is fine for now
+        teacher_config=teacher_config if teacher_config else None,
+        # rules_path default "Vysti Rules for Writing.xlsx" is fine
     )
 
-    # For now, just log metadata to the server console so you can see it
+    # You can watch this in Render logs to confirm the flags:
     print("Vysti metadata:", metadata)
+    print("Teacher config used:", teacher_config)
 
     # 5. Stream the marked .docx back to the client
     base_name = file.filename.rsplit(".", 1)[0] if file.filename else "essay"
@@ -75,18 +115,6 @@ async def mark_essay(
 
     return StreamingResponse(
         io.BytesIO(marked_bytes),
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ),
-        headers={
-            "Content-Disposition": f'attachment; filename="{output_filename}"'
-        },
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
     )
-
-
-
-
-
-
-
-
