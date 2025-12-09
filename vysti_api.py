@@ -1,47 +1,24 @@
 # vysti_api.py
-
 from fastapi import FastAPI, File, UploadFile, Form
-
 from fastapi.responses import StreamingResponse, JSONResponse
-
 from fastapi.middleware.cors import CORSMiddleware
-
 from marker import mark_docx_bytes  # uses your existing engine
-
 import io
-
-
 
 app = FastAPI(title="Vysti Marker API")
 
-
-
 app.add_middleware(
-
     CORSMiddleware,
-
-    allow_origins=["*"],   # loosened for dev; we can tighten later
-
+    allow_origins=["*"],   # loosened for dev; you can tighten this later
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"],
-
 )
 
 
-
-
-
 @app.get("/")
-
 def read_root():
-
     return {"status": "ok", "message": "Vysti marker API is running"}
-
-
-
 
 
 @app.post("/mark")
@@ -67,22 +44,17 @@ async def mark_essay(
     # Rule toggles (optional)
     forbid_personal_pronouns: bool | None = Form(None),
     enforce_closed_thesis: bool | None = Form(None),
-    forbid_audience_reference: bool | None = Form(None),
-    require_body_evidence: bool | None = Form(None),
-    allow_intro_summary_quotes: bool | None = Form(None),
-    enforce_intro_quote_rule: bool | None = Form(None),
-    enforce_contractions_rule: bool | None = Form(None),
 ):
-    """Mark a .docx essay using the Vysti engine.
-
-    - 'mode' selects a preset configuration in MarkerConfig.
-
-    - The author/title fields define up to three works.
-
-    - The rule toggles override the mode defaults to match the front-end switches.
-
     """
+    Mark a .docx essay using the Vysti engine.
 
+    Accepts up to three works (author/title) plus:
+      - text_is_minor_work, text_is_minor_work_2, text_is_minor_work_3
+      - forbid_personal_pronouns
+      - enforce_closed_thesis
+
+    These map directly onto MarkerConfig in marker.py.
+    """
     # 1. Basic validation
     if not file.filename.lower().endswith(".docx"):
         return JSONResponse(
@@ -118,29 +90,22 @@ async def mark_essay(
     if text_is_minor_work_3 is not None:
         teacher_config["text_is_minor_work_3"] = text_is_minor_work_3
 
-    # --- Rule overrides from the UI toggles ---
+    # --- Rule overrides ---
+    # These override the defaults chosen by get_preset_config(mode)
     if forbid_personal_pronouns is not None:
         teacher_config["forbid_personal_pronouns"] = forbid_personal_pronouns
     if enforce_closed_thesis is not None:
         teacher_config["enforce_closed_thesis"] = enforce_closed_thesis
-    if forbid_audience_reference is not None:
-        teacher_config["forbid_audience_reference"] = forbid_audience_reference
-    if require_body_evidence is not None:
-        teacher_config["require_body_evidence"] = require_body_evidence
-    if allow_intro_summary_quotes is not None:
-        teacher_config["allow_intro_summary_quotes"] = allow_intro_summary_quotes
-    if enforce_intro_quote_rule is not None:
-        teacher_config["enforce_intro_quote_rule"] = enforce_intro_quote_rule
-    if enforce_contractions_rule is not None:
-        teacher_config["enforce_contractions_rule"] = enforce_contractions_rule
 
-    # 4. Call the engine
+    # 4. Call your engine
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
         teacher_config=teacher_config if teacher_config else None,
+        # rules_path default "Vysti Rules for Writing.xlsx" is fine
     )
 
+    # You can watch this in Render logs to confirm the flags:
     print("Vysti metadata:", metadata)
     print("Teacher config used:", teacher_config)
 
