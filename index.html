@@ -85,7 +85,7 @@
       <label>
         Title type
         <select id="title_is_minor">
-          <option value="true" selected>Minor work — in "double quotes"</option>
+          <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
           <option value="false">Major work — italicized</option>
         </select>
       </label>
@@ -107,7 +107,7 @@
       <label>
         Title 2 type
         <select id="title2_is_minor" disabled>
-          <option value="true" selected>Minor work — in "double quotes"</option>
+          <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
           <option value="false">Major work — italicized</option>
         </select>
       </label>
@@ -129,9 +129,22 @@
       <label>
         Title 3 type
         <select id="title3_is_minor" disabled>
-          <option value="true" selected>Minor work — in "double quotes"</option>
+          <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
           <option value="false">Major work — italicized</option>
         </select>
+      </label>
+    </fieldset>
+
+    <!-- Rule toggles -->
+    <fieldset>
+      <legend>Rule options (optional)</legend>
+      <label>
+        <input type="checkbox" id="allow_i" />
+        Allow first person (“I”, “we”, “our”) in this assignment
+      </label>
+      <label>
+        <input type="checkbox" id="no_closed_thesis" />
+        Do <strong>not</strong> enforce a closed thesis statement
       </label>
     </fieldset>
 
@@ -148,17 +161,18 @@
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
 
-    // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
     const title2Input = document.getElementById("title2");
     const title3Input = document.getElementById("title3");
     const title2Type  = document.getElementById("title2_is_minor");
     const title3Type  = document.getElementById("title3_is_minor");
 
+    // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
     function syncTypePickers() {
       title2Type.disabled = !title2Input.value.trim();
       title3Type.disabled = !title3Input.value.trim();
     }
-    ["input", "change"].forEach(evt => {
+
+    ["input", "change"].forEach((evt) => {
       title2Input.addEventListener(evt, syncTypePickers);
       title3Input.addEventListener(evt, syncTypePickers);
     });
@@ -177,15 +191,18 @@
 
       const author = document.getElementById("author").value.trim();
       const title = document.getElementById("title").value.trim();
-      const titleIsMinor = document.getElementById("title_is_minor").value; // "true" | "false"
+      const titleIsMinor = document.getElementById("title_is_minor").value;
 
       const author2 = document.getElementById("author2").value.trim();
       const title2 = title2Input.value.trim();
-      const title2IsMinor = title2Type.value; // "true" | "false"
+      const title2IsMinor = title2Type.value;
 
       const author3 = document.getElementById("author3").value.trim();
       const title3 = title3Input.value.trim();
-      const title3IsMinor = title3Type.value; // "true" | "false"
+      const title3IsMinor = title3Type.value;
+
+      const allowI = document.getElementById("allow_i").checked;
+      const noClosedThesis = document.getElementById("no_closed_thesis").checked;
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
@@ -215,8 +232,22 @@
           formData.append("text_is_minor_work_3", title3IsMinor);
         }
 
+        // Rule overrides: only send if teacher explicitly changed them
+        if (allowI) {
+          // teacher wants to allow first person -> turn OFF the forbid flag
+          formData.append("forbid_personal_pronouns", "false");
+        }
+
+        if (noClosedThesis) {
+          // teacher does NOT want closed thesis enforced
+          formData.append("enforce_closed_thesis", "false");
+        }
+
         try {
-          const response = await fetch(API_URL, { method: "POST", body: formData });
+          const response = await fetch(API_URL, {
+            method: "POST",
+            body: formData,
+          });
 
           if (!response.ok) {
             const text = await response.text();
