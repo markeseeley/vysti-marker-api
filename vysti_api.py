@@ -82,11 +82,3 @@ async def mark_essay(
             "Content-Disposition": f'attachment; filename="{output_filename}"'
         },
     )
-
-
-
-
-
-
-
-
