@@ -33,6 +33,11 @@
       margin-top: 16px;
       font-size: 0.95rem;
     }
+    #modeHelp {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: #555;
+    }
   </style>
 </head>
 <body>
@@ -55,7 +60,7 @@
       Mode
       <select id="mode">
         <option value="textual_analysis">Textual analysis</option>
-        <option value="intertextual_analysis">Intertextual analysis</option>
+        <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
         <option value="reader_response">Reader response</option>
         <option value="analytic_frame">Analytic frame</option>
         <option value="argumentation">Argumentation</option>
@@ -68,6 +73,7 @@
         <option value="peel_paragraph">PEEL paragraph</option>
       </select>
     </label>
+    <p id="modeHelp"></p>
 
     <!-- Work 1 -->
     <fieldset>
@@ -161,10 +167,87 @@
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
 
+    const modeSelect = document.getElementById("mode");
+    const allowICheckbox = document.getElementById("allow_i");
+    const noClosedThesisCheckbox = document.getElementById("no_closed_thesis");
+    const modeHelp = document.getElementById("modeHelp");
+
     const title2Input = document.getElementById("title2");
     const title3Input = document.getElementById("title3");
     const title2Type  = document.getElementById("title2_is_minor");
     const title3Type  = document.getElementById("title3_is_minor");
+
+    // Per‑mode defaults for the two visible rule toggles
+    const MODE_RULE_DEFAULTS = {
+      textual_analysis: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Textual analysis: formal mode, no first person, closed thesis required."
+      },
+      reader_response: {
+        allowI: true,
+        noClosedThesis: false,
+        description: "Reader response: allows first person and addressing the reader; still expects a thesis by default."
+      },
+      analytic_frame: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Analytic frame: allows quotations in the introduction; closed thesis still on by default."
+      },
+      argumentation: {
+        allowI: false,
+        noClosedThesis: true,
+        description: "Argumentation: open thesis by default and looser topic‑sentence alignment; you can turn closed thesis back on below."
+      },
+      foundation_1: {
+        allowI: false,
+        noClosedThesis: true,
+        description: "Foundation 1: first sentence only; closed thesis and body‑paragraph rules are off."
+      },
+      foundation_2: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Foundation 2: first sentence + closed thesis."
+      },
+      foundation_3: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Foundation 3: full introduction with closed thesis."
+      },
+      foundation_4: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Foundation 4: introduction + first body topic sentence."
+      },
+      foundation_5: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Foundation 5: introduction + body paragraphs."
+      },
+      foundation_6: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "Foundation 6: full essay, full rule set."
+      },
+      peel_paragraph: {
+        allowI: false,
+        noClosedThesis: false,
+        description: "PEEL paragraph: single body paragraph with evidence."
+      },
+    };
+
+    function applyModeDefaults() {
+      const mode = modeSelect.value;
+      const defaults = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS["textual_analysis"];
+      allowICheckbox.checked = defaults.allowI;
+      noClosedThesisCheckbox.checked = defaults.noClosedThesis;
+      if (modeHelp) {
+        modeHelp.textContent = defaults.description;
+      }
+    }
+
+    modeSelect.addEventListener("change", applyModeDefaults);
+    applyModeDefaults(); // initial state on load
 
     // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
     function syncTypePickers() {
@@ -187,7 +270,7 @@
         return;
       }
 
-      const mode = document.getElementById("mode").value;
+      const mode = modeSelect.value;
 
       const author = document.getElementById("author").value.trim();
       const title = document.getElementById("title").value.trim();
@@ -201,8 +284,8 @@
       const title3 = title3Input.value.trim();
       const title3IsMinor = title3Type.value;
 
-      const allowI = document.getElementById("allow_i").checked;
-      const noClosedThesis = document.getElementById("no_closed_thesis").checked;
+      const allowI = allowICheckbox.checked;
+      const noClosedThesis = noClosedThesisCheckbox.checked;
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
@@ -232,16 +315,11 @@
           formData.append("text_is_minor_work_3", title3IsMinor);
         }
 
-        // Rule overrides: only send if teacher explicitly changed them
-        if (allowI) {
-          // teacher wants to allow first person -> turn OFF the forbid flag
-          formData.append("forbid_personal_pronouns", "false");
-        }
-
-        if (noClosedThesis) {
-          // teacher does NOT want closed thesis enforced
-          formData.append("enforce_closed_thesis", "false");
-        }
+        // Rule settings: always send explicit booleans so backend matches the UI.
+        // allowI = checked means "do NOT forbid personal pronouns".
+        formData.append("forbid_personal_pronouns", allowI ? "false" : "true");
+        // noClosedThesis = checked means "do NOT enforce closed thesis".
+        formData.append("enforce_closed_thesis", noClosedThesis ? "false" : "true");
 
         try {
           const response = await fetch(API_URL, {
