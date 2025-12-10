@@ -1593,7 +1593,7 @@ def collect_text_title_format_marks(
                     labels_used.append(note)
                 marks.append(mark)
         else:
-            note = "The title of major works should be italicized."
+            note = "The title of major works should be italicized"
             for m in pattern.finditer(flat_text):
                 start, end = m.start(), m.end()
                 matched_text = flat_text[start:end]
