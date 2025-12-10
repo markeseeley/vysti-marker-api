@@ -44,6 +44,7 @@ async def mark_essay(
     # Rule toggles (optional)
     forbid_personal_pronouns: bool | None = Form(None),
     enforce_closed_thesis: bool | None = Form(None),
+    enforce_contractions_rule: bool | None = Form(None),
 ):
     """
     Mark a .docx essay using the Vysti engine.
@@ -96,7 +97,8 @@ async def mark_essay(
         teacher_config["forbid_personal_pronouns"] = forbid_personal_pronouns
     if enforce_closed_thesis is not None:
         teacher_config["enforce_closed_thesis"] = enforce_closed_thesis
-
+    if enforce_contractions_rule is not None:
+        teacher_config["enforce_contractions_rule"] = enforce_contractions_rule
     # 4. Call your engine
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
