@@ -3798,13 +3798,26 @@ def analyze_text(
         r"\b(?:the\s+)?(?P<very>very)\s+("
         r"outset|beginning|end|moment|instant|idea|thought|"
         r"fact\s+that|same|heart\s+of|center|core|essence|"
-        r"reason|point|place|man|person|thing"
+        r"reason|point|place|man|person|thing|process|"
         r")\b",
         re.IGNORECASE,
     )
     allowed_very_positions = {
         m.start("very") for m in very_ok_pattern.finditer(flat_text)
     }
+        # Also allow "very" when it directly modifies a noun:
+    # e.g. "the very process", "this very idea".
+    for tok in doc:
+        if tok.text.lower() == "very":
+            # Skip 'very' inside direct quotations – those are already exempted earlier
+            if pos_in_spans(tok.idx, spans) or pos_in_spans(tok.idx + len(tok.text) - 1, spans):
+                continue
+
+            # Look at the next token; if it's a noun or proper noun, allow this "very"
+            if tok.i + 1 < len(doc):
+                nxt = doc[tok.i + 1]
+                if nxt.pos_ in {"NOUN", "PROPN"}:
+                    allowed_very_positions.add(tok.idx)
 
     fw_pattern = r"\b(" + "|".join(map(re.escape, forbidden.keys())) + r")\b"
     fw_regex = re.compile(fw_pattern, re.IGNORECASE)
