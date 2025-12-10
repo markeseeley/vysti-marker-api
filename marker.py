@@ -5795,6 +5795,18 @@ def run_marker(
             m_no_colon = TITLE_PATTERN_NO_COLON.match(title_text)
             topic_too_thin = False
 
+                        # Pattern for creative titles at the *start* of a paragraph,
+            # even when students continue the intro in the same line.
+            TITLE_PREFIX_PATTERN = re.compile(
+                r'^\s*"([^"]+)"\s*:\s*(.+?)\s+"([^"]+)"\s*\.?\s*',
+                re.IGNORECASE,
+            )
+
+            TITLE_PREFIX_NO_COLON_PATTERN = re.compile(
+                r'^\s*"([^"]+)"\s+(.+?)\s+"([^"]+)"\s*\.?\s*',
+                re.IGNORECASE,
+            )
+
             if m:
                 topic_segment = m.group(2).strip()
                 topic_too_thin = topic_segment_is_too_thin(topic_segment)
