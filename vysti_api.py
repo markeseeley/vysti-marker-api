@@ -42,8 +42,13 @@ async def mark_essay(
     text_is_minor_work_3: bool | None = Form(None),
 
     # Rule toggles (optional)
+    # Rule toggles (optional)
     forbid_personal_pronouns: bool | None = Form(None),
+    forbid_audience_reference: bool | None = Form(None),
     enforce_closed_thesis: bool | None = Form(None),
+    require_body_evidence: bool | None = Form(None),
+    allow_intro_summary_quotes: bool | None = Form(None),
+    enforce_intro_quote_rule: bool | None = Form(None),
     enforce_contractions_rule: bool | None = Form(None),
 ):
     """
@@ -95,8 +100,16 @@ async def mark_essay(
     # These override the defaults chosen by get_preset_config(mode)
     if forbid_personal_pronouns is not None:
         teacher_config["forbid_personal_pronouns"] = forbid_personal_pronouns
+    if forbid_audience_reference is not None:
+        teacher_config["forbid_audience_reference"] = forbid_audience_reference
     if enforce_closed_thesis is not None:
         teacher_config["enforce_closed_thesis"] = enforce_closed_thesis
+    if require_body_evidence is not None:
+        teacher_config["require_body_evidence"] = require_body_evidence
+    if allow_intro_summary_quotes is not None:
+        teacher_config["allow_intro_summary_quotes"] = allow_intro_summary_quotes
+    if enforce_intro_quote_rule is not None:
+        teacher_config["enforce_intro_quote_rule"] = enforce_intro_quote_rule
     if enforce_contractions_rule is not None:
         teacher_config["enforce_contractions_rule"] = enforce_contractions_rule
     # 4. Call your engine
