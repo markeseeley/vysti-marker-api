@@ -5464,11 +5464,66 @@ def run_marker(
     rules = load_rules(rules_path)
     doc = Document(essay_path)
     labels_used = []
-    
+
+    # ------------------------------------------------------------------
+    # PEEL PRE-PROCESSING: FLATTEN PARAGRAPH BREAKS INTO ONE LOGICAL BODY
+    # ------------------------------------------------------------------
+    if config.mode == "peel_paragraph":
+        # First pass: build a temporary real_paragraphs list so we can
+        # detect MLA header lines and the first real content paragraph.
+        tmp_real_paragraphs = [
+            (i, p) for i, p in enumerate(doc.paragraphs)
+            if p.text.strip()
+        ]
+
+        tmp_header_indices = detect_mla_header_indices(
+            tmp_real_paragraphs,
+            config=config,
+        )
+
+        # Find the first non-header, non-title paragraph.
+        # This is the start of the logical PEEL paragraph.
+        peel_start_idx = None
+        for new_idx, (old_idx, p) in enumerate(tmp_real_paragraphs):
+            if new_idx in tmp_header_indices:
+                continue
+
+            flat_text, _ = flatten_paragraph_without_labels(p)
+            text = flat_text.strip()
+            if not text:
+                continue
+
+            if is_probable_title_paragraph(p, config=config):
+                continue
+
+            peel_start_idx = new_idx
+            break
+
+        if peel_start_idx is not None:
+            # Base paragraph that will hold the entire PEEL paragraph text
+            base_para = tmp_real_paragraphs[peel_start_idx][1]
+
+            parts = [base_para.text or ""]
+            # Merge every later *content* paragraph into base_para
+            for _, p in tmp_real_paragraphs[peel_start_idx + 1:]:
+                text = p.text or ""
+                if text.strip():
+                    # Separate paragraphs with a single space so sentences
+                    # don't jam together.
+                    parts.append(" " + text)
+
+                # Physically remove this paragraph node from the document
+                parent = p._element.getparent()
+                parent.remove(p._element)
+
+            base_para.text = "".join(parts)
+
+    # After optional PEEL flattening, recompute real_paragraphs as usual.
     real_paragraphs = [
         (i, p) for i, p in enumerate(doc.paragraphs)
         if p.text.strip()
     ]
+    
     total_real_paras = len(real_paragraphs)
 
     # ====================================================================
