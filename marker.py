@@ -5480,12 +5480,12 @@ def run_marker(
     doc = Document(essay_path)
     labels_used = []
 
+        # ------------------------------------------------------------------
+    # TITLE PRE-PROCESSING:
+    #   1) Split combined title+intro when the title and intro are in
+    #      a single centered paragraph.
+    #   2) Flatten multi-paragraph title block (title + subtitle lines).
     # ------------------------------------------------------------------
-    # TITLE PRE-PROCESSING: FLATTEN MULTI-PARAGRAPH TITLE BLOCK (robust)
-    # ------------------------------------------------------------------
-    # Merge *all* consecutive paragraphs at the top that belong to the title block
-    # (creative title, subtitle lines like "in Toni Morrison's...", or any
-    # accidental paragraph breaks inside the same title).
     tmp_real_paragraphs = [
         (i, p) for i, p in enumerate(doc.paragraphs)
         if p.text.strip()
@@ -5493,6 +5493,84 @@ def run_marker(
 
     tmp_header_indices = detect_mla_header_indices(tmp_real_paragraphs, config=config)
 
+    # ---------- (1) Split combined title + intro in one centered paragraph ----------
+    for new_idx, (old_idx, p) in enumerate(tmp_real_paragraphs):
+        if new_idx in tmp_header_indices:
+            continue
+
+        # Look only at non-empty paragraphs
+        flat_text, _ = flatten_paragraph_without_labels(p)
+        text = flat_text.strip()
+        if not text:
+            continue
+
+        # Quick centering heuristic: true center alignment OR manual 2+ tab center
+        raw = p.text or ""
+        leading_tabs = 0
+        for ch in raw:
+            if ch == "\t":
+                leading_tabs += 1
+            elif ch in (" ", "\u00A0"):
+                continue
+            else:
+                break
+        tab_centered = leading_tabs >= 2
+        is_centered = (
+            p.alignment == WD_PARAGRAPH_ALIGNMENT.CENTER
+            or tab_centered
+        )
+
+        # We only split when the student has effectively "made everything the title"
+        # by centering it.
+        if not is_centered:
+            continue
+
+        # Does this paragraph START with a creative title pattern?
+        m_prefix = TITLE_PREFIX_PATTERN.match(text)
+        if not m_prefix:
+            m_prefix = TITLE_PREFIX_NO_COLON_PATTERN.match(text)
+        if not m_prefix:
+            continue
+
+        end_idx = m_prefix.end()
+        # If there's nothing after the creative title, it's a normal title line.
+        if end_idx >= len(text):
+            continue
+
+        # Split into title_text (kept in this paragraph) and intro_text (new paragraph)
+        title_text = text[:end_idx].rstrip()
+        intro_text = text[end_idx:].lstrip()
+        if not intro_text:
+            continue
+
+        # Overwrite the original paragraph so it only contains the title.
+        # (We don't try to preserve fine-grained run formatting here; the
+        #  marker will re-mark any text-title formatting issues anyway.)
+        p.text = title_text
+
+        # Insert a new paragraph *after* this one with the intro content.
+        parent = p._element.getparent()
+        new_p = OxmlElement("w:p")
+
+        r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.text = intro_text
+        r.append(t)
+        new_p.append(r)
+
+        parent.insert(parent.index(p._element) + 1, new_p)
+
+        # We only need to fix the first combined title+intro; bail out.
+        break
+
+    # Rebuild after possible split
+    tmp_real_paragraphs = [
+        (i, p) for i, p in enumerate(doc.paragraphs)
+        if p.text.strip()
+    ]
+    tmp_header_indices = detect_mla_header_indices(tmp_real_paragraphs, config=config)
+
+    # ---------- (2) Flatten multi-paragraph title block (your existing logic) ----------
     title_start_idx = None
     title_end_idx = None
 
@@ -5537,6 +5615,7 @@ def run_marker(
                 if parent is not None:
                     parent.remove(para._element)
         base_para.text = " ".join(parts)
+
 
 
     # ------------------------------------------------------------------
@@ -5724,6 +5803,18 @@ def run_marker(
                 topic_segment = m_no_colon.group(2).strip()
                 topic_too_thin = topic_segment_is_too_thin(topic_segment)
                 # Will flag as format issue below since m is None (missing colon)
+            # Prefix patterns for creative titles at the *start* of a paragraph,
+            # even when the student has accidentally continued writing the intro
+            # in the same centered line.
+            TITLE_PREFIX_PATTERN = re.compile(
+                r'^\s*"([^"]+)"\s*:\s*(.+?)\s+"([^"]+)"\s*\.?\s*',
+                re.IGNORECASE,
+            )
+
+            TITLE_PREFIX_NO_COLON_PATTERN = re.compile(
+                r'^\s*"([^"]+)"\s+(.+?)\s+"([^"]+)"\s*\.?\s*',
+                re.IGNORECASE,
+            )
 
             # NEW: if the title explicitly includes any of the configured author names, allow it
             # without flagging "Essay title format", even if it doesn't follow
