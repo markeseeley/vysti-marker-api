@@ -5480,6 +5480,77 @@ def run_marker(
     doc = Document(essay_path)
     labels_used = []
 
+        # ------------------------------------------------------------------
+    # TITLE PRE-PROCESSING: FLATTEN MULTI-PARAGRAPH TITLE BLOCK
+    # ------------------------------------------------------------------
+    # Handle cases like:
+    #   "The Fisherwoman": Processes and Obstacles in Meeting Someone New
+    #   in Toni Morrison's "Strangers"
+    #
+    # where the creative title and the "in <Author>'s <Text>" line are split
+    # across two paragraphs. We merge them into a single paragraph so the
+    # TITLE_PATTERN sees the full string and we don't falsely flag
+    # "Essay title format".
+    tmp_real_paragraphs = [
+        (i, p) for i, p in enumerate(doc.paragraphs)
+        if p.text.strip()
+    ]
+
+    # Use the existing MLA header detection so we don't mistake headers for titles
+    tmp_header_indices = detect_mla_header_indices(
+        tmp_real_paragraphs,
+        config=config,
+    )
+
+    title_base_para = None
+    subtitle_para = None
+
+    for new_idx, (old_idx, p) in enumerate(tmp_real_paragraphs):
+        # Skip MLA header lines
+        if new_idx in tmp_header_indices:
+            continue
+
+        flat_text, _ = flatten_paragraph_without_labels(p)
+        text = flat_text.strip()
+        if not text:
+            continue
+
+        # First non-header paragraph that looks like a title line
+        if is_probable_title_paragraph(p, config=config):
+            title_base_para = p
+
+            # Look ahead one real paragraph for a source-subtitle line like
+            # "in Toni Morrison's \"Strangers\""
+            if new_idx + 1 < len(tmp_real_paragraphs):
+                _, p2 = tmp_real_paragraphs[new_idx + 1]
+                flat2, _ = flatten_paragraph_without_labels(p2)
+                text2 = flat2.strip()
+                if text2 and is_source_reference_subtitle_line(text2, config=config):
+                    subtitle_para = p2
+            break
+
+    # If we have a creative title + subtitle pair, merge them into one paragraph
+    if title_base_para is not None and subtitle_para is not None:
+        parts = []
+
+        base_text = title_base_para.text or ""
+        if base_text:
+            parts.append(base_text.rstrip())
+
+        sub_text = subtitle_para.text or ""
+        if sub_text.strip():
+            # Add a single space before the subtitle so the title reads naturally
+            parts.append(" " + sub_text.strip())
+
+        # Update the base title paragraph text
+        title_base_para.text = "".join(parts)
+
+        # Physically remove the subtitle paragraph from the document
+        parent = subtitle_para._element.getparent()
+        if parent is not None:
+            parent.remove(subtitle_para._element)
+
+
     # ------------------------------------------------------------------
     # PEEL PRE-PROCESSING: FLATTEN PARAGRAPH BREAKS INTO ONE LOGICAL BODY
     # ------------------------------------------------------------------
