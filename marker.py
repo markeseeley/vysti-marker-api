@@ -2343,6 +2343,13 @@ def analyze_text(
 
             interior = flat_text[q_start:q_end].strip()
             ...
+            # If this quotation is the teacher-supplied title for any configured work,
+            # do NOT treat it as a real intro quotation.
+            if (
+                is_teacher_title_interior(interior)
+                or (in_teacher_title(q_start) and in_teacher_title(q_end - 1))
+            ):
+                continue
             # Identify thesis vs summary vs first-sentence quotes
             is_thesis_sentence = (
                 thesis_sent_idx is not None and sent_idx == thesis_sent_idx
