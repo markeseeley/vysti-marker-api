@@ -5480,75 +5480,63 @@ def run_marker(
     doc = Document(essay_path)
     labels_used = []
 
-        # ------------------------------------------------------------------
-    # TITLE PRE-PROCESSING: FLATTEN MULTI-PARAGRAPH TITLE BLOCK
     # ------------------------------------------------------------------
-    # Handle cases like:
-    #   "The Fisherwoman": Processes and Obstacles in Meeting Someone New
-    #   in Toni Morrison's "Strangers"
-    #
-    # where the creative title and the "in <Author>'s <Text>" line are split
-    # across two paragraphs. We merge them into a single paragraph so the
-    # TITLE_PATTERN sees the full string and we don't falsely flag
-    # "Essay title format".
+    # TITLE PRE-PROCESSING: FLATTEN MULTI-PARAGRAPH TITLE BLOCK (robust)
+    # ------------------------------------------------------------------
+    # Merge *all* consecutive paragraphs at the top that belong to the title block
+    # (creative title, subtitle lines like "in Toni Morrison's...", or any
+    # accidental paragraph breaks inside the same title).
     tmp_real_paragraphs = [
         (i, p) for i, p in enumerate(doc.paragraphs)
         if p.text.strip()
     ]
 
-    # Use the existing MLA header detection so we don't mistake headers for titles
-    tmp_header_indices = detect_mla_header_indices(
-        tmp_real_paragraphs,
-        config=config,
-    )
+    tmp_header_indices = detect_mla_header_indices(tmp_real_paragraphs, config=config)
 
-    title_base_para = None
-    subtitle_para = None
+    title_start_idx = None
+    title_end_idx = None
 
     for new_idx, (old_idx, p) in enumerate(tmp_real_paragraphs):
-        # Skip MLA header lines
         if new_idx in tmp_header_indices:
             continue
-
-        flat_text, _ = flatten_paragraph_without_labels(p)
-        text = flat_text.strip()
-        if not text:
-            continue
-
-        # First non-header paragraph that looks like a title line
+        # Find first non-header paragraph that looks like a title
         if is_probable_title_paragraph(p, config=config):
-            title_base_para = p
-
-            # Look ahead one real paragraph for a source-subtitle line like
-            # "in Toni Morrison's \"Strangers\""
-            if new_idx + 1 < len(tmp_real_paragraphs):
-                _, p2 = tmp_real_paragraphs[new_idx + 1]
-                flat2, _ = flatten_paragraph_without_labels(p2)
-                text2 = flat2.strip()
-                if text2 and is_source_reference_subtitle_line(text2, config=config):
-                    subtitle_para = p2
+            title_start_idx = new_idx
+            title_end_idx = new_idx
+            # Extend the title block through all immediately following paragraphs
+            # that look like subtitle/source lines *or* begin with lowercase “in ”
+            # or continue the title phrase.
+            for look_ahead in range(new_idx + 1, len(tmp_real_paragraphs)):
+                _, q = tmp_real_paragraphs[look_ahead]
+                flat_q, _ = flatten_paragraph_without_labels(q)
+                text_q = flat_q.strip()
+                if not text_q:
+                    continue
+                if (
+                    is_source_reference_subtitle_line(text_q, config=config)
+                    or text_q.lower().startswith("in ")
+                    or not looks_like_full_sentence(text_q)
+                ):
+                    title_end_idx = look_ahead
+                else:
+                    break
             break
 
-    # If we have a creative title + subtitle pair, merge them into one paragraph
-    if title_base_para is not None and subtitle_para is not None:
+    # If we found a contiguous block of title paragraphs, merge them
+    if title_start_idx is not None and title_end_idx is not None and title_end_idx > title_start_idx:
+        base_para = tmp_real_paragraphs[title_start_idx][1]
         parts = []
-
-        base_text = title_base_para.text or ""
-        if base_text:
-            parts.append(base_text.rstrip())
-
-        sub_text = subtitle_para.text or ""
-        if sub_text.strip():
-            # Add a single space before the subtitle so the title reads naturally
-            parts.append(" " + sub_text.strip())
-
-        # Update the base title paragraph text
-        title_base_para.text = "".join(parts)
-
-        # Physically remove the subtitle paragraph from the document
-        parent = subtitle_para._element.getparent()
-        if parent is not None:
-            parent.remove(subtitle_para._element)
+        for merge_idx in range(title_start_idx, title_end_idx + 1):
+            _, para = tmp_real_paragraphs[merge_idx]
+            text = para.text or ""
+            if text.strip():
+                # Separate merged pieces with a single space
+                parts.append(text.strip())
+            if merge_idx != title_start_idx:
+                parent = para._element.getparent()
+                if parent is not None:
+                    parent.remove(para._element)
+        base_para.text = " ".join(parts)
 
 
     # ------------------------------------------------------------------
