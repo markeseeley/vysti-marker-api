@@ -2342,18 +2342,7 @@ def analyze_text(
                 continue
 
             interior = flat_text[q_start:q_end].strip()
-
-            # If this quotation is the teacher-supplied text title,
-            # do NOT treat it as a real intro quotation anywhere in the intro.
-            if is_teacher_title_interior(interior):
-                # In the first sentence only, also fix stray commas
-                # that incorrectly set the title off.
-                if sent_idx == first_idx:
-                    strike_commas_around_title(q_start, q_end)
-                # Always skip structural "Avoid quotations..." marking
-                # for the text title itself.
-                continue
-
+            ...
             # Identify thesis vs summary vs first-sentence quotes
             is_thesis_sentence = (
                 thesis_sent_idx is not None and sent_idx == thesis_sent_idx
@@ -2371,13 +2360,19 @@ def analyze_text(
             if is_summary_sentence:
                 continue
 
-            # Thesis sentences are still forbidden to contain quotations.
+            # Thesis sentences are still forbidden to contain quotations,
+            # unless closed-thesis rules are turned off.
             if is_thesis_sentence:
+                if not config.enforce_closed_thesis:
+                    # When the teacher disables closed-thesis rules,
+                    # we also allow quotations in the thesis sentence.
+                    continue
                 quote_note = "No quotations in thesis statements"
             else:
                 # First sentence (and any other non-summary, non-thesis sentence)
                 # normally uses the standard intro quotation rule.
                 quote_note = "Avoid quotations in the introduction"
+
 
             # NEW: if the generic intro-quote rule is disabled, skip
             # non-thesis intro-quotation marks entirely.
@@ -2563,15 +2558,17 @@ def analyze_text(
                     required_specific = max(1, device_count - 1)
 
                     if (
-                        config.enforce_specific_thesis_topics
+                        config.enforce_closed_thesis
+                        and config.enforce_specific_thesis_topics
                         and clarifier_devices < required_specific
                     ):
                         add_structural_mark(
                             anchor_pos,
                             anchor_pos,
                             "The topics in the thesis statement should be specific devices or strategies",
-                                color=None,  # label only, no highlighting
-                            )
+                            color=None,  # label only, no highlighting
+                        )
+
 
                 # Persist the ordered thesis devices for later body-paragraph checks
                 if thesis_devices_in_order:
@@ -2619,7 +2616,8 @@ def analyze_text(
                     # We want at least one device/topic before the argumentative verb/claim.
                     # Only flag when ALL devices come after the verb.
                     if (
-                        config.enforce_thesis_organization
+                        config.enforce_closed_thesis
+                        and config.enforce_thesis_organization
                         and not has_before
                     ):
                         add_structural_mark(
@@ -2741,10 +2739,14 @@ def analyze_text(
                     color=None
                 )
 
-        # ---------------------------------------------
+                # ---------------------------------------------
         # Thesis/topic alignment for body paragraphs
         # ---------------------------------------------
-        if intro_idx is not None and config.enforce_topic_thesis_alignment:
+        if (
+            intro_idx is not None
+            and config.enforce_closed_thesis
+            and config.enforce_topic_thesis_alignment
+        ):
 
             # Only count non-bridge body paragraphs toward thesis organization.
             # One-sentence lines ending with ',' or ':' (like "By relying upon ... ,")
