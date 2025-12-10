@@ -2366,8 +2366,8 @@ def analyze_text(
                 and sent_idx < thesis_sent_idx
             )
 
-            # In Analytic frame mode, allow direct quotations in the
-            # *introductory summary* sentences (strictly between first and thesis).
+            # In Analytic frame mode or when the toggle is on, allow
+            # quotations in the *summary* sentences between first and thesis.
             if is_summary_sentence:
                 continue
 
@@ -2376,8 +2376,16 @@ def analyze_text(
                 quote_note = "No quotations in thesis statements"
             else:
                 # First sentence (and any other non-summary, non-thesis sentence)
-                # still uses the standard intro quotation rule.
+                # normally uses the standard intro quotation rule.
                 quote_note = "Avoid quotations in the introduction"
+
+            # NEW: if the generic intro-quote rule is disabled, skip
+            # non-thesis intro-quotation marks entirely.
+            if (
+                quote_note == "Avoid quotations in the introduction"
+                and not getattr(config, "enforce_intro_quote_rule", True)
+            ):
+                continue
 
             add_structural_mark(
                 q_start,
@@ -3852,10 +3860,10 @@ def analyze_text(
         }
 
         contractions_note = "No contractions in academic writing"
-    
+
         contr_pattern = r"\b(" + "|".join(map(re.escape, contractions)) + r")\b"
         contr_regex = re.compile(contr_pattern, re.IGNORECASE)
-    
+
         for match in contr_regex.finditer(flat_text):
             match_start = match.start()
             match_end = match.end()
@@ -3863,7 +3871,7 @@ def analyze_text(
             # Ignore contractions inside direct quotations
             if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
                 continue
-    
+
             if contractions_note not in labels_used:
                 marks.append({
                     "start": match_start,
