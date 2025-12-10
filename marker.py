@@ -3835,51 +3835,51 @@ def analyze_text(
     # -----------------------
     if getattr(config, "enforce_contractions_rule", True):
         contractions = {
-        "don't", "doesn't", "didn't",
-        "can't", "couldn't", "won't", "wouldn't", "shouldn't",
-        "isn't", "aren't", "wasn't", "weren't",
-        "hasn't", "haven't", "hadn't",
-        "mustn't", "mightn't", "shan't",
-        "it's", "that's", "there's", "what's", "who's", "where's",
-        "when's", "why's", "how's",
-        "i'm", "you're", "we're", "they're", "he's", "she's",
-        "i've", "you've", "we've", "they've",
-        "i'd", "you'd", "he'd", "she'd", "we'd", "they'd",
-        "i'll", "you'll", "he'll", "she'll", "we'll", "they'll",
-        "let's",
-        "could've", "would've", "should've", "must've",
-        "ain't",
-    }
+            "don't", "doesn't", "didn't",
+            "can't", "couldn't", "won't", "wouldn't", "shouldn't",
+            "isn't", "aren't", "wasn't", "weren't",
+            "hasn't", "haven't", "hadn't",
+            "mustn't", "mightn't", "shan't",
+            "it's", "that's", "there's", "what's", "who's", "where's",
+            "when's", "why's", "how's",
+            "i'm", "you're", "we're", "they're", "he's", "she's",
+            "i've", "you've", "we've", "they've",
+            "i'd", "you'd", "he'd", "she'd", "we'd", "they'd",
+            "i'll", "you'll", "he'll", "she'll", "we'll", "they'll",
+            "let's",
+            "could've", "would've", "should've", "must've",
+            "ain't",
+        }
 
-    contractions_note = "No contractions in academic writing"
+        contractions_note = "No contractions in academic writing"
+    
+        contr_pattern = r"\b(" + "|".join(map(re.escape, contractions)) + r")\b"
+        contr_regex = re.compile(contr_pattern, re.IGNORECASE)
+    
+        for match in contr_regex.finditer(flat_text):
+            match_start = match.start()
+            match_end = match.end()
 
-    contr_pattern = r"\b(" + "|".join(map(re.escape, contractions)) + r")\b"
-    contr_regex = re.compile(contr_pattern, re.IGNORECASE)
-
-    for match in contr_regex.finditer(flat_text):
-        match_start = match.start()
-        match_end = match.end()
-
-        # Ignore contractions inside direct quotations
-        if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
-            continue
-
-        if contractions_note not in labels_used:
-            marks.append({
-                "start": match_start,
-                "end": match_end,
-                "note": contractions_note,
-                "color": WD_COLOR_INDEX.GRAY_25,
-                "label": True,
+            # Ignore contractions inside direct quotations
+            if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
+                continue
+    
+            if contractions_note not in labels_used:
+                marks.append({
+                    "start": match_start,
+                    "end": match_end,
+                    "note": contractions_note,
+                    "color": WD_COLOR_INDEX.GRAY_25,
+                    "label": True,
+                    })
+                labels_used.append(contractions_note)
+            else:
+                marks.append({
+                    "start": match_start,
+                    "end": match_end,
+                    "note": contractions_note,
+                    "color": WD_COLOR_INDEX.GRAY_25,
                 })
-            labels_used.append(contractions_note)
-        else:
-            marks.append({
-                "start": match_start,
-                "end": match_end,
-                "note": contractions_note,
-                "color": WD_COLOR_INDEX.GRAY_25,
-            })
 
     # -----------------------
     # PHASE 5A — Delete-phrases
