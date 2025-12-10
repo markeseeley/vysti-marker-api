@@ -3792,20 +3792,21 @@ def analyze_text(
             for m in human_rights_pattern.finditer(flat_text):
                 general_allowed_positions.setdefault("human", set()).add(m.start("kw"))
 
-    # Precompute positions where 'very' is allowed in fixed idioms like
+        # Precompute positions where 'very' is allowed in fixed idioms like
     # "the very beginning", "the very end", "the very fact that", etc.
     very_ok_pattern = re.compile(
         r"\b(?:the\s+)?(?P<very>very)\s+("
         r"outset|beginning|end|moment|instant|idea|thought|"
         r"fact\s+that|same|heart\s+of|center|core|essence|"
-        r"reason|point|place|man|person|thing|process|"
+        r"reason|point|place|man|person|thing|process"
         r")\b",
         re.IGNORECASE,
     )
     allowed_very_positions = {
         m.start("very") for m in very_ok_pattern.finditer(flat_text)
     }
-        # Also allow "very" when it directly modifies a noun:
+
+    # Also allow "very" when it directly modifies a noun:
     # e.g. "the very process", "this very idea".
     for tok in doc:
         if tok.text.lower() == "very":
@@ -3818,6 +3819,7 @@ def analyze_text(
                 nxt = doc[tok.i + 1]
                 if nxt.pos_ in {"NOUN", "PROPN"}:
                     allowed_very_positions.add(tok.idx)
+
 
     fw_pattern = r"\b(" + "|".join(map(re.escape, forbidden.keys())) + r")\b"
     fw_regex = re.compile(fw_pattern, re.IGNORECASE)
