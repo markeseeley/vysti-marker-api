@@ -515,7 +515,9 @@ class MarkerConfig:
     enforce_off_topic: bool = True
 
     require_body_evidence: bool = True  # "Every paragraph needs evidence"
+# Controls whether the generic contractions rule is enforced
 
+    enforce_contractions_rule: bool = True
     forbid_audience_reference: bool = True  # "Avoid referring to the reader or audience..."
     forbid_personal_pronouns: bool = True  # "No 'I', 'we', 'us', 'our' or 'you'..."
 
@@ -612,7 +614,7 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         # Allow I/you/reader/audience; still formal in other ways
         cfg.forbid_audience_reference = False
         cfg.forbid_personal_pronouns = False
-
+        cfg.enforce_contractions_rule = False
     elif mode == "no_title":
         # No essay title required; source-title rules still apply
         cfg.enforce_essay_title_format = False
@@ -3831,7 +3833,8 @@ def analyze_text(
     # -----------------------
     # PHASE 2 — CONTRACTIONS
     # -----------------------
-    contractions = {
+    if getattr(config, "enforce_contractions_rule", True):
+        contractions = {
         "don't", "doesn't", "didn't",
         "can't", "couldn't", "won't", "wouldn't", "shouldn't",
         "isn't", "aren't", "wasn't", "weren't",
