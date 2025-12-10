@@ -533,6 +533,8 @@ class MarkerConfig:
     # If False, we do NOT use the generic "Avoid quotations in the introduction"
     # rule at all. We still use "No quotations in thesis statements".
     enforce_intro_quote_rule: bool = True
+        # Controls BRIGHT_GREEN highlighting of thesis devices/rhetorical strategies
+    highlight_thesis_devices: bool = True
 
 
 
@@ -636,6 +638,7 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         # ("Avoid referring to the reader or audience..." is off),
         # but keep the ban on first-person pronouns by default.
         cfg.forbid_audience_reference = False
+        cfg.highlight_thesis_devices = False
 
 
     elif mode == "analytic_frame":
@@ -3521,17 +3524,18 @@ def analyze_text(
     # Any token/phrase that resolves to a canonical thesis device (including synonyms
     # and inflected forms via canonical_device_key and THESIS_MULTIWORD_SYNONYMS)
     # gets a simple BRIGHT_GREEN highlight, as long as it is outside of direct quotations.
-    for device_key, start, end in iter_device_spans(doc):
-        # Skip any device words/phrases that appear inside direct quotations
-        if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
-            continue
+    if getattr(config, "highlight_thesis_devices", True):
+        for device_key, start, end in iter_device_spans(doc):
+            # Skip any device words/phrases that appear inside direct quotations
+            if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
+                continue
 
-        marks.append({
-            "start": start,
-            "end": end,
-            "color": WD_COLOR_INDEX.BRIGHT_GREEN,
-            "device_highlight": True,  # mark as non-issue, just a visual aid
-        })
+            marks.append({
+                "start": start,
+                "end": end,
+                "color": WD_COLOR_INDEX.BRIGHT_GREEN,
+                "device_highlight": True,  # mark as non-issue, just a visual aid
+            })
 
     # -----------------------
     # PHASE 1 — FORBIDDEN WORDS
