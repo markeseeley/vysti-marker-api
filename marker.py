@@ -463,6 +463,17 @@ TITLE_PATTERN_NO_COLON = re.compile(
     r'^\s*"([^"]+)"\s+(.+?)\s+"([^"]+)"\s*\.?\s*$',
     re.IGNORECASE,
 )
+# Prefix patterns for creative titles at the *start* of a paragraph,
+# even when students continue the intro in the same line.
+TITLE_PREFIX_PATTERN = re.compile(
+    r'^\s*"([^"]+)"\s*:\s*(.+?)\s+"([^"]+)"\s*\.?\s*',
+    re.IGNORECASE,
+)
+
+TITLE_PREFIX_NO_COLON_PATTERN = re.compile(
+    r'^\s*"([^"]+)"\s+(.+?)\s+"([^"]+)"\s*\.?\s*',
+    re.IGNORECASE,
+)
 
 # Device/strategy keywords to detect in thesis statements.
 # This set is deliberately lemma-based: we check token.lemma_.lower() against it,
@@ -5805,17 +5816,7 @@ def run_marker(
             m_no_colon = TITLE_PATTERN_NO_COLON.match(title_text)
             topic_too_thin = False
 
-                        # Pattern for creative titles at the *start* of a paragraph,
-            # even when students continue the intro in the same line.
-            TITLE_PREFIX_PATTERN = re.compile(
-                r'^\s*"([^"]+)"\s*:\s*(.+?)\s+"([^"]+)"\s*\.?\s*',
-                re.IGNORECASE,
-            )
-
-            TITLE_PREFIX_NO_COLON_PATTERN = re.compile(
-                r'^\s*"([^"]+)"\s+(.+?)\s+"([^"]+)"\s*\.?\s*',
-                re.IGNORECASE,
-            )
+            
 
             if m:
                 topic_segment = m.group(2).strip()
@@ -5824,19 +5825,7 @@ def run_marker(
                 # Also check topic segment for no-colon pattern
                 topic_segment = m_no_colon.group(2).strip()
                 topic_too_thin = topic_segment_is_too_thin(topic_segment)
-                # Will flag as format issue below since m is None (missing colon)
-            # Prefix patterns for creative titles at the *start* of a paragraph,
-            # even when the student has accidentally continued writing the intro
-            # in the same centered line.
-            TITLE_PREFIX_PATTERN = re.compile(
-                r'^\s*"([^"]+)"\s*:\s*(.+?)\s+"([^"]+)"\s*\.?\s*',
-                re.IGNORECASE,
-            )
-
-            TITLE_PREFIX_NO_COLON_PATTERN = re.compile(
-                r'^\s*"([^"]+)"\s+(.+?)\s+"([^"]+)"\s*\.?\s*',
-                re.IGNORECASE,
-            )
+           
 
             # NEW: if the title explicitly includes any of the configured author names, allow it
             # without flagging "Essay title format", even if it doesn't follow
