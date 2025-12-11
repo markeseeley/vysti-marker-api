@@ -5611,9 +5611,9 @@ def run_marker(
                 text_q = flat_q.strip()
                 if not text_q:
                     continue
+
                 if (
                     is_source_reference_subtitle_line(text_q, config=config)
-                    or text_q.lower().startswith("in ")
                     or not looks_like_full_sentence(text_q)
                 ):
                     title_end_idx = look_ahead
