@@ -4,3 +4,4 @@ spacy==3.7.2
 python-docx
 pandas
 openpyxl
+python-multipart
