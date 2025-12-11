@@ -52,9 +52,17 @@
   </style>
 </head>
 <body>
-  <h1>Vysti Marker</h1>
+  <header class="app-header">
+    <img src="vysti_logo.png" alt="Vysti logo" class="logo">
+    <div class="app-title">
+      <h1>Vysti Marker</h1>
+      <p class="app-subtitle"></p>
+    </div>
+  </header>
 
   <form id="markForm">
+    ...
+
     <label>
       Essays (.docx)
       <input
@@ -72,16 +80,17 @@
       <select id="mode">
         <option value="textual_analysis">Textual analysis</option>
         <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
+        <option value="peel_paragraph">PEEL paragraph</option>
         <option value="reader_response">Reader response</option>
         <option value="analytic_frame">Analytic frame</option>
         <option value="argumentation">Argumentation</option>
-        <option value="foundation_1">Foundation 1 – First sentence only</option>
-        <option value="foundation_2">Foundation 2 – First sentence + thesis</option>
-        <option value="foundation_3">Foundation 3 – Full introduction</option>
-        <option value="foundation_4">Foundation 4 – Intro + topic sentence</option>
-        <option value="foundation_5">Foundation 5 – Intro + body</option>
-        <option value="foundation_6">Foundation 6 – Full essay</option>
-        <option value="peel_paragraph">PEEL paragraph</option>
+        <option value="foundation_1">First sentence only</option>
+        <option value="foundation_2">First sentence + thesis</option>
+        <option value="foundation_3">Full introduction</option>
+        <option value="foundation_4">Intro + topic sentence</option>
+        <option value="foundation_5">Intro + body</option>
+        <option value="foundation_6">Full essay</option>
+        
       </select>
     </label>
     <p id="modeHelp"></p>
