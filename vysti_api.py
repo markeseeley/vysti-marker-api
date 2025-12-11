@@ -1,9 +1,24 @@
 # vysti_api.py
-from fastapi import FastAPI, File, UploadFile, Form
+
+import os
+import io
+
+import httpx
+from fastapi import (
+    FastAPI,
+    File,
+    UploadFile,
+    Form,
+    Depends,
+    HTTPException,
+    status,
+)
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from marker import mark_docx_bytes  # uses your existing engine
-import io
+
 
 app = FastAPI(title="Vysti Marker API")
 
@@ -15,6 +30,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===== Supabase config (from environment variables) =====
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+auth_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(
+    cred: HTTPAuthorizationCredentials = Depends(auth_scheme),
+):
+    """
+    Validate the Supabase JWT by calling Supabase's Auth API.
+    Returns the user dict if valid; otherwise raises 401.
+    """
+    if cred is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+        )
+
+    token = cred.credentials
+
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase config missing on server",
+        )
+
+    auth_url = f"{SUPABASE_URL}/auth/v1/user"
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            auth_url,
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {token}",
+            },
+        )
+
+    if resp.status_code != 200:
+        # Invalid or expired token
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    return resp.json()
+
 
 @app.get("/")
 def read_root():
@@ -25,6 +88,7 @@ def read_root():
 async def mark_essay(
     file: UploadFile = File(...),
     mode: str = Form("textual_analysis"),
+    user: dict = Depends(get_current_user),  # <-- require Supabase auth
 
     # Primary work
     author: str | None = Form(None),
@@ -41,7 +105,6 @@ async def mark_essay(
     title3: str | None = Form(None),
     text_is_minor_work_3: bool | None = Form(None),
 
-    # Rule toggles (optional)
     # Rule toggles (optional)
     forbid_personal_pronouns: bool | None = Form(None),
     forbid_audience_reference: bool | None = Form(None),
@@ -115,6 +178,7 @@ async def mark_essay(
         teacher_config["enforce_contractions_rule"] = enforce_contractions_rule
     if highlight_thesis_devices is not None:
         teacher_config["highlight_thesis_devices"] = highlight_thesis_devices
+
     # 4. Call your engine
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
@@ -123,7 +187,8 @@ async def mark_essay(
         # rules_path default "Vysti Rules for Writing.xlsx" is fine
     )
 
-    # You can watch this in Render logs to confirm the flags:
+    # You can watch this in Render logs to confirm the flags and the user:
+    print("Supabase user:", user)
     print("Vysti metadata:", metadata)
     print("Teacher config used:", teacher_config)
 
