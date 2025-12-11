@@ -50,41 +50,62 @@
       font-weight: 600;
     }
     .app-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .logo {
-    height: 48px;        /* adjust to taste */
-    width: auto;
-  }
-
-  .app-title h1 {
-    margin: 0;
-  }
-
-  .app-subtitle {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #555;
-  }
-
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      height: 48px;
+      width: auto;
+    }
+    .app-title h1 {
+      margin: 0;
+    }
+    .app-subtitle {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    #authPanel h2 {
+      margin-top: 0;
+    }
   </style>
+
+  <!-- Supabase JS client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <header class="app-header">
-    <img src="vysti_logo.png" alt="Vysti logo" class="logo">
+    <img src="vysti_logo.png" alt="Vysti logo" class="logo" />
     <div class="app-title">
       <h1>Vysti Marker</h1>
-      <p class="app-subtitle"></p>
+      <p class="app-subtitle">Teacher login required</p>
     </div>
   </header>
 
-  <form id="markForm">
-    ...
+  <!-- Simple auth panel -->
+  <section id="authPanel">
+    <h2>Teacher sign in</h2>
+    <label>
+      Email
+      <input type="email" id="authEmail" />
+    </label>
+    <label>
+      Password
+      <input type="password" id="authPassword" />
+    </label>
+    <div style="margin-top: 8px;">
+      <button type="button" id="signupBtn">Sign up</button>
+      <button type="button" id="loginBtn">Log in</button>
+      <button type="button" id="logoutBtn" style="display: none;">Log out</button>
+    </div>
+    <p id="authStatus" style="margin-top: 6px; font-size: 0.9rem; color: #555;"></p>
+  </section>
 
+  <hr style="margin: 20px 0;" />
+
+  <form id="markForm">
     <label>
       Essays (.docx)
       <input
@@ -112,7 +133,6 @@
         <option value="foundation_4">Intro + topic sentence</option>
         <option value="foundation_5">Intro + body</option>
         <option value="foundation_6">Full essay</option>
-        
       </select>
     </label>
     <p id="modeHelp"></p>
@@ -233,12 +253,82 @@
   <div id="status" role="status" aria-live="polite"></div>
 
   <script>
-    // Your deployed API endpoint
-    const API_URL = "https://vysti-rules.onrender.com/mark";
+    // ===== Supabase auth setup =====
+    const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";          // e.g. https://xxxx.supabase.co
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY_HERE"; // anon / publishable key
+
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const authEmailInput = document.getElementById("authEmail");
+    const authPasswordInput = document.getElementById("authPassword");
+    const signupBtn = document.getElementById("signupBtn");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const authStatus = document.getElementById("authStatus");
 
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
+
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+      if (session && session.user) {
+        authStatus.textContent = `Signed in as ${session.user.email}`;
+        loginBtn.style.display = "none";
+        signupBtn.style.display = "none";
+        logoutBtn.style.display = "inline-block";
+        form.style.display = "block";
+      } else {
+        authStatus.textContent = "Please sign in to use the marker.";
+        loginBtn.style.display = "inline-block";
+        signupBtn.style.display = "inline-block";
+        logoutBtn.style.display = "none";
+        form.style.display = "none";
+      }
+    }
+
+    signupBtn.addEventListener("click", async () => {
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value.trim();
+      authStatus.textContent = "Signing up...";
+      const { error } = await supa.auth.signUp({ email, password });
+      if (error) {
+        authStatus.textContent = `Sign-up error: ${error.message}`;
+      } else {
+        authStatus.textContent = "Check your email to confirm your account.";
+      }
+    });
+
+    loginBtn.addEventListener("click", async () => {
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value.trim();
+      authStatus.textContent = "Logging in...";
+      const { error } = await supa.auth.signInWithPassword({ email, password });
+      if (error) {
+        authStatus.textContent = `Login error: ${error.message}`;
+      } else {
+        authStatus.textContent = "Logged in.";
+        await refreshAuthUI();
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      await refreshAuthUI();
+    });
+
+    // Initial UI state + listener
+    refreshAuthUI();
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
+
+    // ===== Marker client code =====
+
+    // Your deployed API endpoint
+    const API_URL = "https://vysti-rules.onrender.com/mark";
 
     const modeSelect = document.getElementById("mode");
     const allowICheckbox = document.getElementById("allow_i");
@@ -247,15 +337,15 @@
     const noBodyEvidenceCheckbox = document.getElementById("no_body_evidence");
     const allowIntroQuotesCheckbox = document.getElementById("allow_intro_quotes");
     const allowContractionsCheckbox = document.getElementById("allow_contractions");
-    const highlightDevicesCheckbox = document.getElementById("highlight_devices");    
+    const highlightDevicesCheckbox = document.getElementById("highlight_devices");
     const modeHelp = document.getElementById("modeHelp");
 
     const title2Input = document.getElementById("title2");
     const title3Input = document.getElementById("title3");
-    const title2Type  = document.getElementById("title2_is_minor");
-    const title3Type  = document.getElementById("title3_is_minor");
+    const title2Type = document.getElementById("title2_is_minor");
+    const title3Type = document.getElementById("title3_is_minor");
 
-    // Per‑mode defaults for the visible rule toggles
+    // Per-mode defaults for the visible rule toggles
     const MODE_RULE_DEFAULTS = {
       textual_analysis: {
         allowI: false,
@@ -305,7 +395,7 @@
         allowIntroQuotes: false,
         highlightDevices: true,
         allowContractions: false,
-        description: "Foundation 1: first sentence only; closed thesis and body‑paragraph rules are off."
+        description: "Foundation 1: first sentence only; closed thesis and body-paragraph rules are off."
       },
       foundation_2: {
         allowI: false,
@@ -380,7 +470,6 @@
       allowContractionsCheckbox.checked = !!defaults.allowContractions;
       highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
 
-
       if (modeHelp) {
         modeHelp.textContent = defaults.description;
       }
@@ -432,7 +521,6 @@
       const allowContractions = allowContractionsCheckbox.checked;
       const highlightDevices = highlightDevicesCheckbox.checked;
 
-
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
       for (let i = 0; i < files.length; i++) {
@@ -471,10 +559,20 @@
         formData.append("enforce_contractions_rule", allowContractions ? "false" : "true");
         formData.append("highlight_thesis_devices", highlightDevices ? "true" : "false");
 
-
         try {
+          // Get current Supabase session token
+          const { data } = await supa.auth.getSession();
+          const session = data.session;
+          if (!session) {
+            statusEl.textContent = "You must be logged in to mark essays.";
+            break;
+          }
+
           const response = await fetch(API_URL, {
             method: "POST",
+            headers: {
+              "Authorization": `Bearer ${session.access_token}`,
+            },
             body: formData,
           });
 
