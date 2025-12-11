@@ -18,6 +18,16 @@ from docx.oxml.ns import qn  # type: ignore[attr-defined]
 from docx.oxml import OxmlElement  # type: ignore[attr-defined]
 from docx.opc.constants import RELATIONSHIP_TYPE
 import spacy
+
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    # Fallback: download the model at runtime if it's not installed
+    from spacy.cli import download
+    print("Downloading spaCy model 'en_core_web_sm'...")
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Dict, Tuple, NamedTuple
