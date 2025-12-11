@@ -5637,6 +5637,9 @@ def run_marker(
                     parent.remove(para._element)
         base_para.text = " ".join(parts)
 
+        # NEW: ensure the merged student title uses Times New Roman 12
+        for run in base_para.runs:
+            enforce_font(run)
 
 
     # ------------------------------------------------------------------
