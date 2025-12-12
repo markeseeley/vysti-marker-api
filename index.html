@@ -106,8 +106,19 @@
   <hr style="margin: 20px 0;" />
 
   <form id="markForm">
-    <label>
-      Essays (.docx)
+      <label>
+        Student name
+        <input type="text" id="studentName" />
+      </label>
+  
+      <label>
+        Assignment name
+        <input type="text" id="assignmentName" />
+      </label>
+  
+      <label>
+        Essays (.docx)
+
       <input
         type="file"
         id="fileInput"
@@ -478,7 +489,11 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
+      const studentName = document.getElementById("studentName").value.trim();
+      const assignmentName = document.getElementById("assignmentName").value.trim();
+
       const files = fileInput.files;
+
       if (!files || files.length === 0) {
         statusEl.textContent = "Choose at least one .docx file.";
         return;
@@ -515,6 +530,10 @@
         const formData = new FormData();
         formData.append("file", file);
         formData.append("mode", mode);
+
+        if (studentName) formData.append("student_name", studentName);
+        if (assignmentName) formData.append("assignment_name", assignmentName);
+
 
         if (author) formData.append("author", author);
         if (title) {
