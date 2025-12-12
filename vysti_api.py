@@ -31,10 +31,13 @@ app.add_middleware(
 )
 
 # ===== Supabase config (from environment variables) =====
+# ===== Supabase config (from environment variables) =====
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 auth_scheme = HTTPBearer(auto_error=False)
+
 
 
 async def get_current_user(
@@ -184,17 +187,42 @@ async def mark_essay(
         docx_bytes,
         mode=mode,
         teacher_config=teacher_config if teacher_config else None,
-        # rules_path default "Vysti Rules for Writing.xlsx" is fine
     )
 
-    # You can watch this in Render logs to confirm the flags and the user:
-    print("Supabase user:", user)
+    # You can watch this in Render logs to confirm the flags:
     print("Vysti metadata:", metadata)
     print("Teacher config used:", teacher_config)
+
+    # Log usage in Supabase mark_events (best-effort; do not break marking if this fails)
+    try:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+            user_id = user.get("id") if isinstance(user, dict) else None
+            db_url = f"{SUPABASE_URL}/rest/v1/mark_events"
+            payload = {
+                "user_id": user_id,
+                "file_name": file.filename,
+                "mode": mode,
+                "bytes": len(docx_bytes),
+            }
+
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(
+                    db_url,
+                    json=payload,
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal",
+                    },
+                )
+    except Exception as e:
+        print("Failed to log mark_event:", repr(e))
 
     # 5. Stream the marked .docx back to the client
     base_name = file.filename.rsplit(".", 1)[0] if file.filename else "essay"
     output_filename = f"{base_name}_marked.docx"
+
 
     return StreamingResponse(
         io.BytesIO(marked_bytes),
