@@ -4,6 +4,7 @@ import os
 import io
 
 import httpx
+from collections import Counter
 from fastapi import (
     FastAPI,
     File,
@@ -97,6 +98,10 @@ async def mark_essay(
     author: str | None = Form(None),
     title: str | None = Form(None),
     text_is_minor_work: bool | None = Form(None),
+
+    # New metadata (optional)
+    student_name: str | None = Form(None),
+    assignment_name: str | None = Form(None),
 
     # Second work (optional)
     author2: str | None = Form(None),
@@ -192,6 +197,15 @@ async def mark_essay(
     # You can watch this in Render logs to confirm the flags:
     print("Vysti metadata:", metadata)
     print("Teacher config used:", teacher_config)
+
+    # ----- Count yellow labels from metadata -----
+    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    label_counter = Counter(
+        issue.get("label")
+        for issue in issues
+        if isinstance(issue, dict) and issue.get("label")
+    )
+    total_labels = sum(label_counter.values())
 
     # Log usage in Supabase mark_events (best-effort; do not break marking if this fails)
     try:
