@@ -203,6 +203,10 @@ async def mark_essay(
                 "file_name": file.filename,
                 "mode": mode,
                 "bytes": len(docx_bytes),
+                "student_name": student_name,
+                "assignment_name": assignment_name,
+                "total_labels": total_labels,
+                "label_counts": dict(label_counter),
             }
 
             async with httpx.AsyncClient(timeout=5) as client:
