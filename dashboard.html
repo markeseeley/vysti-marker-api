@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker – Usage Dashboard</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 16px;
+      line-height: 1.5;
+    }
+    h1 { margin-bottom: 4px; }
+    h2 { margin-top: 24px; }
+    .subheading {
+      margin-top: 0;
+      font-size: 0.95rem;
+      color: #555;
+    }
+    label { display: block; margin-top: 8px; }
+    input { margin-top: 4px; padding: 4px 6px; }
+    button {
+      margin-top: 12px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    #authPanel {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    #authStatus {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    #usageStatus {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+    thead { background: #f5f5f5; }
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    tr:nth-child(even) { background: #fafafa; }
+    .nowrap { white-space: nowrap; }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .link-row {
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="top-bar">
+    <div>
+      <h1>Vysti Marker – Usage Dashboard</h1>
+      <p class="subheading">See how many yellow-label issues your students are getting on each assignment.</p>
+    </div>
+  </div>
+
+  <section id="authPanel">
+    <h2>Teacher sign in</h2>
+    <label>
+      Email
+      <input type="email" id="authEmail" />
+    </label>
+    <label>
+      Password
+      <input type="password" id="authPassword" />
+    </label>
+    <div style="margin-top: 8px;">
+      <button type="button" id="loginBtn">Log in</button>
+      <button type="button" id="logoutBtn" style="display:none;">Log out</button>
+    </div>
+    <p id="authStatus"></p>
+    <p class="link-row">
+      <a href="index.html">← Back to Vysti Marker</a>
+    </p>
+  </section>
+
+  <section id="usageSection" style="display:none;">
+    <h2>Your marked essays</h2>
+    <p id="usageStatus">Loading…</p>
+    <table aria-label="Usage summary">
+      <thead>
+        <tr>
+          <th class="nowrap">Date</th>
+          <th>Student</th>
+          <th>Assignment</th>
+          <th>Mode</th>
+          <th class="nowrap">Total labels</th>
+        </tr>
+      </thead>
+      <tbody id="usageTableBody">
+        <!-- rows injected by JS -->
+      </tbody>
+    </table>
+  </section>
+
+  <script>
+    // ===== Supabase config – copy from index.html =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";  // same as index.html
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock"; // same as index.html
+
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const authEmailInput = document.getElementById("authEmail");
+    const authPasswordInput = document.getElementById("authPassword");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const authStatus = document.getElementById("authStatus");
+
+    const usageSection = document.getElementById("usageSection");
+    const usageStatus = document.getElementById("usageStatus");
+    const usageTableBody = document.getElementById("usageTableBody");
+
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+
+      if (session && session.user) {
+        authStatus.textContent = `Signed in as ${session.user.email}`;
+        loginBtn.style.display = "none";
+        logoutBtn.style.display = "inline-block";
+        usageSection.style.display = "block";
+        loadUsage(session.user);
+      } else {
+        authStatus.textContent = "Please sign in to view your dashboard.";
+        loginBtn.style.display = "inline-block";
+        logoutBtn.style.display = "none";
+        usageSection.style.display = "none";
+      }
+    }
+
+    loginBtn.addEventListener("click", async () => {
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value.trim();
+      authStatus.textContent = "Logging in...";
+      const { error } = await supa.auth.signInWithPassword({ email, password });
+      if (error) {
+        authStatus.textContent = `Login error: ${error.message}`;
+      } else {
+        authStatus.textContent = "Logged in.";
+        await refreshAuthUI();
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      authStatus.textContent = "Logged out.";
+      usageSection.style.display = "none";
+      loginBtn.style.display = "inline-block";
+      logoutBtn.style.display = "none";
+    });
+
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
+
+    // ===== Load usage from mark_events for this teacher =====
+    async function loadUsage(user) {
+      if (!user) return;
+      usageStatus.textContent = "Loading…";
+
+      const { data, error } = await supa
+        .from("mark_events")
+        .select("created_at, student_name, assignment_name, mode, total_labels")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error("Error loading usage:", error);
+        usageStatus.textContent = `Error loading data: ${error.message}`;
+        usageTableBody.innerHTML = "";
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        usageStatus.textContent = "No essays marked yet.";
+        usageTableBody.innerHTML = "";
+        return;
+      }
+
+      usageStatus.textContent = `Showing ${data.length} marked essays.`;
+
+      usageTableBody.innerHTML = "";
+      for (const row of data) {
+        const tr = document.createElement("tr");
+
+        const dateCell = document.createElement("td");
+        dateCell.className = "nowrap";
+        const d = new Date(row.created_at);
+        dateCell.textContent = d.toLocaleDateString();
+        tr.appendChild(dateCell);
+
+        const studentCell = document.createElement("td");
+        studentCell.textContent = row.student_name || "—";
+        tr.appendChild(studentCell);
+
+        const assignmentCell = document.createElement("td");
+        assignmentCell.textContent = row.assignment_name || "—";
+        tr.appendChild(assignmentCell);
+
+        const modeCell = document.createElement("td");
+        modeCell.textContent = row.mode || "—";
+        tr.appendChild(modeCell);
+
+        const labelsCell = document.createElement("td");
+        labelsCell.className = "nowrap";
+        labelsCell.textContent = row.total_labels != null ? row.total_labels : "—";
+        tr.appendChild(labelsCell);
+
+        usageTableBody.appendChild(tr);
+      }
+    }
+
+    // Initial load
+    refreshAuthUI();
+  </script>
+</body>
+</html>
