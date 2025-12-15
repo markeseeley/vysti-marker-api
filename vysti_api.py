@@ -120,8 +120,13 @@ async def mark_essay(
     require_body_evidence: bool | None = Form(None),
     allow_intro_summary_quotes: bool | None = Form(None),
     enforce_intro_quote_rule: bool | None = Form(None),
+    enforce_long_quote_rule: bool | None = Form(None),
     enforce_contractions_rule: bool | None = Form(None),
     enforce_which_rule: bool | None = Form(None),
+    enforce_weak_verbs_rule: bool | None = Form(None),
+    enforce_fact_proof_rule: bool | None = Form(None),
+    enforce_human_people_rule: bool | None = Form(None),
+    enforce_vague_terms_rule: bool | None = Form(None),
     highlight_thesis_devices: bool | None = Form(None),
 ):
     """
@@ -183,10 +188,20 @@ async def mark_essay(
         teacher_config["allow_intro_summary_quotes"] = allow_intro_summary_quotes
     if enforce_intro_quote_rule is not None:
         teacher_config["enforce_intro_quote_rule"] = enforce_intro_quote_rule
+    if enforce_long_quote_rule is not None:
+        teacher_config["enforce_long_quote_rule"] = enforce_long_quote_rule
     if enforce_contractions_rule is not None:
         teacher_config["enforce_contractions_rule"] = enforce_contractions_rule
     if enforce_which_rule is not None:
         teacher_config["enforce_which_rule"] = enforce_which_rule
+    if enforce_weak_verbs_rule is not None:
+        teacher_config["enforce_weak_verbs_rule"] = enforce_weak_verbs_rule
+    if enforce_fact_proof_rule is not None:
+        teacher_config["enforce_fact_proof_rule"] = enforce_fact_proof_rule
+    if enforce_human_people_rule is not None:
+        teacher_config["enforce_human_people_rule"] = enforce_human_people_rule
+    if enforce_vague_terms_rule is not None:
+        teacher_config["enforce_vague_terms_rule"] = enforce_vague_terms_rule
     if highlight_thesis_devices is not None:
         teacher_config["highlight_thesis_devices"] = highlight_thesis_devices
 
