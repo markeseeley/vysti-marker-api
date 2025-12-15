@@ -539,6 +539,15 @@ class MarkerConfig:
 # Controls whether the generic contractions rule is enforced
 
     enforce_contractions_rule: bool = True
+    enforce_long_quote_rule: bool = True
+    # Controls whether we enforce the "Avoid the word 'which'" rule
+    enforce_which_rule: bool = True
+    enforce_weak_verbs_rule: bool = True
+    enforce_fact_proof_rule: bool = True
+    enforce_human_people_rule: bool = True
+    # Controls whether we enforce the "society / universe / reality / life / truth" vague-terms rule
+    enforce_vague_terms_rule: bool = True
+
     forbid_audience_reference: bool = True  # "Avoid referring to the reader or audience..."
     forbid_personal_pronouns: bool = True  # "No 'I', 'we', 'us', 'our' or 'you'..."
 
@@ -3063,30 +3072,31 @@ def analyze_text(
                 )
 
         # Long quotations (> 5 words) in interior, non-floating sentences
-        for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices):
-            if sent_idx is None:
-                continue
-            # Only interior sentences
-            if sent_idx == first_idx or sent_idx == last_idx:
-                continue
-            # Ignore quotations in floating-quotation sentences
-            if sent_idx in floating_sentence_indices:
-                continue
-
-            # Count alphabetic word tokens inside this quotation span
-            word_count = 0
-            for tok_text, tok_start, tok_end in tokens:
-                if tok_start < q_start or tok_start >= q_end:
+        if getattr(config, "enforce_long_quote_rule", True):
+            for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices):
+                if sent_idx is None:
                     continue
-                if any(ch.isalpha() for ch in tok_text):
-                    word_count += 1
+                # Only interior sentences
+                if sent_idx == first_idx or sent_idx == last_idx:
+                    continue
+                # Ignore quotations in floating-quotation sentences
+                if sent_idx in floating_sentence_indices:
+                    continue
 
-            if word_count > 5:
-                add_structural_mark(
-                    q_start,
-                    q_end,
-                    "Shorten, modify, and integrate quotations",
-                )
+                # Count alphabetic word tokens inside this quotation span
+                word_count = 0
+                for tok_text, tok_start, tok_end in tokens:
+                    if tok_start < q_start or tok_start >= q_end:
+                        continue
+                    if any(ch.isalpha() for ch in tok_text):
+                        word_count += 1
+
+                if word_count > 5:
+                    add_structural_mark(
+                        q_start,
+                        q_end,
+                        "Shorten, modify, and integrate quotations",
+                    )
 
         # ---------------------------------------------
         # Evidence-context rule:
@@ -3603,6 +3613,22 @@ def analyze_text(
 
     if not config.forbid_audience_reference:
         for key in ["audience", "audiences", "reader", "readers"]:
+            forbidden.pop(key, None)
+    # Optionally allow "which"
+    if not getattr(config, "enforce_which_rule", True):
+        forbidden.pop("which", None)
+        # Optionally allow 'fact', 'proof', 'prove'
+    if not getattr(config, "enforce_fact_proof_rule", True):
+        for key in ["fact", "facts", "proof", "prove", "proves"]:
+            forbidden.pop(key, None)
+    # Optionally allow 'human', 'people', 'everyone', 'individual'
+    if not getattr(config, "enforce_human_people_rule", True):
+        for key in ["human", "people", "everyone", "individual"]:
+            forbidden.pop(key, None)
+
+    # Optionally allow vague general nouns 'society', 'universe', 'reality', 'life', 'truth'
+    if not getattr(config, "enforce_vague_terms_rule", True):
+        for key in ["society", "universe", "reality", "life", "truth"]:
             forbidden.pop(key, None)
 
     # Exceptions for technical / idiomatic uses of general words like
@@ -4129,44 +4155,45 @@ def analyze_text(
     # -----------------------
     # PHASE 6 — WEAK VERBS
     # -----------------------
-    weak_verbs_regex = re.compile(r"\b(show|shows|showing|use|uses|using)\b", re.IGNORECASE)
+    if getattr(config, "enforce_weak_verbs_rule", True):
+        weak_verbs_regex = re.compile(r"\b(show|shows|showing|use|uses|using)\b", re.IGNORECASE)
 
-    rule_note_weak_verbs = "Refer to the Power Verbs list"
+        rule_note_weak_verbs = "Refer to the Power Verbs list"
 
-    for match in weak_verbs_regex.finditer(flat_text):
-        match_start = match.start()
-        match_end = match.end()
+        for match in weak_verbs_regex.finditer(flat_text):
+            match_start = match.start()
+            match_end = match.end()
 
-        # Special case: "the use of" is handled as a delete-phrase with
-        # red strikethrough, so we do NOT also flag "use" as a weak verb there.
-        word_lower = match.group(0).lower()
-        if word_lower.startswith("use"):
-            phrase_start = match_start - 4  # position of "the "
-            phrase_end = match_end + 3      # position after " of"
-            if phrase_start >= 0 and phrase_end <= len(flat_text):
-                if flat_text[phrase_start:phrase_end].lower() == "the use of":
-                    continue
+            # Special case: "the use of" is handled as a delete-phrase with
+            # red strikethrough, so we do NOT also flag "use" as a weak verb there.
+            word_lower = match.group(0).lower()
+            if word_lower.startswith("use"):
+                phrase_start = match_start - 4  # position of "the "
+                phrase_end = match_end + 3      # position after " of"
+                if phrase_start >= 0 and phrase_end <= len(flat_text):
+                    if flat_text[phrase_start:phrase_end].lower() == "the use of":
+                        continue
 
-        # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
-        if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
-            continue
+            # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
+            if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
+                continue
 
-        if rule_note_weak_verbs not in labels_used:
-            marks.append({
-                "start": match_start,
-                "end": match_end,
-                "note": rule_note_weak_verbs,
-                "color": WD_COLOR_INDEX.TURQUOISE,
-                "label": True
-            })
-            labels_used.append(rule_note_weak_verbs)
-        else:
-            marks.append({
-                "start": match_start,
-                "end": match_end,
-                "note": rule_note_weak_verbs,
-                "color": WD_COLOR_INDEX.TURQUOISE
-            })
+            if rule_note_weak_verbs not in labels_used:
+                marks.append({
+                    "start": match_start,
+                    "end": match_end,
+                    "note": rule_note_weak_verbs,
+                    "color": WD_COLOR_INDEX.TURQUOISE,
+                    "label": True
+                })
+                labels_used.append(rule_note_weak_verbs)
+            else:
+                marks.append({
+                    "start": match_start,
+                    "end": match_end,
+                    "note": rule_note_weak_verbs,
+                    "color": WD_COLOR_INDEX.TURQUOISE
+                })
 
     # -----------------------
     # PHASE 7 — NUMBER RULE (1–10)
