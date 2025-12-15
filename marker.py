@@ -547,6 +547,7 @@ class MarkerConfig:
     enforce_human_people_rule: bool = True
     # Controls whether we enforce the "society / universe / reality / life / truth" vague-terms rule
     enforce_vague_terms_rule: bool = True
+    enforce_sva_rule: bool = False
 
     forbid_audience_reference: bool = True  # "Avoid referring to the reader or audience..."
     forbid_personal_pronouns: bool = True  # "No 'I', 'we', 'us', 'our' or 'you'..."
@@ -740,9 +741,9 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_essay_title_capitalization = False
 
     elif mode == "foundation_6":
-        # Foundation 6: full essay, like textual_analysis.
-        # No extra changes required; defaults already represent the full rule set.
-        pass
+        # Foundation 6: full essay, like textual_analysis,
+        # plus experimental grammar checks (subject–verb agreement).
+        cfg.enforce_sva_rule = True
 
     elif mode == "peel_paragraph":
         # Single PEEL paragraph: Point–Evidence–Explanation–Link.
@@ -3912,6 +3913,108 @@ def analyze_text(
                 "note": rule_note,
                 "color": WD_COLOR_INDEX.GRAY_25,
             })
+        # -----------------------
+    # PHASE 1.5 — SUBJECT–VERB AGREEMENT (experimental)
+    # -----------------------
+    if getattr(config, "enforce_sva_rule", False):
+        rule_note_sva = "Check subject–verb agreement"
+
+        # Helper to decide if a token is clearly singular vs plural subject
+        def classify_subject_number(tok):
+            # Pronouns first
+            if tok.pos_ == "PRON":
+                lower = tok.text.lower()
+                if lower in {"he", "she", "it", "this", "that"}:
+                    return "sing"
+                if lower in {"they", "we", "these", "those"}:
+                    return "plur"
+            # Nouns by tag
+            if tok.tag_ in {"NN", "NNP"}:
+                return "sing"
+            if tok.tag_ in {"NNS", "NNPS"}:
+                return "plur"
+            return None
+
+        for sent in doc.sents:
+            # Only check sentences that actually contain a verb
+            has_verb = any(t.pos_ in {"VERB", "AUX"} for t in sent)
+            if not has_verb:
+                continue
+
+            for tok in sent:
+                # Look for nominal subjects
+                if tok.dep_ not in {"nsubj", "nsubjpass"}:
+                    continue
+                subj = tok
+                verb = subj.head
+
+                if verb.pos_ not in {"VERB", "AUX"}:
+                    continue
+
+                # Don't flag things inside quotations
+                subj_start = subj.idx
+                subj_end = subj.idx + len(subj.text)
+                verb_start = verb.idx
+                verb_end = verb.idx + len(verb.text)
+                if (
+                    pos_in_spans(subj_start, spans)
+                    or pos_in_spans(subj_end - 1, spans)
+                    or pos_in_spans(verb_start, spans)
+                    or pos_in_spans(verb_end - 1, spans)
+                ):
+                    continue
+
+                subj_num = classify_subject_number(subj)
+                # If spaCy gives us a Number feature on the verb, use that; otherwise fall back to tag
+                verb_num_feat = verb.morph.get("Number")
+                verb_num = verb_num_feat[0].lower() if verb_num_feat else None
+
+                # Heuristics for present-tense agreement:
+                # - singular subject + non-3rd-plural verb tag (VBP)  -> likely error
+                # - plural subject + 3rd-sing verb tag (VBZ)         -> likely error
+                # - for be/aux, rely more on Number feature when available
+                verb_tag = verb.tag_
+
+                mismatch = False
+                if subj_num == "sing":
+                    # singular subject
+                    if verb.lemma_ != "be":
+                        if verb_tag == "VBP":  # plural present
+                            mismatch = True
+                    else:
+                        if verb_num == "plur":
+                            mismatch = True
+                elif subj_num == "plur":
+                    if verb.lemma_ != "be":
+                        if verb_tag == "VBZ":  # 3rd-sing present
+                            mismatch = True
+                    else:
+                        if verb_num == "sing":
+                            mismatch = True
+
+                if not mismatch:
+                    continue
+
+                # Highlight the verb as the error locus
+                start = verb_start
+                end = verb_end
+
+                if rule_note_sva not in labels_used:
+                    marks.append({
+                        "start": start,
+                        "end": end,
+                        "note": rule_note_sva,
+                        "color": WD_COLOR_INDEX.TURQUOISE,
+                        "label": True,
+                    })
+                    labels_used.append(rule_note_sva)
+                else:
+                    marks.append({
+                        "start": start,
+                        "end": end,
+                        "note": rule_note_sva,
+                        "color": WD_COLOR_INDEX.TURQUOISE,
+                    })
 
     # -----------------------
     # PHASE 2 — CONTRACTIONS
