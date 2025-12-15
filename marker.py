@@ -3913,13 +3913,13 @@ def analyze_text(
                 "note": rule_note,
                 "color": WD_COLOR_INDEX.GRAY_25,
             })
+     
         # -----------------------
     # PHASE 1.5 — SUBJECT–VERB AGREEMENT (experimental)
     # -----------------------
     if getattr(config, "enforce_sva_rule", False):
         rule_note_sva = "Check subject–verb agreement"
 
-        # Helper to decide if a token is clearly singular vs plural subject
         def classify_subject_number(tok):
             # Pronouns first
             if tok.pos_ == "PRON":
@@ -3937,8 +3937,7 @@ def analyze_text(
 
         for sent in doc.sents:
             # Only check sentences that actually contain a verb
-            has_verb = any(t.pos_ in {"VERB", "AUX"} for t in sent)
-            if not has_verb:
+            if not any(t.pos_ in {"VERB", "AUX"} for t in sent):
                 continue
 
             for tok in sent:
@@ -3964,32 +3963,39 @@ def analyze_text(
                 ):
                     continue
 
+                # 1) Subject number from tags/pronouns
                 subj_num = classify_subject_number(subj)
-                # If spaCy gives us a Number feature on the verb, use that; otherwise fall back to tag
+
+                # 2) Subject & verb number from morphology (if available)
+                subj_num_feat = subj.morph.get("Number")
+                subj_num_morph = subj_num_feat[0].lower() if subj_num_feat else None
+                if subj_num_morph in {"sing", "plur"}:
+                    # Prefer explicit morph number if present
+                    subj_num = subj_num or subj_num_morph
+
                 verb_num_feat = verb.morph.get("Number")
                 verb_num = verb_num_feat[0].lower() if verb_num_feat else None
 
-                # Heuristics for present-tense agreement:
-                # - singular subject + non-3rd-plural verb tag (VBP)  -> likely error
-                # - plural subject + 3rd-sing verb tag (VBZ)         -> likely error
-                # - for be/aux, rely more on Number feature when available
                 verb_tag = verb.tag_
+                lemma = verb.lemma_.lower()
 
                 mismatch = False
-                if subj_num == "sing":
-                    # singular subject
-                    if verb.lemma_ != "be":
-                        if verb_tag == "VBP":  # plural present
+
+                # Primary check: if both subject and verb have a Number feature, use that
+                if subj_num in {"sing", "plur"} and verb_num in {"sing", "plur"}:
+                    if subj_num != verb_num:
+                        mismatch = True
+                else:
+                    # Fallback heuristic for present-tense main verbs
+                    if subj_num == "sing":
+                        if lemma != "be" and verb_tag == "VBP":
                             mismatch = True
-                    else:
-                        if verb_num == "plur":
+                        elif lemma == "be" and verb_num == "plur":
                             mismatch = True
-                elif subj_num == "plur":
-                    if verb.lemma_ != "be":
-                        if verb_tag == "VBZ":  # 3rd-sing present
+                    elif subj_num == "plur":
+                        if lemma != "be" and verb_tag == "VBZ":
                             mismatch = True
-                    else:
-                        if verb_num == "sing":
+                        elif lemma == "be" and verb_num == "sing":
                             mismatch = True
 
                 if not mismatch:
@@ -4015,6 +4021,7 @@ def analyze_text(
                         "note": rule_note_sva,
                         "color": WD_COLOR_INDEX.TURQUOISE,
                     })
+
 
     # -----------------------
     # PHASE 2 — CONTRACTIONS
