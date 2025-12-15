@@ -121,6 +121,7 @@ async def mark_essay(
     allow_intro_summary_quotes: bool | None = Form(None),
     enforce_intro_quote_rule: bool | None = Form(None),
     enforce_contractions_rule: bool | None = Form(None),
+    enforce_which_rule: bool | None = Form(None),
     highlight_thesis_devices: bool | None = Form(None),
 ):
     """
@@ -184,6 +185,8 @@ async def mark_essay(
         teacher_config["enforce_intro_quote_rule"] = enforce_intro_quote_rule
     if enforce_contractions_rule is not None:
         teacher_config["enforce_contractions_rule"] = enforce_contractions_rule
+    if enforce_which_rule is not None:
+        teacher_config["enforce_which_rule"] = enforce_which_rule
     if highlight_thesis_devices is not None:
         teacher_config["highlight_thesis_devices"] = highlight_thesis_devices
 
