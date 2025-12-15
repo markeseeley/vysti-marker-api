@@ -246,11 +246,35 @@
         <input type="checkbox" id="allow_intro_quotes" />
         Allow quotations in the introduction (except the thesis sentence)
       </label>
+      <label>
+        <input type="checkbox" id="allow_long_quotes" />
+        Allow long quotations (turn off “Shorten, modify, and integrate quotations” rule)
+      </label>
 
       <div class="rules-group-title">Style</div>
       <label>
         <input type="checkbox" id="allow_contractions" />
         Allow contractions (“don't”, “can't”, “it's”) outside quotations
+      </label>
+      <label>
+        <input type="checkbox" id="allow_which" />
+        Allow the word “which”
+      </label>
+      <label>
+        <input type="checkbox" id="disable_weak_verbs" />
+        Turn off weak-verb Power Verbs rule (“use”, “show”)
+      </label>
+      <label>
+        <input type="checkbox" id="disable_fact_rule" />
+        Turn off “fact / proof / prove” rule
+      </label>
+      <label>
+        <input type="checkbox" id="disable_human_rule" />
+        Turn off “human / people / everyone / individual” rule
+      </label>
+      <label>
+        <input type="checkbox" id="disable_vague_general_rule" />
+        Turn off vague “society / universe / reality / life / truth” rule
       </label>
       <label>
         <input type="checkbox" id="highlight_devices" />
@@ -332,8 +356,14 @@
     const noClosedThesisCheckbox = document.getElementById("no_closed_thesis");
     const noBodyEvidenceCheckbox = document.getElementById("no_body_evidence");
     const allowIntroQuotesCheckbox = document.getElementById("allow_intro_quotes");
+    const allowLongQuotesCheckbox = document.getElementById("allow_long_quotes");
     const allowContractionsCheckbox = document.getElementById("allow_contractions");
+    const allowWhichCheckbox = document.getElementById("allow_which");
+    const disableWeakVerbsCheckbox = document.getElementById("disable_weak_verbs");
+    const disableFactRuleCheckbox = document.getElementById("disable_fact_rule");
     const highlightDevicesCheckbox = document.getElementById("highlight_devices");
+    const disableHumanRuleCheckbox = document.getElementById("disable_human_rule");
+    const disableVagueRuleCheckbox = document.getElementById("disable_vague_general_rule");
     const modeHelp = document.getElementById("modeHelp");
 
     const title2Input = document.getElementById("title2");
@@ -349,8 +379,14 @@
         noClosedThesis: false,
         noBodyEvidence: false,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Textual analysis: formal mode, no first person, closed thesis required."
       },
       reader_response: {
@@ -359,8 +395,14 @@
         noClosedThesis: false,
         noBodyEvidence: false,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: true,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Reader response: personal voice allowed; still expects a thesis by default."
       },
       analytic_frame: {
@@ -369,8 +411,14 @@
         noClosedThesis: false,
         noBodyEvidence: false,
         allowIntroQuotes: true,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Analytic frame: multiple works allowed; quotations in the introduction are allowed."
       },
       argumentation: {
@@ -379,8 +427,14 @@
         noClosedThesis: true,
         noBodyEvidence: false,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: false,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Argumentation: open thesis by default; looser thesis/topic alignment; direct address to the reader allowed."
       },
       foundation_1: {
@@ -389,8 +443,14 @@
         noClosedThesis: true,
         noBodyEvidence: true,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Foundation 1: first sentence only; closed thesis and body-paragraph rules are off."
       },
       foundation_2: {
@@ -399,8 +459,14 @@
         noClosedThesis: false,
         noBodyEvidence: true,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Foundation 2: first sentence + closed thesis."
       },
       foundation_3: {
@@ -409,7 +475,13 @@
         noClosedThesis: false,
         noBodyEvidence: true,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Foundation 3: full introduction with closed thesis."
       },
       foundation_4: {
@@ -418,8 +490,14 @@
         noClosedThesis: false,
         noBodyEvidence: true,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Foundation 4: introduction + first body topic sentence."
       },
       foundation_5: {
@@ -428,8 +506,14 @@
         noClosedThesis: false,
         noBodyEvidence: false,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Foundation 5: introduction + body paragraphs."
       },
       foundation_6: {
@@ -438,8 +522,14 @@
         noClosedThesis: false,
         noBodyEvidence: false,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "Foundation 6: full essay, full rule set."
       },
       peel_paragraph: {
@@ -448,8 +538,14 @@
         noClosedThesis: false,
         noBodyEvidence: false,
         allowIntroQuotes: false,
+        allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
         allowContractions: false,
+        allowWhich: false,  // false = still avoid "which" by default
+        disableWeakVerbs: false, // false = keep marking weak verbs
+        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
+        disableHumanRule: false,
+        disableVagueGeneralRule: false,
         description: "PEEL paragraph: single body paragraph with evidence."
       },
     };
@@ -463,7 +559,13 @@
       noClosedThesisCheckbox.checked = !!defaults.noClosedThesis;
       noBodyEvidenceCheckbox.checked = !!defaults.noBodyEvidence;
       allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
+      allowLongQuotesCheckbox.checked = !!defaults.allowLongQuotes;
       allowContractionsCheckbox.checked = !!defaults.allowContractions;
+      allowWhichCheckbox.checked = !!defaults.allowWhich;
+      disableWeakVerbsCheckbox.checked = !!defaults.disableWeakVerbs;
+      disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
+      disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
+      disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
       highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
 
       if (modeHelp) {
@@ -518,7 +620,13 @@
       const noClosedThesis = noClosedThesisCheckbox.checked;
       const noBodyEvidence = noBodyEvidenceCheckbox.checked;
       const allowIntroQuotes = allowIntroQuotesCheckbox.checked;
+      const allowLongQuotes = allowLongQuotesCheckbox.checked;
       const allowContractions = allowContractionsCheckbox.checked;
+      const allowWhich = allowWhichCheckbox.checked;
+      const disableWeakVerbs = disableWeakVerbsCheckbox.checked;
+      const disableFactRule = disableFactRuleCheckbox.checked;
+      const disableHumanRule = disableHumanRuleCheckbox.checked;
+      const disableVagueRule = disableVagueRuleCheckbox.checked;
       const highlightDevices = highlightDevicesCheckbox.checked;
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
@@ -560,7 +668,13 @@
         formData.append("require_body_evidence", noBodyEvidence ? "false" : "true");
         formData.append("allow_intro_summary_quotes", allowIntroQuotes ? "true" : "false");
         formData.append("enforce_intro_quote_rule", allowIntroQuotes ? "false" : "true");
+        formData.append("enforce_long_quote_rule", allowLongQuotes ? "false" : "true");
         formData.append("enforce_contractions_rule", allowContractions ? "false" : "true");
+        formData.append("enforce_which_rule", allowWhich ? "false" : "true");
+        formData.append("enforce_weak_verbs_rule", disableWeakVerbs ? "false" : "true");
+        formData.append("enforce_fact_proof_rule", disableFactRule ? "false" : "true");
+        formData.append("enforce_human_people_rule", disableHumanRule ? "false" : "true");
+        formData.append("enforce_vague_terms_rule", disableVagueRule ? "false" : "true");
         formData.append("highlight_thesis_devices", highlightDevices ? "true" : "false");
 
         try {
