@@ -19,6 +19,9 @@ from docx.oxml import OxmlElement  # type: ignore[attr-defined]
 from docx.opc.constants import RELATIONSHIP_TYPE
 import spacy
 
+# Custom logical color for grammar issues (implemented via shading)
+GRAMMAR_ORANGE = "GRAMMAR_ORANGE"
+
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
@@ -4729,13 +4732,25 @@ def apply_marks(paragraph, flat_text, segments, marks):
                         next_pos = i_start
 
             chunk = flat_text[pos:next_pos]
-            if chunk:
-                r = paragraph.add_run(chunk)
-                enforce_font(r)
-                if color is not None:
+            r = paragraph.add_run(chunk)
+            enforce_font(r)
+            if color is not None:
+                if color == GRAMMAR_ORANGE:
+                    # Apply custom BRIGHT ORANGE shading for grammar issues
+                    r_pr = r._element.rPr
+                    if r_pr is None:
+                        r_pr = OxmlElement("w:rPr")
+                        r._element.insert(0, r_pr)
+                    shd = OxmlElement("w:shd")
+                    shd.set(qn("w:val"), "clear")
+                    shd.set(qn("w:color"), "auto")
+                    shd.set(qn("w:fill"), "FFA500")  # hex for orange
+                    r_pr.append(shd)
+                else:
                     r.font.highlight_color = color
-                if strike:
-                    r.font.strike = True
+            if strike:
+                r.font.strike = True
+
                 if italic_here:
                     r.font.italic = True
                 # Mark student text runs
