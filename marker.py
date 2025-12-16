@@ -3922,6 +3922,7 @@ def analyze_text(
     # -----------------------
     if getattr(config, "enforce_sva_rule", False):
         rule_note_sva = "Check subject–verb agreement"
+        rule_note_sva_short = "s-v"
 
         def classify_subject_number(tok):
             # Pronouns first
@@ -4009,21 +4010,27 @@ def analyze_text(
                 end = verb_end
 
                 if rule_note_sva not in labels_used:
+                    # First occurrence: full label text
                     marks.append({
                         "start": start,
                         "end": end,
                         "note": rule_note_sva,
-                        "color": WD_COLOR_INDEX.TURQUOISE,
+                        "color": GRAMMAR_ORANGE,
                         "label": True,
                     })
                     labels_used.append(rule_note_sva)
                 else:
+                    # Subsequent occurrences: short display text "s-v",
+                    # but still use the full note for linking/summary.
                     marks.append({
                         "start": start,
                         "end": end,
                         "note": rule_note_sva,
-                        "color": WD_COLOR_INDEX.TURQUOISE,
+                        "display_note": rule_note_sva_short,
+                        "color": GRAMMAR_ORANGE,
+                        "label": True,
                     })
+
 
 
     # -----------------------
@@ -4912,7 +4919,7 @@ def apply_marks(paragraph, flat_text, segments, marks):
             # Build the label run
             # NOTE: Label runs are Vysti-generated and should NOT inherit student italics,
             # so we do NOT pass them through append_text_with_italics
-            lbl = paragraph.add_run(f" → {note}")
+            lbl = paragraph.add_run(f" → {display_note}")
             enforce_font(lbl)
             lbl.font.bold = True
             lbl.font.highlight_color = label_color
