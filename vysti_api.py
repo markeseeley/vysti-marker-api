@@ -127,6 +127,8 @@ async def mark_essay(
     enforce_fact_proof_rule: bool | None = Form(None),
     enforce_human_people_rule: bool | None = Form(None),
     enforce_vague_terms_rule: bool | None = Form(None),
+    enforce_sva_rule: bool | None = Form(None),
+    enforce_present_tense_rule: bool | None = Form(None),
     highlight_thesis_devices: bool | None = Form(None),
 ):
     """
@@ -202,6 +204,10 @@ async def mark_essay(
         teacher_config["enforce_human_people_rule"] = enforce_human_people_rule
     if enforce_vague_terms_rule is not None:
         teacher_config["enforce_vague_terms_rule"] = enforce_vague_terms_rule
+    if enforce_sva_rule is not None:
+        teacher_config["enforce_sva_rule"] = enforce_sva_rule
+    if enforce_present_tense_rule is not None:
+        teacher_config["enforce_present_tense_rule"] = enforce_present_tense_rule
     if highlight_thesis_devices is not None:
         teacher_config["highlight_thesis_devices"] = highlight_thesis_devices
 
