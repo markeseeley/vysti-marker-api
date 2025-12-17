@@ -4741,29 +4741,30 @@ def apply_marks(paragraph, flat_text, segments, marks):
             chunk = flat_text[pos:next_pos]
             r = paragraph.add_run(chunk)
             enforce_font(r)
+
+            # Apply highlight
             if color is not None:
                 if color == GRAMMAR_ORANGE:
-                    # Apply custom BRIGHT ORANGE shading for grammar issues
-                    r_pr = r._element.rPr
-                    if r_pr is None:
-                        r_pr = OxmlElement("w:rPr")
-                        r._element.insert(0, r_pr)
-                    shd = OxmlElement("w:shd")
-                    shd.set(qn("w:val"), "clear")
-                    shd.set(qn("w:color"), "auto")
-                    shd.set(qn("w:fill"), "FFA500")  # hex for orange
-                    r_pr.append(shd)
+                    # Grammar issues: DARK BLUE highlight + WHITE font (Word-safe)
+                    r.font.highlight_color = WD_COLOR_INDEX.DARK_BLUE
+                    r.font.color.rgb = RGBColor(255, 255, 255)
                 else:
                     r.font.highlight_color = color
+
+            # Preserve italics from original student text (this must NOT depend on strike)
+            if italic_here:
+                r.font.italic = True
+
+            # Optional strikethrough
             if strike:
                 r.font.strike = True
 
-                if italic_here:
-                    r.font.italic = True
-                # Mark student text runs
-                if color is not None or strike:
-                    r._element.set("data-vysti", "yes")
+            # Mark Vysti-generated runs (useful for later passes)
+            if color is not None or strike:
+                r._element.set("data-vysti", "yes")
+
             pos = next_pos
+
     
     # STEP 1: Before clearing runs, capture which character ranges in flat_text were italic
     original_italic_spans = []
@@ -4919,7 +4920,9 @@ def apply_marks(paragraph, flat_text, segments, marks):
             # Build the label run
             # NOTE: Label runs are Vysti-generated and should NOT inherit student italics,
             # so we do NOT pass them through append_text_with_italics
+            display_note = mark.get("display_note", note)
             lbl = paragraph.add_run(f" → {display_note}")
+
             enforce_font(lbl)
             lbl.font.bold = True
             lbl.font.highlight_color = label_color
