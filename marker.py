@@ -749,6 +749,7 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         # Foundation 6: full essay, like textual_analysis,
         # plus experimental grammar checks (subject–verb agreement).
         cfg.enforce_sva_rule = True
+        cfg.enforce_present_tense_rule = True
 
     elif mode == "peel_paragraph":
         # Single PEEL paragraph: Point–Evidence–Explanation–Link.
