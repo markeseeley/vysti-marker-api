@@ -551,6 +551,8 @@ class MarkerConfig:
     # Controls whether we enforce the "society / universe / reality / life / truth" vague-terms rule
     enforce_vague_terms_rule: bool = True
     enforce_sva_rule: bool = False
+    enforce_present_tense_rule: bool = False
+
 
     forbid_audience_reference: bool = True  # "Avoid referring to the reader or audience..."
     forbid_personal_pronouns: bool = True  # "No 'I', 'we', 'us', 'our' or 'you'..."
@@ -4031,6 +4033,45 @@ def analyze_text(
                         "label": True,
                     })
 
+        # -----------------------
+    # PHASE 1.6 — PRESENT TENSE (experimental)
+    # -----------------------
+    if getattr(config, "enforce_present_tense_rule", False):
+        rule_note_tense = "Write in the present tense"
+        rule_note_tense_short = "tense"
+
+        for tok in doc:
+            # VBD = simple past (walked, said, was, were, had, did...)
+            if tok.tag_ != "VBD":
+                continue
+            if tok.pos_ not in ("VERB", "AUX"):
+                continue
+
+            start = tok.idx
+            end = tok.idx + len(tok.text)
+
+            # Ignore past tense inside direct quotations
+            if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
+                continue
+
+            if rule_note_tense not in labels_used:
+                marks.append({
+                    "start": start,
+                    "end": end,
+                    "note": rule_note_tense,
+                    "color": GRAMMAR_ORANGE,
+                    "label": True,
+                })
+                labels_used.append(rule_note_tense)
+            else:
+                marks.append({
+                    "start": start,
+                    "end": end,
+                    "note": rule_note_tense,
+                    "display_note": rule_note_tense_short,
+                    "color": GRAMMAR_ORANGE,
+                    "label": True,
+                })
 
 
     # -----------------------
