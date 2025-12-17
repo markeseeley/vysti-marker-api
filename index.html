@@ -276,6 +276,15 @@
         <input type="checkbox" id="disable_vague_general_rule" />
         Turn off vague “society / universe / reality / life / truth” rule
       </label>
+      <div class="rules-group-title">Grammar</div>
+      <label>
+        <input type="checkbox" id="enable_grammar" />
+        Enable grammar checks (subject–verb agreement + present tense)
+      </label>
+      <p class="help-text">
+      Turn this off if you don’t want grammar highlights on this run.
+      </p>
+
       <label>
         <input type="checkbox" id="highlight_devices" />
         Highlight rhetorical devices/strategies in green
@@ -364,6 +373,8 @@
     const highlightDevicesCheckbox = document.getElementById("highlight_devices");
     const disableHumanRuleCheckbox = document.getElementById("disable_human_rule");
     const disableVagueRuleCheckbox = document.getElementById("disable_vague_general_rule");
+    const enableGrammarCheckbox = document.getElementById("enable_grammar");
+
     const modeHelp = document.getElementById("modeHelp");
 
     const title2Input = document.getElementById("title2");
@@ -387,6 +398,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Textual analysis: formal mode, no first person, closed thesis required."
       },
       reader_response: {
@@ -403,6 +415,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Reader response: personal voice allowed; still expects a thesis by default."
       },
       analytic_frame: {
@@ -419,6 +432,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Analytic frame: multiple works allowed; quotations in the introduction are allowed."
       },
       argumentation: {
@@ -435,6 +449,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Argumentation: open thesis by default; looser thesis/topic alignment; direct address to the reader allowed."
       },
       foundation_1: {
@@ -451,6 +466,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Foundation 1: first sentence only; closed thesis and body-paragraph rules are off."
       },
       foundation_2: {
@@ -467,6 +483,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Foundation 2: first sentence + closed thesis."
       },
       foundation_3: {
@@ -482,6 +499,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Foundation 3: full introduction with closed thesis."
       },
       foundation_4: {
@@ -498,6 +516,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Foundation 4: introduction + first body topic sentence."
       },
       foundation_5: {
@@ -514,6 +533,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Foundation 5: introduction + body paragraphs."
       },
       foundation_6: {
@@ -530,6 +550,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "Foundation 6: full essay, full rule set."
       },
       peel_paragraph: {
@@ -546,6 +567,7 @@
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
+        enableGrammar: true,
         description: "PEEL paragraph: single body paragraph with evidence."
       },
     };
@@ -566,6 +588,7 @@
       disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
       disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
       disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
+      enableGrammarCheckbox.checked = defaults.enableGrammar !== false;
       highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
 
       if (modeHelp) {
@@ -628,6 +651,8 @@
       const disableHumanRule = disableHumanRuleCheckbox.checked;
       const disableVagueRule = disableVagueRuleCheckbox.checked;
       const highlightDevices = highlightDevicesCheckbox.checked;
+      const enableGrammar = enableGrammarCheckbox.checked;
+
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
@@ -675,6 +700,8 @@
         formData.append("enforce_fact_proof_rule", disableFactRule ? "false" : "true");
         formData.append("enforce_human_people_rule", disableHumanRule ? "false" : "true");
         formData.append("enforce_vague_terms_rule", disableVagueRule ? "false" : "true");
+        formData.append("enforce_sva_rule", enableGrammar ? "true" : "false");
+        formData.append("enforce_present_tense_rule", enableGrammar ? "true" : "false");
         formData.append("highlight_thesis_devices", highlightDevices ? "true" : "false");
 
         try {
