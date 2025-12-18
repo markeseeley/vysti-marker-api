@@ -313,21 +313,19 @@
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
-
+    
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
       const session = data.session;
-      if (session && session.user) {
-        authStatus.textContent = `Signed in as ${session.user.email}`;
-        loginBtn.style.display = "none";
-        logoutBtn.style.display = "inline-block";
-        form.style.display = "block";
-      } else {
-        authStatus.textContent = "Please sign in to use the marker.";
-        loginBtn.style.display = "inline-block";
-        logoutBtn.style.display = "none";
-        form.style.display = "none";
+
+      if (!session) {
+        window.location.replace("signin.html");
+        return;
       }
+
+      // logged in
+      document.getElementById("authPanel").style.display = "none";
+      form.style.display = "block";
     }
 
     loginBtn.addEventListener("click", async () => {
