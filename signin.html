@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker — Sign in</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root{
+      --main-copy:#000000;
+      --maroon:#A90D22;
+      --gray:#D9D9D9;
+      --link:#0004FF;
+
+      --card-bg:#ffffff;
+      --card-radius:12px;
+      --shadow: 0 10px 30px rgba(0,0,0,.15);
+
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--main-copy);
+      min-height:100vh;
+      display:flex;
+    }
+
+    /* Left image panel */
+    .left {
+      flex: 1.15;
+      background:
+        linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.18)),
+        url("assets/mountain_bg.png") center/cover no-repeat;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:40px;
+    }
+    .left img{
+      max-width: 520px;
+      width: 70%;
+      height: auto;
+      filter: drop-shadow(0 8px 20px rgba(0,0,0,.35));
+    }
+
+    /* Right form panel */
+    .right{
+      flex: 0.85;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:40px 24px;
+      background:#fff;
+    }
+
+    .card{
+      width: 100%;
+      max-width: 520px;
+      background: var(--card-bg);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      padding: 44px 56px;
+    }
+
+    h1{
+      margin:0;
+      text-align:center;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .subtitle{
+      margin: 8px 0 28px 0;
+      text-align:center;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .field{
+      margin-top: 16px;
+    }
+
+    .label{
+      font-size: 13px;
+      margin-bottom: 6px;
+      color:#3b3b3b;
+    }
+
+    input{
+      width:100%;
+      height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--gray);
+      border-radius: 8px;
+      outline: none;
+      font-size: 14px;
+      background:#f7f7f7;
+    }
+    input:focus{
+      background:#fff;
+      border-color: #a0a0a0;
+    }
+
+    .btn{
+      width:100%;
+      height: 46px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 8px;
+      background: var(--maroon);
+      color: #fff;
+      font-weight: 600;
+      font-size: 15px;
+      cursor:pointer;
+    }
+    .btn:hover{ filter: brightness(0.95); }
+
+    .below{
+      margin-top: 22px;
+      text-align:center;
+      font-size: 14px;
+    }
+    .below a{
+      color: var(--link);
+      text-decoration: underline;
+      cursor:pointer;
+    }
+
+    .status{
+      margin-top: 12px;
+      text-align:center;
+      font-size: 13px;
+      color:#444;
+      min-height: 18px;
+    }
+
+    /* Responsive: stack on small screens */
+    @media (max-width: 920px){
+      body{ flex-direction: column; }
+      .left{ min-height: 260px; }
+      .right{ padding: 28px 18px; }
+      .card{ padding: 34px 22px; }
+      .left img{ width: 60%; max-width: 360px; }
+    }
+  </style>
+</head>
+
+<body>
+  <section class="left">
+    <img src="assets/vysti_logo_white.svg" alt="Vysti" />
+  </section>
+
+  <section class="right">
+    <div class="card">
+      <h1>Vysti Rules</h1>
+      <div class="subtitle">Sign in to your account</div>
+
+      <div class="field">
+        <div class="label">Email Address</div>
+        <input id="email" type="email" placeholder="Email Address" />
+      </div>
+
+      <div class="field">
+        <div class="label">Password</div>
+        <input id="password" type="password" placeholder="Password" />
+      </div>
+
+      <button class="btn" id="signinBtn">Sign in</button>
+
+      <div class="status" id="status"></div>
+
+      <div class="below">
+        Don’t have an account?<br/>
+        <a href="signup.html">Create one</a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // ===== Supabase config (same as your index.html) =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE";  // paste your anon key
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const emailEl = document.getElementById("email");
+    const passEl = document.getElementById("password");
+    const btn = document.getElementById("signinBtn");
+    const statusEl = document.getElementById("status");
+
+    btn.addEventListener("click", async () => {
+      const email = emailEl.value.trim();
+      const password = passEl.value.trim();
+
+      statusEl.textContent = "Signing in…";
+      const { error } = await supa.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        statusEl.textContent = "Login error: " + error.message;
+        return;
+      }
+
+      statusEl.textContent = "Signed in. Redirecting…";
+      // redirect to your existing marker UI
+      window.location.href = "index.html";
+    });
+
+    // If already logged in, skip sign-in page
+    (async () => {
+      const { data } = await supa.auth.getSession();
+      if (data.session) {
+        window.location.href = "index.html";
+      }
+    })();
+  </script>
+</body>
+</html>
