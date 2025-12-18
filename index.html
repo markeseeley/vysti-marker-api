@@ -283,16 +283,22 @@
       </label>
 
       <div class="rules-group-title">Thesis</div>
-      <label>
-        <input type="checkbox" id="no_closed_thesis" />
-        Do <strong>not</strong> enforce a closed thesis statement
-      </label>
+
+<div id="closedThesisRow">
+  <label>
+    <input type="checkbox" id="enforce_closed_thesis" />
+    Require a closed thesis statement
+  </label>
+</div>
+
 
       <div class="rules-group-title">Evidence &amp; quotations</div>
-      <label>
-        <input type="checkbox" id="no_body_evidence" />
-        Do <strong>not</strong> require a quotation in every body paragraph
+      <div id="requireBodyEvidenceRow">
+        <label>
+        <input type="checkbox" id="require_body_evidence" />
+        Require a quotation in every body paragraph
       </label>
+    </div>
       <label>
         <input type="checkbox" id="allow_intro_quotes" />
         Allow quotations in the introduction (except the thesis sentence)
@@ -501,8 +507,8 @@ dropZone.addEventListener("drop", (e) => {
     const modeSelect = document.getElementById("mode");
     const allowICheckbox = document.getElementById("allow_i");
     const allowAudienceCheckbox = document.getElementById("allow_audience");
-    const noClosedThesisCheckbox = document.getElementById("no_closed_thesis");
-    const noBodyEvidenceCheckbox = document.getElementById("no_body_evidence");
+    const enforceClosedThesisCheckbox = document.getElementById("enforce_closed_thesis");
+    const requireBodyEvidenceCheckbox = document.getElementById("require_body_evidence");
     const allowIntroQuotesCheckbox = document.getElementById("allow_intro_quotes");
     const allowLongQuotesCheckbox = document.getElementById("allow_long_quotes");
     const allowContractionsCheckbox = document.getElementById("allow_contractions");
@@ -526,8 +532,8 @@ dropZone.addEventListener("drop", (e) => {
       textual_analysis: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: false,
+        enforceClosedThesis: true,
+        requireBodyEvidence: true,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -543,8 +549,8 @@ dropZone.addEventListener("drop", (e) => {
       reader_response: {
         allowI: true,
         allowAudience: true,
-        noClosedThesis: false,
-        noBodyEvidence: false,
+        enforceClosedThesis: true,
+        requireBodyEvidence: true,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -560,8 +566,8 @@ dropZone.addEventListener("drop", (e) => {
       analytic_frame: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: false,
+        enforceClosedThesis: true,
+        requireBodyEvidence: true,
         allowIntroQuotes: true,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -577,8 +583,8 @@ dropZone.addEventListener("drop", (e) => {
       argumentation: {
         allowI: false,
         allowAudience: true,
-        noClosedThesis: true,
-        noBodyEvidence: false,
+        enforceClosedThesis: false,
+        requireBodyEvidence: false,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: false,
@@ -594,8 +600,8 @@ dropZone.addEventListener("drop", (e) => {
       foundation_1: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: true,
-        noBodyEvidence: true,
+        enforceClosedThesis: false,
+        // requireBodyEvidence: false,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -611,8 +617,8 @@ dropZone.addEventListener("drop", (e) => {
       foundation_2: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: true,
+        enforceClosedThesis: true,
+        // requireBodyEvidence: false,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -628,10 +634,11 @@ dropZone.addEventListener("drop", (e) => {
       foundation_3: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: true,
+        enforceClosedThesis: true,
+        // requireBodyEvidence: false,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
+        highlightDevices: true,
         allowContractions: false,
         allowWhich: false,  // false = still avoid "which" by default
         disableWeakVerbs: false, // false = keep marking weak verbs
@@ -644,8 +651,8 @@ dropZone.addEventListener("drop", (e) => {
       foundation_4: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: true,
+        enforceClosedThesis: true,
+        // requireBodyEvidence: false,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -661,8 +668,8 @@ dropZone.addEventListener("drop", (e) => {
       foundation_5: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: false,
+        enforceClosedThesis: true,
+        requireBodyEvidence: true,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -678,8 +685,8 @@ dropZone.addEventListener("drop", (e) => {
       foundation_6: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: false,
+        enforceClosedThesis: true,
+        requireBodyEvidence: true,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -695,8 +702,8 @@ dropZone.addEventListener("drop", (e) => {
       peel_paragraph: {
         allowI: false,
         allowAudience: false,
-        noClosedThesis: false,
-        noBodyEvidence: false,
+        enforceClosedThesis: true,
+        requireBodyEvidence: true,
         allowIntroQuotes: false,
         allowLongQuotes: false,   // false = still enforce long-quote rule
         highlightDevices: true,
@@ -717,8 +724,8 @@ dropZone.addEventListener("drop", (e) => {
 
       allowICheckbox.checked = !!defaults.allowI;
       allowAudienceCheckbox.checked = !!defaults.allowAudience;
-      noClosedThesisCheckbox.checked = !!defaults.noClosedThesis;
-      noBodyEvidenceCheckbox.checked = !!defaults.noBodyEvidence;
+      enforceClosedThesisCheckbox.checked = !!defaults.enforceClosedThesis;
+      requireBodyEvidenceCheckbox.checked = !!defaults.requireBodyEvidence;
       allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
       allowLongQuotesCheckbox.checked = !!defaults.allowLongQuotes;
       allowContractionsCheckbox.checked = !!defaults.allowContractions;
@@ -733,6 +740,16 @@ dropZone.addEventListener("drop", (e) => {
       if (modeHelp) {
         modeHelp.textContent = defaults.description;
       }
+      const hideClosedThesis = (mode === "foundation_1");
+      const hideEvidence = ["foundation_1","foundation_2","foundation_3","foundation_4"].includes(mode);
+
+      document.getElementById("closedThesisRow").style.display = hideClosedThesis ? "none" : "block";
+      if (hideClosedThesis) enforceClosedThesisCheckbox.checked = false;
+
+      document.getElementById("requireBodyEvidenceRow").style.display = hideEvidence ? "none" : "block";
+      if (hideEvidence) requireBodyEvidenceCheckbox.checked = false;
+
+
     }
 
     modeSelect.addEventListener("change", applyModeDefaults);
@@ -779,8 +796,8 @@ dropZone.addEventListener("drop", (e) => {
 
       const allowI = allowICheckbox.checked;
       const allowAudience = allowAudienceCheckbox.checked;
-      const noClosedThesis = noClosedThesisCheckbox.checked;
-      const noBodyEvidence = noBodyEvidenceCheckbox.checked;
+      const enforceClosedThesis = enforceClosedThesisCheckbox.checked;
+      const requireBodyEvidence = requireBodyEvidenceCheckbox.checked;
       const allowIntroQuotes = allowIntroQuotesCheckbox.checked;
       const allowLongQuotes = allowLongQuotesCheckbox.checked;
       const allowContractions = allowContractionsCheckbox.checked;
@@ -818,7 +835,6 @@ dropZone.addEventListener("drop", (e) => {
           formData.append("title2", title2);
           formData.append("text_is_minor_work_2", title2IsMinor);
         }
-
         if (author3) formData.append("author3", author3);
         if (title3) {
           formData.append("title3", title3);
@@ -828,8 +844,8 @@ dropZone.addEventListener("drop", (e) => {
         // Rule settings: always send explicit booleans so backend matches the UI.
         formData.append("forbid_personal_pronouns", allowI ? "false" : "true");
         formData.append("forbid_audience_reference", allowAudience ? "false" : "true");
-        formData.append("enforce_closed_thesis", noClosedThesis ? "false" : "true");
-        formData.append("require_body_evidence", noBodyEvidence ? "false" : "true");
+        formData.append("enforce_closed_thesis", enforceClosedThesis ? "true" : "false");
+        formData.append("require_body_evidence", requireBodyEvidence ? "true" : "false");
         formData.append("allow_intro_summary_quotes", allowIntroQuotes ? "true" : "false");
         formData.append("enforce_intro_quote_rule", allowIntroQuotes ? "false" : "true");
         formData.append("enforce_long_quote_rule", allowLongQuotes ? "false" : "true");
