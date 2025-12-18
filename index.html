@@ -4,354 +4,281 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vysti Marker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/marker.css">
 
-<style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 700px;
-      margin: 40px auto;
-      padding: 0 16px;
-      line-height: 1.5;
-    }
-    label { display: block; margin-top: 12px; }
-    input, select, button { margin-top: 4px; }
-    button {
-      margin-top: 20px;
-      padding: 8px 16px;
-      cursor: pointer;
-    }
-    fieldset {
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 12px;
-      margin-top: 16px;
-    }
-    legend {
-      font-weight: 600;
-      padding: 0 6px;
-    }
-    #status {
-      margin-top: 16px;
-      font-size: 0.95rem;
-    }
-    #modeHelp {
-      margin-top: 6px;
-      font-size: 0.9rem;
-      color: #555;
-    }
-    fieldset p.help-text {
-      margin-top: 4px;
-      font-size: 0.85rem;
-      color: #555;
-    }
-    .rules-group-title {
-      margin-top: 10px;
-      margin-bottom: 4px;
-      font-size: 0.95rem;
-      font-weight: 600;
-    }
-    .app-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .logo {
-      height: 80px;
-      width: auto;
-    }
-    .app-title h1 {
-      margin: 0;
-    }
-    .app-subtitle {
-      margin: 0;
-      font-size: 0.9rem;
-      color: #555;
-    }
-    #authPanel h2 {
-      margin-top: 0;
-    }
-
-    .drop-zone{
-  margin-top: 8px;
-  padding: 18px;
-  border: 2px dashed #cfcfcf;
-  border-radius: 12px;
-  background: #fafafa;
-  cursor: pointer;
-  user-select: none;
-}
-
-.drop-zone:focus{
-  outline: none;
-  border-color: #A90D22;
-  box-shadow: 0 0 0 3px rgba(169,13,34,.15);
-}
-
-.drop-zone.dragover{
-  border-color: #A90D22;
-  background: rgba(169,13,34,.06);
-}
-
-.dz-title{
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.dz-sub{
-  color: #555;
-  font-size: 0.9rem;
-}
-
-.file-list{
-  margin: 10px 0 0;
-  padding-left: 18px;
-  color: #333;
-  font-size: 0.92rem;
-}
-
-.file-list li{
-  margin: 4px 0;
-}
-
-  </style>
 
   <!-- Supabase JS client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <header class="app-header">
-    <img src="vysti_logo.png" alt="Vysti logo" class="logo" />
-    <div class="app-title">
-      <h1>Vysti Marker</h1>
-      <p class="app-subtitle"></p>
-    </div>
-  </header>
+    <header class="topbar">
+        <div class="brand">
+          <img src="/assets/logo.svg" alt="Vysti" />
+        </div>
+      
+        <nav>
+          <a href="#" class="">Dashboard</a>
+          <a href="/index.html" class="active">Mark Assignments</a>
+          <a href="#" class="">Document Review</a>
+          <a href="#" class="">Settings</a>
+        </nav>
+      
+        <div class="actions">
+          <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
+          <img class="avatar" src="/assets/avatar.png" alt="Profile" />
+          <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+        </div>
+      </header>
+      
 
   <!-- Simple auth panel -->
-  <section id="authPanel">
-    <h2>Teacher sign in</h2>
-    <label>
-      Email
-      <input type="email" id="authEmail" />
-    </label>
-    <label>
-      Password
-      <input type="password" id="authPassword" />
-    </label>
-    <div style="margin-top: 8px;">
-      <!-- Sign up removed: invite-only via Supabase dashboard -->
-      <button type="button" id="loginBtn">Log in</button>
-      <button type="button" id="logoutBtn" style="display: none;">Log out</button>
-    </div>
-    <p id="authStatus" style="margin-top: 6px; font-size: 0.9rem; color: #555;"></p>
-  </section>
-
-  <hr style="margin: 20px 0;" />
-
-  <form id="markForm">
-      <label>
-        Student name
-        <input type="text" id="studentName" />
-      </label>
   
-      <label>
-        Assignment name
-        <input type="text" id="assignmentName" />
-      </label>
-  
-   <label>Essays (.docx)</label>
 
-    <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx files">
-      <div class="dz-title">Drag & drop .docx files here</div>
-      <div class="dz-sub">or click to browse (multiple files supported)</div>
-
-      <input
-        type="file"
-        id="fileInput"
-        name="file"
-        accept=".docx"
-        multiple
-        required
-        hidden
-      />
-    </div>
-
-    <ul id="fileList" class="file-list"></ul>
-
-
+  <main class="page">
+      <form id="markForm" class="marker-grid">
+    
+    
+<section class="card form-card">
+    
+    
     <label>
-      Mode
-      <select id="mode">
-        <option value="textual_analysis">Textual analysis</option>
-        <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
-        <option value="peel_paragraph">PEEL paragraph</option>
-        <option value="reader_response">Reader response</option>
-        <option value="analytic_frame">Analytic frame</option>
-        <option value="argumentation">Argumentation</option>
-        <option value="foundation_1">First sentence only</option>
-        <option value="foundation_2">First sentence + thesis</option>
-        <option value="foundation_3">Full introduction</option>
-        <option value="foundation_4">Intro + topic sentence</option>
-        <option value="foundation_5">Intro + body</option>
-        <option value="foundation_6">Full essay</option>
-      </select>
-    </label>
-    <p id="modeHelp"></p>
-
-    <!-- Work 1 -->
-    <fieldset>
-      <legend>Work 1</legend>
-      <label>
-        Author
-        <input type="text" id="author" />
-      </label>
-
-      <label>
-        Title
-        <input type="text" id="title" />
-      </label>
-
-      <label>
-        Title type
-        <select id="title_is_minor">
-          <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
-          <option value="false">Major work — italicized</option>
+        Mode
+        <select id="mode">
+          <option value="textual_analysis">Textual analysis</option>
+          <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
+          <option value="peel_paragraph">PEEL paragraph</option>
+          <option value="reader_response">Reader response</option>
+          <option value="analytic_frame">Analytic frame</option>
+          <option value="argumentation">Argumentation</option>
+          <option value="foundation_1">First sentence only</option>
+          <option value="foundation_2">First sentence + thesis</option>
+          <option value="foundation_3">Full introduction</option>
+          <option value="foundation_4">Intro + topic sentence</option>
+          <option value="foundation_5">Intro + body</option>
+          <option value="foundation_6">Full essay</option>
         </select>
       </label>
-    </fieldset>
-
-    <!-- Work 2 (optional) -->
+      <p id="modeHelp"></p>
+      <!-- Work 1 -->
     <fieldset>
-      <legend>Work 2 (optional)</legend>
-      <label>
-        Author 2
-        <input type="text" id="author2" />
-      </label>
-
-      <label>
-        Title 2
-        <input type="text" id="title2" />
-      </label>
-
-      <label>
-        Title 2 type
-        <select id="title2_is_minor" disabled>
-          <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
-          <option value="false">Major work — italicized</option>
-        </select>
-      </label>
-    </fieldset>
-
-    <!-- Work 3 (optional) -->
-    <fieldset>
-      <legend>Work 3 (optional)</legend>
-      <label>
-        Author 3
-        <input type="text" id="author3" />
-      </label>
-
-      <label>
-        Title 3
-        <input type="text" id="title3" />
-      </label>
-
-      <label>
-        Title 3 type
-        <select id="title3_is_minor" disabled>
-          <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
-          <option value="false">Major work — italicized</option>
-        </select>
-      </label>
-    </fieldset>
-
-    <!-- Rule toggles -->
-    <fieldset>
-      <legend>Rule options (optional)</legend>
-      <p class="help-text">
-        Mode sets the defaults for this assignment. Use these switches to loosen or tighten rules.
-      </p>
-
-      <div class="rules-group-title">Voice &amp; audience</div>
-      <label>
-        <input type="checkbox" id="allow_i" />
-        Allow first person (“I”, “we”, “our”) in this assignment
-      </label>
-      <label>
-        <input type="checkbox" id="allow_audience" />
-        Allow direct address to the reader or audience (“you”, “the reader”, “audience”)
-      </label>
-
-      <div class="rules-group-title">Thesis</div>
-
-<div id="closedThesisRow">
-  <label>
-    <input type="checkbox" id="enforce_closed_thesis" />
-    Require a closed thesis statement
-  </label>
-</div>
-
-
-      <div class="rules-group-title">Evidence &amp; quotations</div>
-      <div id="requireBodyEvidenceRow">
+        <legend>Work 1</legend>
         <label>
-        <input type="checkbox" id="require_body_evidence" />
-        Require a quotation in every body paragraph
-      </label>
-    </div>
-      <label>
-        <input type="checkbox" id="allow_intro_quotes" />
-        Allow quotations in the introduction (except the thesis sentence)
-      </label>
-      <label>
-        <input type="checkbox" id="allow_long_quotes" />
-        Allow long quotations (turn off “Shorten, modify, and integrate quotations” rule)
-      </label>
+          Author
+          <input type="text" id="author" />
+        </label>
+  
+        <label>
+          Title
+          <input type="text" id="title" />
+        </label>
+  
+        <label>
+          Title type
+          <select id="title_is_minor">
+            <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
+            <option value="false">Major work — italicized</option>
+          </select>
+        </label>
+      </fieldset>
+  
+      <!-- Work 2 (optional) -->
+      <fieldset>
+        <legend>Work 2 (optional)</legend>
+        <label>
+          Author 2
+          <input type="text" id="author2" />
+        </label>
+  
+        <label>
+          Title 2
+          <input type="text" id="title2" />
+        </label>
+  
+        <label>
+          Title 2 type
+          <select id="title2_is_minor" disabled>
+            <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
+            <option value="false">Major work — italicized</option>
+          </select>
+        </label>
+      </fieldset>
+  
+      <!-- Work 3 (optional) -->
+      <fieldset>
+        <legend>Work 3 (optional)</legend>
+        <label>
+          Author 3
+          <input type="text" id="author3" />
+        </label>
+  
+        <label>
+          Title 3
+          <input type="text" id="title3" />
+        </label>
+  
+        <label>
+          Title 3 type
+          <select id="title3_is_minor" disabled>
+            <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
+            <option value="false">Major work — italicized</option>
+          </select>
+        </label>
+      </fieldset>
+      <button class="primary-btn" type="submit">Mark Essay</button>
+  </section>
+  
+  
+  <section class="card upload-card">
+      <label>Essays (.docx)</label>
 
-      <div class="rules-group-title">Style</div>
-      <label>
-        <input type="checkbox" id="allow_contractions" />
-        Allow contractions (“don't”, “can't”, “it's”) outside quotations
-      </label>
-      <label>
-        <input type="checkbox" id="allow_which" />
-        Allow the word “which”
-      </label>
-      <label>
-        <input type="checkbox" id="disable_weak_verbs" />
-        Turn off weak-verb Power Verbs rule (“use”, “show”)
-      </label>
-      <label>
-        <input type="checkbox" id="disable_fact_rule" />
-        Turn off “fact / proof / prove” rule
-      </label>
-      <label>
-        <input type="checkbox" id="disable_human_rule" />
-        Turn off “human / people / everyone / individual” rule
-      </label>
-      <label>
-        <input type="checkbox" id="disable_vague_general_rule" />
-        Turn off vague “society / universe / reality / life / truth” rule
-      </label>
-      <div class="rules-group-title">Grammar</div>
-      <label>
-        <input type="checkbox" id="enable_grammar" />
-        Enable grammar checks (subject–verb agreement + present tense)
-      </label>
-      <p class="help-text">
-      Turn this off if you don’t want grammar highlights on this run.
-      </p>
+      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx files">
+        <div class="dz-title">Drag & drop .docx files here</div>
+        <div class="dz-sub">or click to browse (multiple files supported)</div>
+  
+        <input
+          type="file"
+          id="fileInput"
+          name="file"
+          accept=".docx"
+          multiple
+          required
+          hidden
+        />
+      </div>
+  
+      <ul id="fileList" class="file-list"></ul>
+   
+  </section>
+  
+  
+  <section class="card rules-card">
+       <div class="rules-cols">
+        
+            <!-- LEFT COLUMN -->
+            <div>
+              <div class="rules-title">Voice &amp; audience</div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_i" />
+                <div>Allow personal pronouns (“I”, “you”, “we”)</div>
+                <div class="info" title="Allows first/second-person voice for more personal tasks.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_audience" />
+                <div>Allow references to the reader or audience</div>
+                <div class="info" title="Allows direct address like “you”, “the reader”, etc.">i</div>
+              </div>
+        
+              <div class="rules-title" style="margin-top:14px;">Argument and evidence</div>
+        
+              <div id="closedThesisRow" class="rule-row">
+                <input type="checkbox" id="enforce_closed_thesis" />
+                <div>Require a closed thesis statement</div>
+                <div class="info" title="When ON, thesis must be specific and match organization.">i</div>
+              </div>
+        
+              <div id="requireBodyEvidenceRow" class="rule-row">
+                <input type="checkbox" id="require_body_evidence" />
+                <div>Require quotations in body paragraphs</div>
+                <div class="info" title="When ON, each body paragraph must include evidence.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_intro_quotes" />
+                <div>Allow quotations in the introduction</div>
+                <div class="info" title="Allows intro quotations (except the thesis sentence).">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_long_quotes" />
+                <div>Allow long quotations</div>
+                <div class="info" title="Turns off the rule that forces shortening/integration.">i</div>
+              </div>
+            </div>
+        
+            <!-- RIGHT COLUMN -->
+            <div>
+              <div class="rules-title">Style</div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_contractions" />
+                <div>Allow contractions (“isn’t”, “can’t”)</div>
+                <div class="info" title="When OFF, contractions are flagged outside quotations.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_which" />
+                <div>Allow the word “which”</div>
+                <div class="info" title="When OFF, “which” is flagged as a clarity issue.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_fact_rule" />
+                <div>Allow “fact” and “prove”</div>
+                <div class="info" title="When OFF, fact/proof/prove language is flagged.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_weak_verbs" />
+                <div>Disregard weak verbs (“show”, “use”)</div>
+                <div class="info" title="When OFF, weak analysis verbs are flagged.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_human_rule" />
+                <div>Allow “human”, “people”, “everyone”</div>
+                <div class="info" title="When OFF, vague general nouns are flagged.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_vague_general_rule" />
+                <div>Allow vague terms (“society”, “truth”, “life”)</div>
+                <div class="info" title="When OFF, vague abstractions are flagged.">i</div>
+              </div>
+        
+              <div class="rules-title" style="margin-top:14px;">Grammar</div>
+        
+              <div id="svaRow" class="rule-row">
+                <input type="checkbox" id="enforce_sva_rule" />
+                <div>Check for subject–verb agreement</div>
+                <div class="info" title="Flags mismatches like “reasons is”.">i</div>
+              </div>
+        
+              <div id="presentTenseRow" class="rule-row">
+                <input type="checkbox" id="enforce_present_tense_rule" />
+                <div>Check for present tense</div>
+                <div class="info" title="Hidden for Argumentation; flags past-tense analysis verbs.">i</div>
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="highlight_devices" />
+                <div>Highlight devices and strategies</div>
+                <div class="info" title="Highlights rhetorical devices in green when ON.">i</div>
+              </div>
+            </div>
+        
+          </div>
+        </section>
+        
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+</main>
 
-      <label>
-        <input type="checkbox" id="highlight_devices" />
-        Highlight rhetorical devices/strategies in green
-      </label>
-    </fieldset>
+  
+   
 
-    <button type="submit">Mark my essay(s)</button>
-  </form>
 
-  <div id="status" role="status" aria-live="polite"></div>
+    
+
+    
+
+   
+
+
 
   <script>
     // ===== Supabase auth setup =====
@@ -360,15 +287,15 @@
 
     const { createClient } = supabase;
     const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const authEmailInput = document.getElementById("authEmail");
-    const authPasswordInput = document.getElementById("authPassword");
-    const loginBtn = document.getElementById("loginBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const authStatus = document.getElementById("authStatus");
-
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      window.location.replace("/signin.html");
+});
+
     const statusEl = document.getElementById("status");
 
     // ===== Drag & drop wiring =====
@@ -471,28 +398,10 @@ dropZone.addEventListener("drop", (e) => {
       }
 
       // logged in
-      document.getElementById("authPanel").style.display = "none";
       form.style.display = "block";
     }
 
-    loginBtn.addEventListener("click", async () => {
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value.trim();
-      authStatus.textContent = "Logging in...";
-      const { error } = await supa.auth.signInWithPassword({ email, password });
-      if (error) {
-        authStatus.textContent = `Login error: ${error.message}`;
-      } else {
-        authStatus.textContent = "Logged in.";
-        await refreshAuthUI();
-      }
-    });
-
-    logoutBtn.addEventListener("click", async () => {
-      await supa.auth.signOut();
-      await refreshAuthUI();
-    });
-
+    
     // Initial UI state + listener
     refreshAuthUI();
     supa.auth.onAuthStateChange((_event, _session) => {
@@ -518,7 +427,9 @@ dropZone.addEventListener("drop", (e) => {
     const highlightDevicesCheckbox = document.getElementById("highlight_devices");
     const disableHumanRuleCheckbox = document.getElementById("disable_human_rule");
     const disableVagueRuleCheckbox = document.getElementById("disable_vague_general_rule");
-    const enableGrammarCheckbox = document.getElementById("enable_grammar");
+    const enforceSvaCheckbox = document.getElementById("enforce_sva_rule");
+    const enforcePresentTenseCheckbox = document.getElementById("enforce_present_tense_rule");
+
 
     const modeHelp = document.getElementById("modeHelp");
 
@@ -543,7 +454,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Textual analysis: formal mode, no first person, closed thesis required."
       },
       reader_response: {
@@ -560,7 +472,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Reader response: personal voice allowed; still expects a thesis by default."
       },
       analytic_frame: {
@@ -577,7 +490,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Analytic frame: multiple works allowed; quotations in the introduction are allowed."
       },
       argumentation: {
@@ -594,7 +508,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: false,
         description: "Argumentation: open thesis by default; looser thesis/topic alignment; direct address to the reader allowed."
       },
       foundation_1: {
@@ -611,7 +526,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Foundation 1: first sentence only; closed thesis and body-paragraph rules are off."
       },
       foundation_2: {
@@ -628,7 +544,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Foundation 2: first sentence + closed thesis."
       },
       foundation_3: {
@@ -645,7 +562,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Foundation 3: full introduction with closed thesis."
       },
       foundation_4: {
@@ -662,7 +580,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Foundation 4: introduction + first body topic sentence."
       },
       foundation_5: {
@@ -679,7 +598,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Foundation 5: introduction + body paragraphs."
       },
       foundation_6: {
@@ -696,7 +616,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "Foundation 6: full essay, full rule set."
       },
       peel_paragraph: {
@@ -713,7 +634,8 @@ dropZone.addEventListener("drop", (e) => {
         disableFactRule: false, // false = keep enforcing fact/proof/prove rule
         disableHumanRule: false,
         disableVagueGeneralRule: false,
-        enableGrammar: true,
+        enforceSva: true,
+        enforcePresentTense: true,
         description: "PEEL paragraph: single body paragraph with evidence."
       },
     };
@@ -734,7 +656,14 @@ dropZone.addEventListener("drop", (e) => {
       disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
       disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
       disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
-      enableGrammarCheckbox.checked = defaults.enableGrammar !== false;
+      enforceSvaCheckbox.checked = defaults.enforceSva !== false;
+      enforcePresentTenseCheckbox.checked = defaults.enforcePresentTense !== false;
+
+      // Hide present-tense toggle for Argumentation (and force it OFF so it can't "carry over")
+      const hidePresentTense = (mode === "argumentation");
+      document.getElementById("presentTenseRow").style.display = hidePresentTense ? "none" : "block";
+      if (hidePresentTense) enforcePresentTenseCheckbox.checked = false;
+
       highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
 
       if (modeHelp) {
@@ -770,10 +699,7 @@ dropZone.addEventListener("drop", (e) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
-      const studentName = document.getElementById("studentName").value.trim();
-      const assignmentName = document.getElementById("assignmentName").value.trim();
-
-      const files = fileInput.files;
+            const files = fileInput.files;
 
       if (!files || files.length === 0) {
         statusEl.textContent = "Choose at least one .docx file.";
@@ -807,7 +733,9 @@ dropZone.addEventListener("drop", (e) => {
       const disableHumanRule = disableHumanRuleCheckbox.checked;
       const disableVagueRule = disableVagueRuleCheckbox.checked;
       const highlightDevices = highlightDevicesCheckbox.checked;
-      const enableGrammar = enableGrammarCheckbox.checked;
+      const enforceSva = enforceSvaCheckbox.checked;
+      const enforcePresentTense = enforcePresentTenseCheckbox.checked;
+
 
 
       statusEl.textContent = `Processing ${files.length} file(s)...`;
@@ -820,8 +748,7 @@ dropZone.addEventListener("drop", (e) => {
         formData.append("file", file);
         formData.append("mode", mode);
 
-        if (studentName) formData.append("student_name", studentName);
-        if (assignmentName) formData.append("assignment_name", assignmentName);
+       
 
 
         if (author) formData.append("author", author);
@@ -855,8 +782,8 @@ dropZone.addEventListener("drop", (e) => {
         formData.append("enforce_fact_proof_rule", disableFactRule ? "false" : "true");
         formData.append("enforce_human_people_rule", disableHumanRule ? "false" : "true");
         formData.append("enforce_vague_terms_rule", disableVagueRule ? "false" : "true");
-        formData.append("enforce_sva_rule", enableGrammar ? "true" : "false");
-        formData.append("enforce_present_tense_rule", enableGrammar ? "true" : "false");
+        formData.append("enforce_sva_rule", enforceSva ? "true" : "false");
+        formData.append("enforce_present_tense_rule", enforcePresentTense ? "true" : "false");
         formData.append("highlight_thesis_devices", highlightDevices ? "true" : "false");
 
         try {
