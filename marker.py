@@ -669,6 +669,7 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_specific_thesis_topics = False
         cfg.enforce_thesis_organization = False
         cfg.enforce_topic_thesis_alignment = False
+        cfg.require_body_evidence = False
         cfg.enforce_off_topic = False
         # Allow direct address to the reader/audience in argumentation
         # ("Avoid referring to the reader or audience..." is off),
