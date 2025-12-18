@@ -71,6 +71,49 @@
     #authPanel h2 {
       margin-top: 0;
     }
+
+    .drop-zone{
+  margin-top: 8px;
+  padding: 18px;
+  border: 2px dashed #cfcfcf;
+  border-radius: 12px;
+  background: #fafafa;
+  cursor: pointer;
+  user-select: none;
+}
+
+.drop-zone:focus{
+  outline: none;
+  border-color: #A90D22;
+  box-shadow: 0 0 0 3px rgba(169,13,34,.15);
+}
+
+.drop-zone.dragover{
+  border-color: #A90D22;
+  background: rgba(169,13,34,.06);
+}
+
+.dz-title{
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.dz-sub{
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.file-list{
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #333;
+  font-size: 0.92rem;
+}
+
+.file-list li{
+  margin: 4px 0;
+}
+
   </style>
 
   <!-- Supabase JS client -->
@@ -117,8 +160,11 @@
         <input type="text" id="assignmentName" />
       </label>
   
-      <label>
-        Essays (.docx)
+   <label>Essays (.docx)</label>
+
+    <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx files">
+      <div class="dz-title">Drag & drop .docx files here</div>
+      <div class="dz-sub">or click to browse (multiple files supported)</div>
 
       <input
         type="file"
@@ -127,8 +173,12 @@
         accept=".docx"
         multiple
         required
+        hidden
       />
-    </label>
+    </div>
+
+    <ul id="fileList" class="file-list"></ul>
+
 
     <label>
       Mode
@@ -314,6 +364,96 @@
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
     const statusEl = document.getElementById("status");
+
+    // ===== Drag & drop wiring =====
+const dropZone = document.getElementById("dropZone");
+const fileList = document.getElementById("fileList");
+
+function renderFileList(files) {
+  fileList.innerHTML = "";
+  if (!files || files.length === 0) return;
+
+  for (const f of files) {
+    const li = document.createElement("li");
+    li.textContent = f.name;
+    fileList.appendChild(li);
+  }
+}
+
+function isDocx(file) {
+  return file && /\.docx$/i.test(file.name || "");
+}
+
+function setFileInputFiles(fileArray) {
+  const dt = new DataTransfer();
+  for (const f of fileArray) dt.items.add(f);
+  fileInput.files = dt.files;
+  renderFileList(fileInput.files);
+}
+
+function addFilesToSelection(newFiles) {
+  const existing = Array.from(fileInput.files || []);
+  const incoming = Array.from(newFiles || []);
+
+  const kept = existing.slice();
+
+  const bad = incoming.filter(f => !isDocx(f));
+  const good = incoming.filter(f => isDocx(f));
+
+  if (bad.length) {
+    statusEl.textContent = `Ignored ${bad.length} non-.docx file(s).`;
+  }
+
+  // Append new .docx files (and avoid duplicates by name+size)
+  for (const f of good) {
+    const dupe = kept.some(x => x.name === f.name && x.size === f.size);
+    if (!dupe) kept.push(f);
+  }
+
+  setFileInputFiles(kept);
+}
+
+// Click / keyboard opens file picker
+dropZone.addEventListener("click", () => fileInput.click());
+dropZone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    fileInput.click();
+  }
+});
+
+// Standard selection updates list
+fileInput.addEventListener("change", () => {
+  renderFileList(fileInput.files);
+});
+
+// Drag events
+["dragenter", "dragover"].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add("dragover");
+  });
+});
+
+["dragleave", "dragend"].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove("dragover");
+  });
+});
+
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove("dragover");
+
+  if (e.dataTransfer && e.dataTransfer.files) {
+    addFilesToSelection(e.dataTransfer.files);
+  }
+});
+
     
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
