@@ -17,6 +17,10 @@ body{
   background: var(--bg);
   color: var(--text);
 }
+.dz-icon{
+  width: 40px;   /* adjust to the exact Figma W/H if it’s different */
+  height: 40px;
+}
 
 /* Top bar */
 .topbar{
@@ -91,7 +95,7 @@ body{
 
 .marker-grid{
   display:grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 379px 1fr;
   grid-template-areas:
     "form  upload"
     "form  rules";
@@ -107,14 +111,16 @@ body{
 
 /* Cards */
 .card{
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background: #FAFAFB;                 /* Figma */
+  border: 0 solid #000;                /* Figma says border 0 */
+  border-radius: 12px;                 /* Figma */
+  box-shadow: 0 2px 4px 0 rgba(0,0,0,.08); /* Figma */
 }
+
 
 /* Left form card */
 .form-card{
+  grid-area: form;
   padding: 18px;
 }
 .form-card h2{
@@ -157,27 +163,33 @@ input:focus, select:focus{
 
 /* Drop zone style (Figma-ish) */
 .drop-zone{
-  margin-top: 6px;
-  height: 170px;
-  border: 2px dashed rgba(0,0,0,.14);
-  border-radius: 14px;
+  /* Match Figma Dragand DropContainer */
   display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  gap:8px;
-  color: var(--muted);
-  background: #fbfbfc;
+  width: min(928px, 100%);  /* Figma width = 928; clamp for smaller screens */
+  height: 192px;            /* Figma */
+  padding: 56px 265px 56px 267px; /* Figma (yes asymmetric) */
+  
+  
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+
+  border-radius: 12px;
+  border: 2px dashed #DEE1E6;
+  background: rgba(0,0,0,0);
+
   cursor: pointer;
+  user-select: none;
+  margin-top: 6px;
 }
+
 .drop-zone.dragover{
   border-color: var(--maroon);
   background: rgba(169,13,34,.05);
 }
-.dz-icon{
-  width:40px; height:40px;
-  opacity:.8;
-}
+
 
 /* Rules card */
 .rules-card{
@@ -226,23 +238,20 @@ input:focus, select:focus{
 
 /* Rule row */
 .rule-row{
-  display:flex;
+  display:grid;
+  grid-template-columns: 44px 1fr 18px; /* toggle / text / info */
   align-items:center;
-  gap:10px;
+  column-gap: 10px;
+  row-gap: 0;
   margin: 10px 0;
   font-size:14px;
 }
+
 .rule-row .info{
-  margin-left:auto;
-  width:18px;height:18px;
-  border-radius:999px;
-  border:1px solid rgba(0,0,0,.22);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:12px;
-  color: rgba(0,0,0,.6);
+  justify-self:end;
+  margin-left:0;
 }
+
 
 @media (max-width: 980px){
   .marker-grid{
@@ -253,5 +262,13 @@ input:focus, select:focus{
       "rules";
   }
   .rules-cols{ grid-template-columns: 1fr; }
+}
+
+@media (max-width: 980px){
+  .drop-zone{
+    padding: 40px 16px; /* mobile-friendly fallback */
+    height: auto;
+    min-height: 192px;
+  }
 }
 
