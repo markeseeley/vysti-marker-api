@@ -95,7 +95,7 @@ body{
 
 .marker-grid{
   display:grid;
-  grid-template-columns: 379px 1fr;
+  grid-template-columns: 360px 1fr;
   grid-template-areas:
     "form  upload"
     "form  rules";
@@ -168,8 +168,6 @@ input:focus, select:focus{
   width: min(928px, 100%);  /* Figma width = 928; clamp for smaller screens */
   height: 192px;            /* Figma */
   padding: 56px 265px 56px 267px; /* Figma (yes asymmetric) */
-  
-  
   flex-direction: column;
   justify-content: center;
   align-items: center;
@@ -189,68 +187,105 @@ input:focus, select:focus{
   border-color: var(--maroon);
   background: rgba(169,13,34,.05);
 }
-
-
-/* Rules card */
-.rules-card{
-   padding: 16px;
+.dz-icon{
+  width:40px; height:40px;
+  opacity:.8;
 }
+
+.rules-card{
+  grid-area: rules;
+  width: min(960px, 100%);
+  min-height: 474px;                 /* keep flexible; Figma says 474 */
+  padding: 16px;
+  background: #FAFAFB;               /* Figma */
+  border-radius: 12px;               /* Figma */
+  border: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08); /* Figma */
+}
+
 .rules-cols{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 22px;
 }
+
+.rules-title.spaced{ margin-top: 14px; }
+
 .rules-title{
-  font-weight:800;
-  margin: 0 0 10px;
-  font-size: 14px;
-  color: rgba(0,0,0,.75);
+  color: #171A1F;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-size: 18px;     /* Figma */
+  font-weight: 500;    /* Figma */
+  line-height: 24px;   /* Figma */
+  margin: 0 0 8px;
 }
+
 
 /* Switch look for rule checkboxes (scoped) */
 .rules-card input[type="checkbox"]{
-  appearance:none;
-  width:44px;
-  height:24px;
-  border-radius:999px;
-  background: rgba(0,0,0,.18);
-  position:relative;
-  cursor:pointer;
-  flex:0 0 auto;
-  outline:none;
+  appearance: none;
+  width: 44px;               /* Figma */
+  height: 24px;              /* Figma */
+  border-radius: 12px;
+  background: #BCC1CA;       /* Figma off */
+  position: relative;
+  cursor: pointer;
+  outline: none;
 }
+
 .rules-card input[type="checkbox"]::before{
-  content:"";
-  position:absolute;
-  top:3px; left:3px;
-  width:18px; height:18px;
-  border-radius:999px;
-  background:#fff;
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;               /* ~circle diameter in Figma svg */
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
   transition: transform .15s ease;
-  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
 }
+
 .rules-card input[type="checkbox"]:checked{
-  background: var(--maroon);
+  background: #A90D22;       /* your maroon */
 }
+
 .rules-card input[type="checkbox"]:checked::before{
-  transform: translateX(20px);
+  transform: translateX(20px); /* 44 - 20 - 4 = 20 */
 }
+
 
 /* Rule row */
 .rule-row{
-  display:grid;
-  grid-template-columns: 44px 1fr 18px; /* toggle / text / info */
-  align-items:center;
+  display: grid;
+  grid-template-columns: 44px 16px minmax(312px, 1fr);
+  align-items: center;
   column-gap: 10px;
-  row-gap: 0;
   margin: 10px 0;
-  font-size:14px;
+
+  color: #171A1F;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-size: 16px;     /* Figma */
+  font-weight: 500;    /* Figma */
+  line-height: 24px;   /* Figma */
 }
 
-.rule-row .info{
-  justify-self:end;
-  margin-left:0;
+.rule-row .rule-text{
+  max-width: 312px;    /* Figma width for label */
 }
+
+
+.rule-row .info{
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  color: #171A1F;
+  font-size: 16px;
+  line-height: 24px;
+  cursor: help;
+  opacity: .55;
+}
+
 
 
 @media (max-width: 980px){
@@ -261,14 +296,17 @@ input:focus, select:focus{
       "upload"
       "rules";
   }
-  .rules-cols{ grid-template-columns: 1fr; }
-}
-
-@media (max-width: 980px){
-  .drop-zone{
-    padding: 40px 16px; /* mobile-friendly fallback */
-    height: auto;
-    min-height: 192px;
+  .rules-cols{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
   }
 }
-
+  @media (max-width: 980px){
+    .drop-zone{
+      padding: 40px 16px;
+      height: auto;
+      min-height: 192px;
+    }
+  }
+  
