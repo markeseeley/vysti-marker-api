@@ -119,13 +119,33 @@
           <input type="text" id="title2" />
         </label>
   
-        <label>
-          Title 2 type
-          <select id="title2_is_minor" disabled>
-            <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
-            <option value="false">Major work — italicized</option>
+        <div class="title-type-block">
+          <div class="title-type-label">Title type</div>
+        
+          <select id="title2_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1" disabled>
+            <option value="true" selected>Minor work — in "double quotes"</option>
+            <option value="false">Major work — in italics</option>
           </select>
-        </label>
+        
+          <div class="title-type-grid">
+            <label class="type-option">
+              <span class="type-head">
+                <input type="radio" name="title2_type" value="true" checked disabled />
+                <span class="type-name">Minor work</span>
+              </span>
+              <span class="type-help">The title of the text must be in double quotation marks</span>
+            </label>
+        
+            <label class="type-option">
+              <span class="type-head">
+                <input type="radio" name="title2_type" value="false" disabled />
+                <span class="type-name">Major work</span>
+              </span>
+              <span class="type-help">The title of the text must be in italics</span>
+            </label>
+          </div>
+        </div>
+        
       </fieldset>
   
       <!-- Work 3 (optional) -->
@@ -141,13 +161,33 @@
           <input type="text" id="title3" />
         </label>
   
-        <label>
-          Title 3 type
-          <select id="title3_is_minor" disabled>
-            <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
-            <option value="false">Major work — italicized</option>
+        <div class="title-type-block">
+          <div class="title-type-label">Title type</div>
+        
+          <select id="title3_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1" disabled>
+            <option value="true" selected>Minor work — in "double quotes"</option>
+            <option value="false">Major work — in italics</option>
           </select>
-        </label>
+        
+          <div class="title-type-grid">
+            <label class="type-option">
+              <span class="type-head">
+                <input type="radio" name="title3_type" value="true" checked disabled />
+                <span class="type-name">Minor work</span>
+              </span>
+              <span class="type-help">The title of the text must be in double quotation marks</span>
+            </label>
+        
+            <label class="type-option">
+              <span class="type-head">
+                <input type="radio" name="title3_type" value="false" disabled />
+                <span class="type-name">Major work</span>
+              </span>
+              <span class="type-help">The title of the text must be in italics</span>
+            </label>
+          </div>
+        </div>
+        
       </fieldset>
       <button class="primary-btn" type="submit">Mark Essay</button>
   </section>
@@ -476,6 +516,30 @@ dropZone.addEventListener("drop", (e) => {
     const title3Input = document.getElementById("title3");
     const title2Type = document.getElementById("title2_is_minor");
     const title3Type = document.getElementById("title3_is_minor");
+    const title1Type = document.getElementById("title_is_minor");
+    const title1Radios = Array.from(document.querySelectorAll('input[name="title1_type"]'));
+    const title2Radios = Array.from(document.querySelectorAll('input[name="title2_type"]'));
+    const title3Radios = Array.from(document.querySelectorAll('input[name="title3_type"]'));
+
+    function syncRadioGroupToSelect(radios, selectEl) {
+      if (!selectEl || !radios || radios.length === 0) return;
+
+      // Initialize radios from whatever the select currently says
+      const current = selectEl.value;
+      radios.forEach(r => (r.checked = (r.value === current)));
+
+      // On change, push radio value into the select
+      radios.forEach(r => {
+        r.addEventListener("change", (e) => {
+          if (e.target.checked) selectEl.value = e.target.value;
+        });
+      });
+    }
+
+    syncRadioGroupToSelect(title1Radios, title1Type);
+    syncRadioGroupToSelect(title2Radios, title2Type);
+    syncRadioGroupToSelect(title3Radios, title3Type);
+
 
     // Per-mode defaults for the visible rule toggles
     const MODE_RULE_DEFAULTS = {
@@ -724,10 +788,21 @@ dropZone.addEventListener("drop", (e) => {
     applyModeDefaults(); // initial state on load
 
     // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
-    function syncTypePickers() {
-      title2Type.disabled = !title2Input.value.trim();
-      title3Type.disabled = !title3Input.value.trim();
-    }
+    function setRadiosDisabled(radios, disabled) {
+  radios.forEach(r => (r.disabled = disabled));
+}
+
+function syncTypePickers() {
+  const hasTitle2 = !!title2Input.value.trim();
+  const hasTitle3 = !!title3Input.value.trim();
+
+  title2Type.disabled = !hasTitle2;
+  title3Type.disabled = !hasTitle3;
+
+  setRadiosDisabled(title2Radios, !hasTitle2);
+  setRadiosDisabled(title3Radios, !hasTitle3);
+}
+
 
     ["input", "change"].forEach((evt) => {
       title2Input.addEventListener(evt, syncTypePickers);
