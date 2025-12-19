@@ -525,7 +525,7 @@ input:focus, select:focus{
 .footer-logo{
   grid-column: 3;
   justify-self: end;
-  height: 28px;      /* tweak size here */
+  height: 140px;      /* tweak size here */
   width: auto;
   opacity: 1;
 }
