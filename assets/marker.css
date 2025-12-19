@@ -504,3 +504,21 @@ input:focus, select:focus{
   padding-left: 18px;
 }
 
+/* ===== Watermark background logo ===== */
+body{ position: relative; }
+
+body::before{
+  content:"";
+  position: fixed;     /* stays in place while you scroll */
+  inset: 0;
+  background-image: url("/assets/logo_black.png");
+  background-repeat: repeat-y;         /* “along the entire back” */
+  background-position: center 120px;   /* nudge it below the topbar */
+  background-size: 900px auto;         /* BIG logo */
+  opacity: 0.04;                       /* high transparency */
+  pointer-events: none;                /* never blocks clicks */
+  z-index: 0;
+}
+
+/* ensure page content sits above the watermark */
+.page{ position: relative; z-index: 1; }
