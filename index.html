@@ -76,13 +76,34 @@
           <input type="text" id="title" />
         </label>
   
-        <label>
-          Title type
-          <select id="title_is_minor">
+        <div class="title-type-block">
+          <div class="title-type-label">Title type</div>
+        
+          <div class="title-type-grid">
+            <label class="type-option">
+              <span class="type-head">
+                <input type="radio" name="title1_type" value="true" checked />
+                <span class="type-name">Minor work</span>
+              </span>
+              <span class="type-help">The title of the text must be in double quotation marks</span>
+            </label>
+        
+            <label class="type-option">
+              <span class="type-head">
+                <input type="radio" name="title1_type" value="false" />
+                <span class="type-name">Major work</span>
+              </span>
+              <span class="type-help">The title of the text must be in italics</span>
+            </label>
+          </div>
+        
+          <!-- Keep the existing select for your JS/backend -->
+          <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
             <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
             <option value="false">Major work — italicized</option>
           </select>
-        </label>
+        </div>
+        
       </fieldset>
   
       <!-- Work 2 (optional) -->
@@ -713,6 +734,25 @@ dropZone.addEventListener("drop", (e) => {
       title3Input.addEventListener(evt, syncTypePickers);
     });
     syncTypePickers();
+
+    function bindTitleTypeRadios(radioName, selectId) {
+  const sel = document.getElementById(selectId);
+  const radios = Array.from(document.querySelectorAll(`input[name="${radioName}"]`));
+  if (!sel || radios.length === 0) return;
+
+  // Ensure radio state matches current select value on load
+  radios.forEach(r => r.checked = (r.value === sel.value));
+
+  // When user changes radio, update the select value
+  radios.forEach(r => {
+    r.addEventListener("change", () => {
+      if (r.checked) sel.value = r.value;
+    });
+  });
+}
+
+bindTitleTypeRadios("title1_type", "title_is_minor");
+
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
