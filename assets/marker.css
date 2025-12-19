@@ -289,18 +289,15 @@ input:focus, select:focus{
   line-height:16px;
   text-align:center;
   cursor: help;
-  opacity:.1;
 
-  margin-left:10px;     /* switch → i gap */
-  margin-right:4px;     /* i → label gap */
+  /* IMPORTANT: do NOT use opacity here or the tooltip turns gray */
+  opacity: 1;
+  color: rgba(0,0,0,.55);  /* fades just the "i" */
+  
+  margin-left:10px;
+  margin-right:4px;
 }
 
-/* the label text */
-.rule-row > .rule-text{
-  flex: 1 1 auto;
-  min-width:0;
-  line-height:24px;     /* label height alignment */
-}
 
 
 
