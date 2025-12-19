@@ -62,7 +62,31 @@
           <option value="foundation_6">Full essay</option>
         </select>
       </label>
-      <p id="modeHelp"></p>
+
+     
+
+<!-- Mode explainer card (single, dynamic) -->
+<div class="mode-card" id="modeCard">
+  <div class="mode-card-header">
+    <span class="mode-badge" id="modeBadge">Textual analysis</span>
+    <span class="mode-tag" id="modeTag">Defaults</span>
+  </div>
+
+  <div class="mode-desc" id="modeDesc">
+    Formal and academic. No first person. Closed thesis required.
+  </div>
+
+  <button type="button" class="mode-more" id="modeMoreBtn" aria-expanded="false">
+    Want more details?
+  </button>
+
+  <div class="mode-details" id="modeDetails" hidden>
+    <ul id="modeDetailsList"></ul>
+  </div>
+</div>
+
+      
+      
       <!-- Work 1 -->
     <fieldset>
         <legend>Work 1</legend>
@@ -553,251 +577,343 @@ dropZone.addEventListener("drop", (e) => {
     syncRadioGroupToSelect(title3Radios, title3Type);
 
 
-    // Per-mode defaults for the visible rule toggles
-    const MODE_RULE_DEFAULTS = {
-      textual_analysis: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        requireBodyEvidence: true,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      reader_response: {
-        allowI: true,
-        allowAudience: true,
-        enforceClosedThesis: true,
-        requireBodyEvidence: true,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: true,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      analytic_frame: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        requireBodyEvidence: true,
-        allowIntroQuotes: true,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      argumentation: {
-        allowI: false,
-        allowAudience: true,
-        enforceClosedThesis: false,
-        requireBodyEvidence: false,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: false,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: false,
-        description: ""
-      },
-      foundation_1: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: false,
-        // requireBodyEvidence: false,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      foundation_2: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        // requireBodyEvidence: false,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      foundation_3: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        // requireBodyEvidence: false,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      foundation_4: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        // requireBodyEvidence: false,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      foundation_5: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        requireBodyEvidence: true,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      foundation_6: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        requireBodyEvidence: true,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-      peel_paragraph: {
-        allowI: false,
-        allowAudience: false,
-        enforceClosedThesis: true,
-        requireBodyEvidence: true,
-        allowIntroQuotes: false,
-        allowLongQuotes: false,   // false = still enforce long-quote rule
-        highlightDevices: true,
-        allowContractions: false,
-        allowWhich: false,  // false = still avoid "which" by default
-        disableWeakVerbs: false, // false = keep marking weak verbs
-        disableFactRule: false, // false = keep enforcing fact/proof/prove rule
-        disableHumanRule: false,
-        disableVagueGeneralRule: false,
-        enforceSva: true,
-        enforcePresentTense: true,
-        description: ""
-      },
-    };
+// ===== Mode defaults + explainer card =====
 
-    function applyModeDefaults() {
-      const mode = modeSelect.value;
-      const defaults = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS["textual_analysis"];
+// Per-mode defaults for the visible rule toggles
+const MODE_RULE_DEFAULTS = {
+  textual_analysis: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "Formal and academic. No first person. Closed thesis required.",
+    details: [
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Green highlights devices & strategies."
+    ]
+  },
 
-      allowICheckbox.checked = !!defaults.allowI;
-      allowAudienceCheckbox.checked = !!defaults.allowAudience;
-      enforceClosedThesisCheckbox.checked = !!defaults.enforceClosedThesis;
-      requireBodyEvidenceCheckbox.checked = !!defaults.requireBodyEvidence;
-      allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
-      allowLongQuotesCheckbox.checked = !!defaults.allowLongQuotes;
-      allowContractionsCheckbox.checked = !!defaults.allowContractions;
-      allowWhichCheckbox.checked = !!defaults.allowWhich;
-      disableWeakVerbsCheckbox.checked = !!defaults.disableWeakVerbs;
-      disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
-      disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
-      disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
-      enforceSvaCheckbox.checked = defaults.enforceSva !== false;
-      enforcePresentTenseCheckbox.checked = defaults.enforcePresentTense !== false;
+  peel_paragraph: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "One focused analytical paragraph using PEEL.",
+    details: [
+      "Point → Evidence → Explanation → Link.",
+      "Integrate a short quote smoothly.",
+      "Explain how the quote proves the claim."
+    ]
+  },
 
-      // Hide present-tense toggle for Argumentation (and force it OFF so it can't "carry over")
-      const hidePresentTense = (mode === "argumentation");
-      document.getElementById("presentTenseRow").hidden = hidePresentTense;
-      if (hidePresentTense) enforcePresentTenseCheckbox.checked = false;
+  reader_response: {
+    allowI: true,
+    allowAudience: true,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: true,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "More personal voice allowed, but still needs argument + evidence.",
+    details: [
+      "First person can be acceptable (depending on toggles).",
+      "Avoid vague feelings—explain why.",
+      "Use short quotes and unpack them."
+    ]
+  },
 
-      highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
+  analytic_frame: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: true,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "Quotations allowed in the intro to apply a theoretical framework.",
+    details: [
+      "Intro quotes are allowed for framing.",
+      "Still expects structured analysis."
+    ]
+  },
 
-      if (modeHelp) {
-        modeHelp.textContent = defaults.description;
-      }
-      const hideClosedThesis = (mode === "foundation_1");
-      const hideEvidence = ["foundation_1","foundation_2","foundation_3","foundation_4"].includes(mode);
+  argumentation: {
+    allowI: false,
+    allowAudience: true,
+    enforceClosedThesis: false,
+    requireBodyEvidence: false,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: false,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: false,
+    tag: "Defaults",
+    description: "Open thesis allowed. No quotation requirement.",
+    details: [
+      "Present tense rule is off (argument isn’t lit analysis).",
+      "Device highlighting off by default."
+    ]
+  },
 
-      document.getElementById("closedThesisRow").hidden = hideClosedThesis
-      if (hideClosedThesis) enforceClosedThesisCheckbox.checked = false;
+  foundation_1: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: false,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "First sentence must include author full name, title, and genre.",
+    details: []
+  },
 
-      document.getElementById("requireBodyEvidenceRow").hidden = hideEvidence;
-      if (hideEvidence) requireBodyEvidenceCheckbox.checked = false;
+  foundation_2: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "First sentence requirements + a closed thesis.",
+    details: []
+  },
 
+  foundation_3: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "First sentence + intro summary leading into a closed thesis.",
+    details: []
+  },
 
-    }
+  foundation_4: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "Full intro + first body topic sentence.",
+    details: []
+  },
 
-    modeSelect.addEventListener("change", applyModeDefaults);
-    applyModeDefaults(); // initial state on load
+  foundation_5: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "Intro + one body paragraph.",
+    details: []
+  },
+
+  foundation_6: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Defaults",
+    description: "Full essay mode.",
+    details: []
+  }
+};
+
+// Mode explainer elements
+const modeBadge = document.getElementById("modeBadge");
+const modeTagEl = document.getElementById("modeTag");
+const modeDesc = document.getElementById("modeDesc");
+const modeMoreBtn = document.getElementById("modeMoreBtn");
+const modeDetails = document.getElementById("modeDetails");
+const modeDetailsList = document.getElementById("modeDetailsList");
+
+function setModeExplainer(mode) {
+  const cfg = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis;
+  const label = modeSelect.options[modeSelect.selectedIndex]?.textContent || mode;
+
+  if (modeBadge) modeBadge.textContent = label;
+  if (modeTagEl) modeTagEl.textContent = cfg.tag || "Defaults";
+  if (modeDesc) modeDesc.textContent = cfg.description || "";
+
+  if (modeDetailsList) {
+    modeDetailsList.innerHTML = "";
+    (cfg.details || []).forEach((item) => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      modeDetailsList.appendChild(li);
+    });
+  }
+
+  const hasDetails = Array.isArray(cfg.details) && cfg.details.length > 0;
+  if (modeMoreBtn) modeMoreBtn.hidden = !hasDetails;
+
+  if (modeMoreBtn && modeDetails) {
+    modeMoreBtn.setAttribute("aria-expanded", "false");
+    modeDetails.hidden = true;
+    modeMoreBtn.textContent = "Want more details?";
+  }
+}
+
+// Expand / collapse once
+if (modeMoreBtn && modeDetails) {
+  modeMoreBtn.addEventListener("click", () => {
+    const expanded = modeMoreBtn.getAttribute("aria-expanded") === "true";
+    modeMoreBtn.setAttribute("aria-expanded", String(!expanded));
+    modeDetails.hidden = expanded;
+    modeMoreBtn.textContent = expanded ? "Want more details?" : "Hide details";
+  });
+}
+
+function applyModeDefaults() {
+  const mode = modeSelect.value;
+  const defaults = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis;
+
+  allowICheckbox.checked = !!defaults.allowI;
+  allowAudienceCheckbox.checked = !!defaults.allowAudience;
+  enforceClosedThesisCheckbox.checked = !!defaults.enforceClosedThesis;
+  requireBodyEvidenceCheckbox.checked = !!defaults.requireBodyEvidence;
+  allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
+  allowLongQuotesCheckbox.checked = !!defaults.allowLongQuotes;
+  allowContractionsCheckbox.checked = !!defaults.allowContractions;
+  allowWhichCheckbox.checked = !!defaults.allowWhich;
+  disableWeakVerbsCheckbox.checked = !!defaults.disableWeakVerbs;
+  disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
+  disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
+  disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
+  enforceSvaCheckbox.checked = !!defaults.enforceSva;
+  enforcePresentTenseCheckbox.checked = !!defaults.enforcePresentTense;
+  highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
+
+  // Hide present-tense toggle for Argumentation (and force OFF)
+  const hidePresentTense = (mode === "argumentation");
+  document.getElementById("presentTenseRow").hidden = hidePresentTense;
+  if (hidePresentTense) enforcePresentTenseCheckbox.checked = false;
+
+  // Hide closed thesis toggle for foundation_1 (and force OFF)
+  const hideClosedThesis = (mode === "foundation_1");
+  document.getElementById("closedThesisRow").hidden = hideClosedThesis;
+  if (hideClosedThesis) enforceClosedThesisCheckbox.checked = false;
+
+  // Hide evidence toggle for foundation 1–4 (and force OFF)
+  const hideEvidence = ["foundation_1","foundation_2","foundation_3","foundation_4"].includes(mode);
+  document.getElementById("requireBodyEvidenceRow").hidden = hideEvidence;
+  if (hideEvidence) requireBodyEvidenceCheckbox.checked = false;
+
+  setModeExplainer(mode);
+}
+
+modeSelect.addEventListener("change", applyModeDefaults);
+applyModeDefaults(); // initial state
+
 
     // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
     function setRadiosDisabled(radios, disabled) {
@@ -880,6 +996,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
       const highlightDevices = highlightDevicesCheckbox.checked;
       const enforceSva = enforceSvaCheckbox.checked;
       const enforcePresentTense = enforcePresentTenseCheckbox.checked;
+      setModeExplainer(mode);
 
 
 
