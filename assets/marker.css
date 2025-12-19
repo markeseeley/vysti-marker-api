@@ -428,3 +428,12 @@ input:focus, select:focus{
   z-index: 50;
 }
 
+/* Force rule "i" tooltips to show on hover/focus (beats specificity issue) */
+.rule-row .info.tt:hover::after,
+.rule-row .info.tt:focus::after,
+.rule-row .info.tt:focus-within::after{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+
