@@ -415,3 +415,14 @@ input:focus, select:focus{
   left: 0;
   max-width: 320px;
 }
+
+/* Make rule "i" tooltips more readable than the radio tooltips */
+.rule-row .info.tt::after{
+  background: #111;          /* fully opaque, darker */
+  color: #fff;
+  font-size: 13px;           /* slightly larger */
+  line-height: 18px;
+  max-width: 360px;          /* a bit wider for long explanations */
+  box-shadow: 0 14px 40px rgba(0,0,0,.28);
+}
+
