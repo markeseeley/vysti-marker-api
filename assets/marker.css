@@ -206,8 +206,10 @@ input:focus, select:focus{
 .rules-cols{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 22px;
+  column-gap: 40px;   /* Figma */
+  row-gap: 0;
 }
+
 
 .rules-title.spaced{ margin-top: 14px; }
 
@@ -257,36 +259,48 @@ input:focus, select:focus{
 
 /* Rule row */
 
+/* Figma row geometry:
+   - Row height: 24
+   - Left gap to toggle: 4
+   - Switch → i: 10
+   - i → label: 4
+   - i size: 16 (toggle/label line-height 24)
+*/
 .rule-row{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0;
-
-  color: #171A1F;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 24px;
+  display:flex;
+  align-items:center;
+  min-height:24px;
+  padding-left:4px;     /* left gap to toggle */
+  margin: 10px 0;       /* keep your vertical spacing; adjust later if needed */
 }
 
+/* switch is already styled elsewhere; this just locks its slot */
 .rule-row > input[type="checkbox"]{
-  flex: 0 0 44px;  /* exact Figma switch width */
+  flex: 0 0 44px;       /* switch width */
+  margin: 0;            /* prevent browser default margins */
 }
 
+/* the i column */
 .rule-row > .info{
-  flex: 0 0 16px;  /* exact Figma “i” width */
-  width: 16px;
-  text-align: center;
+  flex: 0 0 16px;
+  width:16px;
+  height:16px;
+  line-height:16px;
+  text-align:center;
   cursor: help;
-  opacity: .55;
+  opacity:.55;
+
+  margin-left:10px;     /* switch → i gap */
+  margin-right:4px;     /* i → label gap */
 }
 
+/* the label text */
 .rule-row > .rule-text{
   flex: 1 1 auto;
-  min-width: 0;     /* prevents weird overflow */
-  max-width: 312px; /* your Figma label width */
+  min-width:0;
+  line-height:24px;     /* label height alignment */
 }
+
 
 
 
