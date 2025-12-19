@@ -289,7 +289,7 @@ input:focus, select:focus{
   line-height:16px;
   text-align:center;
   cursor: help;
-  opacity:.55;
+  opacity:.1;
 
   margin-left:10px;     /* switch → i gap */
   margin-right:4px;     /* i → label gap */
