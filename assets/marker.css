@@ -326,5 +326,54 @@ input:focus, select:focus{
     min-height: 192px;
   }
 }
+/* ----- Left card: title type radio UI (Figma-ish) ----- */
+.hidden-select { display: none !important; }
+
+.title-type-block { margin-top: 12px; }
+.title-type-label{
+  display:block;
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:8px;
+}
+
+.title-type-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.type-option{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  cursor:pointer;
+}
+
+.type-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.type-option input[type="radio"]{
+  width:16px;
+  height:16px;
+  margin:0;
+  accent-color: var(--maroon); /* change to Figma’s radio color if different */
+}
+
+.type-name{
+  font-size:14px;
+  font-weight:600;
+  color:#171A1F;
+}
+
+.type-help{
+  font-size:12px;
+  line-height:18px;
+  color: rgba(0,0,0,.6);
+  padding-left: 26px; /* aligns help text under the label (radio+gap) */
+}
 
   
