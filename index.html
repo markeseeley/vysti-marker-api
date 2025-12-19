@@ -46,7 +46,7 @@
     
     
     <label>
-        Mode
+        Select assignment
         <select id="mode">
           <option value="textual_analysis">Textual analysis</option>
           <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
@@ -67,12 +67,12 @@
     <fieldset>
         <legend>Work 1</legend>
         <label>
-          Author
+          What is the author's full name?
           <input type="text" id="author" />
         </label>
   
         <label>
-          Title
+          What is the title of the text?
           <input type="text" id="title" />
         </label>
   
@@ -108,7 +108,7 @@
   
       <!-- Work 2 (optional) -->
       <fieldset>
-        <legend>Work 2 (optional)</legend>
+        <legend>Work 2</legend>
         <label>
           Author 2
           <input type="text" id="author2" />
@@ -133,7 +133,7 @@
                 <input type="radio" name="title2_type" value="true" checked disabled />
                 <span class="type-name">Minor work</span>
               </span>
-              <span class="type-help">The title of the text must be in double quotation marks</span>
+              <span class="type-help"></span>
             </label>
         
             <label class="type-option">
@@ -141,7 +141,7 @@
                 <input type="radio" name="title2_type" value="false" disabled />
                 <span class="type-name">Major work</span>
               </span>
-              <span class="type-help">The title of the text must be in italics</span>
+              <span class="type-help"></span>
             </label>
           </div>
         </div>
@@ -150,7 +150,7 @@
   
       <!-- Work 3 (optional) -->
       <fieldset>
-        <legend>Work 3 (optional)</legend>
+        <legend>Work 3</legend>
         <label>
           Author 3
           <input type="text" id="author3" />
@@ -175,7 +175,7 @@
                 <input type="radio" name="title3_type" value="true" checked disabled />
                 <span class="type-name">Minor work</span>
               </span>
-              <span class="type-help">The title of the text must be in double quotation marks</span>
+              <span class="type-help"></span>
             </label>
         
             <label class="type-option">
@@ -183,7 +183,7 @@
                 <input type="radio" name="title3_type" value="false" disabled />
                 <span class="type-name">Major work</span>
               </span>
-              <span class="type-help">The title of the text must be in italics</span>
+              <span class="type-help"></span>
             </label>
           </div>
         </div>
@@ -559,7 +559,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Textual analysis: formal mode, no first person, closed thesis required."
+        description: ""
       },
       reader_response: {
         allowI: true,
@@ -577,7 +577,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Reader response: personal voice allowed; still expects a thesis by default."
+        description: ""
       },
       analytic_frame: {
         allowI: false,
@@ -595,7 +595,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Analytic frame: multiple works allowed; quotations in the introduction are allowed."
+        description: ""
       },
       argumentation: {
         allowI: false,
@@ -613,7 +613,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: false,
-        description: "Argumentation: open thesis by default; looser thesis/topic alignment; direct address to the reader allowed."
+        description: ""
       },
       foundation_1: {
         allowI: false,
@@ -631,7 +631,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Foundation 1: first sentence only; closed thesis and body-paragraph rules are off."
+        description: ""
       },
       foundation_2: {
         allowI: false,
@@ -649,7 +649,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Foundation 2: first sentence + closed thesis."
+        description: ""
       },
       foundation_3: {
         allowI: false,
@@ -667,7 +667,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Foundation 3: full introduction with closed thesis."
+        description: ""
       },
       foundation_4: {
         allowI: false,
@@ -685,7 +685,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Foundation 4: introduction + first body topic sentence."
+        description: ""
       },
       foundation_5: {
         allowI: false,
@@ -703,7 +703,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Foundation 5: introduction + body paragraphs."
+        description: ""
       },
       foundation_6: {
         allowI: false,
@@ -721,7 +721,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "Foundation 6: full essay, full rule set."
+        description: ""
       },
       peel_paragraph: {
         allowI: false,
@@ -739,7 +739,7 @@ dropZone.addEventListener("drop", (e) => {
         disableVagueGeneralRule: false,
         enforceSva: true,
         enforcePresentTense: true,
-        description: "PEEL paragraph: single body paragraph with evidence."
+        description: ""
       },
     };
 
