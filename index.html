@@ -679,7 +679,7 @@ dropZone.addEventListener("drop", (e) => {
 
       // Hide present-tense toggle for Argumentation (and force it OFF so it can't "carry over")
       const hidePresentTense = (mode === "argumentation");
-      document.getElementById("presentTenseRow").style.display = hidePresentTense ? "none" : "block";
+      document.getElementById("presentTenseRow").style.display = hidePresentTense ? "none" : "flex";
       if (hidePresentTense) enforcePresentTenseCheckbox.checked = false;
 
       highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
@@ -690,10 +690,10 @@ dropZone.addEventListener("drop", (e) => {
       const hideClosedThesis = (mode === "foundation_1");
       const hideEvidence = ["foundation_1","foundation_2","foundation_3","foundation_4"].includes(mode);
 
-      document.getElementById("closedThesisRow").style.display = hideClosedThesis ? "none" : "block";
+      document.getElementById("closedThesisRow").style.display = hideClosedThesis ? "none" : "flex";
       if (hideClosedThesis) enforceClosedThesisCheckbox.checked = false;
 
-      document.getElementById("requireBodyEvidenceRow").style.display = hideEvidence ? "none" : "block";
+      document.getElementById("requireBodyEvidenceRow").style.display = hideEvidence ? "none" : "flex";
       if (hideEvidence) requireBodyEvidenceCheckbox.checked = false;
 
 
