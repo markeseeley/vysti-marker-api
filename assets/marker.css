@@ -326,54 +326,52 @@ input:focus, select:focus{
     min-height: 192px;
   }
 }
-/* ----- Left card: title type radio UI (Figma-ish) ----- */
-.hidden-select { display: none !important; }
-
-.title-type-block { margin-top: 12px; }
-.title-type-label{
-  display:block;
-  font-size:13px;
-  font-weight:600;
-  margin-bottom:8px;
+.hidden-select { 
+  display: none; 
 }
 
-.title-type-grid{
-  display:grid;
+/* Title type (Minor/Major) radio block */
+.title-type-block {
+  margin-top: 12px;
+}
+
+.title-type-label {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.title-type-grid {
+  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
-.type-option{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  cursor:pointer;
+.type-option {
+  cursor: pointer;
 }
 
-.type-head{
-  display:flex;
-  align-items:center;
-  gap:10px;
+.type-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.type-option input[type="radio"]{
-  width:16px;
-  height:16px;
-  margin:0;
-  accent-color: var(--maroon); /* change to Figma’s radio color if different */
+.type-name {
+  font-weight: 600;
 }
 
-.type-name{
-  font-size:14px;
-  font-weight:600;
-  color:#171A1F;
+.type-help {
+  display: block;
+  margin-left: 28px; /* pushes help under the label text, not under the radio */
+  margin-top: 4px;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 20px;
 }
 
-.type-help{
-  font-size:12px;
-  line-height:18px;
-  color: rgba(0,0,0,.6);
-  padding-left: 26px; /* aligns help text under the label (radio+gap) */
+.title-type-block input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--maroon);
 }
-
-  
