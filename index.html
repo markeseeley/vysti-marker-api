@@ -69,7 +69,7 @@
 <div class="mode-card" id="modeCard">
   <div class="mode-card-header">
     <span class="mode-badge" id="modeBadge">Textual analysis</span>
-    <span class="mode-tag" id="modeTag">Defaults</span>
+    <span class="mode-tag" id="modeTag"></span>
   </div>
 
   <div class="mode-desc" id="modeDesc">
@@ -741,8 +741,17 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    description: "First sentence must include author full name, title, and genre.",
-    details: []
+    tag: "Foundation One",
+    description: "The first sentence.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."]
   },
 
   foundation_2: {
@@ -760,9 +769,18 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
-    description: "First sentence requirements + a closed thesis.",
-    details: []
+    tag: "Foundation Two",
+    description: "First sentence + a closed thesis.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
   },
 
   foundation_3: {
@@ -780,9 +798,18 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
-    description: "First sentence + intro summary leading into a closed thesis.",
-    details: []
+    tag: "Foundation Three",
+    description: "First sentence + intro summary + closed thesis.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
   },
 
   foundation_4: {
@@ -800,9 +827,18 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
+    tag: "Foundation Four",
     description: "Full intro + first body topic sentence.",
-    details: []
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
   },
 
   foundation_5: {
@@ -821,31 +857,20 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
-    description: "Intro + one body paragraph.",
-    details: []
+    tag: "Foundation Five",
+    description: "Full + one body paragraph.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
   },
 
-  foundation_6: {
-    allowI: false,
-    allowAudience: false,
-    enforceClosedThesis: true,
-    requireBodyEvidence: true,
-    allowIntroQuotes: false,
-    allowLongQuotes: false,
-    highlightDevices: true,
-    allowContractions: false,
-    allowWhich: false,
-    disableWeakVerbs: false,
-    disableFactRule: false,
-    disableHumanRule: false,
-    disableVagueGeneralRule: false,
-    enforceSva: true,
-    enforcePresentTense: true,
-    tag: "Defaults",
-    description: "Full essay mode.",
-    details: []
-  }
 };
 
 // Mode explainer elements
