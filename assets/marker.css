@@ -268,17 +268,18 @@ input:focus, select:focus{
 */
 .rule-row{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   min-height:24px;
   padding-left:4px;     /* left gap to toggle */
   margin: 10px 0;       /* keep your vertical spacing; adjust later if needed */
 }
 
 /* switch is already styled elsewhere; this just locks its slot */
-.rule-row > input[type="checkbox"]{
-  flex: 0 0 44px;       /* switch width */
-  margin: 0;            /* prevent browser default margins */
+.rule-row > input[type="checkbox"],
+.rule-row > .info{
+  margin-top: 2px; /* nudge to match 24px text line */
 }
+
 
 /* the i column */
 .rule-row > .info{
