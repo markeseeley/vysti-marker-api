@@ -436,4 +436,71 @@ input:focus, select:focus{
   transform: translateY(0);
 }
 
+.mode-card{
+  margin-top: 12px;
+  padding: 14px 12px 12px;
+
+  /* black stroke like Work fieldsets */
+  border: 1px solid #000;
+  border-radius: 0px;
+
+  /* match the form feel */
+  background: transparent;
+}
+
+
+.mode-card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mode-badge{
+  display:inline-flex;
+  align-items:center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(169,13,34,0.10);
+  color: #A90D22;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.mode-tag{
+  font-size: 12px;
+  color: rgba(0,0,0,0.55);
+  font-weight: 600;
+}
+
+.mode-desc{
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  color: rgba(0,0,0,0.75);
+}
+
+.mode-more{
+  margin-top: 8px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #A90D22;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mode-details{
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(0,0,0,0.75);
+}
+
+.mode-details ul{
+  margin: 0;
+  padding-left: 18px;
+}
 
