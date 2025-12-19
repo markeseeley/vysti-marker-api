@@ -408,21 +408,26 @@ input:focus, select:focus{
   transform: translateY(0);
 }
 
-/* Tooltips for the tiny "i" icons in rule rows */
+/* Rule "i" tooltips: match Minor/Major (black bubble) */
 .rule-row .info.tt::after{
   top: auto;
   bottom: calc(100% + 8px);
   left: 0;
-  max-width: 320px;
-}
 
-/* Make rule "i" tooltips more readable than the radio tooltips */
-.rule-row .info.tt::after{
-  background: #111;          /* fully opaque, darker */
+  background: #171A1F;          /* same as Minor/Major */
   color: #fff;
-  font-size: 13px;           /* slightly larger */
-  line-height: 18px;
-  max-width: 360px;          /* a bit wider for long explanations */
-  box-shadow: 0 14px 40px rgba(0,0,0,.28);
+  font-size: 12px;              /* same as Minor/Major */
+  line-height: 16px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+
+  width: max-content;
+  max-width: 360px;
+
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  z-index: 50;
 }
 
