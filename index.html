@@ -597,13 +597,17 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
-    description: "Formal and academic. No first person. Closed thesis required.",
+    description: "A formal and academic essay of analysis with all Vysti Rules running.",
     details: [
+      "No first-person allowed or personal pronouns",
       "First sentence should state the author & title of the work.",
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
-      "Green highlights devices & strategies."
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    
     ]
   },
 
@@ -623,12 +627,17 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
-    description: "One focused analytical paragraph using PEEL.",
+    description: "One focused analytical PEEL paragraph following the Vysti Rules.",
     details: [
-      "Point → Evidence → Explanation → Link.",
-      "Integrate a short quote smoothly.",
-      "Explain how the quote proves the claim."
+      "The first sentence should state the author & title of the work.",
+      "The first sentence should include devices and/or strategies like a closed thesis",
+      "No first-person allowed or personal pronouns",
+      "Requires quoted evidence in the body of the paragraph.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+      
     ]
   },
 
@@ -648,12 +657,17 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
     description: "More personal voice allowed, but still needs argument + evidence.",
     details: [
-      "First person can be acceptable (depending on toggles).",
-      "Avoid vague feelings—explain why.",
-      "Use short quotes and unpack them."
+      "Allows first-person and personal pronouns",
+      "Allows contractions and 'which'",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
     ]
   },
 
@@ -673,11 +687,17 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
-    description: "Quotations allowed in the intro to apply a theoretical framework.",
+    description: "Follows the Vysti Rules, but expects a theoretical framework in the introductory summary.",
     details: [
-      "Intro quotes are allowed for framing.",
-      "Still expects structured analysis."
+      "Allows quotations in the introductory summary.",
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
     ]
   },
 
@@ -697,11 +717,12 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: false,
-    tag: "Defaults",
-    description: "Open thesis allowed. No quotation requirement.",
+    description: "Argumentation is more open mode beyond textual analysis.",
     details: [
-      "Present tense rule is off (argument isn’t lit analysis).",
-      "Device highlighting off by default."
+      "Allows for past tense.",
+      "Allows first-person and personal pronouns",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
     ]
   },
 
@@ -720,7 +741,6 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    tag: "Defaults",
     description: "First sentence must include author full name, title, and genre.",
     details: []
   },
