@@ -375,3 +375,36 @@ input:focus, select:focus{
   height: 16px;
   accent-color: var(--maroon);
 }
+
+/* Tooltip for Minor/Major options */
+.tt{ position: relative; }
+
+.tt::after{
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 50;
+
+  background: #171A1F;
+  color: #fff;
+  font-size: 12px;
+  line-height: 16px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+
+  width: max-content;
+  max-width: 280px;
+
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+}
+
+.tt:hover::after,
+.tt:focus-within::after{
+  opacity: 1;
+  transform: translateY(0);
+}
+
