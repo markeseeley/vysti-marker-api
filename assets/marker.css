@@ -408,3 +408,10 @@ input:focus, select:focus{
   transform: translateY(0);
 }
 
+/* Tooltips for the tiny "i" icons in rule rows */
+.rule-row .info.tt::after{
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  max-width: 320px;
+}
