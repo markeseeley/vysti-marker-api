@@ -158,30 +158,33 @@ input:focus, select:focus{
 /* Upload card */
 .upload-card{
   padding: 16px;
-  min-height: 260px;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Drop zone style (Figma-ish) */
 .drop-zone{
-  /* Match Figma Dragand DropContainer */
+  flex: 1;                 /* fill the upload-card */
+  width: 100%;             /* instead of width: min(928px, 100%) */
+  min-height: 220px;       /* keeps it tall */
+  height: auto;            /* instead of fixed 192px */
+
+  padding: 40px 16px;      /* instead of the huge Figma paddings */
   display:flex;
-  width: min(928px, 100%);  /* Figma width = 928; clamp for smaller screens */
-  height: 192px;            /* Figma */
-  padding: 56px 265px 56px 267px; /* Figma (yes asymmetric) */
   flex-direction: column;
   justify-content: center;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
 
   border-radius: 12px;
   border: 2px dashed #DEE1E6;
-  background: rgba(0,0,0,0);
+  background: transparent;
 
   cursor: pointer;
   user-select: none;
   margin-top: 6px;
 }
+
 
 .drop-zone.dragover{
   border-color: var(--maroon);
@@ -194,7 +197,7 @@ input:focus, select:focus{
 
 .rules-card{
   grid-area: rules;
-  width: min(960px, 100%);
+  width: 100%;
   min-height: 474px;                 /* keep flexible; Figma says 474 */
   padding: 16px;
   background: #FAFAFB;               /* Figma */
