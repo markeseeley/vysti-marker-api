@@ -746,11 +746,11 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_essay_title_format = False
         cfg.enforce_essay_title_capitalization = False
 
-    elif mode == "foundation_6":
+    # elif mode == "foundation_6":
         # Foundation 6: full essay, like textual_analysis,
         # plus experimental grammar checks (subject–verb agreement).
-        cfg.enforce_sva_rule = True
-        cfg.enforce_present_tense_rule = True
+        # cfg.enforce_sva_rule = True
+        # cfg.enforce_present_tense_rule = True
 
     elif mode == "peel_paragraph":
         # Single PEEL paragraph: Point–Evidence–Explanation–Link.
