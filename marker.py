@@ -3924,6 +3924,7 @@ def analyze_text(
         # -----------------------
     # PHASE 1.5 — SUBJECT–VERB AGREEMENT (experimental)
     # -----------------------
+    """
     if getattr(config, "enforce_sva_rule", False):
         rule_note_sva = "Check subject–verb agreement"
         rule_note_sva_short = "s-v"
@@ -4072,7 +4073,7 @@ def analyze_text(
              continue
 
          ...
-
+"""
 
 
     # -----------------------
