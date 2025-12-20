@@ -350,7 +350,7 @@
                 <div class="rule-text">Allow vague terms</div>
                 
               </div>
-        
+        <!--
               <div class="rules-title" style="margin-top:14px;">Grammar (beta version)</div>
         
               <div id="svaRow" class="rule-row">
@@ -366,7 +366,7 @@
                 <div class="rule-text">Check for present tense</div>
               
               </div>
-        
+        -->
               <div class="rule-row">
                 <input type="checkbox" id="highlight_devices" />
                 <span class="info tt" data-tip="(beta) Literary and rhetorical devices as well as modes of discourse will be highlighted in green." tabindex="0" aria-label="Rule explanation">i</span>
@@ -547,9 +547,9 @@ dropZone.addEventListener("drop", (e) => {
     const highlightDevicesCheckbox = document.getElementById("highlight_devices");
     const disableHumanRuleCheckbox = document.getElementById("disable_human_rule");
     const disableVagueRuleCheckbox = document.getElementById("disable_vague_general_rule");
-    const enforceSvaCheckbox = document.getElementById("enforce_sva_rule");
-    const enforcePresentTenseCheckbox = document.getElementById("enforce_present_tense_rule");
-
+    //    const enforceSvaCheckbox = document.getElementById("enforce_sva_rule");
+    //    const enforcePresentTenseCheckbox = document.getElementById("enforce_present_tense_rule");
+  
 
     const modeHelp = document.getElementById("modeHelp");
 
@@ -939,8 +939,10 @@ function applyModeDefaults() {
   disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
   disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
   disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
+  <!--
   enforceSvaCheckbox.checked = !!defaults.enforceSva;
   enforcePresentTenseCheckbox.checked = !!defaults.enforcePresentTense;
+  -->
   highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
 
   // Hide present-tense toggle for Argumentation (and force OFF)
