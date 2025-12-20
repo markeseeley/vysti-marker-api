@@ -891,7 +891,7 @@ function setModeExplainer(mode) {
   const label = modeSelect.options[modeSelect.selectedIndex]?.textContent || mode;
 
   if (modeBadge) modeBadge.textContent = label;
-  if (modeTagEl) modeTagEl.textContent = cfg.tag || "Defaults";
+  if (modeTagEl) modeTagEl.textContent = cfg.tag || "";
   if (modeDesc) modeDesc.textContent = cfg.description || "";
 
   if (modeDetailsList) {
