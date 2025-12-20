@@ -70,6 +70,7 @@
   <div class="mode-card-header">
     <span class="mode-badge" id="modeBadge">Textual analysis</span>
     <span class="mode-tag" id="modeTag"></span>
+
   </div>
 
   <div class="mode-desc" id="modeDesc">
@@ -939,28 +940,19 @@ function applyModeDefaults() {
   disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
   disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
   disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
-  <!--
-  enforceSvaCheckbox.checked = !!defaults.enforceSva;
-  enforcePresentTenseCheckbox.checked = !!defaults.enforcePresentTense;
-  -->
   highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
 
-  // Hide present-tense toggle for Argumentation (and force OFF)
-  const hidePresentTense = (mode === "argumentation");
-  document.getElementById("presentTenseRow").hidden = hidePresentTense;
-  if (hidePresentTense) enforcePresentTenseCheckbox.checked = false;
-
-  // Hide closed thesis toggle for foundation_1 (and force OFF)
+  // (keep these two blocks — they still exist in the HTML)
   const hideClosedThesis = (mode === "foundation_1");
   document.getElementById("closedThesisRow").hidden = hideClosedThesis;
   if (hideClosedThesis) enforceClosedThesisCheckbox.checked = false;
 
-  // Hide evidence toggle for foundation 1–4 (and force OFF)
   const hideEvidence = ["foundation_1","foundation_2","foundation_3","foundation_4"].includes(mode);
   document.getElementById("requireBodyEvidenceRow").hidden = hideEvidence;
   if (hideEvidence) requireBodyEvidenceCheckbox.checked = false;
 
   setModeExplainer(mode);
+
 }
 
 modeSelect.addEventListener("change", applyModeDefaults);
@@ -1046,8 +1038,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
       const disableHumanRule = disableHumanRuleCheckbox.checked;
       const disableVagueRule = disableVagueRuleCheckbox.checked;
       const highlightDevices = highlightDevicesCheckbox.checked;
-      const enforceSva = enforceSvaCheckbox.checked;
-      const enforcePresentTense = enforcePresentTenseCheckbox.checked;
+     
       setModeExplainer(mode);
 
 
@@ -1096,8 +1087,6 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
         formData.append("enforce_fact_proof_rule", disableFactRule ? "false" : "true");
         formData.append("enforce_human_people_rule", disableHumanRule ? "false" : "true");
         formData.append("enforce_vague_terms_rule", disableVagueRule ? "false" : "true");
-        formData.append("enforce_sva_rule", enforceSva ? "true" : "false");
-        formData.append("enforce_present_tense_rule", enforcePresentTense ? "true" : "false");
         formData.append("highlight_thesis_devices", highlightDevices ? "true" : "false");
 
         try {
