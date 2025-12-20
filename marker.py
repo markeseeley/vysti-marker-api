@@ -4035,45 +4035,44 @@ def analyze_text(
                         "label": True,
                     })
 
-        # -----------------------
-    # PHASE 1.6 — PRESENT TENSE (experimental)
-    # -----------------------
-    if getattr(config, "enforce_present_tense_rule", False):
-        rule_note_tense = "Write in the present tense"
-        rule_note_tense_short = "tense"
+     if getattr(config, "enforce_present_tense_rule", False):
+     rule_note_tense = "Write in the present tense"
+     rule_note_tense_short = "tense"
 
-        for tok in doc:
-            # VBD = simple past (walked, said, was, were, had, did...)
-            if tok.tag_ != "VBD":
-                continue
-            if tok.pos_ not in ("VERB", "AUX"):
-                continue
++    def preceded_by_that(token, max_back: int = 3) -> bool:
++        # Simple heuristic: if "that" appears immediately before the verb
++        # (or a couple tokens back, e.g., "that he was"), ignore it.
++        for j in range(1, max_back + 1):
++            k = token.i - j
++            if k < 0:
++                break
++            prev = doc[k]
++            if prev.is_punct:
++                break
++            if prev.lower_ == "that":
++                return True
++        return False
 
-            start = tok.idx
-            end = tok.idx + len(tok.text)
+     for tok in doc:
+         # VBD = simple past (walked, said, was, were, had, did...)
+         if tok.tag_ != "VBD":
+             continue
+         if tok.pos_ not in ("VERB", "AUX"):
+             continue
++
++        # NEW: Ignore VBD verbs preceded by "that"
++        if preceded_by_that(tok):
++            continue
 
-            # Ignore past tense inside direct quotations
-            if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
-                continue
+         start = tok.idx
+         end = tok.idx + len(tok.text)
 
-            if rule_note_tense not in labels_used:
-                marks.append({
-                    "start": start,
-                    "end": end,
-                    "note": rule_note_tense,
-                    "color": GRAMMAR_ORANGE,
-                    "label": True,
-                })
-                labels_used.append(rule_note_tense)
-            else:
-                marks.append({
-                    "start": start,
-                    "end": end,
-                    "note": rule_note_tense,
-                    "display_note": rule_note_tense_short,
-                    "color": GRAMMAR_ORANGE,
-                    "label": True,
-                })
+         # Ignore past tense inside direct quotations
+         if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
+             continue
+
+         ...
+
 
 
     # -----------------------
