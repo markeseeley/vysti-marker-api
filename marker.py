@@ -6403,7 +6403,6 @@ if __name__ == "__main__":
             "foundation_3",
             "foundation_4",
             "foundation_5",
-            "foundation_6",
             "peel_paragraph",
         ],
         help="Assignment mode (default: textual_analysis)",
