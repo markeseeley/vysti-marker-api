@@ -214,7 +214,8 @@
         </div>
         
       </fieldset>
-      <button class="primary-btn" type="submit">Mark Essay</button>
+      <button class="primary-btn" id="markBtn" type="submit">Mark Essay</button>
+
   </section>
   
   
@@ -239,7 +240,8 @@
       </div>
   
       <ul id="fileList" class="file-list"></ul>
-   
+      <button type="button" id="clearFilesBtn" class="secondary-btn">Clear uploaded files</button>
+
   </section>
 
 
@@ -409,6 +411,27 @@
     const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const form = document.getElementById("markForm");
     const fileInput = document.getElementById("fileInput");
+    const markBtn = document.getElementById("markBtn");
+    const clearFilesBtn = document.getElementById("clearFilesBtn");
+
+    function syncMarkBtnState() {
+      if (!markBtn) return;
+      markBtn.disabled = !(fileInput.files && fileInput.files.length > 0);
+    }
+
+    // Clears the file input + UI list (so the same essay can't be marked again)
+    function clearSelectedFiles({ setStatus = false } = {}) {
+      setFileInputFiles([]);      // uses your existing DataTransfer helper
+      fileInput.value = "";       // clears the native file input
+      renderFileList([]);         // clears UI list
+      syncMarkBtnState();
+      if (setStatus) statusEl.textContent = "Cleared uploaded files.";
+    }
+
+    if (clearFilesBtn) {
+      clearFilesBtn.addEventListener("click", () => clearSelectedFiles({ setStatus: true }));
+    }
+
     const logoutBtn = document.getElementById("logoutBtn");
 
     logoutBtn.addEventListener("click", async () => {
@@ -442,7 +465,9 @@ function setFileInputFiles(fileArray) {
   for (const f of fileArray) dt.items.add(f);
   fileInput.files = dt.files;
   renderFileList(fileInput.files);
+  syncMarkBtnState();
 }
+
 
 function addFilesToSelection(newFiles) {
   const existing = Array.from(fileInput.files || []);
@@ -478,7 +503,9 @@ dropZone.addEventListener("keydown", (e) => {
 // Standard selection updates list
 fileInput.addEventListener("change", () => {
   renderFileList(fileInput.files);
+  syncMarkBtnState();
 });
+syncMarkBtnState();
 
 // Drag events
 ["dragenter", "dragover"].forEach(evt => {
@@ -1131,6 +1158,8 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
 
       statusEl.textContent = `Finished processing ${files.length} file(s).`;
     });
+    clearSelectedFiles(); // auto-unload after marking so the same essay can't be re-marked
+
   </script>
 </body>
 </html>
