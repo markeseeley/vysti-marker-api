@@ -5318,6 +5318,9 @@ def is_source_reference_subtitle_line(text: str, config: MarkerConfig | None = N
     stripped = text.strip()
     if not stripped:
         return False
+    # If it reads like a real sentence, it is NOT a subtitle line.
+    if looks_like_full_sentence(stripped):
+        return False
 
     # We only treat lines that *start* with "in " as subtitle/source lines.
     # (e.g., "in Toni Morrison's \"Strangers\"")
@@ -5817,13 +5820,11 @@ def run_marker(
                 if not text_q:
                     continue
 
-                if (
-                    is_source_reference_subtitle_line(text_q, config=config)
-                    or not looks_like_full_sentence(text_q)
-                ):
+                if not looks_like_full_sentence(text_q):
                     title_end_idx = look_ahead
                 else:
                     break
+
             break
 
     # If we found a contiguous block of title paragraphs, merge them
