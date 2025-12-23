@@ -155,6 +155,28 @@ input:focus, select:focus{
 }
 .primary-btn:hover{ filter:brightness(.95); }
 
+.secondary-btn{
+  margin-top: 12px;
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.14);
+  background: #fff;
+  color: rgba(0,0,0,.75);
+  font-weight: 700;
+  cursor: pointer;
+}
+.secondary-btn:hover{ filter:brightness(.98); }
+.secondary-btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+.primary-btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+
 /* Upload card */
 .upload-card{
   padding: 16px;
