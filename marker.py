@@ -94,7 +94,8 @@ def extract_summary_metadata(doc: Document) -> Dict:
                             
                             # Use regex to separate label and count
                             # Pattern matches: "Label" or "Label (N)"
-                            # Note: Using corrected pattern - user's pattern had typo (.?) which only matches 0-1 chars
+                            # Note: User's pattern r"^(.?)(?:\s((\d+)))?$" has typo - (.?) only matches 0-1 chars
+                            # Using corrected pattern to match full label: r"^(.+?)(?:\s+\((\d+)\))?$"
                             m = re.match(r"^(.+?)(?:\s+\((\d+)\))?$", raw)
                             if m:
                                 label = (m.group(1) or "").strip()
@@ -108,9 +109,10 @@ def extract_summary_metadata(doc: Document) -> Dict:
                             explanation = row.cells[1].text.strip()
                             
                             if label:
+                                expl = explanation
                                 issues.append({
                                     "label": label,
-                                    "explanation": explanation,
+                                    "explanation": expl,
                                     "count": count
                                 })
                     break
@@ -144,18 +146,44 @@ def run_marker(doc_path: str, rules_path: str, output_path: str):
         if not text.strip():
             continue
         
-        # Analyze text to get marks
-        marks = analyze_text(text, rules)
+        # Check if this is a title paragraph (handle separately)
+        is_title = False  # Set to True for title paragraphs in actual implementation
         
-        # Increment counts for each mark
-        for m in marks:
-            note = m.get("note")
-            if note and note in rules:
-                issue_counts[note] += 1
-                labels_used.add(note)
+        if is_title:
+            # Title paragraph branch
+            title_marks, title_flat_text, title_seg = analyze_text(text, rules)
+            
+            # Right before applying title_marks, increment issue_counts
+            for m in title_marks:
+                note = m.get("note")
+                if note:
+                    if note in rules or note in labels_used:
+                        issue_counts[note] += 1
+                        labels_used.add(note)
+            
+            # Apply title_marks (existing marking logic)
+            # apply_marks(...)
+        else:
+            # Regular paragraph processing
+            marks, flat_text, seg = analyze_text(text, rules)
+            
+            # Increment counts for each mark
+            for m in marks:
+                note = m.get("note")
+                if note:
+                    # Count if note is in rules OR note already appears in labels_used
+                    # (excludes local helper labels that never enter labels_used)
+                    if note in rules or note in labels_used:
+                        issue_counts[note] += 1
+                        labels_used.add(note)
+            
+            # Apply marks to paragraph (existing marking logic)
+            # apply_marks(...)
         
-        # Apply marks to paragraph (existing marking logic would go here)
-        # ...
+        # Handle direct assignment_note appends (if any)
+        # Any place you append assignment_note directly to labels_used:
+        #   labels_used.add(assignment_note)
+        #   issue_counts[assignment_note] += 1
     
     # Convert labels_used to sorted list
     labels_used = sorted(labels_used)
