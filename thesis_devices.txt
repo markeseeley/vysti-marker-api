@@ -72,8 +72,6 @@ process,process
 example,example
 
 # Fallacies / appeals / "move" words (we just care that they're rhetorical)
-fallacy,fallacy
-fallacies,fallacies
 appeal,appeal
 strawman,strawman
 slippery slope,slippery slope
@@ -269,12 +267,12 @@ case studies,example
 causation,cause
 causal chain,cause
 causally,cause
-logical fallacy,fallacy
+logical fallacy,logical fallacy
 false dichotomy,false dilemma
 false binary,false dilemma
 binary opposition,binary
-hasty generalization,fallacy
-circular reasoning,fallacy
+hasty generalization,hasty generalization
+circular reasoning,circular reasoning
 parallel,parallelism
 parallel structure,parallelism
 parenthetical phrase,parenthesis
