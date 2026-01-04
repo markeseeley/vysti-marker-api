@@ -6446,7 +6446,7 @@ def run_marker(
         # Register this note in labels_used so it appears in the Issues/Explanation table
         if assignment_note not in labels_used:
             labels_used.append(assignment_note)
-
+    print(issue_counts.most_common(10))
     # After processing all real paragraphs and applying marks
     add_summary_table(doc, labels_used, rules, issue_counts=issue_counts)
 
