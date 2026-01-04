@@ -5653,7 +5653,6 @@ def extract_summary_metadata(doc: Document) -> dict:
     header_issue = table.rows[0].cells[0].text.strip().lower()
     header_expl = table.rows[0].cells[1].text.strip().lower()
     if header_issue != "issue" or header_expl != "explanation":
-        # Probably a student table, not our summary table
         return {"issues": issues}
 
     # Data rows start at row index 2, with a blank row after each pair
@@ -5661,12 +5660,20 @@ def extract_summary_metadata(doc: Document) -> dict:
         row = table.rows[row_idx]
         if len(row.cells) < 2:
             continue
-        label = row.cells[0].text.strip()
+
+        raw = row.cells[0].text.strip()
         expl = row.cells[1].text.strip()
+
+        # Parse trailing " (N)" without polluting the label
+        m = re.match(r"^(.*?)(?:\s*\((\d+)\))?$", raw)
+        label = (m.group(1) or "").strip() if m else raw
+        count = int(m.group(2)) if (m and m.group(2)) else 0
+
         if label:
-            issues.append({"label": label, "explanation": expl})
+            issues.append({"label": label, "explanation": expl, "count": count})
 
     return {"issues": issues}
+
 
 
 def mark_docx_bytes(
