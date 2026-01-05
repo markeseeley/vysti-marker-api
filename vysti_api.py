@@ -257,6 +257,7 @@ async def mark_essay(
                 "assignment_name": assignment_name,
                 "total_labels": total_labels,
                 "label_counts": dict(label_counter),
+                "issues": issues,
             }
 
             async with httpx.AsyncClient(timeout=5) as client:
