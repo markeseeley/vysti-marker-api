@@ -224,12 +224,24 @@ async def mark_essay(
 
     # ----- Count yellow labels from metadata -----
     issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
-    label_counter = Counter(
-        issue.get("label")
-        for issue in issues
-        if isinstance(issue, dict) and issue.get("label")
-    )
+
+    label_counter = Counter()
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        lbl = issue.get("label")
+        if not lbl:
+            continue
+        cnt = issue.get("count")
+        try:
+            cnt_i = int(cnt) if cnt is not None else 1
+        except Exception:
+            cnt_i = 1
+        # Use cnt if present; otherwise fall back to 1
+        label_counter[lbl] += (cnt_i if cnt_i > 0 else 1)
+
     total_labels = sum(label_counter.values())
+
 
     # Log usage in Supabase mark_events (best-effort; do not break marking if this fails)
     try:
