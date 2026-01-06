@@ -347,36 +347,52 @@ async def ingest_marked_essay(
     total_labels = sum(label_counter.values())
 
     # 6. Log to Supabase mark_events
-    try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
-            user_id = user.get("id") if isinstance(user, dict) else None
-            db_url = f"{SUPABASE_URL}/rest/v1/mark_events"
-            payload = {
-                "user_id": user_id,
-                "file_name": file.filename,
-                "mode": mode,
-                "bytes": len(docx_bytes),
-                "student_name": student_name,
-                "assignment_name": assignment_name,
-                "total_labels": total_labels,
-                "label_counts": dict(label_counter),
-                "issues": issues,
-            }
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase configuration missing on server",
+        )
 
-            async with httpx.AsyncClient(timeout=5) as client:
-                await client.post(
-                    db_url,
-                    json=payload,
-                    headers={
-                        "apikey": SUPABASE_SERVICE_KEY,
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        "Content-Type": "application/json",
-                        "Prefer": "return=minimal",
-                    },
+    user_id = user.get("id") if isinstance(user, dict) else None
+    db_url = f"{SUPABASE_URL}/rest/v1/mark_events"
+    payload = {
+        "user_id": user_id,
+        "file_name": file.filename,
+        "mode": mode,
+        "bytes": len(docx_bytes),
+        "student_name": student_name,
+        "assignment_name": assignment_name,
+        "total_labels": total_labels,
+        "label_counts": dict(label_counter),
+        "issues": issues,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.post(
+                db_url,
+                json=payload,
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+            )
+            # Check if the insert was successful
+            if resp.status_code < 200 or resp.status_code >= 300:
+                error_msg = resp.text or f"Supabase insert failed with status {resp.status_code}"
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to log mark event to database: {error_msg}",
                 )
+    except HTTPException:
+        raise
     except Exception as e:
-        print("Failed to log mark_event:", repr(e))
-        # Still return success even if logging fails
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to log mark event: {str(e)}",
+        )
 
     # 7. Return success response
     return JSONResponse(
