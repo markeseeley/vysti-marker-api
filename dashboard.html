@@ -8,7 +8,7 @@
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 900px;
+      max-width: 1200px;
       margin: 40px auto;
       padding: 0 16px;
       line-height: 1.5;
@@ -21,7 +21,7 @@
       color: #555;
     }
     label { display: block; margin-top: 8px; }
-    input { margin-top: 4px; padding: 4px 6px; }
+    input, select { margin-top: 4px; padding: 4px 6px; width: 100%; max-width: 300px; }
     button {
       margin-top: 12px;
       padding: 6px 12px;
@@ -42,6 +42,25 @@
       margin-top: 8px;
       font-size: 0.9rem;
       color: #555;
+    }
+    .filters {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 150px;
+    }
+    .filter-group label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 4px;
     }
     table {
       width: 100%;
@@ -66,9 +85,24 @@
       margin-top: 8px;
       font-size: 0.9rem;
     }
+    .analytics-section {
+      margin-top: 24px;
+      padding: 16px;
+      background: #fafafa;
+      border-radius: 6px;
+    }
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-top: 16px;
+    }
+    .analytics-table {
+      margin-top: 12px;
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <div class="top-bar">
@@ -99,22 +133,90 @@
   </section>
 
   <section id="usageSection" style="display:none;">
-    <h2>Your marked essays</h2>
+    <h2>Analytics Dashboard</h2>
+    
+    <div class="filters">
+      <div class="filter-group">
+        <label for="studentFilter">Student</label>
+        <select id="studentFilter">
+          <option value="">All Students</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="assignmentPrefixFilter">Assignment Prefix</label>
+        <select id="assignmentPrefixFilter">
+          <option value="">All Assignments</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="timeWindowFilter">Time Window</label>
+        <select id="timeWindowFilter">
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+    </div>
+
     <p id="usageStatus">Loading…</p>
-    <table aria-label="Usage summary">
-      <thead>
-        <tr>
-          <th class="nowrap">Date</th>
-          <th>Student</th>
-          <th>Assignment</th>
-          <th>Mode</th>
-          <th class="nowrap">Total labels</th>
-        </tr>
-      </thead>
-      <tbody id="usageTableBody">
-        <!-- rows injected by JS -->
-      </tbody>
-    </table>
+
+    <!-- Progress by Assignment -->
+    <div class="analytics-section">
+      <h3>Progress by Assignment</h3>
+      <div class="chart-container">
+        <canvas id="assignmentChart"></canvas>
+      </div>
+      <table class="analytics-table" aria-label="Progress by assignment">
+        <thead>
+          <tr>
+            <th>Assignment</th>
+            <th class="nowrap">Total Labels</th>
+            <th class="nowrap">Essays Marked</th>
+          </tr>
+        </thead>
+        <tbody id="assignmentTableBody">
+          <!-- rows injected by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Top Labels -->
+    <div class="analytics-section">
+      <h3>Top Labels</h3>
+      <div class="chart-container">
+        <canvas id="labelsChart"></canvas>
+      </div>
+      <table class="analytics-table" aria-label="Top labels">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th class="nowrap">Count</th>
+          </tr>
+        </thead>
+        <tbody id="labelsTableBody">
+          <!-- rows injected by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Marked Essays -->
+    <div class="analytics-section">
+      <h3>Recent Marked Essays</h3>
+      <table aria-label="Recent marked essays">
+        <thead>
+          <tr>
+            <th class="nowrap">Date</th>
+            <th>Student</th>
+            <th>Assignment</th>
+            <th>Mode</th>
+            <th class="nowrap">Total labels</th>
+          </tr>
+        </thead>
+        <tbody id="usageTableBody">
+          <!-- rows injected by JS -->
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <script>
@@ -134,6 +236,48 @@
     const usageSection = document.getElementById("usageSection");
     const usageStatus = document.getElementById("usageStatus");
     const usageTableBody = document.getElementById("usageTableBody");
+    const studentFilter = document.getElementById("studentFilter");
+    const assignmentPrefixFilter = document.getElementById("assignmentPrefixFilter");
+    const timeWindowFilter = document.getElementById("timeWindowFilter");
+    const assignmentTableBody = document.getElementById("assignmentTableBody");
+    const labelsTableBody = document.getElementById("labelsTableBody");
+
+    let allData = [];
+    let assignmentChart = null;
+    let labelsChart = null;
+
+    // Numeric-aware assignment sorting helper
+    function extractAssignmentParts(assignmentName) {
+      if (!assignmentName) return { prefix: "", number: 0 };
+      // Match patterns like "Homework 2", "Foundation 03", "X 11", etc.
+      const match = assignmentName.match(/^([^\d]+?)\s*(\d+)$/);
+      if (match) {
+        return {
+          prefix: match[1].trim(),
+          number: parseInt(match[2], 10)
+        };
+      }
+      return { prefix: assignmentName, number: 0 };
+    }
+
+    function sortAssignments(assignments) {
+      return assignments.sort((a, b) => {
+        const aParts = extractAssignmentParts(a.name);
+        const bParts = extractAssignmentParts(b.name);
+        
+        // If filtering by prefix, just sort by number
+        const selectedPrefix = assignmentPrefixFilter.value;
+        if (selectedPrefix && aParts.prefix === selectedPrefix && bParts.prefix === selectedPrefix) {
+          return aParts.number - bParts.number;
+        }
+        
+        // Otherwise, sort by prefix first, then number
+        if (aParts.prefix !== bParts.prefix) {
+          return aParts.prefix.localeCompare(bParts.prefix);
+        }
+        return aParts.number - bParts.number;
+      });
+    }
 
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
@@ -183,28 +327,105 @@
       if (!user) return;
       usageStatus.textContent = "Loading…";
 
-      const { data, error } = await supa
+      // Build query with time filter
+      let query = supa
         .from("mark_events")
-        .select("created_at, student_name, assignment_name, mode, total_labels")
-        .eq("user_id", user.id)
+        .select("created_at, student_name, assignment_name, mode, total_labels, label_counts, issues")
+        .eq("user_id", user.id);
+
+      const timeWindow = timeWindowFilter.value;
+      if (timeWindow !== "all") {
+        const days = parseInt(timeWindow, 10);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        query = query.gte("created_at", cutoffDate.toISOString());
+      }
+
+      const { data, error } = await query
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(1000);
 
       if (error) {
         console.error("Error loading usage:", error);
         usageStatus.textContent = `Error loading data: ${error.message}`;
         usageTableBody.innerHTML = "";
+        assignmentTableBody.innerHTML = "";
+        labelsTableBody.innerHTML = "";
         return;
       }
 
       if (!data || data.length === 0) {
         usageStatus.textContent = "No essays marked yet.";
         usageTableBody.innerHTML = "";
+        assignmentTableBody.innerHTML = "";
+        labelsTableBody.innerHTML = "";
         return;
       }
 
-      usageStatus.textContent = `Showing ${data.length} marked essays.`;
+      allData = data;
+      updateFilters(data);
+      applyFilters(data);
+    }
 
+    function updateFilters(data) {
+      // Update student filter
+      const students = [...new Set(data.map(r => r.student_name).filter(Boolean))].sort();
+      studentFilter.innerHTML = '<option value="">All Students</option>';
+      students.forEach(student => {
+        const option = document.createElement("option");
+        option.value = student;
+        option.textContent = student;
+        studentFilter.appendChild(option);
+      });
+
+      // Update assignment prefix filter
+      const prefixes = new Set();
+      data.forEach(row => {
+        if (row.assignment_name) {
+          const parts = extractAssignmentParts(row.assignment_name);
+          if (parts.prefix) {
+            prefixes.add(parts.prefix);
+          }
+        }
+      });
+      const sortedPrefixes = Array.from(prefixes).sort();
+      assignmentPrefixFilter.innerHTML = '<option value="">All Assignments</option>';
+      sortedPrefixes.forEach(prefix => {
+        const option = document.createElement("option");
+        option.value = prefix;
+        option.textContent = prefix;
+        assignmentPrefixFilter.appendChild(option);
+      });
+    }
+
+    function applyFilters(data) {
+      // Apply student filter
+      let filtered = data;
+      const selectedStudent = studentFilter.value;
+      if (selectedStudent) {
+        filtered = filtered.filter(r => r.student_name === selectedStudent);
+      }
+
+      // Apply assignment prefix filter
+      const selectedPrefix = assignmentPrefixFilter.value;
+      if (selectedPrefix) {
+        filtered = filtered.filter(r => {
+          if (!r.assignment_name) return false;
+          const parts = extractAssignmentParts(r.assignment_name);
+          return parts.prefix === selectedPrefix;
+        });
+      }
+
+      usageStatus.textContent = `Showing ${filtered.length} of ${data.length} marked essays.`;
+
+      // Render recent essays table
+      renderRecentEssays(filtered.slice(0, 50));
+
+      // Calculate and render analytics
+      calculateAnalytics(filtered);
+    }
+
+    function renderRecentEssays(data) {
       usageTableBody.innerHTML = "";
       for (const row of data) {
         const tr = document.createElement("tr");
@@ -235,6 +456,159 @@
         usageTableBody.appendChild(tr);
       }
     }
+
+    function calculateAnalytics(data) {
+      // Progress by assignment
+      const assignmentMap = new Map();
+      data.forEach(row => {
+        const assignmentName = row.assignment_name || "Unnamed";
+        if (!assignmentMap.has(assignmentName)) {
+          assignmentMap.set(assignmentName, {
+            name: assignmentName,
+            totalLabels: 0,
+            count: 0
+          });
+        }
+        const entry = assignmentMap.get(assignmentName);
+        entry.totalLabels += row.total_labels || 0;
+        entry.count += 1;
+      });
+
+      const assignments = Array.from(assignmentMap.values());
+      const sortedAssignments = sortAssignments(assignments);
+      renderAssignmentProgress(sortedAssignments);
+
+      // Top labels
+      const labelCounter = new Map();
+      data.forEach(row => {
+        if (row.label_counts && typeof row.label_counts === 'object') {
+          Object.entries(row.label_counts).forEach(([label, count]) => {
+            const currentCount = labelCounter.get(label) || 0;
+            labelCounter.set(label, currentCount + (typeof count === 'number' ? count : parseInt(count, 10) || 0));
+          });
+        }
+      });
+
+      const topLabels = Array.from(labelCounter.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+      renderTopLabels(topLabels);
+    }
+
+    function renderAssignmentProgress(assignments) {
+      assignmentTableBody.innerHTML = "";
+      assignments.forEach(assignment => {
+        const tr = document.createElement("tr");
+        
+        const nameCell = document.createElement("td");
+        nameCell.textContent = assignment.name;
+        tr.appendChild(nameCell);
+
+        const labelsCell = document.createElement("td");
+        labelsCell.className = "nowrap";
+        labelsCell.textContent = assignment.totalLabels;
+        tr.appendChild(labelsCell);
+
+        const countCell = document.createElement("td");
+        countCell.className = "nowrap";
+        countCell.textContent = assignment.count;
+        tr.appendChild(countCell);
+
+        assignmentTableBody.appendChild(tr);
+      });
+
+      // Update chart
+      if (assignmentChart) {
+        assignmentChart.destroy();
+      }
+
+      const ctx = document.getElementById("assignmentChart").getContext("2d");
+      const selectedPrefix = assignmentPrefixFilter.value;
+      const chartData = selectedPrefix 
+        ? assignments.map(a => extractAssignmentParts(a.name).number)
+        : assignments.map((a, i) => i + 1);
+      
+      assignmentChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: assignments.map(a => a.name),
+          datasets: [{
+            label: "Total Labels",
+            data: assignments.map(a => a.totalLabels),
+            borderColor: "rgb(75, 192, 192)",
+            backgroundColor: "rgba(75, 192, 192, 0.2)",
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function renderTopLabels(labels) {
+      labelsTableBody.innerHTML = "";
+      labels.forEach(({ label, count }) => {
+        const tr = document.createElement("tr");
+        
+        const labelCell = document.createElement("td");
+        labelCell.textContent = label || "—";
+        tr.appendChild(labelCell);
+
+        const countCell = document.createElement("td");
+        countCell.className = "nowrap";
+        countCell.textContent = count;
+        tr.appendChild(countCell);
+
+        labelsTableBody.appendChild(tr);
+      });
+
+      // Update chart
+      if (labelsChart) {
+        labelsChart.destroy();
+      }
+
+      const ctx = document.getElementById("labelsChart").getContext("2d");
+      labelsChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels.map(l => l.label),
+          datasets: [{
+            label: "Count",
+            data: labels.map(l => l.count),
+            backgroundColor: "rgba(54, 162, 235, 0.6)",
+            borderColor: "rgba(54, 162, 235, 1)",
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Add event listeners for filters
+    studentFilter.addEventListener("change", () => applyFilters(allData));
+    assignmentPrefixFilter.addEventListener("change", () => applyFilters(allData));
+    timeWindowFilter.addEventListener("change", async () => {
+      const { data } = await supa.auth.getSession();
+      if (data && data.session) {
+        loadUsage(data.session.user);
+      }
+    });
 
     // Initial load
     refreshAuthUI();
