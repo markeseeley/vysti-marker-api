@@ -37,7 +37,7 @@
       font-size: 0.9rem;
       color: #555;
     }
-    #unassignedStatus, #usageStatus {
+    #usageStatus {
       margin-top: 8px;
       font-size: 0.9rem;
       color: #555;
@@ -53,7 +53,6 @@
       padding: 6px 8px;
       border-bottom: 1px solid #eee;
       text-align: left;
-      vertical-align: top;
     }
     tr:nth-child(even) { background: #fafafa; }
     .nowrap { white-space: nowrap; }
@@ -66,9 +65,6 @@
       margin-top: 8px;
       font-size: 0.9rem;
     }
-    .name-input { width: 160px; }
-    .assign-btn { margin-top: 0; }
-    .muted { color: #777; }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -77,7 +73,7 @@
   <div class="top-bar">
     <div>
       <h1>Vysti Marker – Usage Dashboard</h1>
-      <p class="subheading">Assign student names to batch-marked essays (no parsing, no re-marking).</p>
+      <p class="subheading">See how many yellow-label issues your students are getting on each assignment.</p>
     </div>
   </div>
 
@@ -98,31 +94,6 @@
     <p id="authStatus"></p>
     <p class="link-row">
       <a href="index.html">← Back to Vysti Marker</a>
-    </p>
-  </section>
-
-  <!-- NEW: Unassigned section -->
-  <section id="unassignedSection" style="display:none;">
-    <h2>Unassigned</h2>
-    <p id="unassignedStatus">Loading…</p>
-
-    <table aria-label="Unassigned essays">
-      <thead>
-        <tr>
-          <th>File name</th>
-          <th>Guess (filename)</th>
-          <th>Guess (MLA)</th>
-          <th class="nowrap">Total issues</th>
-          <th>Student name</th>
-          <th class="nowrap">Assign</th>
-        </tr>
-      </thead>
-      <tbody id="unassignedTableBody">
-        <!-- rows injected by JS -->
-      </tbody>
-    </table>
-    <p class="muted" style="margin-top:8px;">
-      This table only updates <code>mark_events.student_name</code>. No document parsing. No re-marking.
     </p>
   </section>
 
@@ -159,34 +130,9 @@
     const logoutBtn = document.getElementById("logoutBtn");
     const authStatus = document.getElementById("authStatus");
 
-    const unassignedSection = document.getElementById("unassignedSection");
-    const unassignedStatus = document.getElementById("unassignedStatus");
-    const unassignedTableBody = document.getElementById("unassignedTableBody");
-
     const usageSection = document.getElementById("usageSection");
     const usageStatus = document.getElementById("usageStatus");
     const usageTableBody = document.getElementById("usageTableBody");
-
-    function titleCaseWord(w) {
-      if (!w) return "";
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    }
-
-    // Guess "First Last" from file name: splits on _- . whitespace, takes first 2 alphabetic tokens
-    function guessFromFilename(fileName) {
-      if (!fileName) return "";
-      const base = fileName.replace(/\.[^/.]+$/, ""); // remove extension
-      const tokens = base.split(/[_\-.\s]+/).filter(Boolean);
-
-      const picks = [];
-      for (const t of tokens) {
-        const cleaned = (t || "").replace(/[^A-Za-z]/g, "");
-        if (cleaned.length >= 2) picks.push(cleaned);
-        if (picks.length >= 2) break;
-      }
-      if (picks.length === 0) return "";
-      return picks.map(titleCaseWord).join(" ");
-    }
 
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
@@ -196,19 +142,12 @@
         authStatus.textContent = `Signed in as ${session.user.email}`;
         loginBtn.style.display = "none";
         logoutBtn.style.display = "inline-block";
-
-        unassignedSection.style.display = "block";
         usageSection.style.display = "block";
-
-        // Load both tables
-        loadUnassigned(session.user);
         loadUsage(session.user);
       } else {
         authStatus.textContent = "Please sign in to view your dashboard.";
         loginBtn.style.display = "inline-block";
         logoutBtn.style.display = "none";
-
-        unassignedSection.style.display = "none";
         usageSection.style.display = "none";
       }
     }
@@ -229,7 +168,6 @@
     logoutBtn.addEventListener("click", async () => {
       await supa.auth.signOut();
       authStatus.textContent = "Logged out.";
-      unassignedSection.style.display = "none";
       usageSection.style.display = "none";
       loginBtn.style.display = "inline-block";
       logoutBtn.style.display = "none";
@@ -239,136 +177,10 @@
       refreshAuthUI();
     });
 
-    async function loadUnassigned(user) {
-      if (!user) return;
-      unassignedStatus.textContent = "Loading…";
-      unassignedTableBody.innerHTML = "";
-
-      // Try with guess columns; fallback if they don't exist.
-      let data, error;
-
-      ({ data, error } = await supa
-        .from("mark_events")
-        .select("id, created_at, file_name, total_labels, student_name, guess_filename, guess_mla")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(200)
-      );
-
-      if (error) {
-        console.warn("Falling back to minimal columns:", error);
-        ({ data, error } = await supa
-          .from("mark_events")
-          .select("id, created_at, file_name, total_labels, student_name")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(200)
-        );
-      }
-
-      if (error) {
-        console.error("Error loading unassigned:", error);
-        unassignedStatus.textContent = `Error loading unassigned: ${error.message}`;
-        return;
-      }
-
-      const rows = (data || []).filter(r => !r.student_name || r.student_name.trim() === "");
-      if (rows.length === 0) {
-        unassignedStatus.textContent = "No unassigned essays.";
-        return;
-      }
-
-      unassignedStatus.textContent = `Showing ${rows.length} unassigned essays.`;
-
-      for (const row of rows) {
-        const tr = document.createElement("tr");
-
-        const fileCell = document.createElement("td");
-        fileCell.textContent = row.file_name || "—";
-        tr.appendChild(fileCell);
-
-        const guessFn = row.guess_filename || guessFromFilename(row.file_name || "");
-        const guessMla = row.guess_mla || "—";
-
-        const guessFileCell = document.createElement("td");
-        guessFileCell.textContent = guessFn || "—";
-        tr.appendChild(guessFileCell);
-
-        const guessMlaCell = document.createElement("td");
-        guessMlaCell.textContent = guessMla;
-        tr.appendChild(guessMlaCell);
-
-        const totalCell = document.createElement("td");
-        totalCell.className = "nowrap";
-        totalCell.textContent = (row.total_labels != null) ? row.total_labels : "—";
-        tr.appendChild(totalCell);
-
-        const inputCell = document.createElement("td");
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "name-input";
-        input.placeholder = "Student name";
-        input.value = (row.guess_mla && row.guess_mla.trim())
-          ? row.guess_mla.trim()
-          : (guessFn || "");
-        inputCell.appendChild(input);
-        tr.appendChild(inputCell);
-
-        const btnCell = document.createElement("td");
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "assign-btn";
-        btn.textContent = "Assign";
-        btn.addEventListener("click", async () => {
-          await assignOne(row.id, input.value, btn);
-          // After assignment, refresh both sections
-          await loadUnassigned(user);
-          await loadUsage(user);
-        });
-        btnCell.appendChild(btn);
-        tr.appendChild(btnCell);
-
-        unassignedTableBody.appendChild(tr);
-      }
-    }
-
-    async function assignOne(id, name, btnEl) {
-      const cleaned = (name || "").trim();
-      if (!cleaned) {
-        alert("Please enter a student name before assigning.");
-        return;
-      }
-
-      btnEl.disabled = true;
-      const oldText = btnEl.textContent;
-      btnEl.textContent = "Saving…";
-
-      const { error } = await supa
-        .from("mark_events")
-        .update({ student_name: cleaned })
-        .eq("id", id);
-
-      btnEl.disabled = false;
-      btnEl.textContent = oldText;
-
-      if (error) {
-        console.error("Assign error:", error);
-        alert(
-          `Could not assign student name: ${error.message}\n\n` +
-          `If this is an RLS/permission issue, you likely need an UPDATE policy like:\n` +
-          `create policy "teachers update own rows"\n` +
-          `on mark_events for update\n` +
-          `using (auth.uid() = user_id)\n` +
-          `with check (auth.uid() = user_id);`
-        );
-      }
-    }
-
-    // ===== Load usage (assigned rows only) =====
+    // ===== Load usage from mark_events for this teacher =====
     async function loadUsage(user) {
       if (!user) return;
       usageStatus.textContent = "Loading…";
-      usageTableBody.innerHTML = "";
 
       const { data, error } = await supa
         .from("mark_events")
@@ -380,18 +192,20 @@
       if (error) {
         console.error("Error loading usage:", error);
         usageStatus.textContent = `Error loading data: ${error.message}`;
+        usageTableBody.innerHTML = "";
         return;
       }
 
-      const assigned = (data || []).filter(r => r.student_name && r.student_name.trim() !== "");
-      if (assigned.length === 0) {
-        usageStatus.textContent = "No assigned essays yet.";
+      if (!data || data.length === 0) {
+        usageStatus.textContent = "No essays marked yet.";
+        usageTableBody.innerHTML = "";
         return;
       }
 
-      usageStatus.textContent = `Showing ${assigned.length} assigned essays.`;
+      usageStatus.textContent = `Showing ${data.length} marked essays.`;
 
-      for (const row of assigned) {
+      usageTableBody.innerHTML = "";
+      for (const row of data) {
         const tr = document.createElement("tr");
 
         const dateCell = document.createElement("td");
