@@ -2,6 +2,7 @@
 
 import os
 import io
+from io import BytesIO
 
 import httpx
 from collections import Counter
@@ -17,8 +18,9 @@ from fastapi import (
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from docx import Document
 
-from marker import mark_docx_bytes  # uses your existing engine
+from marker import mark_docx_bytes, extract_summary_metadata  # uses your existing engine
 
 
 app = FastAPI(title="Vysti Marker API")
@@ -237,10 +239,10 @@ async def mark_essay(
             cnt_i = int(cnt) if cnt is not None else 1
         except Exception:
             cnt_i = 1
-        # Use cnt if present; otherwise fall back to 1
         label_counter[lbl] += (cnt_i if cnt_i > 0 else 1)
 
     total_labels = sum(label_counter.values())
+
 
 
     # Log usage in Supabase mark_events (best-effort; do not break marking if this fails)
@@ -283,4 +285,105 @@ async def mark_essay(
         io.BytesIO(marked_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+    )
+
+
+@app.post("/ingest_marked")
+async def ingest_marked_essay(
+    file: UploadFile = File(...),
+    student_name: str | None = Form(None),
+    assignment_name: str | None = Form(None),
+    mode: str = Form("imported_marked"),
+    user: dict = Depends(get_current_user),  # <-- require Supabase auth
+):
+    """
+    Ingest an already-marked .docx file by extracting label counts from the summary table
+    and logging it to mark_events.
+    """
+    # 1. Basic validation
+    if not file.filename.lower().endswith(".docx"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Please upload a .docx file"},
+        )
+
+    # 2. Read file bytes
+    docx_bytes = await file.read()
+
+    # 3. Parse the document to extract summary metadata
+    try:
+        doc = Document(BytesIO(docx_bytes))
+        metadata = extract_summary_metadata(doc)
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Failed to parse document: {str(e)}"},
+        )
+
+    # 4. Validate that this is a marked document
+    issues = metadata.get("issues", [])
+    if not issues:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "This doc doesn't appear to be a Vysti-marked file"},
+        )
+
+    # 5. Build label_counts from issues
+    label_counter = Counter()
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        lbl = issue.get("label")
+        if not lbl:
+            continue
+        cnt = issue.get("count")
+        try:
+            cnt_i = int(cnt) if cnt is not None else 1
+        except Exception:
+            cnt_i = 1
+        # Ensure count is at least 1
+        label_counter[lbl] += max(cnt_i, 1)
+
+    total_labels = sum(label_counter.values())
+
+    # 6. Log to Supabase mark_events
+    try:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+            user_id = user.get("id") if isinstance(user, dict) else None
+            db_url = f"{SUPABASE_URL}/rest/v1/mark_events"
+            payload = {
+                "user_id": user_id,
+                "file_name": file.filename,
+                "mode": mode,
+                "bytes": len(docx_bytes),
+                "student_name": student_name,
+                "assignment_name": assignment_name,
+                "total_labels": total_labels,
+                "label_counts": dict(label_counter),
+                "issues": issues,
+            }
+
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(
+                    db_url,
+                    json=payload,
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal",
+                    },
+                )
+    except Exception as e:
+        print("Failed to log mark_event:", repr(e))
+        # Still return success even if logging fails
+
+    # 7. Return success response
+    return JSONResponse(
+        content={
+            "ok": True,
+            "total_labels": total_labels,
+            "label_counts": dict(label_counter),
+            "issues": issues,
+        }
     )
