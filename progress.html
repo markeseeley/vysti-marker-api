@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker – Progress Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/marker.css">
+  
+  <!-- Supabase JS client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  
+  <style>
+    .progress-page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+    }
+    
+    .filters-section {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    }
+    
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .filter-group label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    
+    .range-selector {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    
+    .range-btn {
+      padding: 6px 12px;
+      border: 1px solid rgba(0,0,0,.14);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .range-btn:hover {
+      background: rgba(169,13,34,.05);
+      border-color: var(--maroon);
+    }
+    
+    .range-btn.active {
+      background: var(--maroon);
+      color: #fff;
+      border-color: var(--maroon);
+    }
+    
+    .range-custom {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    
+    .range-custom input {
+      width: 80px;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid rgba(0,0,0,.14);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    
+    .duplicates-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .duplicates-toggle input[type="checkbox"] {
+      width: 44px;
+      height: 24px;
+      appearance: none;
+      border-radius: 12px;
+      background: #BCC1CA;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    .duplicates-toggle input[type="checkbox"]::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #fff;
+      transition: transform .15s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    }
+    
+    .duplicates-toggle input[type="checkbox"]:checked {
+      background: var(--maroon);
+    }
+    
+    .duplicates-toggle input[type="checkbox"]:checked::before {
+      transform: translateX(20px);
+    }
+    
+    .charts-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    @media (max-width: 980px) {
+      .charts-section {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .chart-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    }
+    
+    .chart-card h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .chart-container {
+      position: relative;
+      height: 300px;
+    }
+    
+    .table-section {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    }
+    
+    .table-section h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .export-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--maroon);
+      border-radius: 8px;
+      background: var(--maroon);
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .export-btn:hover {
+      filter: brightness(.95);
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    thead {
+      background: #f5f6f8;
+    }
+    
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+    
+    th {
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    
+    tbody tr:hover {
+      background: rgba(169,13,34,.02);
+    }
+    
+    .nowrap {
+      white-space: nowrap;
+    }
+    
+    .status-message {
+      padding: 12px;
+      background: rgba(169,13,34,.05);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/assets/logo.svg" alt="Vysti" />
+    </div>
+    
+    <nav>
+      <a href="/dashboard.html">Dashboard</a>
+      <a href="/index.html">Mark Assignments</a>
+      <a href="/ingest.html">Ingest Marked Essays</a>
+      <a href="/progress.html" class="active">Progress</a>
+    </nav>
+    
+    <div class="actions">
+      <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
+      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
+      <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="progress-page" id="progressPage" style="display:none;">
+      <div class="filters-section">
+        <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600;">Filters</h2>
+        
+        <div class="filters-grid">
+          <div class="filter-group">
+            <label for="studentFilter">Student</label>
+            <select id="studentFilter">
+              <option value="">All Students</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label for="seriesFilter">Assignment Series</label>
+            <select id="seriesFilter">
+              <option value="">All Series</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label>Assignment Range</label>
+            <div class="range-selector">
+              <button class="range-btn" data-range="6">First 6</button>
+              <button class="range-btn" data-range="12">First 12</button>
+              <button class="range-btn active" data-range="all">All</button>
+            </div>
+            <div class="range-custom">
+              <input type="number" id="rangeStart" placeholder="Start" min="1" />
+              <span>to</span>
+              <input type="number" id="rangeEnd" placeholder="End" min="1" />
+            </div>
+          </div>
+        </div>
+        
+        <div class="duplicates-toggle">
+          <input type="checkbox" id="includeDuplicates" />
+          <label for="includeDuplicates" style="margin: 0; font-size: 13px; font-weight: 600;">Include duplicates (show all entries for same student+assignment)</label>
+        </div>
+      </div>
+      
+      <div id="statusMessage" class="status-message" style="display:none;"></div>
+      
+      <div class="charts-section">
+        <div class="chart-card">
+          <h3>Total Labels vs Assignment Order</h3>
+          <div class="chart-container">
+            <canvas id="lineChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="chart-card">
+          <h3>Top 8 Labels</h3>
+          <div class="chart-container">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="table-section">
+        <h3>
+          <span>Data Table</span>
+          <button class="export-btn" id="exportBtn">Export CSV</button>
+        </h3>
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">Date</th>
+              <th>Student</th>
+              <th>Assignment</th>
+              <th>Mode</th>
+              <th class="nowrap">Total Labels</th>
+              <th>Label Counts</th>
+            </tr>
+          </thead>
+          <tbody id="dataTableBody">
+            <!-- rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ===== Supabase config =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
+    
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    const progressPage = document.getElementById("progressPage");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const studentFilter = document.getElementById("studentFilter");
+    const seriesFilter = document.getElementById("seriesFilter");
+    const rangeBtns = document.querySelectorAll(".range-btn");
+    const rangeStart = document.getElementById("rangeStart");
+    const rangeEnd = document.getElementById("rangeEnd");
+    const includeDuplicates = document.getElementById("includeDuplicates");
+    const statusMessage = document.getElementById("statusMessage");
+    const dataTableBody = document.getElementById("dataTableBody");
+    const exportBtn = document.getElementById("exportBtn");
+    
+    let allData = [];
+    let filteredData = [];
+    let lineChart = null;
+    let barChart = null;
+    let currentRange = "all";
+    
+    // ===== Auth =====
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+      
+      if (!session) {
+        window.location.replace("/signin.html");
+        return;
+      }
+      
+      progressPage.style.display = "block";
+      loadData();
+    }
+    
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      window.location.replace("/signin.html");
+    });
+    
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
+    
+    // ===== Assignment name parsing =====
+    function parseAssignmentName(name) {
+      if (!name) return { series: "", number: null, original: name };
+      
+      // Regex: ^(?<series>[A-Za-z]+)\s*(?<num>\d+)
+      const match = name.match(/^([A-Za-z]+)\s*(\d+)/);
+      if (match) {
+        return {
+          series: match[1],
+          number: parseInt(match[2], 10),
+          original: name
+        };
+      }
+      
+      return { series: "", number: null, original: name };
+    }
+    
+    // ===== Data loading =====
+    async function loadData() {
+      statusMessage.style.display = "block";
+      statusMessage.textContent = "Loading data...";
+      
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        window.location.replace("/signin.html");
+        return;
+      }
+      
+      const { data, error } = await supa
+        .from("mark_events")
+        .select("created_at, student_name, assignment_name, mode, total_labels, label_counts")
+        .eq("user_id", sessionData.session.user.id)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        statusMessage.textContent = `Error loading data: ${error.message}`;
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        statusMessage.textContent = "No data found.";
+        allData = [];
+        filteredData = [];
+        updateUI();
+        return;
+      }
+      
+      allData = data;
+      statusMessage.style.display = "none";
+      updateFilters();
+      applyFilters();
+    }
+    
+    // ===== Filter updates =====
+    function updateFilters() {
+      // Update student filter
+      const students = [...new Set(allData.map(r => r.student_name).filter(Boolean))].sort();
+      studentFilter.innerHTML = '<option value="">All Students</option>';
+      students.forEach(student => {
+        const option = document.createElement("option");
+        option.value = student;
+        option.textContent = student;
+        studentFilter.appendChild(option);
+      });
+      
+      // Update series filter
+      const seriesSet = new Set();
+      allData.forEach(row => {
+        const parsed = parseAssignmentName(row.assignment_name);
+        if (parsed.series) {
+          seriesSet.add(parsed.series);
+        }
+      });
+      const seriesList = Array.from(seriesSet).sort();
+      seriesFilter.innerHTML = '<option value="">All Series</option>';
+      seriesList.forEach(series => {
+        const option = document.createElement("option");
+        option.value = series;
+        option.textContent = series;
+        seriesFilter.appendChild(option);
+      });
+    }
+    
+    // ===== Filter application =====
+    function applyFilters() {
+      // Start with data sorted by created_at descending (most recent first)
+      let filtered = [...allData].sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      );
+      
+      // Handle duplicates: if not including duplicates, keep only most recent per student+assignment
+      // Since data is sorted by created_at descending, first occurrence is most recent
+      if (!includeDuplicates.checked) {
+        const seen = new Set();
+        filtered = filtered.filter(row => {
+          const key = `${row.student_name || ""}::${row.assignment_name || ""}`;
+          if (!key || key === "::") return true; // Keep rows without student/assignment
+          
+          if (seen.has(key)) {
+            return false; // Already seen this combination, skip (we keep the first/most recent)
+          }
+          seen.add(key);
+          return true;
+        });
+      }
+      
+      // Apply student filter
+      const selectedStudent = studentFilter.value;
+      if (selectedStudent) {
+        filtered = filtered.filter(r => r.student_name === selectedStudent);
+      }
+      
+      // Apply series filter
+      const selectedSeries = seriesFilter.value;
+      if (selectedSeries) {
+        filtered = filtered.filter(r => {
+          const parsed = parseAssignmentName(r.assignment_name);
+          return parsed.series === selectedSeries;
+        });
+      }
+      
+      // Sort by assignment (series then number, with unparseable at end)
+      filtered.sort((a, b) => {
+        const aParsed = parseAssignmentName(a.assignment_name);
+        const bParsed = parseAssignmentName(b.assignment_name);
+        
+        // Unparseable go to end
+        if (aParsed.number === null && bParsed.number !== null) return 1;
+        if (aParsed.number !== null && bParsed.number === null) return -1;
+        if (aParsed.number === null && bParsed.number === null) {
+          return (aParsed.original || "").localeCompare(bParsed.original || "");
+        }
+        
+        // If series filter is applied, just sort by number
+        if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+          return aParsed.number - bParsed.number;
+        }
+        
+        // Otherwise sort by series then number
+        if (aParsed.series !== bParsed.series) {
+          return aParsed.series.localeCompare(bParsed.series);
+        }
+        return aParsed.number - bParsed.number;
+      });
+      
+      // Apply range filter
+      if (currentRange !== "all") {
+        const num = parseInt(currentRange, 10);
+        if (!isNaN(num)) {
+          filtered = filtered.slice(0, num);
+        } else if (rangeStart.value && rangeEnd.value) {
+          const start = parseInt(rangeStart.value, 10) - 1; // 0-indexed
+          const end = parseInt(rangeEnd.value, 10);
+          filtered = filtered.slice(start, end);
+        }
+      } else if (rangeStart.value && rangeEnd.value) {
+        const start = parseInt(rangeStart.value, 10) - 1;
+        const end = parseInt(rangeEnd.value, 10);
+        filtered = filtered.slice(start, end);
+      }
+      
+      filteredData = filtered;
+      updateUI();
+    }
+    
+    // ===== UI updates =====
+    function updateUI() {
+      updateCharts();
+      updateTable();
+    }
+    
+    function updateCharts() {
+      updateLineChart();
+      updateBarChart();
+    }
+    
+    function updateLineChart() {
+      const ctx = document.getElementById("lineChart").getContext("2d");
+      
+      if (lineChart) {
+        lineChart.destroy();
+      }
+      
+      const selectedStudent = studentFilter.value;
+      const selectedSeries = seriesFilter.value;
+      
+      // Group data for line chart
+      if (selectedStudent) {
+        // Per student: show their assignments
+        const studentData = filteredData.filter(r => r.student_name === selectedStudent);
+        const labels = studentData.map((r, i) => {
+          const parsed = parseAssignmentName(r.assignment_name);
+          if (parsed.number !== null) {
+            return selectedSeries ? `#${parsed.number}` : r.assignment_name;
+          }
+          return r.assignment_name || `Assignment ${i + 1}`;
+        });
+        const data = studentData.map(r => r.total_labels || 0);
+        
+        lineChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: `${selectedStudent} - Total Labels`,
+              data: data,
+              borderColor: "rgb(169, 13, 34)",
+              backgroundColor: "rgba(169, 13, 34, 0.1)",
+              tension: 0.1,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      } else {
+        // Class average: group by assignment
+        const assignmentMap = new Map();
+        filteredData.forEach(row => {
+          const key = row.assignment_name || "Unnamed";
+          if (!assignmentMap.has(key)) {
+            assignmentMap.set(key, { total: 0, count: 0 });
+          }
+          const entry = assignmentMap.get(key);
+          entry.total += row.total_labels || 0;
+          entry.count += 1;
+        });
+        
+        const assignments = Array.from(assignmentMap.entries())
+          .map(([name, stats]) => ({
+            name,
+            avg: stats.count > 0 ? stats.total / stats.count : 0
+          }))
+          .sort((a, b) => {
+            const aParsed = parseAssignmentName(a.name);
+            const bParsed = parseAssignmentName(b.name);
+            if (aParsed.number === null && bParsed.number !== null) return 1;
+            if (aParsed.number !== null && bParsed.number === null) return -1;
+            if (aParsed.number === null) return 0;
+            if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+              return aParsed.number - bParsed.number;
+            }
+            if (aParsed.series !== bParsed.series) {
+              return aParsed.series.localeCompare(bParsed.series);
+            }
+            return aParsed.number - bParsed.number;
+          });
+        
+        lineChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: assignments.map(a => {
+              const parsed = parseAssignmentName(a.name);
+              return selectedSeries && parsed.series === selectedSeries 
+                ? `#${parsed.number}` 
+                : a.name;
+            }),
+            datasets: [{
+              label: "Class Average - Total Labels",
+              data: assignments.map(a => a.avg),
+              borderColor: "rgb(169, 13, 34)",
+              backgroundColor: "rgba(169, 13, 34, 0.1)",
+              tension: 0.1,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    function updateBarChart() {
+      const ctx = document.getElementById("barChart").getContext("2d");
+      
+      if (barChart) {
+        barChart.destroy();
+      }
+      
+      // Aggregate label_counts across filtered data
+      const labelCounter = new Map();
+      filteredData.forEach(row => {
+        if (row.label_counts && typeof row.label_counts === 'object') {
+          Object.entries(row.label_counts).forEach(([label, count]) => {
+            const currentCount = labelCounter.get(label) || 0;
+            labelCounter.set(label, currentCount + (typeof count === 'number' ? count : parseInt(count, 10) || 0));
+          });
+        }
+      });
+      
+      const topLabels = Array.from(labelCounter.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+      
+      barChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: topLabels.map(l => l.label),
+          datasets: [{
+            label: "Count",
+            data: topLabels.map(l => l.count),
+            backgroundColor: "rgba(169, 13, 34, 0.6)",
+            borderColor: "rgba(169, 13, 34, 1)",
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+    
+    function updateTable() {
+      dataTableBody.innerHTML = "";
+      
+      if (filteredData.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 6;
+        td.textContent = "No data to display";
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "var(--muted)";
+        tr.appendChild(td);
+        dataTableBody.appendChild(tr);
+        return;
+      }
+      
+      filteredData.forEach(row => {
+        const tr = document.createElement("tr");
+        
+        const dateCell = document.createElement("td");
+        dateCell.className = "nowrap";
+        const d = new Date(row.created_at);
+        dateCell.textContent = d.toLocaleDateString();
+        tr.appendChild(dateCell);
+        
+        const studentCell = document.createElement("td");
+        studentCell.textContent = row.student_name || "—";
+        tr.appendChild(studentCell);
+        
+        const assignmentCell = document.createElement("td");
+        assignmentCell.textContent = row.assignment_name || "—";
+        tr.appendChild(assignmentCell);
+        
+        const modeCell = document.createElement("td");
+        modeCell.textContent = row.mode || "—";
+        tr.appendChild(modeCell);
+        
+        const labelsCell = document.createElement("td");
+        labelsCell.className = "nowrap";
+        labelsCell.textContent = row.total_labels != null ? row.total_labels : "—";
+        tr.appendChild(labelsCell);
+        
+        const labelCountsCell = document.createElement("td");
+        if (row.label_counts && typeof row.label_counts === 'object') {
+          labelCountsCell.textContent = Object.entries(row.label_counts)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(", ");
+        } else {
+          labelCountsCell.textContent = "—";
+        }
+        tr.appendChild(labelCountsCell);
+        
+        dataTableBody.appendChild(tr);
+      });
+    }
+    
+    // ===== CSV Export =====
+    function exportToCSV() {
+      if (filteredData.length === 0) {
+        alert("No data to export");
+        return;
+      }
+      
+      const headers = ["Date", "Student", "Assignment", "Mode", "Total Labels", "Label Counts"];
+      const rows = filteredData.map(row => {
+        const date = new Date(row.created_at).toLocaleDateString();
+        const student = row.student_name || "";
+        const assignment = row.assignment_name || "";
+        const mode = row.mode || "";
+        const totalLabels = row.total_labels != null ? row.total_labels : "";
+        const labelCounts = row.label_counts && typeof row.label_counts === 'object'
+          ? Object.entries(row.label_counts).map(([k, v]) => `${k}: ${v}`).join("; ")
+          : "";
+        
+        return [date, student, assignment, mode, totalLabels, labelCounts];
+      });
+      
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      ].join("\n");
+      
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `vysti-progress-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // ===== Event listeners =====
+    rangeBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        rangeBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentRange = btn.dataset.range;
+        applyFilters();
+      });
+    });
+    
+    rangeStart.addEventListener("input", () => {
+      if (rangeStart.value && rangeEnd.value) {
+        rangeBtns.forEach(b => b.classList.remove("active"));
+        currentRange = "custom";
+        applyFilters();
+      }
+    });
+    
+    rangeEnd.addEventListener("input", () => {
+      if (rangeStart.value && rangeEnd.value) {
+        rangeBtns.forEach(b => b.classList.remove("active"));
+        currentRange = "custom";
+        applyFilters();
+      }
+    });
+    
+    studentFilter.addEventListener("change", applyFilters);
+    seriesFilter.addEventListener("change", applyFilters);
+    includeDuplicates.addEventListener("change", applyFilters);
+    exportBtn.addEventListener("click", exportToCSV);
+    
+    // ===== Initial load =====
+    refreshAuthUI();
+  </script>
+</body>
+</html>
+
