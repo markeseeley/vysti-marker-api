@@ -20,10 +20,9 @@
         </div>
       
         <nav>
-          <a href="#" class="">Dashboard</a>
+          <a href="/dashboard.html">Dashboard</a>
           <a href="/index.html" class="active">Mark Assignments</a>
-          <a href="#" class="">Document Review</a>
-          <a href="#" class="">Settings</a>
+          <a href="/ingest.html">Ingest Marked Essays</a>
         </nav>
       
         <div class="actions">
@@ -60,6 +59,16 @@
           <option value="foundation_4">Intro + topic sentence</option>
           <option value="foundation_5">Intro + body</option>
          </select>
+      </label>
+
+      <label>
+        Student name (optional)
+        <input type="text" id="studentName" placeholder="e.g., John Smith" />
+      </label>
+
+      <label>
+        Assignment name (optional)
+        <input type="text" id="assignmentName" placeholder="e.g., Homework 01" />
       </label>
 
      
@@ -636,7 +645,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     
@@ -666,7 +675,7 @@ const MODE_RULE_DEFAULTS = {
       "No first-person allowed or personal pronouns",
       "Requires quoted evidence in the body of the paragraph.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
       
@@ -697,7 +706,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     ]
@@ -727,7 +736,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     ]
@@ -753,7 +762,7 @@ const MODE_RULE_DEFAULTS = {
     details: [
       "Allows for past tense.",
       "Allows first-person and personal pronouns",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
     ]
   },
@@ -781,7 +790,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."]
   },
@@ -809,7 +818,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     ]
@@ -838,7 +847,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     ]
@@ -867,7 +876,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     ]
@@ -897,7 +906,7 @@ const MODE_RULE_DEFAULTS = {
       "Requires a closed thesis statement.",
       "Requires quoted evidence in body paragraphs.",
       "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
       "Red strikethroughs forbidden terms.",
       "Green highlights devices and strategies."
     ]
@@ -1079,8 +1088,10 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
         formData.append("file", file);
         formData.append("mode", mode);
 
-       
-
+        const studentName = document.getElementById("studentName").value.trim();
+        const assignmentName = document.getElementById("assignmentName").value.trim();
+        if (studentName) formData.append("student_name", studentName);
+        if (assignmentName) formData.append("assignment_name", assignmentName);
 
         if (author) formData.append("author", author);
         if (title) {
