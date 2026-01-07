@@ -212,12 +212,18 @@
       // Normalize underscores/hyphens to spaces
       base = base.replace(/[_-]/g, " ");
       
-      // Try to extract assignment (e.g., "Homework 1", "HW01", "Foundation_3", "X 2")
-      // Patterns: "Homework 1", "HW01", "Foundation 3", "X 2", etc.
+      // Try to extract assignment (e.g., "Homework 1", "HW01", "Foundation HW6", "X 2")
+      // Support both assignment-first and student-first patterns
+      // Handle compound names like "Foundation HW6", "High Level HW11"
       const assignmentPatterns = [
-        /(homework|hw)\s*(\d+)/i,
-        /(foundation|found)\s*(\d+)/i,
-        /([a-z]+)\s*(\d+)/i, // Generic: "X 2", "Essay 3", etc.
+        // Pattern 1: "Foundation HW6", "High Level HW11" (prefix + HW + number)
+        /((?:[A-Za-z]+\s+)+)(HW|Homework)\s*(\d+)/i,
+        // Pattern 2: "Foundation 3", "Foundation 03" (prefix + number)
+        /(Foundation|Found)\s*(\d+)/i,
+        // Pattern 3: "HW6", "Homework 1" (just HW/Homework + number)
+        /(HW|Homework)\s*(\d+)/i,
+        // Pattern 4: Generic "X 2", "Essay 3", etc.
+        /([A-Za-z]+)\s*(\d+)/,
       ];
       
       let assignmentName = "";
@@ -226,15 +232,41 @@
       for (const pattern of assignmentPatterns) {
         const match = base.match(pattern);
         if (match) {
-          const prefix = match[1];
-          const num = match[2];
-          // Normalize to "Homework 01", "Foundation 03", etc.
+          const num = match[match.length - 1]; // Last capture group is always the number
           const numPadded = num.padStart(2, "0");
-          assignmentName = prefix.charAt(0).toUpperCase() + prefix.slice(1).toLowerCase() + " " + numPadded;
           
-          // Extract student name (everything before the assignment pattern)
+          // Build assignment name based on pattern
+          if (match.length === 4) {
+            // Pattern 1: prefix + HW/Homework + number
+            const prefix = match[1].trim();
+            const hwPart = match[2];
+            const hwFormatted = hwPart.toUpperCase() === hwPart ? hwPart : 
+              (hwPart.charAt(0).toUpperCase() + hwPart.slice(1).toLowerCase());
+            assignmentName = prefix + hwFormatted + " " + numPadded;
+          } else if (match.length === 3) {
+            // Pattern 2, 3, or 4: prefix + number
+            const prefix = match[1];
+            let prefixFormatted;
+            if (prefix.toUpperCase() === prefix) {
+              // Already all uppercase (e.g., "HW")
+              prefixFormatted = prefix;
+            } else {
+              // Capitalize first letter, lowercase rest
+              prefixFormatted = prefix.charAt(0).toUpperCase() + prefix.slice(1).toLowerCase();
+            }
+            assignmentName = prefixFormatted + " " + numPadded;
+          }
+          
+          // Extract student name: prefer text AFTER the match, otherwise use BEFORE
+          // This handles both patterns:
+          // - "Foundation HW6 Wendi Zhou" → assignment: "Foundation HW06", student: "Wendi Zhou"
+          // - "Wendi Zhou HW6" → assignment: "HW06", student: "Wendi Zhou"
+          const afterMatch = base.substring(match.index + match[0].length).trim();
           const beforeMatch = base.substring(0, match.index).trim();
-          if (beforeMatch) {
+          
+          if (afterMatch) {
+            studentName = afterMatch;
+          } else if (beforeMatch) {
             studentName = beforeMatch;
           }
           break;
