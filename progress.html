@@ -752,7 +752,21 @@
         return;
       }
       
+      // Separate parseable and unparseable assignments
+      const parseableRows = [];
+      const unparseableRows = [];
+      
       filteredData.forEach(row => {
+        const parsed = parseAssignmentName(row.assignment_name);
+        if (parsed.number === null && row.assignment_name) {
+          unparseableRows.push(row);
+        } else {
+          parseableRows.push(row);
+        }
+      });
+      
+      // Show parseable rows first
+      parseableRows.forEach(row => {
         const tr = document.createElement("tr");
         
         const dateCell = document.createElement("td");
@@ -790,6 +804,62 @@
         
         dataTableBody.appendChild(tr);
       });
+      
+      // Show warning section for unparseable assignments
+      if (unparseableRows.length > 0) {
+        // Add separator row
+        const separatorTr = document.createElement("tr");
+        const separatorTd = document.createElement("td");
+        separatorTd.colSpan = 6;
+        separatorTd.style.padding = "16px 12px 8px";
+        separatorTd.style.borderTop = "2px solid #ffc107";
+        separatorTd.style.background = "#fffbf0";
+        separatorTd.innerHTML = '<strong style="color: #856404;">⚠️ Unsorted / Missing assignment number</strong><br><span style="font-size: 12px; color: #856404;">These assignments cannot be sorted sequentially. Please use format like "Foundation 01" for progress graphs.</span>';
+        dataTableBody.appendChild(separatorTr);
+        separatorTr.appendChild(separatorTd);
+        
+        // Add unparseable rows
+        unparseableRows.forEach(row => {
+          const tr = document.createElement("tr");
+          tr.style.background = "#fffbf0";
+          
+          const dateCell = document.createElement("td");
+          dateCell.className = "nowrap";
+          const d = new Date(row.created_at);
+          dateCell.textContent = d.toLocaleDateString();
+          tr.appendChild(dateCell);
+          
+          const studentCell = document.createElement("td");
+          studentCell.textContent = row.student_name || "—";
+          tr.appendChild(studentCell);
+          
+          const assignmentCell = document.createElement("td");
+          assignmentCell.textContent = row.assignment_name || "—";
+          assignmentCell.style.color = "#856404";
+          tr.appendChild(assignmentCell);
+          
+          const modeCell = document.createElement("td");
+          modeCell.textContent = row.mode || "—";
+          tr.appendChild(modeCell);
+          
+          const labelsCell = document.createElement("td");
+          labelsCell.className = "nowrap";
+          labelsCell.textContent = row.total_labels != null ? row.total_labels : "—";
+          tr.appendChild(labelsCell);
+          
+          const labelCountsCell = document.createElement("td");
+          if (row.label_counts && typeof row.label_counts === 'object') {
+            labelCountsCell.textContent = Object.entries(row.label_counts)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", ");
+          } else {
+            labelCountsCell.textContent = "—";
+          }
+          tr.appendChild(labelCountsCell);
+          
+          dataTableBody.appendChild(tr);
+        });
+      }
     }
     
     // ===== CSV Export =====
