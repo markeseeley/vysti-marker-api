@@ -675,6 +675,7 @@ function renderFilesTable() {
       const studentCell = document.createElement("td");
       studentCell.style.padding = "12px";
       studentCell.style.borderBottom = "1px solid #f0f0f0";
+      studentCell.style.minWidth = "180px";
       const studentInput = document.createElement("input");
       studentInput.type = "text";
       studentInput.value = fd.studentName;
@@ -695,6 +696,7 @@ function renderFilesTable() {
       const assignmentCell = document.createElement("td");
       assignmentCell.style.padding = "12px";
       assignmentCell.style.borderBottom = "1px solid #f0f0f0";
+      assignmentCell.style.minWidth = "220px";
       const assignmentInput = document.createElement("input");
       assignmentInput.type = "text";
       assignmentInput.value = fd.assignmentName;
