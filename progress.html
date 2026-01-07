@@ -391,7 +391,23 @@
     function parseAssignmentName(name) {
       if (!name) return { series: "", number: null, original: name };
       
-      // Regex: ^(?<series>[A-Za-z]+)\s*(?<num>\d+)
+      // Extract trailing number for natural numeric sort
+      // Handles: "Foundation HW06", "HW02", "Foundation 3", "High Level HW11", etc.
+      const numMatch = name.match(/(\d+)$/);
+      if (numMatch) {
+        const number = parseInt(numMatch[1], 10);
+        // Extract series (everything before the trailing number)
+        const seriesMatch = name.match(/^(.+?)\s*\d+$/);
+        const series = seriesMatch ? seriesMatch[1].trim() : "";
+        
+        return {
+          series: series,
+          number: number,
+          original: name
+        };
+      }
+      
+      // Fallback: try to match pattern like "Foundation 3" at the start
       const match = name.match(/^([A-Za-z]+)\s*(\d+)/);
       if (match) {
         return {
