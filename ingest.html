@@ -86,10 +86,8 @@
     }
     .file-name-cell {
       font-weight: 500;
-      max-width: 200px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -332,6 +330,7 @@
         // File name
         const fileCell = document.createElement("td");
         fileCell.className = "file-name-cell";
+        fileCell.title = fd.file.name;
         fileCell.textContent = fd.file.name;
         tr.appendChild(fileCell);
         
