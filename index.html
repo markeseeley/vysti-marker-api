@@ -72,6 +72,35 @@
         <input type="text" id="assignmentName" placeholder="e.g., Homework 01" />
       </label>
 
+      <!-- Assignment Builder -->
+      <div class="assignment-builder" style="margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px; color: #333;">Assignment Builder</div>
+        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #666;">Prefix</label>
+            <select id="assignmentPrefix" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+              <option value="Foundation">Foundation</option>
+              <option value="Homework">Homework</option>
+              <option value="High Level">High Level</option>
+              <option value="Custom">Custom</option>
+            </select>
+            <input type="text" id="assignmentPrefixCustom" placeholder="Enter custom prefix" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-top: 8px; display: none;" />
+          </div>
+          <div style="flex: 0 0 100px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #666;">Number</label>
+            <input type="number" id="assignmentNumber" min="1" max="99" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #666;">Preview</label>
+            <div id="assignmentPreview" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 14px; font-weight: 500; color: #333;">Foundation 01</div>
+          </div>
+        </div>
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="applyToAllFiles" checked style="width: 18px; height: 18px; cursor: pointer;" />
+          <label for="applyToAllFiles" style="font-size: 13px; color: #666; cursor: pointer; user-select: none;">Apply to all uploaded files</label>
+        </div>
+      </div>
+
      
 
 <!-- Mode explainer card (single, dynamic) -->
@@ -458,20 +487,22 @@
         return;
       }
       
-      // For multiple files, require assignment names
-      if (fileInput.files.length > 1) {
-        const globalAssignmentName = document.getElementById("assignmentName").value.trim();
-        const hasMissingAssignment = fileData.some(fd => {
-          const perFileAssignment = fd.assignmentName || "";
-          return !perFileAssignment && !globalAssignmentName;
-        });
-        
-        if (hasMissingAssignment) {
-          markBtn.disabled = true;
-          statusEl.textContent = "⚠️ Assignment names are required for all files. Please ensure each file has an assignment name (either from filename or entered manually) for progress graphs to work correctly.";
-          statusEl.style.color = "#dc3545";
-          return;
-        }
+      // Require assignment names for ALL files (single or multiple)
+      const globalAssignmentName = document.getElementById("assignmentName").value.trim();
+      const globalAssignmentNameNormalized = normalizeAssignmentName(globalAssignmentName);
+      
+      // Check each file has a valid assignment name
+      const missingOrInvalid = fileData.some(fd => {
+        const perFileAssignment = fd.assignmentName || "";
+        const assignmentToCheck = perFileAssignment || globalAssignmentNameNormalized;
+        return !assignmentToCheck || !isValidAssignmentName(assignmentToCheck);
+      });
+      
+      if (missingOrInvalid) {
+        markBtn.disabled = true;
+        statusEl.textContent = "⚠️ Assignment names must include a number (e.g., Foundation 01) for progress graphs.";
+        statusEl.style.color = "#dc3545";
+        return;
       }
       
       markBtn.disabled = false;
@@ -561,18 +592,33 @@
             assignmentName = prefixFormatted + " " + numPadded;
           }
           
-          // Extract student name: prefer text AFTER the match, otherwise use BEFORE
+          // Extract student name: remove the matched assignment substring and treat remainder as student
           // This handles both patterns:
           // - "Foundation HW6 Wendi Zhou" → assignment: "Foundation HW06", student: "Wendi Zhou"
-          // - "Wendi Zhou HW6" → assignment: "HW06", student: "Wendi Zhou"
-          const afterMatch = base.substring(match.index + match[0].length).trim();
-          const beforeMatch = base.substring(0, match.index).trim();
+          // - "Wendi Zhou - Foundation HW6" → assignment: "Foundation HW06", student: "Wendi Zhou"
+          // - "Homework 2 - Wendi Zhou" → assignment: "Homework 02", student: "Wendi Zhou"
           
-          if (afterMatch) {
-            studentName = afterMatch;
-          } else if (beforeMatch) {
-            studentName = beforeMatch;
+          // Remove the matched assignment substring from base
+          const beforeMatch = base.substring(0, match.index).trim();
+          const afterMatch = base.substring(match.index + match[0].length).trim();
+          
+          // Combine before and after, removing separators like " - ", " – ", etc.
+          let remaining = (beforeMatch + " " + afterMatch).trim();
+          remaining = remaining.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim(); // Remove leading/trailing dashes
+          remaining = remaining.replace(/\s*[-–—]\s*/g, " "); // Replace internal dashes with space
+          remaining = remaining.replace(/\s+/g, " "); // Normalize multiple spaces
+          
+          // If remaining looks like a name (has capital letters), use it as student name
+          if (remaining && /[A-Z]/.test(remaining)) {
+            studentName = remaining;
+          } else if (beforeMatch && /[A-Z]/.test(beforeMatch)) {
+            // Fallback to before match if it looks like a name
+            studentName = beforeMatch.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim();
+          } else if (afterMatch && /[A-Z]/.test(afterMatch)) {
+            // Fallback to after match if it looks like a name
+            studentName = afterMatch.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim();
           }
+          
           break;
         }
       }
@@ -583,11 +629,162 @@
         assignmentName = "Assignment " + numMatch[1].padStart(2, "0");
         const beforeNum = base.substring(0, numMatch.index).trim();
         if (beforeNum) {
-          studentName = beforeNum;
+          // Remove separators
+          studentName = beforeNum.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim();
         }
       }
       
+      // Normalize assignment name to canonical format
+      if (assignmentName) {
+        assignmentName = normalizeAssignmentName(assignmentName);
+      }
+      
       return { studentName, assignmentName };
+    }
+
+    // ===== Assignment name normalization =====
+    function normalizeAssignmentName(name) {
+      if (!name || typeof name !== "string") return name;
+      
+      let normalized = name.trim();
+      if (!normalized) return normalized;
+      
+      // Normalize common patterns to canonical format: "<Series> <NN>"
+      // Examples:
+      //   "Foundation HW08" -> "Foundation 08"
+      //   "Foundation_HW8"  -> "Foundation 08"
+      //   "HW8"             -> "Homework 08"
+      //   "Homework 8"      -> "Homework 08"
+      //   "Found 6"         -> "Foundation 06"
+      
+      // Replace underscores/hyphens with spaces
+      normalized = normalized.replace(/[_-]/g, " ");
+      
+      // Pattern 1: "Foundation HW08" or "Foundation HW 8" -> "Foundation 08"
+      normalized = normalized.replace(/\b(Foundation|Found)\s+(HW|Homework)\s*(\d+)\b/gi, (match, prefix, hw, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "Foundation " + numPadded;
+      });
+      
+      // Pattern 2: "High Level HW08" or "High Level HW 8" -> "High Level 08"
+      normalized = normalized.replace(/\b(High\s+Level)\s+(HW|Homework)\s*(\d+)\b/gi, (match, prefix, hw, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "High Level " + numPadded;
+      });
+      
+      // Pattern 3: "HW8" or "HW 8" -> "Homework 08"
+      normalized = normalized.replace(/\b(HW|Homework)\s*(\d+)\b/gi, (match, hw, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "Homework " + numPadded;
+      });
+      
+      // Pattern 4: "Foundation 8" -> "Foundation 08"
+      normalized = normalized.replace(/\b(Foundation|Found)\s+(\d+)\b/gi, (match, prefix, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "Foundation " + numPadded;
+      });
+      
+      // Pattern 5: "High Level 8" -> "High Level 08"
+      normalized = normalized.replace(/\b(High\s+Level)\s+(\d+)\b/gi, (match, prefix, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "High Level " + numPadded;
+      });
+      
+      // Pattern 6: Generic "X 8" -> "X 08" (if X is a known series)
+      const knownSeries = ["Foundation", "Homework", "High Level"];
+      for (const series of knownSeries) {
+        const regex = new RegExp(`\\b(${series})\\s+(\\d+)\\b`, "gi");
+        normalized = normalized.replace(regex, (match, prefix, num) => {
+          const numPadded = num.padStart(2, "0");
+          return prefix + " " + numPadded;
+        });
+      }
+      
+      // Pattern 7: Any remaining "X 8" -> "X 08" (zero-pad the number)
+      normalized = normalized.replace(/\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+(\d+)\b/g, (match, prefix, num) => {
+        // Check if already has zero-padded number
+        if (num.length >= 2) return match;
+        const numPadded = num.padStart(2, "0");
+        return prefix + " " + numPadded;
+      });
+      
+      return normalized.trim();
+    }
+    
+    // Check if assignment name is in canonical format (has a number)
+    function isValidAssignmentName(name) {
+      if (!name || typeof name !== "string") return false;
+      const normalized = normalizeAssignmentName(name);
+      // Check if it has a number at the end (canonical format: "<Series> <NN>")
+      return /\d+/.test(normalized);
+    }
+
+    // ===== Assignment Builder UI =====
+    const assignmentPrefix = document.getElementById("assignmentPrefix");
+    const assignmentPrefixCustom = document.getElementById("assignmentPrefixCustom");
+    const assignmentNumber = document.getElementById("assignmentNumber");
+    const assignmentPreview = document.getElementById("assignmentPreview");
+    const applyToAllFiles = document.getElementById("applyToAllFiles");
+    const globalAssignmentNameInput = document.getElementById("assignmentName");
+    
+    function updateAssignmentPreview() {
+      const prefix = assignmentPrefix.value === "Custom" 
+        ? assignmentPrefixCustom.value.trim() 
+        : assignmentPrefix.value;
+      const num = parseInt(assignmentNumber.value, 10) || 1;
+      const numPadded = String(num).padStart(2, "0");
+      const preview = prefix ? `${prefix} ${numPadded}` : `Assignment ${numPadded}`;
+      assignmentPreview.textContent = preview;
+      
+      // Update global assignment name input
+      if (prefix) {
+        globalAssignmentNameInput.value = preview;
+      }
+      
+      // If "Apply to all" is checked, update all file rows
+      if (applyToAllFiles.checked && fileData.length > 0) {
+        fileData.forEach(fd => {
+          fd.assignmentName = preview;
+        });
+        renderFilesTable();
+        syncMarkBtnState();
+      } else {
+        syncMarkBtnState();
+      }
+    }
+    
+    // Show/hide custom prefix input
+    if (assignmentPrefix) {
+      assignmentPrefix.addEventListener("change", () => {
+        if (assignmentPrefix.value === "Custom") {
+          assignmentPrefixCustom.style.display = "block";
+          assignmentPrefixCustom.focus();
+        } else {
+          assignmentPrefixCustom.style.display = "none";
+          assignmentPrefixCustom.value = "";
+          updateAssignmentPreview();
+        }
+      });
+    }
+    
+    if (assignmentPrefixCustom) {
+      assignmentPrefixCustom.addEventListener("input", () => {
+        updateAssignmentPreview();
+      });
+    }
+    
+    if (assignmentNumber) {
+      assignmentNumber.addEventListener("input", () => {
+        const num = parseInt(assignmentNumber.value, 10);
+        if (num < 1) assignmentNumber.value = 1;
+        if (num > 99) assignmentNumber.value = 99;
+        updateAssignmentPreview();
+      });
+    }
+    
+    // Initialize preview
+    if (assignmentPreview) {
+      updateAssignmentPreview();
     }
 
     // ===== Drag & drop wiring =====
@@ -709,6 +906,15 @@ function renderFilesTable() {
       assignmentInput.addEventListener("input", (e) => {
         fd.assignmentName = e.target.value;
         syncMarkBtnState(); // Re-validate when assignment name changes
+      });
+      assignmentInput.addEventListener("blur", (e) => {
+        // Normalize on blur
+        const normalized = normalizeAssignmentName(e.target.value);
+        if (normalized !== e.target.value) {
+          e.target.value = normalized;
+          fd.assignmentName = normalized;
+          syncMarkBtnState();
+        }
       });
       assignmentCell.appendChild(assignmentInput);
       tr.appendChild(assignmentCell);
@@ -835,6 +1041,14 @@ const globalAssignmentInput = document.getElementById("assignmentName");
 if (globalAssignmentInput) {
   globalAssignmentInput.addEventListener("input", () => {
     syncMarkBtnState();
+  });
+  globalAssignmentInput.addEventListener("blur", (e) => {
+    // Normalize on blur
+    const normalized = normalizeAssignmentName(e.target.value);
+    if (normalized !== e.target.value) {
+      e.target.value = normalized;
+      syncMarkBtnState();
+    }
   });
 }
 
@@ -1458,6 +1672,12 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
           studentName = fd.studentName || globalStudentName;
           assignmentName = fd.assignmentName || globalAssignmentName;
         }
+        
+        // Normalize assignment name before sending
+        if (assignmentName) {
+          assignmentName = normalizeAssignmentName(assignmentName);
+        }
+        
         if (studentName) formData.append("student_name", studentName);
         if (assignmentName) formData.append("assignment_name", assignmentName);
 
