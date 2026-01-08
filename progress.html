@@ -131,6 +131,51 @@
       transform: translateX(20px);
     }
     
+    .bucket-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-width: 520px;
+      margin-top: 8px;
+    }
+    
+    .bucket-checkboxes label {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: normal;
+    }
+    
+    .bucket-checkboxes input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    
+    .bucket-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .bucket-actions button {
+      padding: 6px 12px;
+      border: 1px solid rgba(0,0,0,.14);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .bucket-actions button:hover {
+      background: rgba(169,13,34,.05);
+      border-color: var(--maroon);
+    }
+    
     .charts-section {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -294,6 +339,15 @@
           <input type="checkbox" id="includeDuplicates" />
           <label for="includeDuplicates" style="margin: 0; font-size: 13px; font-weight: 600;">Include duplicates (show all entries for same student+assignment)</label>
         </div>
+        
+        <div class="filter-group" style="margin-top: 20px;">
+          <label>Buckets</label>
+          <div class="bucket-checkboxes" id="bucketCheckboxes"></div>
+          <div class="bucket-actions">
+            <button type="button" id="bucketSelectAll">All</button>
+            <button type="button" id="bucketClear">None</button>
+          </div>
+        </div>
       </div>
       
       <div id="statusMessage" class="status-message" style="display:none;"></div>
@@ -311,6 +365,13 @@
           <div class="chart-container">
             <canvas id="barChart"></canvas>
           </div>
+        </div>
+      </div>
+      
+      <div class="chart-card" style="margin-bottom: 24px;">
+        <h3>Progress by Category</h3>
+        <div class="chart-container">
+          <canvas id="bucketChart"></canvas>
         </div>
       </div>
       
@@ -339,6 +400,108 @@
   </main>
 
   <script>
+    // ===== Bucket definitions =====
+    const LABEL_BUCKETS = [
+      {
+        id: "thesis_org",
+        name: "Thesis & Organization",
+        matchers: [
+          /thesis/i,
+          /topic sentence/i,
+          /organization/i,
+          /transition/i,
+          /boundary statement/i,
+          /introduction/i,
+          /conclusion/i,
+          /paragraph/i,
+          /structure/i
+        ]
+      },
+      {
+        id: "evidence_integration",
+        name: "Evidence & Integration",
+        matchers: [
+          /quote/i,
+          /quotation/i,
+          /evidence/i,
+          /citation/i,
+          /\bcite\b/i,
+          /works cited/i,
+          /power verbs/i,
+          /support/i
+        ]
+      },
+      {
+        id: "voice_audience",
+        name: "Voice & Audience",
+        matchers: [
+          /personal pronoun/i,
+          /\bI\b/i,
+          /\bwe\b/i,
+          /\byou\b/i,
+          /reader/i,
+          /audience/i
+        ]
+      },
+      {
+        id: "style_clarity",
+        name: "Style & Clarity",
+        matchers: [
+          /contraction/i,
+          /\bwhich\b/i,
+          /\bfact\b/i,
+          /\bprove\b/i,
+          /weak verb/i,
+          /vague/i,
+          /people/i,
+          /human/i,
+          /word choice/i,
+          /avoid using the word/i,
+          /more than once in a sentence/i
+        ]
+      },
+      {
+        id: "grammar_mechanics",
+        name: "Grammar & Mechanics",
+        matchers: [
+          /subject[- ]verb/i,
+          /agreement/i,
+          /tense/i,
+          /comma/i,
+          /punctuation/i,
+          /spelling/i,
+          /apostrophe/i
+        ]
+      },
+      {
+        id: "formatting",
+        name: "Formatting & Conventions",
+        matchers: [
+          /MLA/i,
+          /header/i,
+          /format/i,
+          /title/i,
+          /author/i
+        ]
+      },
+      { id: "other", name: "Other", matchers: [] }
+    ];
+
+    const BUCKET_OVERRIDES = {
+      "Avoid quotations in the conclusion": "evidence_integration",
+      "Avoid quotations in the introduction": "evidence_integration"
+    };
+
+    function getBucketIdForLabel(label) {
+      if (!label) return "other";
+      if (BUCKET_OVERRIDES[label]) return BUCKET_OVERRIDES[label];
+      for (const b of LABEL_BUCKETS) {
+        if (b.id === "other") continue;
+        if (b.matchers.some(rx => rx.test(label))) return b.id;
+      }
+      return "other";
+    }
+
     // ===== Supabase config =====
     const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
@@ -362,6 +525,7 @@
     let filteredData = [];
     let lineChart = null;
     let barChart = null;
+    let bucketChart = null;
     let currentRange = "all";
     
     // ===== Auth =====
@@ -453,7 +617,82 @@
       allData = data;
       statusMessage.style.display = "none";
       updateFilters();
+      buildBucketCheckboxes();
       applyFilters();
+    }
+    
+    // ===== Bucket selection =====
+    function buildBucketCheckboxes() {
+      const container = document.getElementById("bucketCheckboxes");
+      container.innerHTML = "";
+      
+      const savedSelection = localStorage.getItem("vysti_bucket_selection");
+      let selectedBuckets = [];
+      if (savedSelection) {
+        try {
+          selectedBuckets = JSON.parse(savedSelection);
+        } catch (e) {
+          selectedBuckets = LABEL_BUCKETS.filter(b => b.id !== "other").map(b => b.id);
+        }
+      } else {
+        // Default: select all except "other"
+        selectedBuckets = LABEL_BUCKETS.filter(b => b.id !== "other").map(b => b.id);
+      }
+      
+      LABEL_BUCKETS.forEach(bucket => {
+        if (bucket.id === "other") return; // Skip "other" from UI
+        
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = bucket.id;
+        checkbox.checked = selectedBuckets.includes(bucket.id);
+        checkbox.addEventListener("change", () => {
+          saveBucketSelection();
+          updateCharts();
+        });
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(bucket.name));
+        container.appendChild(label);
+      });
+    }
+    
+    function saveBucketSelection() {
+      const selected = getSelectedBucketIds();
+      localStorage.setItem("vysti_bucket_selection", JSON.stringify(selected));
+    }
+    
+    function getSelectedBucketIds() {
+      const checkboxes = document.querySelectorAll("#bucketCheckboxes input[type='checkbox']");
+      return Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+    }
+    
+    document.getElementById("bucketSelectAll").addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll("#bucketCheckboxes input[type='checkbox']");
+      checkboxes.forEach(cb => cb.checked = true);
+      saveBucketSelection();
+      updateCharts();
+    });
+    
+    document.getElementById("bucketClear").addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll("#bucketCheckboxes input[type='checkbox']");
+      checkboxes.forEach(cb => cb.checked = false);
+      saveBucketSelection();
+      updateCharts();
+    });
+    
+    function bucketCountsFromRow(row) {
+      const out = new Map(); // bucketId -> count
+      if (!row.label_counts || typeof row.label_counts !== "object") return out;
+      for (const [label, raw] of Object.entries(row.label_counts)) {
+        const n = typeof raw === "number" ? raw : parseInt(raw, 10) || 0;
+        const bucketId = getBucketIdForLabel(label);
+        out.set(bucketId, (out.get(bucketId) || 0) + n);
+      }
+      return out;
     }
     
     // ===== Filter updates =====
@@ -577,6 +816,7 @@
     function updateCharts() {
       updateLineChart();
       updateBarChart();
+      updateBucketChart();
     }
     
     function updateLineChart() {
@@ -696,16 +936,41 @@
         barChart.destroy();
       }
       
+      const selectedBucketIds = getSelectedBucketIds();
+      
+      // Count non-"other" buckets
+      const nonOtherBuckets = LABEL_BUCKETS.filter(b => b.id !== "other").length;
+      const allBucketsSelected = selectedBucketIds.length === nonOtherBuckets;
+      
       // Aggregate label_counts across filtered data
       const labelCounter = new Map();
-      filteredData.forEach(row => {
-        if (row.label_counts && typeof row.label_counts === 'object') {
-          Object.entries(row.label_counts).forEach(([label, count]) => {
-            const currentCount = labelCounter.get(label) || 0;
-            labelCounter.set(label, currentCount + (typeof count === 'number' ? count : parseInt(count, 10) || 0));
-          });
-        }
-      });
+      
+      // If all buckets are selected, or no buckets selected, show all labels (default behavior)
+      // Otherwise, filter by selected buckets
+      if (!allBucketsSelected && selectedBucketIds.length > 0) {
+        filteredData.forEach(row => {
+          if (row.label_counts && typeof row.label_counts === 'object') {
+            Object.entries(row.label_counts).forEach(([label, count]) => {
+              // Only include label if its bucket is selected
+              const bucketId = getBucketIdForLabel(label);
+              if (selectedBucketIds.includes(bucketId)) {
+                const currentCount = labelCounter.get(label) || 0;
+                labelCounter.set(label, currentCount + (typeof count === 'number' ? count : parseInt(count, 10) || 0));
+              }
+            });
+          }
+        });
+      } else {
+        // If all buckets selected or none selected, include all labels (default behavior)
+        filteredData.forEach(row => {
+          if (row.label_counts && typeof row.label_counts === 'object') {
+            Object.entries(row.label_counts).forEach(([label, count]) => {
+              const currentCount = labelCounter.get(label) || 0;
+              labelCounter.set(label, currentCount + (typeof count === 'number' ? count : parseInt(count, 10) || 0));
+            });
+          }
+        });
+      }
       
       const topLabels = Array.from(labelCounter.entries())
         .map(([label, count]) => ({ label, count }))
@@ -734,6 +999,224 @@
           }
         }
       });
+    }
+    
+    function updateBucketChart() {
+      const canvas = document.getElementById("bucketChart");
+      const parent = canvas.parentElement;
+      
+      if (bucketChart) {
+        bucketChart.destroy();
+        bucketChart = null;
+      }
+      
+      const selectedBucketIds = getSelectedBucketIds();
+      
+      if (selectedBucketIds.length === 0) {
+        // Clear chart if no buckets selected
+        const message = document.createElement("div");
+        message.style.textAlign = "center";
+        message.style.padding = "40px";
+        message.style.color = "var(--muted)";
+        message.textContent = "Please select at least one bucket to view chart";
+        message.id = "bucketChartMessage";
+        
+        // Remove existing message if present
+        const existing = parent.querySelector("#bucketChartMessage");
+        if (existing) existing.remove();
+        
+        parent.appendChild(message);
+        canvas.style.display = "none";
+        return;
+      }
+      
+      // Remove message and show canvas if buckets are selected
+      const existing = parent.querySelector("#bucketChartMessage");
+      if (existing) existing.remove();
+      canvas.style.display = "block";
+      
+      const ctx = canvas.getContext("2d");
+      
+      const selectedStudent = studentFilter.value;
+      const selectedSeries = seriesFilter.value;
+      
+      // Color palette for buckets
+      const colors = [
+        "rgba(169, 13, 34, 0.8)",    // maroon
+        "rgba(52, 152, 219, 0.8)",   // blue
+        "rgba(46, 204, 113, 0.8)",   // green
+        "rgba(241, 196, 15, 0.8)",   // yellow
+        "rgba(155, 89, 182, 0.8)",   // purple
+        "rgba(231, 76, 60, 0.8)",    // red
+        "rgba(26, 188, 156, 0.8)",   // teal
+      ];
+      
+      if (selectedStudent) {
+        // Per student: show their bucket totals per assignment
+        const studentData = filteredData.filter(r => r.student_name === selectedStudent);
+        
+        // Build assignment map with bucket totals
+        const assignmentMap = new Map();
+        studentData.forEach(row => {
+          const key = row.assignment_name || "Unnamed";
+          if (!assignmentMap.has(key)) {
+            assignmentMap.set(key, new Map());
+          }
+          const bucketCounts = bucketCountsFromRow(row);
+          bucketCounts.forEach((count, bucketId) => {
+            const current = assignmentMap.get(key).get(bucketId) || 0;
+            assignmentMap.get(key).set(bucketId, current + count);
+          });
+        });
+        
+        // Convert to sorted assignments array
+        const assignments = Array.from(assignmentMap.entries())
+          .map(([name, bucketMap]) => ({ name, bucketMap }))
+          .sort((a, b) => {
+            const aParsed = parseAssignmentName(a.name);
+            const bParsed = parseAssignmentName(b.name);
+            if (aParsed.number === null && bParsed.number !== null) return 1;
+            if (aParsed.number !== null && bParsed.number === null) return -1;
+            if (aParsed.number === null) return 0;
+            if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+              return aParsed.number - bParsed.number;
+            }
+            if (aParsed.series !== bParsed.series) {
+              return aParsed.series.localeCompare(bParsed.series);
+            }
+            return aParsed.number - bParsed.number;
+          });
+        
+        const labels = assignments.map(a => {
+          const parsed = parseAssignmentName(a.name);
+          return selectedSeries && parsed.series === selectedSeries 
+            ? `#${parsed.number}` 
+            : a.name;
+        });
+        
+        // Build datasets for selected buckets (in LABEL_BUCKETS order)
+        const datasets = [];
+        LABEL_BUCKETS.forEach((bucket, idx) => {
+          if (!selectedBucketIds.includes(bucket.id)) return;
+          
+          const data = assignments.map(a => a.bucketMap.get(bucket.id) || 0);
+          datasets.push({
+            label: bucket.name,
+            data: data,
+            backgroundColor: colors[idx % colors.length],
+            borderColor: colors[idx % colors.length].replace("0.8", "1"),
+            borderWidth: 1
+          });
+        });
+        
+        bucketChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                stacked: true
+              },
+              y: {
+                stacked: true,
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      } else {
+        // Class average: group by assignment and compute averages
+        const assignmentMap = new Map();
+        const assignmentCountMap = new Map();
+        
+        filteredData.forEach(row => {
+          const key = row.assignment_name || "Unnamed";
+          if (!assignmentMap.has(key)) {
+            assignmentMap.set(key, new Map());
+            assignmentCountMap.set(key, 0);
+          }
+          assignmentCountMap.set(key, assignmentCountMap.get(key) + 1);
+          
+          const bucketCounts = bucketCountsFromRow(row);
+          bucketCounts.forEach((count, bucketId) => {
+            const current = assignmentMap.get(key).get(bucketId) || 0;
+            assignmentMap.get(key).set(bucketId, current + count);
+          });
+        });
+        
+        // Convert to sorted assignments array with averages
+        const assignments = Array.from(assignmentMap.entries())
+          .map(([name, bucketMap]) => {
+            const count = assignmentCountMap.get(name) || 1;
+            const avgBucketMap = new Map();
+            bucketMap.forEach((total, bucketId) => {
+              avgBucketMap.set(bucketId, total / count);
+            });
+            return { name, avgBucketMap };
+          })
+          .sort((a, b) => {
+            const aParsed = parseAssignmentName(a.name);
+            const bParsed = parseAssignmentName(b.name);
+            if (aParsed.number === null && bParsed.number !== null) return 1;
+            if (aParsed.number !== null && bParsed.number === null) return -1;
+            if (aParsed.number === null) return 0;
+            if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+              return aParsed.number - bParsed.number;
+            }
+            if (aParsed.series !== bParsed.series) {
+              return aParsed.series.localeCompare(bParsed.series);
+            }
+            return aParsed.number - bParsed.number;
+          });
+        
+        const labels = assignments.map(a => {
+          const parsed = parseAssignmentName(a.name);
+          return selectedSeries && parsed.series === selectedSeries 
+            ? `#${parsed.number}` 
+            : a.name;
+        });
+        
+        // Build datasets for selected buckets (in LABEL_BUCKETS order)
+        const datasets = [];
+        LABEL_BUCKETS.forEach((bucket, idx) => {
+          if (!selectedBucketIds.includes(bucket.id)) return;
+          
+          const data = assignments.map(a => a.avgBucketMap.get(bucket.id) || 0);
+          datasets.push({
+            label: bucket.name,
+            data: data,
+            backgroundColor: colors[idx % colors.length],
+            borderColor: colors[idx % colors.length].replace("0.8", "1"),
+            borderWidth: 1
+          });
+        });
+        
+        bucketChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                stacked: true
+              },
+              y: {
+                stacked: true,
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
     }
     
     function updateTable() {
