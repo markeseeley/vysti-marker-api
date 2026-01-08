@@ -707,18 +707,25 @@
         return;
       }
       
+      // Read class_id from URL query string
+      const urlClassId = new URLSearchParams(window.location.search).get("class_id");
+      
       // Build query
       let query = supa
         .from("mark_events")
         .select("created_at, student_name, assignment_name, mode, total_labels, label_counts, class_id")
         .eq("user_id", sessionData.session.user.id);
       
-      // Apply class filter
-      const selectedClass = classFilter.value;
-      if (selectedClass === "__unassigned__") {
-        query = query.is("class_id", null);
-      } else if (selectedClass) {
-        query = query.eq("class_id", selectedClass);
+      // Apply class filter from URL if present, otherwise use dropdown
+      if (urlClassId) {
+        query = query.eq("class_id", urlClassId);
+      } else {
+        const selectedClass = classFilter.value;
+        if (selectedClass === "__unassigned__") {
+          query = query.is("class_id", null);
+        } else if (selectedClass) {
+          query = query.eq("class_id", selectedClass);
+        }
       }
       
       const { data, error } = await query.order("created_at", { ascending: false });
@@ -739,6 +746,12 @@
       allData = data;
       statusMessage.style.display = "none";
       await loadClasses();
+      
+      // If URL has class_id, set the class filter dropdown to match
+      if (urlClassId && classFilter) {
+        classFilter.value = urlClassId;
+      }
+      
       updateFilters();
       buildBucketCheckboxes();
       applyFilters();
