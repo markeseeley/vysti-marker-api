@@ -228,6 +228,14 @@
       font-size: 14px;
     }
     
+    .roster-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
     .students-table {
       width: 100%;
       border-collapse: collapse;
@@ -370,7 +378,10 @@
             <label style="margin: 0; font-weight: normal;">Apply grade level to all:</label>
             <input type="text" id="bulkGradeInput" placeholder="e.g., 9, 10, 11, 12" />
           </div>
-          <button class="primary-btn" id="addStudentsBtn" style="width: auto; margin-top: 12px; padding: 0 24px;">Add Students</button>
+          <div class="roster-actions">
+            <button class="primary-btn" id="addStudentsBtn" style="width: auto; padding: 0 24px;">Add Students</button>
+            <button class="primary-btn" id="viewProgressBtn" type="button" style="width: auto; padding: 0 24px;">View Progress</button>
+          </div>
         </div>
         
         <table class="students-table">
@@ -410,6 +421,7 @@
     const studentsTextarea = document.getElementById("studentsTextarea");
     const bulkGradeInput = document.getElementById("bulkGradeInput");
     const addStudentsBtn = document.getElementById("addStudentsBtn");
+    const viewProgressBtn = document.getElementById("viewProgressBtn");
     const studentsTableBody = document.getElementById("studentsTableBody");
     const statusMessage = document.getElementById("statusMessage");
     
@@ -698,6 +710,14 @@
       bulkGradeInput.value = "";
       showStatus(`Added ${lines.length} student(s)`, "success");
       await loadStudents();
+    });
+    
+    viewProgressBtn.addEventListener("click", () => {
+      if (!currentClassId) {
+        showStatus("Select a class first.", "error");
+        return;
+      }
+      window.location.href = `/progress.html?class_id=${encodeURIComponent(currentClassId)}`;
     });
     
     async function updateStudent(studentId, updates) {
