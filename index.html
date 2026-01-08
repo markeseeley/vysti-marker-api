@@ -27,6 +27,7 @@
           <a href="/progress.html">Dashboard</a>
           <a href="/index.html" class="active">Mark Assignments</a>
           <a href="/ingest.html">Ingest Marked Essays</a>
+          <a href="/classes.html">Classes</a>
         </nav>
       
         <div class="actions">
@@ -85,6 +86,16 @@
     <ul id="modeDetailsList"></ul>
   </div>
 </div>
+
+      <div style="display: flex; align-items: flex-end; gap: 12px; margin-top: 12px;">
+        <label style="flex: 1; margin: 0;">
+          Class (optional)
+          <select id="classSelect">
+            <option value="">No class</option>
+          </select>
+        </label>
+        <a href="/classes.html" style="font-size: 12px; color: var(--maroon); text-decoration: none; margin-bottom: 12px; white-space: nowrap;">Manage classes</a>
+      </div>
 
       <label>
         Student name (optional)
@@ -514,6 +525,33 @@
 });
 
     const statusEl = document.getElementById("status");
+    const classSelect = document.getElementById("classSelect");
+
+    // ===== Load classes =====
+    async function loadClasses() {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const { data, error } = await supa
+        .from("classes")
+        .select("*")
+        .eq("user_id", sessionData.session.user.id)
+        .eq("archived", false)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error loading classes:", error);
+        return;
+      }
+      
+      classSelect.innerHTML = '<option value="">No class</option>';
+      (data || []).forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls.id;
+        option.textContent = cls.name;
+        classSelect.appendChild(option);
+      });
+    }
 
     // ===== Multiple files table =====
     const filesTableSection = document.getElementById("filesTableSection");
@@ -736,6 +774,18 @@
       });
     }
 
+    // ===== Class selection change handler =====
+    classSelect.addEventListener("change", () => {
+      // Update class_id for all queued files when selection changes
+      const selectedClassId = classSelect.value || null;
+      fileData.forEach(fd => {
+        if (fd.status === "queued") {
+          fd.classId = selectedClassId;
+        }
+      });
+      renderFilesTable();
+    });
+
     // ===== Drag & drop wiring =====
 const dropZone = document.getElementById("dropZone");
 const fileList = document.getElementById("fileList");
@@ -766,10 +816,16 @@ function renderFileList(files) {
         file: f,
         studentName: studentName || globalStudentName || "",
         assignmentName: assignmentName || globalAssignmentName || "",
+        classId: classSelect ? (classSelect.value || null) : null,
         status: "queued",
         downloadUrl: null,
         error: null,
       };
+    } else {
+      // Update class_id for existing files if selection changed
+      if (classSelect) {
+        fd.classId = classSelect.value || null;
+      }
     }
     
     fileData.push(fd);
@@ -1029,6 +1085,11 @@ dropZone.addEventListener("drop", (e) => {
     refreshAuthUI();
     supa.auth.onAuthStateChange((_event, _session) => {
       refreshAuthUI();
+    });
+    
+    // Load classes when authenticated
+    refreshAuthUI().then(() => {
+      loadClasses();
     });
 
     // ===== Marker client code =====
@@ -1570,12 +1631,16 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
             file,
             studentName: studentName || globalStudentName || "",
             assignmentName: assignmentName || globalAssignmentName || "",
+            classId: classSelect.value || null,
             status: "queued",
             downloadUrl: null,
             error: null,
           };
           fileData.push(fd);
         }
+        
+        // Update class_id from current selection (in case it changed)
+        fd.classId = classSelect.value || null;
         
         // Update status to processing
         fd.status = "processing";
@@ -1611,6 +1676,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
         
         if (studentName) formData.append("student_name", studentName);
         if (assignmentName) formData.append("assignment_name", assignmentName);
+        if (fd.classId) formData.append("class_id", fd.classId);
 
         if (author) formData.append("author", author);
         if (title) {
