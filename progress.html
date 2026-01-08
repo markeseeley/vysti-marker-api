@@ -278,6 +278,98 @@
       font-size: 13px;
       color: var(--text);
     }
+    
+    /* Print header styles */
+    .print-header {
+      display: none;
+    }
+    
+    .print-title {
+      margin-bottom: 16px;
+    }
+    
+    .print-title h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    .print-generated {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    
+    .print-meta {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    
+    .print-meta > div {
+      margin-bottom: 4px;
+    }
+    
+    /* Print styles */
+    @media print {
+      .print-header {
+        display: block;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid rgba(0,0,0,.1);
+      }
+      
+      header.topbar {
+        display: none !important;
+      }
+      
+      .filters-section {
+        display: none !important;
+      }
+      
+      .export-btn {
+        display: none !important;
+      }
+      
+      body {
+        background: white !important;
+      }
+      
+      .progress-page {
+        background: white !important;
+      }
+      
+      .chart-card,
+      .table-section {
+        background: white !important;
+        box-shadow: none !important;
+        border: 1px solid rgba(0,0,0,.1) !important;
+      }
+      
+      .charts-section,
+      .chart-card,
+      .table-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      
+      * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      @page {
+        margin: 16mm;
+      }
+    }
+    
+    body.printing {
+      background: white;
+    }
+    
+    body.printing .progress-page {
+      background: white;
+    }
   </style>
 </head>
 <body>
@@ -302,6 +394,14 @@
 
   <main class="page">
     <div class="progress-page" id="progressPage" style="display:none;">
+      <div id="printHeader" class="print-header" aria-hidden="true">
+        <div class="print-title">
+          <h1>Vysti Progress Report</h1>
+          <div id="printGeneratedAt" class="print-generated"></div>
+        </div>
+        <div id="printMeta" class="print-meta"></div>
+      </div>
+      
       <div class="filters-section">
         <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600;">Filters</h2>
         
@@ -386,7 +486,10 @@
       <div class="table-section">
         <h3>
           <span>Data Table</span>
-          <button class="export-btn" id="exportBtn">Export CSV</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="export-btn" id="exportPdfBtn">Export PDF</button>
+            <button class="export-btn" id="exportBtn">Export CSV</button>
+          </div>
         </h3>
         <table>
           <thead>
@@ -1428,6 +1531,96 @@
       document.body.removeChild(link);
     }
     
+    // ===== PDF Export =====
+    function exportToPDF() {
+      if (filteredData.length === 0) {
+        alert("No data to export");
+        return;
+      }
+      
+      const printHeader = document.getElementById("printHeader");
+      const printGeneratedAt = document.getElementById("printGeneratedAt");
+      const printMeta = document.getElementById("printMeta");
+      
+      // Build filter summary
+      const summary = [];
+      
+      // Student
+      const studentValue = studentFilter.value || "All Students";
+      summary.push(`<div><strong>Student:</strong> ${studentValue}</div>`);
+      
+      // Series
+      const seriesValue = seriesFilter.value || "All Series";
+      summary.push(`<div><strong>Series:</strong> ${seriesValue}</div>`);
+      
+      // Range
+      let rangeText = "";
+      if (rangeStart.value && rangeEnd.value) {
+        rangeText = `Custom: ${rangeStart.value}-${rangeEnd.value}`;
+      } else {
+        const activeRangeBtn = document.querySelector(".range-btn.active");
+        if (activeRangeBtn) {
+          const rangeData = activeRangeBtn.dataset.range;
+          if (rangeData === "6") rangeText = "First 6";
+          else if (rangeData === "12") rangeText = "First 12";
+          else if (rangeData === "all") rangeText = "All";
+          else rangeText = "All";
+        } else {
+          rangeText = "All";
+        }
+      }
+      summary.push(`<div><strong>Range:</strong> ${rangeText}</div>`);
+      
+      // Buckets
+      const selectedBucketIds = getSelectedBucketIds();
+      let bucketText = "";
+      if (selectedBucketIds.length === 0) {
+        bucketText = "All Categories";
+      } else {
+        const selectedBuckets = selectedBucketIds.map(id => {
+          const bucket = LABEL_BUCKETS.find(b => b.id === id);
+          return bucket ? bucket.name : id;
+        });
+        bucketText = selectedBuckets.join(", ");
+      }
+      summary.push(`<div><strong>Buckets:</strong> ${bucketText}</div>`);
+      
+      // Include duplicates
+      const duplicatesText = includeDuplicates.checked ? "Yes" : "No";
+      summary.push(`<div><strong>Include duplicates:</strong> ${duplicatesText}</div>`);
+      
+      // Class (if classFilter exists)
+      if (classFilter) {
+        const classValue = classFilter.value;
+        let classText = "All Classes";
+        if (classValue === "__unassigned__") {
+          classText = "Unassigned";
+        } else if (classValue) {
+          const selectedOption = classFilter.options[classFilter.selectedIndex];
+          classText = selectedOption ? selectedOption.textContent : "All Classes";
+        }
+        summary.push(`<div><strong>Class:</strong> ${classText}</div>`);
+      }
+      
+      // Set print header content
+      printMeta.innerHTML = summary.join("");
+      printGeneratedAt.textContent = `Generated: ${new Date().toLocaleString()}`;
+      
+      // Add printing class to body
+      document.body.classList.add("printing");
+      
+      // Small timeout to allow layout updates
+      setTimeout(() => {
+        window.print();
+      }, 50);
+      
+      // Remove printing class after print
+      window.onafterprint = () => {
+        document.body.classList.remove("printing");
+        window.onafterprint = null;
+      };
+    }
+    
     // ===== Event listeners =====
     rangeBtns.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -1459,6 +1652,11 @@
     seriesFilter.addEventListener("change", applyFilters);
     includeDuplicates.addEventListener("change", applyFilters);
     exportBtn.addEventListener("click", exportToCSV);
+    
+    const exportPdfBtn = document.getElementById("exportPdfBtn");
+    if (exportPdfBtn) {
+      exportPdfBtn.addEventListener("click", exportToPDF);
+    }
     
     // ===== Initial load =====
     refreshAuthUI();
