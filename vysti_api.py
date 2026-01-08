@@ -104,6 +104,7 @@ async def mark_essay(
     # New metadata (optional)
     student_name: str | None = Form(None),
     assignment_name: str | None = Form(None),
+    class_id: str | None = Form(None),
 
     # Second work (optional)
     author2: str | None = Form(None),
@@ -150,10 +151,45 @@ async def mark_essay(
             content={"error": "Please upload a .docx file"},
         )
 
-    # 2. Read file bytes
+    # 2. Validate class_id if provided
+    class_id_validated = None
+    if class_id:
+        user_id = user.get("id") if isinstance(user, dict) else None
+        if not user_id:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid user"},
+            )
+        
+        # Verify class exists and belongs to user
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+            db_url = f"{SUPABASE_URL}/rest/v1/classes"
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(
+                    f"{db_url}?id=eq.{class_id}&user_id=eq.{user_id}&archived=eq.false",
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    },
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if not data or len(data) == 0:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"error": "Class not found or does not belong to user"},
+                        )
+                    class_id_validated = class_id
+                else:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "Failed to validate class"},
+                    )
+
+    # 3. Read file bytes
     docx_bytes = await file.read()
 
-    # 3. Build teacher_config from form fields (matches MarkerConfig)
+    # 4. Build teacher_config from form fields (matches MarkerConfig)
     teacher_config: dict = {}
 
     # --- Works / titles ---
@@ -213,7 +249,7 @@ async def mark_essay(
     if highlight_thesis_devices is not None:
         teacher_config["highlight_thesis_devices"] = highlight_thesis_devices
 
-    # 4. Call your engine
+    # 5. Call your engine
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
@@ -257,6 +293,7 @@ async def mark_essay(
                 "bytes": len(docx_bytes),
                 "student_name": student_name,
                 "assignment_name": assignment_name,
+                "class_id": class_id_validated,
                 "total_labels": total_labels,
                 "label_counts": dict(label_counter),
                 "issues": issues,
@@ -294,6 +331,7 @@ async def ingest_marked_essay(
     student_name: str | None = Form(None),
     assignment_name: str | None = Form(None),
     mode: str = Form("imported_marked"),
+    class_id: str | None = Form(None),
     user: dict = Depends(get_current_user),  # <-- require Supabase auth
 ):
     """
@@ -346,7 +384,42 @@ async def ingest_marked_essay(
 
     total_labels = sum(label_counter.values())
 
-    # 6. Log to Supabase mark_events
+    # 6. Validate class_id if provided
+    class_id_validated = None
+    if class_id:
+        user_id = user.get("id") if isinstance(user, dict) else None
+        if not user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid user",
+            )
+        
+        # Verify class exists and belongs to user
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+            db_url = f"{SUPABASE_URL}/rest/v1/classes"
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(
+                    f"{db_url}?id=eq.{class_id}&user_id=eq.{user_id}&archived=eq.false",
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    },
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if not data or len(data) == 0:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Class not found or does not belong to user",
+                        )
+                    class_id_validated = class_id
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Failed to validate class",
+                    )
+
+    # 7. Log to Supabase mark_events
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(
             status_code=500,
@@ -362,6 +435,7 @@ async def ingest_marked_essay(
         "bytes": len(docx_bytes),
         "student_name": student_name,
         "assignment_name": assignment_name,
+        "class_id": class_id_validated,
         "total_labels": total_labels,
         "label_counts": dict(label_counter),
         "issues": issues,
@@ -394,7 +468,7 @@ async def ingest_marked_essay(
             detail=f"Failed to log mark event: {str(e)}",
         )
 
-    # 7. Return success response
+    # 8. Return success response
     return JSONResponse(
         content={
             "ok": True,
