@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker – Classes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/marker.css">
+  
+  <!-- Supabase JS client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    /*
+    ===== Supabase Schema SQL =====
+    
+    Run this SQL in your Supabase SQL editor:
+    
+    create table if not exists public.classes (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid not null references auth.users(id) on delete cascade,
+      name text not null,
+      grade_level text,
+      created_at timestamptz not null default now(),
+      archived boolean not null default false
+    );
+
+    create table if not exists public.class_students (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid not null references auth.users(id) on delete cascade,
+      class_id uuid not null references public.classes(id) on delete cascade,
+      student_name text not null,
+      grade_level text,
+      notes text,
+      created_at timestamptz not null default now(),
+      unique (class_id, student_name)
+    );
+
+    alter table public.mark_events
+      add column if not exists class_id uuid references public.classes(id);
+
+    create index if not exists mark_events_user_class_created_idx
+      on public.mark_events(user_id, class_id, created_at desc);
+
+    alter table public.classes enable row level security;
+    alter table public.class_students enable row level security;
+
+    create policy "classes_select_own"
+    on public.classes for select
+    using (user_id = auth.uid());
+
+    create policy "classes_insert_own"
+    on public.classes for insert
+    with check (user_id = auth.uid());
+
+    create policy "classes_update_own"
+    on public.classes for update
+    using (user_id = auth.uid())
+    with check (user_id = auth.uid());
+
+    create policy "classes_delete_own"
+    on public.classes for delete
+    using (user_id = auth.uid());
+
+    create policy "class_students_select_own"
+    on public.class_students for select
+    using (user_id = auth.uid());
+
+    create policy "class_students_insert_own"
+    on public.class_students for insert
+    with check (user_id = auth.uid());
+
+    create policy "class_students_update_own"
+    on public.class_students for update
+    using (user_id = auth.uid())
+    with check (user_id = auth.uid());
+
+    create policy "class_students_delete_own"
+    on public.class_students for delete
+    using (user_id = auth.uid());
+    */
+    
+    .classes-page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+    }
+    
+    .classes-section {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    }
+    
+    .classes-section h2 {
+      margin: 0 0 16px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .class-list {
+      display: grid;
+      gap: 12px;
+    }
+    
+    .class-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .class-item:hover {
+      background: rgba(169,13,34,.05);
+      border-color: var(--maroon);
+    }
+    
+    .class-item.active {
+      background: rgba(169,13,34,.1);
+      border-color: var(--maroon);
+    }
+    
+    .class-item-info {
+      flex: 1;
+    }
+    
+    .class-item-name {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    
+    .class-item-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    
+    .class-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .class-form-inputs {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+    }
+    
+    .class-form input {
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid rgba(0,0,0,.14);
+      border-radius: 10px;
+      background: #fff;
+      font-size: 14px;
+    }
+    
+    .roster-section {
+      display: none;
+    }
+    
+    .roster-section.active {
+      display: block;
+    }
+    
+    .roster-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    
+    .roster-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .add-students-form {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .add-students-form label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .add-students-form textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    
+    .add-students-form .grade-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .add-students-form .grade-option input[type="text"] {
+      width: 100px;
+      height: 36px;
+      padding: 0 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    
+    .students-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    .students-table thead {
+      background: #f5f6f8;
+    }
+    
+    .students-table th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .students-table td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+    
+    .students-table tbody tr:hover {
+      background: rgba(169,13,34,.02);
+    }
+    
+    .students-table input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .students-table input[type="text"]:focus {
+      outline: none;
+      border-color: var(--maroon);
+      box-shadow: 0 0 0 2px rgba(169,13,34,.1);
+    }
+    
+    .btn-small {
+      padding: 6px 12px;
+      border: 1px solid rgba(0,0,0,.14);
+      border-radius: 8px;
+      background: #fff;
+      color: rgba(0,0,0,.75);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-small:hover {
+      background: rgba(169,13,34,.05);
+      border-color: var(--maroon);
+    }
+    
+    .btn-small.danger {
+      color: #dc3545;
+    }
+    
+    .btn-small.danger:hover {
+      background: rgba(220,53,69,.1);
+      border-color: #dc3545;
+    }
+    
+    .status-message {
+      padding: 12px;
+      background: rgba(169,13,34,.05);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    
+    .status-message.error {
+      background: rgba(220,53,69,.1);
+      color: #dc3545;
+    }
+    
+    .status-message.success {
+      background: rgba(40,167,69,.1);
+      color: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/assets/logo.svg" alt="Vysti" />
+    </div>
+    
+    <nav>
+      <a href="/progress.html">Dashboard</a>
+      <a href="/index.html">Mark Assignments</a>
+      <a href="/ingest.html">Ingest Marked Essays</a>
+      <a href="/classes.html" class="active">Classes</a>
+    </nav>
+    
+    <div class="actions">
+      <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
+      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
+      <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="classes-page" id="classesPage" style="display:none;">
+      <div class="classes-section">
+        <h2>Classes</h2>
+        
+        <div class="class-form">
+          <div class="class-form-inputs">
+            <input type="text" id="classNameInput" placeholder="Class Name (required)" />
+            <input type="text" id="classGradeInput" placeholder="Grade Level (optional)" />
+          </div>
+          <button class="primary-btn" id="createClassBtn" style="width: auto; padding: 0 24px;">Create Class</button>
+        </div>
+        
+        <div id="statusMessage" class="status-message" style="display:none;"></div>
+        
+        <div class="class-list" id="classList">
+          <!-- Classes will be loaded here -->
+        </div>
+      </div>
+      
+      <div class="classes-section roster-section" id="rosterSection">
+        <div class="roster-header">
+          <h3 id="rosterTitle">Select a class to manage roster</h3>
+          <button class="btn-small" id="backToClassesBtn" style="display:none;">← Back to Classes</button>
+        </div>
+        
+        <div class="add-students-form">
+          <label>Add Students (one per line)</label>
+          <textarea id="studentsTextarea" placeholder="John Smith&#10;Jane Doe&#10;Bob Johnson"></textarea>
+          <div class="grade-option">
+            <label style="margin: 0; font-weight: normal;">Apply grade level to all:</label>
+            <input type="text" id="bulkGradeInput" placeholder="e.g., 9, 10, 11, 12" />
+          </div>
+          <button class="primary-btn" id="addStudentsBtn" style="width: auto; margin-top: 12px; padding: 0 24px;">Add Students</button>
+        </div>
+        
+        <table class="students-table">
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Grade Level</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTableBody">
+            <!-- Students will be loaded here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ===== Supabase config =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
+    
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    const classesPage = document.getElementById("classesPage");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const classNameInput = document.getElementById("classNameInput");
+    const classGradeInput = document.getElementById("classGradeInput");
+    const createClassBtn = document.getElementById("createClassBtn");
+    const classList = document.getElementById("classList");
+    const rosterSection = document.getElementById("rosterSection");
+    const rosterTitle = document.getElementById("rosterTitle");
+    const backToClassesBtn = document.getElementById("backToClassesBtn");
+    const studentsTextarea = document.getElementById("studentsTextarea");
+    const bulkGradeInput = document.getElementById("bulkGradeInput");
+    const addStudentsBtn = document.getElementById("addStudentsBtn");
+    const studentsTableBody = document.getElementById("studentsTableBody");
+    const statusMessage = document.getElementById("statusMessage");
+    
+    let currentClassId = null;
+    let allClasses = [];
+    
+    // ===== Auth =====
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+      
+      if (!session) {
+        window.location.replace("/signin.html");
+        return;
+      }
+      
+      classesPage.style.display = "block";
+      loadClasses();
+    }
+    
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      window.location.replace("/signin.html");
+    });
+    
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
+    
+    // ===== Classes =====
+    async function loadClasses() {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const { data, error } = await supa
+        .from("classes")
+        .select("*")
+        .eq("user_id", sessionData.session.user.id)
+        .eq("archived", false)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        showStatus(`Error loading classes: ${error.message}`, "error");
+        return;
+      }
+      
+      allClasses = data || [];
+      renderClasses();
+    }
+    
+    function renderClasses() {
+      classList.innerHTML = "";
+      
+      if (allClasses.length === 0) {
+        classList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--muted);">No classes yet. Create one above.</div>';
+        return;
+      }
+      
+      allClasses.forEach(cls => {
+        const div = document.createElement("div");
+        div.className = "class-item";
+        if (currentClassId === cls.id) {
+          div.classList.add("active");
+        }
+        
+        div.innerHTML = `
+          <div class="class-item-info">
+            <div class="class-item-name">${escapeHtml(cls.name)}</div>
+            <div class="class-item-meta">${cls.grade_level ? `Grade ${escapeHtml(cls.grade_level)}` : "No grade level"} • Created ${new Date(cls.created_at).toLocaleDateString()}</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-small" data-action="archive" data-id="${cls.id}">Archive</button>
+          </div>
+        `;
+        
+        div.addEventListener("click", (e) => {
+          if (e.target.closest('[data-action]')) return;
+          selectClass(cls.id);
+        });
+        
+        div.querySelector('[data-action="archive"]').addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (confirm(`Archive "${cls.name}"? You can restore it later.`)) {
+            await archiveClass(cls.id);
+          }
+        });
+        
+        classList.appendChild(div);
+      });
+    }
+    
+    createClassBtn.addEventListener("click", async () => {
+      const name = classNameInput.value.trim();
+      if (!name) {
+        showStatus("Class name is required", "error");
+        return;
+      }
+      
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const gradeLevel = classGradeInput.value.trim() || null;
+      
+      const { data, error } = await supa
+        .from("classes")
+        .insert({
+          user_id: sessionData.session.user.id,
+          name: name,
+          grade_level: gradeLevel,
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        showStatus(`Error creating class: ${error.message}`, "error");
+        return;
+      }
+      
+      classNameInput.value = "";
+      classGradeInput.value = "";
+      showStatus(`Class "${name}" created successfully`, "success");
+      await loadClasses();
+    });
+    
+    async function archiveClass(classId) {
+      const { error } = await supa
+        .from("classes")
+        .update({ archived: true })
+        .eq("id", classId);
+      
+      if (error) {
+        showStatus(`Error archiving class: ${error.message}`, "error");
+        return;
+      }
+      
+      if (currentClassId === classId) {
+        currentClassId = null;
+        rosterSection.classList.remove("active");
+      }
+      
+      await loadClasses();
+    }
+    
+    // ===== Roster =====
+    async function selectClass(classId) {
+      currentClassId = classId;
+      const cls = allClasses.find(c => c.id === classId);
+      if (cls) {
+        rosterTitle.textContent = `Roster: ${escapeHtml(cls.name)}`;
+      }
+      rosterSection.classList.add("active");
+      backToClassesBtn.style.display = "block";
+      await loadStudents();
+      renderClasses(); // Update active state
+    }
+    
+    backToClassesBtn.addEventListener("click", () => {
+      currentClassId = null;
+      rosterSection.classList.remove("active");
+      backToClassesBtn.style.display = "none";
+      renderClasses();
+    });
+    
+    async function loadStudents() {
+      if (!currentClassId) return;
+      
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const { data, error } = await supa
+        .from("class_students")
+        .select("*")
+        .eq("user_id", sessionData.session.user.id)
+        .eq("class_id", currentClassId)
+        .order("student_name", { ascending: true });
+      
+      if (error) {
+        showStatus(`Error loading students: ${error.message}`, "error");
+        return;
+      }
+      
+      renderStudents(data || []);
+    }
+    
+    function renderStudents(students) {
+      studentsTableBody.innerHTML = "";
+      
+      if (students.length === 0) {
+        studentsTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--muted);">No students yet. Add students above.</td></tr>';
+        return;
+      }
+      
+      students.forEach(student => {
+        const tr = document.createElement("tr");
+        
+        // Student name
+        const nameCell = document.createElement("td");
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.value = student.student_name;
+        nameInput.addEventListener("blur", async () => {
+          const newName = nameInput.value.trim();
+          if (newName && newName !== student.student_name) {
+            await updateStudent(student.id, { student_name: newName });
+          }
+        });
+        nameCell.appendChild(nameInput);
+        tr.appendChild(nameCell);
+        
+        // Grade level
+        const gradeCell = document.createElement("td");
+        const gradeInput = document.createElement("input");
+        gradeInput.type = "text";
+        gradeInput.value = student.grade_level || "";
+        gradeInput.placeholder = "Grade level";
+        gradeInput.addEventListener("blur", async () => {
+          await updateStudent(student.id, { grade_level: gradeInput.value.trim() || null });
+        });
+        gradeCell.appendChild(gradeInput);
+        tr.appendChild(gradeCell);
+        
+        // Notes
+        const notesCell = document.createElement("td");
+        const notesInput = document.createElement("input");
+        notesInput.type = "text";
+        notesInput.value = student.notes || "";
+        notesInput.placeholder = "Notes";
+        notesInput.addEventListener("blur", async () => {
+          await updateStudent(student.id, { notes: notesInput.value.trim() || null });
+        });
+        notesCell.appendChild(notesInput);
+        tr.appendChild(notesCell);
+        
+        // Actions
+        const actionsCell = document.createElement("td");
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "btn-small danger";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", async () => {
+          if (confirm(`Remove "${student.student_name}" from this class?`)) {
+            await removeStudent(student.id);
+          }
+        });
+        actionsCell.appendChild(removeBtn);
+        tr.appendChild(actionsCell);
+        
+        studentsTableBody.appendChild(tr);
+      });
+    }
+    
+    addStudentsBtn.addEventListener("click", async () => {
+      if (!currentClassId) {
+        showStatus("Please select a class first", "error");
+        return;
+      }
+      
+      const text = studentsTextarea.value.trim();
+      if (!text) {
+        showStatus("Please enter at least one student name", "error");
+        return;
+      }
+      
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+      const bulkGrade = bulkGradeInput.value.trim() || null;
+      
+      const studentsToAdd = lines.map(line => ({
+        user_id: sessionData.session.user.id,
+        class_id: currentClassId,
+        student_name: line,
+        grade_level: bulkGrade,
+      }));
+      
+      const { error } = await supa
+        .from("class_students")
+        .insert(studentsToAdd);
+      
+      if (error) {
+        showStatus(`Error adding students: ${error.message}`, "error");
+        return;
+      }
+      
+      studentsTextarea.value = "";
+      bulkGradeInput.value = "";
+      showStatus(`Added ${lines.length} student(s)`, "success");
+      await loadStudents();
+    });
+    
+    async function updateStudent(studentId, updates) {
+      const { error } = await supa
+        .from("class_students")
+        .update(updates)
+        .eq("id", studentId);
+      
+      if (error) {
+        showStatus(`Error updating student: ${error.message}`, "error");
+        return;
+      }
+      
+      await loadStudents();
+    }
+    
+    async function removeStudent(studentId) {
+      const { error } = await supa
+        .from("class_students")
+        .delete()
+        .eq("id", studentId);
+      
+      if (error) {
+        showStatus(`Error removing student: ${error.message}`, "error");
+        return;
+      }
+      
+      await loadStudents();
+    }
+    
+    // ===== Helpers =====
+    function showStatus(message, type = "") {
+      statusMessage.textContent = message;
+      statusMessage.className = `status-message ${type}`;
+      statusMessage.style.display = "block";
+      
+      setTimeout(() => {
+        statusMessage.style.display = "none";
+      }, 5000);
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // ===== Initial load =====
+    refreshAuthUI();
+  </script>
+</body>
+</html>
+
