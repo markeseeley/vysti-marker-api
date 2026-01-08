@@ -290,6 +290,7 @@
       <a href="/progress.html" class="active">Dashboard</a>
       <a href="/index.html">Mark Assignments</a>
       <a href="/ingest.html">Ingest Marked Essays</a>
+      <a href="/classes.html">Classes</a>
     </nav>
     
     <div class="actions">
@@ -305,6 +306,14 @@
         <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600;">Filters</h2>
         
         <div class="filters-grid">
+          <div class="filter-group">
+            <label for="classFilter">Class</label>
+            <select id="classFilter">
+              <option value="">All Classes</option>
+              <option value="__unassigned__">Unassigned</option>
+            </select>
+          </div>
+          
           <div class="filter-group">
             <label for="studentFilter">Student</label>
             <select id="studentFilter">
@@ -510,6 +519,7 @@
     
     const progressPage = document.getElementById("progressPage");
     const logoutBtn = document.getElementById("logoutBtn");
+    const classFilter = document.getElementById("classFilter");
     const studentFilter = document.getElementById("studentFilter");
     const seriesFilter = document.getElementById("seriesFilter");
     const rangeBtns = document.querySelectorAll(".range-btn");
@@ -594,11 +604,21 @@
         return;
       }
       
-      const { data, error } = await supa
+      // Build query
+      let query = supa
         .from("mark_events")
-        .select("created_at, student_name, assignment_name, mode, total_labels, label_counts")
-        .eq("user_id", sessionData.session.user.id)
-        .order("created_at", { ascending: false });
+        .select("created_at, student_name, assignment_name, mode, total_labels, label_counts, class_id")
+        .eq("user_id", sessionData.session.user.id);
+      
+      // Apply class filter
+      const selectedClass = classFilter.value;
+      if (selectedClass === "__unassigned__") {
+        query = query.is("class_id", null);
+      } else if (selectedClass) {
+        query = query.eq("class_id", selectedClass);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
       
       if (error) {
         statusMessage.textContent = `Error loading data: ${error.message}`;
@@ -615,9 +635,36 @@
       
       allData = data;
       statusMessage.style.display = "none";
+      await loadClasses();
       updateFilters();
       buildBucketCheckboxes();
       applyFilters();
+    }
+    
+    // ===== Load classes =====
+    async function loadClasses() {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const { data, error } = await supa
+        .from("classes")
+        .select("*")
+        .eq("user_id", sessionData.session.user.id)
+        .eq("archived", false)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error loading classes:", error);
+        return;
+      }
+      
+      classFilter.innerHTML = '<option value="">All Classes</option><option value="__unassigned__">Unassigned</option>';
+      (data || []).forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls.id;
+        option.textContent = cls.name;
+        classFilter.appendChild(option);
+      });
     }
     
     // ===== Bucket selection =====
@@ -696,7 +743,7 @@
     
     // ===== Filter updates =====
     function updateFilters() {
-      // Update student filter
+      // Update student filter - only show students from filtered dataset
       const students = [...new Set(allData.map(r => r.student_name).filter(Boolean))].sort();
       studentFilter.innerHTML = '<option value="">All Students</option>';
       students.forEach(student => {
@@ -1407,6 +1454,7 @@
       }
     });
     
+    classFilter.addEventListener("change", loadData);
     studentFilter.addEventListener("change", applyFilters);
     seriesFilter.addEventListener("change", applyFilters);
     includeDuplicates.addEventListener("change", applyFilters);
