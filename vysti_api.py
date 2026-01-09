@@ -260,6 +260,9 @@ async def mark_essay(
     print("Vysti metadata:", metadata)
     print("Teacher config used:", teacher_config)
 
+    # ----- Extract examples from metadata -----
+    examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
+
     # ----- Count yellow labels from metadata -----
     issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
 
@@ -312,6 +315,48 @@ async def mark_essay(
                 )
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
+
+    # Log examples to Supabase issue_examples (best-effort; do not break marking if this fails)
+    try:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and examples:
+            user_id = user.get("id") if isinstance(user, dict) else None
+            if user_id:
+                example_rows = []
+                for ex in examples:
+                    if not isinstance(ex, dict):
+                        continue
+                    label = ex.get("label")
+                    sentence = ex.get("sentence")
+                    paragraph_index = ex.get("paragraph_index")
+                    if not label or not sentence:
+                        continue
+                    example_rows.append({
+                        "user_id": user_id,
+                        "class_id": class_id_validated,
+                        "assignment_name": assignment_name,
+                        "student_name": student_name,
+                        "mode": mode,
+                        "file_name": file.filename,
+                        "label": label,
+                        "sentence": sentence,
+                        "paragraph_index": paragraph_index,
+                    })
+                
+                if example_rows:
+                    db_url = f"{SUPABASE_URL}/rest/v1/issue_examples"
+                    async with httpx.AsyncClient(timeout=5) as client:
+                        await client.post(
+                            db_url,
+                            json=example_rows,
+                            headers={
+                                "apikey": SUPABASE_SERVICE_KEY,
+                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                                "Content-Type": "application/json",
+                                "Prefer": "return=minimal",
+                            },
+                        )
+    except Exception as e:
+        print("Failed to log issue_examples:", repr(e))
 
     # 5. Stream the marked .docx back to the client
     base_name = file.filename.rsplit(".", 1)[0] if file.filename else "essay"
