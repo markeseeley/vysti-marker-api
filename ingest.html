@@ -241,7 +241,7 @@
             const hwPart = match[2];
             const hwFormatted = hwPart.toUpperCase() === hwPart ? hwPart : 
               (hwPart.charAt(0).toUpperCase() + hwPart.slice(1).toLowerCase());
-            assignmentName = prefix + hwFormatted + " " + numPadded;
+            assignmentName = `${prefix} ${hwFormatted} ${numPadded}`;
           } else if (match.length === 3) {
             // Pattern 2, 3, or 4: prefix + number
             const prefix = match[1];
