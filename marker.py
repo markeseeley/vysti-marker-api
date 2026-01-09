@@ -1697,7 +1697,8 @@ def collect_text_title_format_marks(
                 # This prevents false positives for character-name possessive references
                 if " " not in title_text:
                     next_two = flat_text[end:end+2] if end + 2 <= len(flat_text) else ""
-                    if next_two in ("'s", "'s"):  # straight apostrophe or curly apostrophe
+                    # Check for both straight apostrophe (U+0027 ') and curly apostrophe (U+2019 ')
+                    if next_two in ("'s", "\u2019s"):
                         continue
 
                 # If the span is fully italicized, it's correct
