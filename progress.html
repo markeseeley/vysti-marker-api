@@ -664,8 +664,42 @@
     });
     
     // ===== Assignment name parsing =====
+    
+    // Normalize series string to a stable key for comparison
+    // - Lowercase
+    // - Remove spaces/underscores/hyphens and other non-alphanumerics
+    // - Expand trailing "hw" -> "homework" (so "advancedhw" becomes "advancedhomework")
+    function normalizeSeriesKey(seriesRaw) {
+      if (!seriesRaw) return "";
+      let normalized = seriesRaw.toLowerCase();
+      // Remove all non-alphanumeric characters
+      normalized = normalized.replace(/[^a-z0-9]/g, "");
+      // Expand trailing "hw" -> "homework" (but only if it's at the end with no preceding whitespace)
+      // This handles "advancedhw" -> "advancedhomework" but not "hw02" (which would be "hw" + number)
+      if (normalized.endsWith("hw") && normalized.length > 2) {
+        normalized = normalized.slice(0, -2) + "homework";
+      }
+      return normalized;
+    }
+    
+    // Create human-readable display string for series
+    // - Trim, collapse whitespace
+    // - If the raw series ends with "HW" with no preceding whitespace, convert "...HW" -> "... Homework"
+    function seriesDisplay(seriesRaw) {
+      if (!seriesRaw) return "";
+      // Trim and collapse whitespace
+      let display = seriesRaw.trim().replace(/\s+/g, " ");
+      // If it ends with "HW" (case-insensitive, no space before it), expand to " Homework"
+      // Match pattern like "AdvancedHW" but not "Advanced HW" or just "HW"
+      if (display.length > 2 && /[A-Za-z]HW$/i.test(display)) {
+        // Replace trailing "HW" (case-insensitive) with " Homework"
+        display = display.replace(/HW$/i, " Homework");
+      }
+      return display;
+    }
+    
     function parseAssignmentName(name) {
-      if (!name) return { series: "", number: null, original: name };
+      if (!name) return { seriesRaw: "", seriesDisplay: "", seriesKey: "", number: null, original: name };
       
       // Extract trailing number for natural numeric sort
       // Handles: "Foundation HW06", "HW02", "Foundation 3", "High Level HW11", etc.
@@ -674,10 +708,12 @@
         const number = parseInt(numMatch[1], 10);
         // Extract series (everything before the trailing number)
         const seriesMatch = name.match(/^(.+?)\s*\d+$/);
-        const series = seriesMatch ? seriesMatch[1].trim() : "";
+        const seriesRaw = seriesMatch ? seriesMatch[1].trim() : "";
         
         return {
-          series: series,
+          seriesRaw: seriesRaw,
+          seriesDisplay: seriesDisplay(seriesRaw),
+          seriesKey: normalizeSeriesKey(seriesRaw),
           number: number,
           original: name
         };
@@ -686,14 +722,17 @@
       // Fallback: try to match pattern like "Foundation 3" at the start
       const match = name.match(/^([A-Za-z]+)\s*(\d+)/);
       if (match) {
+        const seriesRaw = match[1];
         return {
-          series: match[1],
+          seriesRaw: seriesRaw,
+          seriesDisplay: seriesDisplay(seriesRaw),
+          seriesKey: normalizeSeriesKey(seriesRaw),
           number: parseInt(match[2], 10),
           original: name
         };
       }
       
-      return { series: "", number: null, original: name };
+      return { seriesRaw: "", seriesDisplay: "", seriesKey: "", number: null, original: name };
     }
     
     // ===== Data loading =====
@@ -869,20 +908,36 @@
         studentFilter.appendChild(option);
       });
       
-      // Update series filter
-      const seriesSet = new Set();
+      // Update series filter - build map of seriesKey -> best display string
+      const seriesKeyToDisplay = new Map(); // seriesKey -> best display string
       allData.forEach(row => {
         const parsed = parseAssignmentName(row.assignment_name);
-        if (parsed.series) {
-          seriesSet.add(parsed.series);
+        if (parsed.seriesKey) {
+          const existing = seriesKeyToDisplay.get(parsed.seriesKey);
+          if (!existing) {
+            // First occurrence, use it
+            seriesKeyToDisplay.set(parsed.seriesKey, parsed.seriesDisplay || parsed.seriesRaw);
+          } else {
+            // Choose "best" display string by preferring:
+            // 1) strings containing spaces (more readable)
+            // 2) longer strings
+            const candidate = parsed.seriesDisplay || parsed.seriesRaw;
+            const existingHasSpace = existing.includes(" ");
+            const candidateHasSpace = candidate.includes(" ");
+            if (candidateHasSpace && !existingHasSpace) {
+              seriesKeyToDisplay.set(parsed.seriesKey, candidate);
+            } else if (candidate.length > existing.length && (candidateHasSpace === existingHasSpace)) {
+              seriesKeyToDisplay.set(parsed.seriesKey, candidate);
+            }
+          }
         }
       });
-      const seriesList = Array.from(seriesSet).sort();
+      const seriesKeys = Array.from(seriesKeyToDisplay.keys()).sort();
       seriesFilter.innerHTML = '<option value="">All Series</option>';
-      seriesList.forEach(series => {
+      seriesKeys.forEach(seriesKey => {
         const option = document.createElement("option");
-        option.value = series;
-        option.textContent = series;
+        option.value = seriesKey;
+        option.textContent = seriesKeyToDisplay.get(seriesKey);
         seriesFilter.appendChild(option);
       });
     }
@@ -917,11 +972,11 @@
       }
       
       // Apply series filter
-      const selectedSeries = seriesFilter.value;
-      if (selectedSeries) {
+      const selectedSeriesKey = seriesFilter.value;
+      if (selectedSeriesKey) {
         filtered = filtered.filter(r => {
           const parsed = parseAssignmentName(r.assignment_name);
-          return parsed.series === selectedSeries;
+          return parsed.seriesKey === selectedSeriesKey;
         });
       }
       
@@ -938,13 +993,13 @@
         }
         
         // If series filter is applied, just sort by number
-        if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+        if (selectedSeriesKey && aParsed.seriesKey === selectedSeriesKey && bParsed.seriesKey === selectedSeriesKey) {
           return aParsed.number - bParsed.number;
         }
         
-        // Otherwise sort by series then number
-        if (aParsed.series !== bParsed.series) {
-          return aParsed.series.localeCompare(bParsed.series);
+        // Otherwise sort by seriesKey then number (so "AdvancedHW" + "Advanced Homework" are grouped together)
+        if (aParsed.seriesKey !== bParsed.seriesKey) {
+          return aParsed.seriesKey.localeCompare(bParsed.seriesKey);
         }
         return aParsed.number - bParsed.number;
       });
@@ -989,7 +1044,7 @@
       }
       
       const selectedStudent = studentFilter.value;
-      const selectedSeries = seriesFilter.value;
+      const selectedSeriesKey = seriesFilter.value;
       
       // Group data for line chart
       if (selectedStudent) {
@@ -998,7 +1053,7 @@
         const labels = studentData.map((r, i) => {
           const parsed = parseAssignmentName(r.assignment_name);
           if (parsed.number !== null) {
-            return selectedSeries ? `#${parsed.number}` : r.assignment_name;
+            return selectedSeriesKey && parsed.seriesKey === selectedSeriesKey ? `#${parsed.number}` : r.assignment_name;
           }
           return r.assignment_name || `Assignment ${i + 1}`;
         });
@@ -1051,11 +1106,11 @@
             if (aParsed.number === null && bParsed.number !== null) return 1;
             if (aParsed.number !== null && bParsed.number === null) return -1;
             if (aParsed.number === null) return 0;
-            if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+            if (selectedSeriesKey && aParsed.seriesKey === selectedSeriesKey && bParsed.seriesKey === selectedSeriesKey) {
               return aParsed.number - bParsed.number;
             }
-            if (aParsed.series !== bParsed.series) {
-              return aParsed.series.localeCompare(bParsed.series);
+            if (aParsed.seriesKey !== bParsed.seriesKey) {
+              return aParsed.seriesKey.localeCompare(bParsed.seriesKey);
             }
             return aParsed.number - bParsed.number;
           });
@@ -1065,7 +1120,7 @@
           data: {
             labels: assignments.map(a => {
               const parsed = parseAssignmentName(a.name);
-              return selectedSeries && parsed.series === selectedSeries 
+              return selectedSeriesKey && parsed.seriesKey === selectedSeriesKey 
                 ? `#${parsed.number}` 
                 : a.name;
             }),
@@ -1200,7 +1255,7 @@
       const ctx = canvas.getContext("2d");
       
       const selectedStudent = studentFilter.value;
-      const selectedSeries = seriesFilter.value;
+      const selectedSeriesKey = seriesFilter.value;
       
       // Color palette for buckets
       const colors = [
@@ -1240,18 +1295,18 @@
             if (aParsed.number === null && bParsed.number !== null) return 1;
             if (aParsed.number !== null && bParsed.number === null) return -1;
             if (aParsed.number === null) return 0;
-            if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+            if (selectedSeriesKey && aParsed.seriesKey === selectedSeriesKey && bParsed.seriesKey === selectedSeriesKey) {
               return aParsed.number - bParsed.number;
             }
-            if (aParsed.series !== bParsed.series) {
-              return aParsed.series.localeCompare(bParsed.series);
+            if (aParsed.seriesKey !== bParsed.seriesKey) {
+              return aParsed.seriesKey.localeCompare(bParsed.seriesKey);
             }
             return aParsed.number - bParsed.number;
           });
         
         const labels = assignments.map(a => {
           const parsed = parseAssignmentName(a.name);
-          return selectedSeries && parsed.series === selectedSeries 
+          return selectedSeriesKey && parsed.seriesKey === selectedSeriesKey 
             ? `#${parsed.number}` 
             : a.name;
         });
@@ -1327,18 +1382,18 @@
             if (aParsed.number === null && bParsed.number !== null) return 1;
             if (aParsed.number !== null && bParsed.number === null) return -1;
             if (aParsed.number === null) return 0;
-            if (selectedSeries && aParsed.series === selectedSeries && bParsed.series === selectedSeries) {
+            if (selectedSeriesKey && aParsed.seriesKey === selectedSeriesKey && bParsed.seriesKey === selectedSeriesKey) {
               return aParsed.number - bParsed.number;
             }
-            if (aParsed.series !== bParsed.series) {
-              return aParsed.series.localeCompare(bParsed.series);
+            if (aParsed.seriesKey !== bParsed.seriesKey) {
+              return aParsed.seriesKey.localeCompare(bParsed.seriesKey);
             }
             return aParsed.number - bParsed.number;
           });
         
         const labels = assignments.map(a => {
           const parsed = parseAssignmentName(a.name);
-          return selectedSeries && parsed.series === selectedSeries 
+          return selectedSeriesKey && parsed.seriesKey === selectedSeriesKey 
             ? `#${parsed.number}` 
             : a.name;
         });
