@@ -370,6 +370,172 @@
     body.printing .progress-page {
       background: white;
     }
+    
+    /* Examples Modal Styles */
+    .examples-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .examples-modal {
+      background: var(--card);
+      border-radius: 12px;
+      max-width: 900px;
+      width: 90%;
+      max-height: 75vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .examples-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .examples-modal-bucket {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    
+    .examples-modal-label {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    .examples-modal-close {
+      background: none;
+      border: none;
+      font-size: 28px;
+      line-height: 1;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    
+    .examples-modal-close:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text);
+    }
+    
+    .examples-modal-actions {
+      padding: 12px 24px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .examples-copy-all-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--maroon);
+      border-radius: 8px;
+      background: var(--maroon);
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .examples-copy-all-btn:hover {
+      filter: brightness(.95);
+    }
+    
+    .examples-modal-content {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .example-item {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    
+    .example-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .example-student-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .example-student-name {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 14px;
+    }
+    
+    .example-assignment-name {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    
+    .example-sentence {
+      background: #f5f6f8;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    
+    .example-copy-btn {
+      padding: 6px 12px;
+      border: 1px solid rgba(0, 0, 0, 0.14);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    
+    .example-copy-btn:hover {
+      background: rgba(169,13,34,.05);
+      border-color: var(--maroon);
+    }
+    
+    .examples-loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+    
+    .examples-empty {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -509,6 +675,25 @@
       </div>
     </div>
   </main>
+
+  <!-- Examples Modal -->
+  <div id="examplesModal" class="examples-modal-overlay" style="display: none;">
+    <div class="examples-modal">
+      <div class="examples-modal-header">
+        <div>
+          <div class="examples-modal-bucket" id="modalBucketName"></div>
+          <div class="examples-modal-label" id="modalLabel"></div>
+        </div>
+        <button class="examples-modal-close" id="modalCloseBtn" aria-label="Close">×</button>
+      </div>
+      <div class="examples-modal-actions">
+        <button class="examples-copy-all-btn" id="copyAllBtn">Copy all</button>
+      </div>
+      <div class="examples-modal-content" id="modalContent">
+        <!-- Examples will be rendered here -->
+      </div>
+    </div>
+  </div>
 
   <script>
     // ===== Bucket definitions =====
@@ -1392,9 +1577,27 @@
                     clipped[clipped.length - 1] = clipped[clipped.length - 1].replace(/[.…]?$/, "…");
                   }
                   return clipped;
+                },
+                footer: () => {
+                  return "Click for examples";
                 }
+              },
+              footerColor: "#fff",
+              footerFont: {
+                weight: "700"
               }
             }
+          },
+          onHover: (event, activeElements) => {
+            event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+          },
+          onClick: (event, activeElements) => {
+            if (activeElements.length === 0) return;
+            const item = activeElements[0];
+            const idx = item.dataIndex;
+            const label = item.chart.data.labels[idx];
+            const bucketName = item.chart.data.datasets[0].bucketNames[idx];
+            openExamplesModal({ label, bucketName });
           }
         }
       });
@@ -1859,6 +2062,200 @@
         window.onafterprint = null;
       };
     }
+    
+    // ===== Examples Modal Functions =====
+    const examplesModal = document.getElementById("examplesModal");
+    const modalCloseBtn = document.getElementById("modalCloseBtn");
+    const modalBucketName = document.getElementById("modalBucketName");
+    const modalLabel = document.getElementById("modalLabel");
+    const modalContent = document.getElementById("modalContent");
+    const copyAllBtn = document.getElementById("copyAllBtn");
+    
+    let currentExamples = [];
+    let currentLabel = "";
+    let currentBucketName = "";
+    
+    // Close modal handlers
+    modalCloseBtn.addEventListener("click", () => {
+      examplesModal.style.display = "none";
+    });
+    
+    examplesModal.addEventListener("click", (e) => {
+      if (e.target === examplesModal) {
+        examplesModal.style.display = "none";
+      }
+    });
+    
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && examplesModal.style.display !== "none") {
+        examplesModal.style.display = "none";
+      }
+    });
+    
+    // Fetch examples from Supabase
+    async function fetchExamplesForLabel(label) {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        return [];
+      }
+      
+      let query = supa
+        .from("issue_examples")
+        .select("student_name, assignment_name, sentence, created_at, class_id")
+        .eq("label", label)
+        .eq("user_id", sessionData.session.user.id);
+      
+      // Apply class filter
+      const selectedClass = classFilter.value;
+      if (selectedClass === "__unassigned__") {
+        query = query.is("class_id", null);
+      } else if (selectedClass) {
+        query = query.eq("class_id", selectedClass);
+      }
+      
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(50);
+      
+      if (error) {
+        console.error("Error fetching examples:", error);
+        return [];
+      }
+      
+      if (!data || data.length === 0) {
+        return [];
+      }
+      
+      // Filter by filteredData keys (student_name::assignment_name)
+      const allowedKeys = new Set();
+      filteredData.forEach(row => {
+        const key = `${row.student_name || ""}::${row.assignment_name || ""}`;
+        if (key && key !== "::") {
+          allowedKeys.add(key);
+        }
+      });
+      
+      // Filter examples to only those in filteredData
+      let filtered = data.filter(ex => {
+        const key = `${ex.student_name || ""}::${ex.assignment_name || ""}`;
+        return allowedKeys.has(key);
+      });
+      
+      // Limit to first 10 for display
+      return filtered.slice(0, 10);
+    }
+    
+    // Open examples modal
+    async function openExamplesModal({ label, bucketName }) {
+      currentLabel = label;
+      currentBucketName = bucketName;
+      
+      modalBucketName.textContent = bucketName;
+      modalLabel.textContent = label;
+      modalContent.innerHTML = '<div class="examples-loading">Loading examples...</div>';
+      examplesModal.style.display = "flex";
+      
+      const examples = await fetchExamplesForLabel(label);
+      currentExamples = examples;
+      
+      if (examples.length === 0) {
+        modalContent.innerHTML = '<div class="examples-empty">No examples saved yet for this issue. Examples appear after essays are marked/ingested.</div>';
+        return;
+      }
+      
+      renderExamples(examples);
+    }
+    
+    // Render examples list
+    function renderExamples(examples) {
+      modalContent.innerHTML = "";
+      
+      examples.forEach((example, idx) => {
+        const item = document.createElement("div");
+        item.className = "example-item";
+        
+        const studentInfo = document.createElement("div");
+        studentInfo.className = "example-student-info";
+        
+        const studentName = document.createElement("span");
+        studentName.className = "example-student-name";
+        studentName.textContent = example.student_name || "Unknown";
+        studentInfo.appendChild(studentName);
+        
+        if (example.assignment_name) {
+          const assignmentName = document.createElement("span");
+          assignmentName.className = "example-assignment-name";
+          assignmentName.textContent = `• ${example.assignment_name}`;
+          studentInfo.appendChild(assignmentName);
+        }
+        
+        item.appendChild(studentInfo);
+        
+        const sentence = document.createElement("div");
+        sentence.className = "example-sentence";
+        sentence.textContent = example.sentence || "";
+        item.appendChild(sentence);
+        
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "example-copy-btn";
+        copyBtn.textContent = "Copy";
+        copyBtn.addEventListener("click", () => {
+          copySentence(example);
+        });
+        item.appendChild(copyBtn);
+        
+        modalContent.appendChild(item);
+      });
+    }
+    
+    // Copy single sentence
+    async function copySentence(example) {
+      const text = `${example.student_name || "Student"} — "${example.sentence || ""}"`;
+      await copyToClipboard(text);
+    }
+    
+    // Copy all examples as revision assignment
+    async function copyAllExamples() {
+      if (currentExamples.length === 0) return;
+      
+      let text = `Revision Assignment: ${currentBucketName} — ${currentLabel}\n`;
+      text += `Directions: Rewrite each sentence to fix the issue.\n\n`;
+      
+      currentExamples.forEach((ex, idx) => {
+        text += `${idx + 1}) Student: ${ex.student_name || "___"} | Assignment: ${ex.assignment_name || "___"}\n`;
+        text += `   Sentence: "${ex.sentence || ""}"\n`;
+        if (idx < currentExamples.length - 1) {
+          text += "\n";
+        }
+      });
+      
+      await copyToClipboard(text);
+    }
+    
+    // Clipboard helper with fallback
+    async function copyToClipboard(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // Fallback for older browsers
+          const textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textarea);
+        }
+        // Visual feedback could be added here if needed
+      } catch (err) {
+        console.error("Failed to copy:", err);
+        alert("Failed to copy to clipboard");
+      }
+    }
+    
+    copyAllBtn.addEventListener("click", copyAllExamples);
     
     // ===== Event listeners =====
     rangeBtns.forEach(btn => {
