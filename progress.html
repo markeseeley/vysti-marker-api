@@ -600,8 +600,35 @@
 
     const BUCKET_OVERRIDES = {
       "Avoid quotations in the conclusion": "evidence_integration",
-      "Avoid quotations in the introduction": "evidence_integration"
+      "Avoid quotations in the introduction": "evidence_integration",
+      "Clarify pronouns and antecedents": "grammar_mechanics"
     };
+
+    // Shared bucket color palette (same order as LABEL_BUCKETS)
+    // Thesis maroon, Evidence blue, Voice green, Style yellow, Grammar purple, Formatting red, Other teal
+    const BUCKET_COLORS = [
+      "rgba(169, 13, 34, 1)",    // maroon - Thesis & Organization
+      "rgba(52, 152, 219, 1)",   // blue - Evidence & Integration
+      "rgba(46, 204, 113, 1)",   // green - Voice & Audience
+      "rgba(241, 196, 15, 1)",   // yellow - Style & Clarity
+      "rgba(155, 89, 182, 1)",   // purple - Grammar & Mechanics
+      "rgba(231, 76, 60, 1)",    // red - Formatting & Conventions
+      "rgba(26, 188, 156, 1)",   // teal - Other
+    ];
+
+    // Helper function to get bucket color by bucketId
+    // Returns color with specified alpha (default 1.0 for full opacity)
+    function getBucketColor(bucketId, alpha = 1.0) {
+      const bucketIndex = LABEL_BUCKETS.findIndex(b => b.id === bucketId);
+      if (bucketIndex === -1) {
+        // Fallback to "other" color if bucket not found
+        const otherIndex = LABEL_BUCKETS.findIndex(b => b.id === "other");
+        const baseColor = BUCKET_COLORS[otherIndex >= 0 ? otherIndex : BUCKET_COLORS.length - 1];
+        return baseColor.replace("1)", `${alpha})`);
+      }
+      const baseColor = BUCKET_COLORS[bucketIndex];
+      return baseColor.replace("1)", `${alpha})`);
+    }
 
     function getBucketIdForLabel(label) {
       if (!label) return "other";
@@ -1254,6 +1281,16 @@
       const explMap = buildLabelExplanationMap(filteredData);
       const explanations = topLabels.map(l => explMap.get(l.label) || "");
       
+      // Map each label to its bucket color
+      const backgroundColor = topLabels.map(l => {
+        const bucketId = getBucketIdForLabel(l.label);
+        return getBucketColor(bucketId, 0.6);
+      });
+      const borderColor = topLabels.map(l => {
+        const bucketId = getBucketIdForLabel(l.label);
+        return getBucketColor(bucketId, 1.0);
+      });
+      
       barChart = new Chart(ctx, {
         type: "bar",
         data: {
@@ -1262,8 +1299,8 @@
             label: "Count",
             data: topLabels.map(l => l.count),
             explanations: explanations,
-            backgroundColor: "rgba(169, 13, 34, 0.6)",
-            borderColor: "rgba(169, 13, 34, 1)",
+            backgroundColor: backgroundColor,
+            borderColor: borderColor,
             borderWidth: 1
           }]
         },
@@ -1339,17 +1376,6 @@
       const selectedStudent = studentFilter.value;
       const selectedSeriesKey = seriesFilter.value;
       
-      // Color palette for buckets
-      const colors = [
-        "rgba(169, 13, 34, 0.8)",    // maroon
-        "rgba(52, 152, 219, 0.8)",   // blue
-        "rgba(46, 204, 113, 0.8)",   // green
-        "rgba(241, 196, 15, 0.8)",   // yellow
-        "rgba(155, 89, 182, 0.8)",   // purple
-        "rgba(231, 76, 60, 0.8)",    // red
-        "rgba(26, 188, 156, 0.8)",   // teal
-      ];
-      
       if (selectedStudent) {
         // Per student: show their bucket totals per assignment
         const studentData = filteredData.filter(r => r.student_name === selectedStudent);
@@ -1402,8 +1428,8 @@
           datasets.push({
             label: bucket.name,
             data: data,
-            backgroundColor: colors[idx % colors.length],
-            borderColor: colors[idx % colors.length].replace("0.8", "1"),
+            backgroundColor: getBucketColor(bucket.id, 0.8),
+            borderColor: getBucketColor(bucket.id, 1.0),
             borderWidth: 1
           });
         });
@@ -1489,8 +1515,8 @@
           datasets.push({
             label: bucket.name,
             data: data,
-            backgroundColor: colors[idx % colors.length],
-            borderColor: colors[idx % colors.length].replace("0.8", "1"),
+            backgroundColor: getBucketColor(bucket.id, 0.8),
+            borderColor: getBucketColor(bucket.id, 1.0),
             borderWidth: 1
           });
         });
