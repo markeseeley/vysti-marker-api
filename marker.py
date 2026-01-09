@@ -1693,6 +1693,13 @@ def collect_text_title_format_marks(
                 if matched_text != title_text:
                     continue
 
+                # Skip possessive forms of single-word titles (e.g., "Antigone's" when title is "Antigone")
+                # This prevents false positives for character-name possessive references
+                if " " not in title_text:
+                    next_two = flat_text[end:end+2] if end + 2 <= len(flat_text) else ""
+                    if next_two in ("'s", "'s"):  # straight apostrophe or curly apostrophe
+                        continue
+
                 # If the span is fully italicized, it's correct
                 if is_span_italic(start, end):
                     continue
@@ -2170,6 +2177,10 @@ def analyze_text(
 
             # Do not touch text inside direct quotations
             if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
+                continue
+
+            # Do not touch text inside teacher-supplied titles
+            if in_teacher_title(start) or in_teacher_title(end - 1):
                 continue
 
             marks.append({
