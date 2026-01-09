@@ -1608,6 +1608,8 @@ def collect_text_title_format_marks(
     spans,
     config: MarkerConfig | None,
     labels_used: list[str],
+    paragraph_role: str | None = None,
+    sentences: list[tuple[int, int]] | None = None,
 ) -> list[dict]:
     """
     Return mark dicts that enforce the teacher-supplied text_title formatting
@@ -1685,37 +1687,118 @@ def collect_text_title_format_marks(
                 marks.append(mark)
         else:
             note = "The title of major works should be italicized"
-            for m in pattern.finditer(flat_text):
-                start, end = m.start(), m.end()
-                matched_text = flat_text[start:end]
-
-                # NEW: only enforce formatting for exact-case matches of the title.
-                if matched_text != title_text:
-                    continue
-
-                # Skip possessive forms of single-word titles (e.g., "Antigone's" when title is "Antigone")
-                # This prevents false positives for character-name possessive references
-                if " " not in title_text:
+            is_single_word = " " not in title_text
+            
+            # For single-word titles, apply special heuristic to avoid false positives
+            # from character-name uses (e.g., "Antigone" as character vs. *Antigone* as title)
+            if is_single_word and paragraph_role == "intro" and sentences:
+                # Only enforce in intro paragraph's first sentence
+                first_start, first_end = sentences[0]
+                
+                # Collect all exact-case matches within the first sentence
+                first_sentence_matches = []
+                for m in pattern.finditer(flat_text):
+                    start, end = m.start(), m.end()
+                    matched_text = flat_text[start:end]
+                    
+                    # Only exact-case matches
+                    if matched_text != title_text:
+                        continue
+                    
+                    # Skip possessive forms
                     next_two = flat_text[end:end+2] if end + 2 <= len(flat_text) else ""
-                    # Check for both straight apostrophe (U+0027 ') and curly apostrophe (U+2019 ')
+                    if next_two in ("'s", "\u2019s"):
+                        continue
+                    
+                    # Only consider matches within the first sentence
+                    if start < first_start or start >= first_end:
+                        continue
+                    
+                    first_sentence_matches.append((start, end))
+                
+                # If there are matches in the first sentence, check if any are italicized
+                if first_sentence_matches:
+                    has_italicized = any(is_span_italic(start, end) for start, end in first_sentence_matches)
+                    
+                    if has_italicized:
+                        # At least one italicized occurrence exists → don't flag any unitalicized ones
+                        # (they're likely character-name uses)
+                        continue
+                    else:
+                        # No italicized occurrences → flag the first unitalicized one
+                        match_start, match_end = first_sentence_matches[0]
+                        first_time = note not in labels_used
+                        mark = {
+                            "start": match_start,
+                            "end": match_end,
+                            "note": note,
+                            "color": WD_COLOR_INDEX.GRAY_25,
+                        }
+                        if first_time:
+                            mark["label"] = True
+                            labels_used.append(note)
+                        marks.append(mark)
+                # If no matches in first sentence, skip (title not mentioned in first sentence)
+            elif is_single_word and paragraph_role in ("body", "conclusion"):
+                # Single-word title in body/conclusion paragraphs → skip enforcement
+                # (don't flag unitalicized single-word titles to avoid character-name false positives)
+                continue
+            elif is_single_word:
+                # Single-word title in other contexts (e.g., title lines, or intro without sentences)
+                # → use standard enforcement (no special heuristic needed)
+                for m in pattern.finditer(flat_text):
+                    start, end = m.start(), m.end()
+                    matched_text = flat_text[start:end]
+
+                    # Only exact-case matches
+                    if matched_text != title_text:
+                        continue
+
+                    # Skip possessive forms
+                    next_two = flat_text[end:end+2] if end + 2 <= len(flat_text) else ""
                     if next_two in ("'s", "\u2019s"):
                         continue
 
-                # If the span is fully italicized, it's correct
-                if is_span_italic(start, end):
-                    continue
+                    # If the span is fully italicized, it's correct
+                    if is_span_italic(start, end):
+                        continue
 
-                first_time = note not in labels_used
-                mark = {
-                    "start": start,
-                    "end": end,
-                    "note": note,
-                    "color": WD_COLOR_INDEX.GRAY_25,
-                }
-                if first_time:
-                    mark["label"] = True
-                    labels_used.append(note)
-                marks.append(mark)
+                    first_time = note not in labels_used
+                    mark = {
+                        "start": start,
+                        "end": end,
+                        "note": note,
+                        "color": WD_COLOR_INDEX.GRAY_25,
+                    }
+                    if first_time:
+                        mark["label"] = True
+                        labels_used.append(note)
+                    marks.append(mark)
+            else:
+                # Multi-word title: keep current behavior (enforce italics everywhere)
+                for m in pattern.finditer(flat_text):
+                    start, end = m.start(), m.end()
+                    matched_text = flat_text[start:end]
+
+                    # NEW: only enforce formatting for exact-case matches of the title.
+                    if matched_text != title_text:
+                        continue
+
+                    # If the span is fully italicized, it's correct
+                    if is_span_italic(start, end):
+                        continue
+
+                    first_time = note not in labels_used
+                    mark = {
+                        "start": start,
+                        "end": end,
+                        "note": note,
+                        "color": WD_COLOR_INDEX.GRAY_25,
+                    }
+                    if first_time:
+                        mark["label"] = True
+                        labels_used.append(note)
+                    marks.append(mark)
 
     return marks
 
@@ -3415,6 +3498,8 @@ def analyze_text(
         spans=spans,
         config=config,
         labels_used=labels_used,
+        paragraph_role=paragraph_role,
+        sentences=sentences,
     )
     if title_marks:
         marks.extend(title_marks)
