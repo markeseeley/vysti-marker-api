@@ -536,6 +536,17 @@
       padding: 40px;
       color: var(--muted);
     }
+    
+    .examples-issue-select {
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      max-width: 320px;
+    }
   </style>
 </head>
 <body>
@@ -629,8 +640,11 @@
       <div class="charts-section">
         <div class="chart-card" id="examplesPanelCard">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
-            <h3 style="margin:0;">Revision Examples</h3>
-            <button class="examples-copy-all-btn" id="examplesPanelCopyBtn" style="display:none;">Copy assignment</button>
+            <h3 style="margin:0;">Examples of Issues</h3>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <select id="examplesIssueSelect" class="examples-issue-select" style="display:none;"></select>
+              <button class="examples-copy-all-btn" id="examplesPanelCopyBtn" style="display:none;">Copy assignment</button>
+            </div>
           </div>
 
           <div id="examplesPanelMeta" style="margin-bottom:10px;">
@@ -641,7 +655,7 @@
 
           <div class="chart-container" style="height:300px;">
             <div id="examplesPanelContent" style="height:100%; overflow:auto;">
-              <div class="examples-empty">Examples will appear here. Click an issue bar to load examples.</div>
+              <div class="examples-empty">Select an issue from the dropdown above to view examples.</div>
             </div>
           </div>
         </div>
@@ -798,8 +812,56 @@
     const BUCKET_OVERRIDES = {
       "Avoid quotations in the conclusion": "evidence_integration",
       "Avoid quotations in the introduction": "evidence_integration",
-      "Clarify pronouns and antecedents": "grammar_mechanics"
+      "Clarify pronouns and antecedents": "grammar_mechanics",
+      "Avoid weak verbs": "evidence_integration"
     };
+    
+    // ===== Label Canonicalization =====
+    // Canonical label groups: maps aliases to canonical display label
+    const LABEL_CANONICAL_GROUPS = {
+      "Avoid weak verbs": [
+        "Refer to the Power Verbs list",
+        "Refer to the Power Verbs List",
+        "Avoid weak verbs"
+      ]
+    };
+    
+    // Helper: normalize label string (lowercase + trim)
+    function normalizeLabel(s) {
+      if (!s) return "";
+      return String(s).toLowerCase().trim();
+    }
+    
+    // Helper: get canonical label for a given label
+    function canonicalLabel(label) {
+      if (!label) return label;
+      const normalized = normalizeLabel(label);
+      
+      // Check each canonical group
+      for (const [canonical, aliases] of Object.entries(LABEL_CANONICAL_GROUPS)) {
+        const normalizedAliases = aliases.map(normalizeLabel);
+        if (normalizedAliases.includes(normalized)) {
+          return canonical;
+        }
+      }
+      
+      return label; // Return original if no canonical found
+    }
+    
+    // Helper: get all aliases (including canonical) for a canonical label
+    function labelAliasesForQuery(canonical) {
+      if (!canonical) return [canonical];
+      const group = LABEL_CANONICAL_GROUPS[canonical];
+      if (group) {
+        return [...group]; // Return all aliases including canonical
+      }
+      return [canonical]; // Return just the label if no group
+    }
+    
+    // Helper: get display label (canonicalized)
+    function displayLabel(label) {
+      return canonicalLabel(label);
+    }
 
     // Shared bucket color palette (same order as LABEL_BUCKETS)
     // Thesis maroon, Evidence blue, Voice green, Style yellow, Grammar purple, Formatting red, Other teal
@@ -1160,15 +1222,25 @@
     
     function computeWorstBestStudentsForLabel(rows, label) {
       const perStudent = new Map(); // student_name -> count
+      const canonical = canonicalLabel(label);
+      
       for (const row of rows) {
         const student = (row.student_name || "").trim();
         if (!student) continue;
 
         const obj = row.label_counts && typeof row.label_counts === "object" ? row.label_counts : {};
-        const raw = obj[label];
-        const n = typeof raw === "number" ? raw : (parseInt(raw, 10) || 0);
-
-        perStudent.set(student, (perStudent.get(student) || 0) + n);
+        let studentTotal = perStudent.get(student) || 0;
+        
+        // Sum counts for all aliases of the canonical label
+        Object.entries(obj).forEach(([entryLabel, raw]) => {
+          const entryCanonical = canonicalLabel(entryLabel);
+          if (entryCanonical === canonical) {
+            const n = typeof raw === "number" ? raw : (parseInt(raw, 10) || 0);
+            studentTotal += n;
+          }
+        });
+        
+        perStudent.set(student, studentTotal);
       }
 
       if (perStudent.size === 0) {
@@ -1501,8 +1573,16 @@
         });
       }
       
-      const topLabels = Array.from(labelCounter.entries())
-        .map(([label, count]) => ({ label, count }))
+      // Aggregate counts by canonical label (sum all aliases)
+      const canonicalCounter = new Map(); // canonical -> totalCount
+      labelCounter.forEach((count, label) => {
+        const canonical = canonicalLabel(label);
+        const existing = canonicalCounter.get(canonical) || 0;
+        canonicalCounter.set(canonical, existing + count);
+      });
+      
+      const topLabels = Array.from(canonicalCounter.entries())
+        .map(([canonical, count]) => ({ label: canonical, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
       
@@ -1519,6 +1599,26 @@
       const worstStudents = topLabels.map(l => computeWorstBestStudentsForLabel(filteredData, l.label).worst);
       const bestStudents = topLabels.map(l => computeWorstBestStudentsForLabel(filteredData, l.label).best);
       
+      // Populate dropdown
+      const examplesIssueSelect = document.getElementById("examplesIssueSelect");
+      if (examplesIssueSelect) {
+        examplesIssueSelect.innerHTML = "";
+        if (topLabels.length > 0) {
+          topLabels.forEach(({ label, count }) => {
+            const option = document.createElement("option");
+            option.value = label; // Store canonical label
+            option.textContent = `${displayLabel(label)} (${count})`;
+            examplesIssueSelect.appendChild(option);
+          });
+          examplesIssueSelect.style.display = "block";
+          
+          // Set default selection to first item
+          examplesIssueSelect.value = topLabels[0].label;
+        } else {
+          examplesIssueSelect.style.display = "none";
+        }
+      }
+      
       // Map each label to its bucket color
       const backgroundColor = topLabels.map(l => {
         const bucketId = getBucketIdForLabel(l.label);
@@ -1532,10 +1632,11 @@
       barChart = new Chart(ctx, {
         type: "bar",
         data: {
-          labels: topLabels.map(l => l.label),
+          labels: topLabels.map(l => displayLabel(l.label)),
           datasets: [{
             label: "Count",
             data: topLabels.map(l => l.count),
+            canonicalLabels: topLabels.map(l => l.label), // Store canonical labels for onClick
             explanations: explanations,
             bucketNames: bucketNames,
             worstStudents: worstStudents,
@@ -1610,12 +1711,17 @@
             if (activeElements.length === 0) return;
             const item = activeElements[0];
             const idx = item.dataIndex;
-            const label = item.chart.data.labels[idx];
-            const bucketName = item.chart.data.datasets[0].bucketNames[idx];
             const ds = item.chart.data.datasets[0];
-            const worst = ds?.worstStudents?.[idx] || "—";
-            const best  = ds?.bestStudents?.[idx] || "—";
-            loadExamplesPanel({ label, bucketName, worst, best });
+            const canonical = ds?.canonicalLabels?.[idx] || item.chart.data.labels[idx];
+            const bucketName = ds?.bucketNames?.[idx] || "";
+            
+            // Update dropdown to match clicked bar
+            const examplesIssueSelect = document.getElementById("examplesIssueSelect");
+            if (examplesIssueSelect) {
+              examplesIssueSelect.value = canonical;
+            }
+            
+            loadExamplesPanel({ label: canonical, bucketName });
           }
         }
       });
@@ -1624,12 +1730,12 @@
       if (topLabels.length > 0) {
         const firstLabel = topLabels[0].label;
         const firstBucketName = bucketNames[0] || "";
-        const firstWorst = worstStudents[0] || "—";
-        const firstBest = bestStudents[0] || "—";
-        loadExamplesPanel({ label: firstLabel, bucketName: firstBucketName, worst: firstWorst, best: firstBest });
+        loadExamplesPanel({ label: firstLabel, bucketName: firstBucketName });
       } else if (examplesPanelContent) {
         examplesPanelContent.innerHTML = '<div class="examples-empty">No issues found for the current filters.</div>';
         if (examplesPanelCopyBtn) examplesPanelCopyBtn.style.display = "none";
+        const examplesIssueSelect = document.getElementById("examplesIssueSelect");
+        if (examplesIssueSelect) examplesIssueSelect.style.display = "none";
       }
     }
     
@@ -2136,11 +2242,21 @@
         return [];
       }
       
+      // Get canonical label and aliases
+      const canonical = canonicalLabel(label);
+      const aliases = labelAliasesForQuery(canonical);
+      
       let query = supa
         .from("issue_examples")
         .select("student_name, assignment_name, sentence, created_at, class_id")
-        .eq("label", label)
         .eq("user_id", sessionData.session.user.id);
+      
+      // Use .in() if there are aliases, otherwise use .eq()
+      if (aliases.length > 1) {
+        query = query.in("label", aliases);
+      } else {
+        query = query.eq("label", canonical);
+      }
       
       // Apply class filter
       const selectedClass = classFilter.value;
@@ -2183,18 +2299,71 @@
     }
     
     // Load examples into the panel
-    async function loadExamplesPanel({ label, bucketName, worst, best }) {
+    async function loadExamplesPanel({ label, bucketName }) {
       if (!examplesPanelContent) return;
 
-      currentLabel = label || "";
+      // Use canonical label
+      const canonical = canonicalLabel(label || "");
+      currentLabel = canonical;
       currentBucketName = bucketName || "";
 
       if (examplesPanelBucket) examplesPanelBucket.textContent = currentBucketName;
-      if (examplesPanelLabel) examplesPanelLabel.textContent = currentLabel;
+      if (examplesPanelLabel) examplesPanelLabel.textContent = displayLabel(currentLabel);
 
-      const worstTxt = worst ? `Worst: ${worst}` : "Worst: —";
-      const bestTxt  = best  ? `Best: ${best}`   : "Best: —";
-      if (examplesPanelBestWorst) examplesPanelBestWorst.textContent = `${worstTxt}   ${bestTxt}`;
+      // Compute most/least issues from filteredData
+      const perStudent = new Map(); // student_name -> totalCount
+      const allStudents = new Set(); // Track all students in filteredData
+      
+      filteredData.forEach(row => {
+        const student = (row.student_name || "").trim();
+        if (!student) return;
+        allStudents.add(student);
+        
+        const obj = row.label_counts && typeof row.label_counts === "object" ? row.label_counts : {};
+        let studentTotal = perStudent.get(student) || 0;
+        
+        // Sum counts for all aliases of the canonical label
+        Object.entries(obj).forEach(([entryLabel, raw]) => {
+          const entryCanonical = canonicalLabel(entryLabel);
+          if (entryCanonical === canonical) {
+            const n = typeof raw === "number" ? raw : (parseInt(raw, 10) || 0);
+            studentTotal += n;
+          }
+        });
+        
+        perStudent.set(student, studentTotal);
+      });
+      
+      // Initialize all students with 0 if not in perStudent
+      allStudents.forEach(student => {
+        if (!perStudent.has(student)) {
+          perStudent.set(student, 0);
+        }
+      });
+      
+      // Find most and least
+      let mostName = "—";
+      let mostCount = -Infinity;
+      let leastName = "—";
+      let leastCount = Infinity;
+      
+      for (const [student, count] of perStudent.entries()) {
+        if (count > mostCount) {
+          mostCount = count;
+          mostName = student;
+        }
+        if (count < leastCount) {
+          leastCount = count;
+          leastName = student;
+        }
+      }
+      
+      if (mostCount === -Infinity) mostCount = 0;
+      if (leastCount === Infinity) leastCount = 0;
+      
+      const mostTxt = mostName !== "—" ? `Most Issues: ${mostName} (${mostCount})` : "Most Issues: —";
+      const leastTxt = leastName !== "—" ? `Least Issues: ${leastName} (${leastCount})` : "Least Issues: —";
+      if (examplesPanelBestWorst) examplesPanelBestWorst.textContent = `${mostTxt}   ${leastTxt}`;
 
       examplesPanelContent.innerHTML = '<div class="examples-loading">Loading examples...</div>';
       if (examplesPanelCopyBtn) examplesPanelCopyBtn.style.display = "none";
@@ -2286,7 +2455,7 @@
     async function copyAllExamples() {
       if (currentExamples.length === 0) return;
       
-      let text = `Revision Assignment: ${currentBucketName} — ${currentLabel}\n`;
+      let text = `Revision Assignment: ${currentBucketName} — ${displayLabel(currentLabel)}\n`;
       text += `Directions: Rewrite each sentence to fix the issue.\n\n`;
       
       currentExamples.forEach((ex, idx) => {
@@ -2328,6 +2497,21 @@
     // Wire up examples panel copy button
     if (examplesPanelCopyBtn) {
       examplesPanelCopyBtn.addEventListener("click", copyAllExamples);
+    }
+    
+    // Wire up examples dropdown change handler
+    const examplesIssueSelect = document.getElementById("examplesIssueSelect");
+    if (examplesIssueSelect) {
+      examplesIssueSelect.addEventListener("change", (e) => {
+        const selectedLabel = e.target.value;
+        if (!selectedLabel) return;
+        
+        // Get bucket name for the selected label
+        const bucketId = getBucketIdForLabel(selectedLabel);
+        const bucketName = LABEL_BUCKETS.find(b => b.id === bucketId)?.name || "Other";
+        
+        loadExamplesPanel({ label: selectedLabel, bucketName });
+      });
     }
     
     // ===== Event listeners =====
