@@ -752,7 +752,7 @@
       // Build query
       let query = supa
         .from("mark_events")
-        .select("created_at, student_name, assignment_name, mode, total_labels, label_counts, class_id")
+        .select("created_at, student_name, assignment_name, mode, total_labels, label_counts, issues, class_id")
         .eq("user_id", sessionData.session.user.id);
       
       // Apply class filter from URL if present, otherwise use dropdown
@@ -894,6 +894,62 @@
         out.set(bucketId, (out.get(bucketId) || 0) + n);
       }
       return out;
+    }
+    
+    // Build a label → explanation lookup map from rows
+    function buildLabelExplanationMap(rows) {
+      const map = new Map();
+      for (const row of rows) {
+        let issues = row.issues;
+        
+        // Handle null/undefined
+        if (!issues) {
+          issues = [];
+        }
+        // Handle string (rare case - JSON string)
+        else if (typeof issues === "string") {
+          try {
+            issues = JSON.parse(issues);
+          } catch (e) {
+            issues = [];
+          }
+        }
+        // Ensure it's an array
+        if (!Array.isArray(issues)) {
+          issues = [];
+        }
+        
+        for (const issue of issues) {
+          const label = issue?.label;
+          const expl = issue?.explanation;
+          if (!label || !expl) continue;
+          
+          // Prefer first explanation OR prefer the longer one if conflicts exist
+          const prev = map.get(label);
+          if (!prev || (typeof prev === "string" && expl.length > prev.length)) {
+            map.set(label, expl);
+          }
+        }
+      }
+      return map;
+    }
+    
+    // Wrap text for tooltip display
+    function wrapTooltipText(text, maxLineLen = 70) {
+      const words = text.split(/\s+/).filter(Boolean);
+      const lines = [];
+      let line = "";
+      for (const w of words) {
+        const test = line ? line + " " + w : w;
+        if (test.length > maxLineLen) {
+          if (line) lines.push(line);
+          line = w;
+        } else {
+          line = test;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
     }
     
     // ===== Filter updates =====
@@ -1194,6 +1250,10 @@
         .sort((a, b) => b.count - a.count)
         .slice(0, 8);
       
+      // Build explanation map from filtered data
+      const explMap = buildLabelExplanationMap(filteredData);
+      const explanations = topLabels.map(l => explMap.get(l.label) || "");
+      
       barChart = new Chart(ctx, {
         type: "bar",
         data: {
@@ -1201,6 +1261,7 @@
           datasets: [{
             label: "Count",
             data: topLabels.map(l => l.count),
+            explanations: explanations,
             backgroundColor: "rgba(169, 13, 34, 0.6)",
             borderColor: "rgba(169, 13, 34, 1)",
             borderWidth: 1
@@ -1212,6 +1273,27 @@
           scales: {
             y: {
               beginAtZero: true
+            }
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                afterBody: (tooltipItems) => {
+                  const item = tooltipItems?.[0];
+                  if (!item) return [];
+                  
+                  const idx = item.dataIndex;
+                  const expl = item.dataset?.explanations?.[idx];
+                  if (!expl) return [];
+                  
+                  // Wrap + optionally truncate so the tooltip doesn't become a novel
+                  const clean = String(expl).trim();
+                  const maxChars = 320;
+                  const clipped = clean.length > maxChars ? clean.slice(0, maxChars) + "…" : clean;
+                  
+                  return ["Explanation:", ...wrapTooltipText(clipped, 70)];
+                }
+              }
             }
           }
         }
