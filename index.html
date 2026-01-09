@@ -511,6 +511,7 @@
       fileInput.value = "";       // clears the native file input
       renderFileList([]);         // clears UI list
       renderFilesTable();         // clears table
+      updateDownloadAllButton();  // hide button after clearing
       syncMarkBtnState();
       if (setStatus) statusEl.textContent = "Cleared uploaded files.";
     }
@@ -519,11 +520,35 @@
       clearFilesBtn.addEventListener("click", () => clearSelectedFiles({ setStatus: true }));
     }
 
+    // Helper: Check if batch is done (all files are marked or errored)
+    function isBatchDone() {
+      return fileData.length > 1 && fileData.every(fd => fd.status === "marked" || fd.status === "error");
+    }
+
+    // Helper: Get all successfully marked files
+    function getMarkedFiles() {
+      return fileData.filter(fd => fd.status === "marked" && fd.downloadUrl);
+    }
+
+    // Update download all button visibility and state
+    function updateDownloadAllButton() {
+      const btn = document.getElementById("downloadAllBtn");
+      if (!btn) return;
+
+      const marked = getMarkedFiles();
+      const show = isBatchDone() && marked.length > 0;
+
+      btn.style.display = show ? "block" : "none";
+      btn.disabled = !show;
+      btn.textContent = marked.length ? `Download all marked (${marked.length})` : "Download all marked";
+      btn.title = show ? "Download all marked essays" : "";
+    }
+
     // Download all marked files button
     const downloadAllBtn = document.getElementById("downloadAllBtn");
     if (downloadAllBtn) {
       downloadAllBtn.addEventListener("click", () => {
-        const markedFiles = fileData.filter(fd => fd.status === "marked" && fd.downloadUrl);
+        const markedFiles = getMarkedFiles();
         if (markedFiles.length === 0) return;
         
         // Download each file with a small stagger to avoid browser blocking
@@ -897,11 +922,9 @@ function renderFileList(files) {
 function renderFilesTable() {
   if (!filesTableSection || !filesTableBody) return;
   
-  const downloadAllBtn = document.getElementById("downloadAllBtn");
-  
   if (fileData.length === 0) {
     filesTableSection.style.display = "none";
-    if (downloadAllBtn) downloadAllBtn.style.display = "none";
+    updateDownloadAllButton();
     return;
   }
   
@@ -909,17 +932,6 @@ function renderFilesTable() {
   if (fileData.length > 1) {
     filesTableSection.style.display = "block";
     filesTableBody.innerHTML = "";
-    
-    // Show/hide download all button based on marked files
-    const markedCount = fileData.filter(fd => fd.status === "marked" && fd.downloadUrl).length;
-    if (downloadAllBtn) {
-      if (markedCount > 0) {
-        downloadAllBtn.style.display = "block";
-        downloadAllBtn.disabled = false;
-      } else {
-        downloadAllBtn.style.display = "none";
-      }
-    }
     
     for (let i = 0; i < fileData.length; i++) {
       const fd = fileData[i];
@@ -991,21 +1003,12 @@ function renderFilesTable() {
       
       filesTableBody.appendChild(tr);
     }
-    
-    // Update download all button visibility
-    const markedCount2 = fileData.filter(fd => fd.status === "marked" && fd.downloadUrl).length;
-    if (downloadAllBtn) {
-      if (markedCount2 > 0) {
-        downloadAllBtn.style.display = "block";
-        downloadAllBtn.disabled = false;
-      } else {
-        downloadAllBtn.style.display = "none";
-      }
-    }
   } else {
     filesTableSection.style.display = "none";
-    if (downloadAllBtn) downloadAllBtn.style.display = "none";
   }
+  
+  // Update download all button visibility after rendering table
+  updateDownloadAllButton();
 }
 
 function updateStatusCell(cell, fd) {
@@ -1755,6 +1758,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
         fd.error = null;
         if (fd.statusCell) {
           updateStatusCell(fd.statusCell, fd);
+          updateDownloadAllButton();
         } else {
           renderFilesTable();
         }
@@ -1835,6 +1839,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
             fd.error = `HTTP ${response.status}: ${text.substring(0, 50)}`;
             if (fd.statusCell) {
               updateStatusCell(fd.statusCell, fd);
+              updateDownloadAllButton();
             } else {
               renderFilesTable();
             }
@@ -1849,6 +1854,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
           fd.downloadUrl = url;
           if (fd.statusCell) {
             updateStatusCell(fd.statusCell, fd);
+            updateDownloadAllButton();
           } else {
             renderFilesTable();
           }
@@ -1870,6 +1876,7 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
           fd.error = err.message || "Network error";
           if (fd.statusCell) {
             updateStatusCell(fd.statusCell, fd);
+            updateDownloadAllButton();
           } else {
             renderFilesTable();
           }
@@ -1878,6 +1885,9 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
 
       const successCount = fileData.filter(fd => fd.status === "marked").length;
       statusEl.textContent = `Finished: ${successCount} of ${files.length} file(s) marked successfully.`;
+      
+      // Update download all button after marking loop completes
+      updateDownloadAllButton();
     });
 
   </script>
