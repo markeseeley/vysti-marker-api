@@ -275,7 +275,10 @@
 
   <!-- Table for multiple files -->
   <section class="card full-width" id="filesTableSection" style="display: none;">
-    <h2 style="margin-top: 0;">Uploaded Files</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2 style="margin-top: 0; margin-bottom: 0;">Uploaded Files</h2>
+      <button type="button" id="downloadAllBtn" class="secondary-btn" style="display: none;">Download all marked</button>
+    </div>
     <div style="overflow-x: auto;">
       <table class="ingest-table" id="filesTable" style="width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed;">
         <colgroup>
@@ -481,12 +484,11 @@
       
       // Require assignment names for ALL files (single or multiple)
       const globalAssignmentName = document.getElementById("assignmentName").value.trim();
-      const globalAssignmentNameNormalized = normalizeAssignmentName(globalAssignmentName);
       
       // Check each file has a valid assignment name
       const missingOrInvalid = fileData.some(fd => {
-        const perFileAssignment = fd.assignmentName || "";
-        const assignmentToCheck = perFileAssignment || globalAssignmentNameNormalized;
+        const perFileAssignment = (fd.assignmentName || "").trim();
+        const assignmentToCheck = perFileAssignment || globalAssignmentName;
         return !assignmentToCheck || !isValidAssignmentName(assignmentToCheck);
       });
       
@@ -515,6 +517,27 @@
 
     if (clearFilesBtn) {
       clearFilesBtn.addEventListener("click", () => clearSelectedFiles({ setStatus: true }));
+    }
+
+    // Download all marked files button
+    const downloadAllBtn = document.getElementById("downloadAllBtn");
+    if (downloadAllBtn) {
+      downloadAllBtn.addEventListener("click", () => {
+        const markedFiles = fileData.filter(fd => fd.status === "marked" && fd.downloadUrl);
+        if (markedFiles.length === 0) return;
+        
+        // Download each file with a small stagger to avoid browser blocking
+        markedFiles.forEach((fd, index) => {
+          setTimeout(() => {
+            const a = document.createElement("a");
+            a.href = fd.downloadUrl;
+            a.download = fd.file.name.replace(/\.docx$/i, "") + "_marked.docx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }, index * 150); // 150ms stagger between downloads
+        });
+      });
     }
 
     const logoutBtn = document.getElementById("logoutBtn");
@@ -596,7 +619,7 @@
             const hwPart = match[2];
             const hwFormatted = hwPart.toUpperCase() === hwPart ? hwPart : 
               (hwPart.charAt(0).toUpperCase() + hwPart.slice(1).toLowerCase());
-            assignmentName = prefix + hwFormatted + " " + numPadded;
+            assignmentName = `${prefix} ${hwFormatted} ${numPadded}`;
           } else if (match.length === 3) {
             // Pattern 2, 3, or 4: prefix + number
             const prefix = match[1];
@@ -730,12 +753,48 @@
       return normalized.trim();
     }
     
-    // Check if assignment name is in canonical format (has a number)
+    // Check if assignment name has a trailing number (for progress tracking)
+    function hasTrailingNumber(s) {
+      return /\d+\s*$/.test((s || "").trim());
+    }
+    
+    // Check if assignment name is valid (has a number)
     function isValidAssignmentName(name) {
       if (!name || typeof name !== "string") return false;
-      const normalized = normalizeAssignmentName(name);
-      // Check if it has a number at the end (canonical format: "<Series> <NN>")
-      return /\d+/.test(normalized);
+      return hasTrailingNumber(name);
+    }
+    
+    // Show popup modal for assignment numbering validation
+    function showAssignmentNumberPopup() {
+      // Create modal overlay
+      const overlay = document.createElement("div");
+      overlay.style.cssText = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;";
+      
+      const modal = document.createElement("div");
+      modal.style.cssText = "background: white; padding: 24px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);";
+      
+      const message = document.createElement("div");
+      message.textContent = "Number the assignment to track progress";
+      message.style.cssText = "font-size: 16px; font-weight: 600; margin-bottom: 20px; color: #333;";
+      
+      const button = document.createElement("button");
+      button.textContent = "OK";
+      button.style.cssText = "padding: 8px 24px; background: #0066cc; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer;";
+      button.addEventListener("click", () => {
+        document.body.removeChild(overlay);
+      });
+      
+      modal.appendChild(message);
+      modal.appendChild(button);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      
+      // Close on overlay click
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) {
+          document.body.removeChild(overlay);
+        }
+      });
     }
 
     // ===== Assignment Builder UI =====
@@ -746,29 +805,14 @@
     if (globalAssignmentNameInput && applyToAllFiles) {
       globalAssignmentNameInput.addEventListener("input", () => {
         if (applyToAllFiles.checked && fileData.length > 0) {
-          const normalized = normalizeAssignmentName(globalAssignmentNameInput.value);
+          // Use raw value (no normalization) - preserve teacher's input
+          const rawValue = globalAssignmentNameInput.value;
           fileData.forEach(fd => {
-            fd.assignmentName = normalized;
+            fd.assignmentName = rawValue;
           });
           renderFilesTable();
           syncMarkBtnState();
         } else {
-          syncMarkBtnState();
-        }
-      });
-      
-      globalAssignmentNameInput.addEventListener("blur", (e) => {
-        // Normalize on blur
-        const normalized = normalizeAssignmentName(e.target.value);
-        if (normalized !== e.target.value) {
-          e.target.value = normalized;
-          // If "Apply to all" is checked, update all file rows
-          if (applyToAllFiles.checked && fileData.length > 0) {
-            fileData.forEach(fd => {
-              fd.assignmentName = normalized;
-            });
-            renderFilesTable();
-          }
           syncMarkBtnState();
         }
       });
@@ -811,11 +855,21 @@ function renderFileList(files) {
       const { studentName, assignmentName } = parseFilename(f.name);
       const globalStudentName = document.getElementById("studentName").value.trim();
       const globalAssignmentName = document.getElementById("assignmentName").value.trim();
+      const applyToAll = document.getElementById("applyToAllFiles")?.checked ?? false;
+      
+      // If "Apply to all" is checked and global assignment name is non-empty, use it
+      // Otherwise, use parsed filename assignment, then fall back to global
+      let finalAssignmentName = "";
+      if (applyToAll && globalAssignmentName) {
+        finalAssignmentName = globalAssignmentName;
+      } else {
+        finalAssignmentName = assignmentName || globalAssignmentName || "";
+      }
       
       fd = {
         file: f,
         studentName: studentName || globalStudentName || "",
-        assignmentName: assignmentName || globalAssignmentName || "",
+        assignmentName: finalAssignmentName,
         classId: classSelect ? (classSelect.value || null) : null,
         status: "queued",
         downloadUrl: null,
@@ -843,8 +897,11 @@ function renderFileList(files) {
 function renderFilesTable() {
   if (!filesTableSection || !filesTableBody) return;
   
+  const downloadAllBtn = document.getElementById("downloadAllBtn");
+  
   if (fileData.length === 0) {
     filesTableSection.style.display = "none";
+    if (downloadAllBtn) downloadAllBtn.style.display = "none";
     return;
   }
   
@@ -852,6 +909,17 @@ function renderFilesTable() {
   if (fileData.length > 1) {
     filesTableSection.style.display = "block";
     filesTableBody.innerHTML = "";
+    
+    // Show/hide download all button based on marked files
+    const markedCount = fileData.filter(fd => fd.status === "marked" && fd.downloadUrl).length;
+    if (downloadAllBtn) {
+      if (markedCount > 0) {
+        downloadAllBtn.style.display = "block";
+        downloadAllBtn.disabled = false;
+      } else {
+        downloadAllBtn.style.display = "none";
+      }
+    }
     
     for (let i = 0; i < fileData.length; i++) {
       const fd = fileData[i];
@@ -908,15 +976,6 @@ function renderFilesTable() {
         fd.assignmentName = e.target.value;
         syncMarkBtnState(); // Re-validate when assignment name changes
       });
-      assignmentInput.addEventListener("blur", (e) => {
-        // Normalize on blur
-        const normalized = normalizeAssignmentName(e.target.value);
-        if (normalized !== e.target.value) {
-          e.target.value = normalized;
-          fd.assignmentName = normalized;
-          syncMarkBtnState();
-        }
-      });
       assignmentCell.appendChild(assignmentInput);
       tr.appendChild(assignmentCell);
       
@@ -932,8 +991,20 @@ function renderFilesTable() {
       
       filesTableBody.appendChild(tr);
     }
+    
+    // Update download all button visibility
+    const markedCount2 = fileData.filter(fd => fd.status === "marked" && fd.downloadUrl).length;
+    if (downloadAllBtn) {
+      if (markedCount2 > 0) {
+        downloadAllBtn.style.display = "block";
+        downloadAllBtn.disabled = false;
+      } else {
+        downloadAllBtn.style.display = "none";
+      }
+    }
   } else {
     filesTableSection.style.display = "none";
+    if (downloadAllBtn) downloadAllBtn.style.display = "none";
   }
 }
 
@@ -947,9 +1018,13 @@ function updateStatusCell(cell, fd) {
     const link = document.createElement("a");
     link.href = fd.downloadUrl;
     link.download = fd.file.name.replace(/\.docx$/i, "") + "_marked.docx";
-    link.textContent = "✓ Marked - Download";
+    link.textContent = "✓ Marked — Click to download";
+    link.title = "Click to download the marked .docx";
+    link.className = "tt";
+    link.setAttribute("data-tip", "Click to download the marked .docx");
     link.style.color = "#28a745";
     link.style.textDecoration = "none";
+    link.style.cursor = "pointer";
     link.addEventListener("click", (e) => {
       e.preventDefault();
       const a = document.createElement("a");
@@ -1608,6 +1683,39 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
       const globalStudentName = document.getElementById("studentName").value.trim();
       const globalAssignmentName = document.getElementById("assignmentName").value.trim();
 
+      // Validate assignment names before submitting
+      // Single file: check global assignment name
+      // Multiple files: check each file's assignment name (or global if empty)
+      let validationFailed = false;
+      if (files.length === 1) {
+        if (!globalAssignmentName || !isValidAssignmentName(globalAssignmentName)) {
+          validationFailed = true;
+        }
+      } else {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const fd = fileData.find(f => f.file === file);
+          if (fd) {
+            const assignmentToCheck = (fd.assignmentName || "").trim() || globalAssignmentName;
+            if (!assignmentToCheck || !isValidAssignmentName(assignmentToCheck)) {
+              validationFailed = true;
+              break;
+            }
+          } else {
+            // Fallback: check global
+            if (!globalAssignmentName || !isValidAssignmentName(globalAssignmentName)) {
+              validationFailed = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (validationFailed) {
+        showAssignmentNumberPopup();
+        return;
+      }
+
       statusEl.textContent = `Processing ${files.length} file(s)...`;
 
       // Get session once
@@ -1669,9 +1777,9 @@ bindTitleTypeRadios("title1_type", "title_is_minor");
           assignmentName = fd.assignmentName || globalAssignmentName;
         }
         
-        // Normalize assignment name before sending
+        // Only trim assignment name (preserve teacher's input exactly)
         if (assignmentName) {
-          assignmentName = normalizeAssignmentName(assignmentName);
+          assignmentName = assignmentName.trim();
         }
         
         if (studentName) formData.append("student_name", studentName);
