@@ -469,7 +469,7 @@
         </div>
         
         <div class="chart-card">
-          <h3>Top 8 Labels</h3>
+          <h3>Most Common Issues</h3>
           <div class="chart-container">
             <canvas id="barChart"></canvas>
           </div>
@@ -961,6 +961,35 @@
       return map;
     }
     
+    function computeWorstBestStudentsForLabel(rows, label) {
+      const perStudent = new Map(); // student_name -> count
+      for (const row of rows) {
+        const student = (row.student_name || "").trim();
+        if (!student) continue;
+
+        const obj = row.label_counts && typeof row.label_counts === "object" ? row.label_counts : {};
+        const raw = obj[label];
+        const n = typeof raw === "number" ? raw : (parseInt(raw, 10) || 0);
+
+        perStudent.set(student, (perStudent.get(student) || 0) + n);
+      }
+
+      if (perStudent.size === 0) {
+        return { worst: "—", best: "—" };
+      }
+
+      // Worst = highest count, Best = lowest count
+      let worstStudent = null, worstCount = -Infinity;
+      let bestStudent = null, bestCount = Infinity;
+
+      for (const [student, count] of perStudent.entries()) {
+        if (count > worstCount) { worstCount = count; worstStudent = student; }
+        if (count < bestCount) { bestCount = count; bestStudent = student; }
+      }
+
+      return { worst: worstStudent || "—", best: bestStudent || "—" };
+    }
+    
     // Wrap text for tooltip display
     function wrapTooltipText(text, maxLineLen = 70) {
       const words = text.split(/\s+/).filter(Boolean);
@@ -1281,6 +1310,15 @@
       const explMap = buildLabelExplanationMap(filteredData);
       const explanations = topLabels.map(l => explMap.get(l.label) || "");
       
+      // Compute bucket names, worst students, and best students
+      const bucketNames = topLabels.map(l => {
+        const id = getBucketIdForLabel(l.label);
+        return LABEL_BUCKETS.find(b => b.id === id)?.name || "Other";
+      });
+      
+      const worstStudents = topLabels.map(l => computeWorstBestStudentsForLabel(filteredData, l.label).worst);
+      const bestStudents = topLabels.map(l => computeWorstBestStudentsForLabel(filteredData, l.label).best);
+      
       // Map each label to its bucket color
       const backgroundColor = topLabels.map(l => {
         const bucketId = getBucketIdForLabel(l.label);
@@ -1299,6 +1337,9 @@
             label: "Count",
             data: topLabels.map(l => l.count),
             explanations: explanations,
+            bucketNames: bucketNames,
+            worstStudents: worstStudents,
+            bestStudents: bestStudents,
             backgroundColor: backgroundColor,
             borderColor: borderColor,
             borderWidth: 1
@@ -1314,21 +1355,43 @@
           },
           plugins: {
             tooltip: {
+              displayColors: false,
               callbacks: {
-                afterBody: (tooltipItems) => {
-                  const item = tooltipItems?.[0];
+                title: (items) => {
+                  const item = items?.[0];
+                  if (!item) return "";
+                  const idx = item.dataIndex;
+                  return item.dataset?.bucketNames?.[idx] || "";
+                },
+                afterTitle: (items) => {
+                  const item = items?.[0];
+                  if (!item) return "";
+                  // This is the issue label on the x-axis
+                  return item.label || "";
+                },
+                label: (item) => {
+                  const idx = item.dataIndex;
+                  const worst = item.dataset?.worstStudents?.[idx] || "—";
+                  const best  = item.dataset?.bestStudents?.[idx] || "—";
+                  // One line to conserve space
+                  return `Worst: ${worst}   Best: ${best}`;
+                },
+                afterBody: (items) => {
+                  const item = items?.[0];
                   if (!item) return [];
-                  
                   const idx = item.dataIndex;
                   const expl = item.dataset?.explanations?.[idx];
                   if (!expl) return [];
-                  
-                  // Wrap + optionally truncate so the tooltip doesn't become a novel
-                  const clean = String(expl).trim();
-                  const maxChars = 320;
-                  const clipped = clean.length > maxChars ? clean.slice(0, maxChars) + "…" : clean;
-                  
-                  return ["Explanation:", ...wrapTooltipText(clipped, 70)];
+
+                  const lines = wrapTooltipText(String(expl).trim(), 70);
+                  const maxLines = 10;
+                  const clipped = lines.slice(0, maxLines);
+
+                  // If we clipped, add ellipsis to the last line
+                  if (lines.length > maxLines && clipped.length) {
+                    clipped[clipped.length - 1] = clipped[clipped.length - 1].replace(/[.…]?$/, "…");
+                  }
+                  return clipped;
                 }
               }
             }
