@@ -627,10 +627,22 @@
       <div id="statusMessage" class="status-message" style="display:none;"></div>
       
       <div class="charts-section">
-        <div class="chart-card">
-          <h3>Total Labels vs Assignment Order</h3>
-          <div class="chart-container">
-            <canvas id="lineChart"></canvas>
+        <div class="chart-card" id="examplesPanelCard">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
+            <h3 style="margin:0;">Revision Examples</h3>
+            <button class="examples-copy-all-btn" id="examplesPanelCopyBtn" style="display:none;">Copy assignment</button>
+          </div>
+
+          <div id="examplesPanelMeta" style="margin-bottom:10px;">
+            <div class="examples-modal-bucket" id="examplesPanelBucket"></div>
+            <div class="examples-modal-label" id="examplesPanelLabel"></div>
+            <div style="margin-top:8px; color: var(--muted); font-size: 13px; font-weight:600;" id="examplesPanelBestWorst"></div>
+          </div>
+
+          <div class="chart-container" style="height:300px;">
+            <div id="examplesPanelContent" style="height:100%; overflow:auto;">
+              <div class="examples-empty">Examples will appear here. Click an issue bar to load examples.</div>
+            </div>
           </div>
         </div>
         
@@ -1334,7 +1346,10 @@
     }
     
     function updateLineChart() {
-      const ctx = document.getElementById("lineChart").getContext("2d");
+      const canvas = document.getElementById("lineChart");
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext("2d");
       
       if (lineChart) {
         lineChart.destroy();
@@ -1579,7 +1594,7 @@
                   return clipped;
                 },
                 footer: () => {
-                  return "Click for examples";
+                  return "Examples shown on the left";
                 }
               },
               footerColor: "#fff",
@@ -1597,10 +1612,25 @@
             const idx = item.dataIndex;
             const label = item.chart.data.labels[idx];
             const bucketName = item.chart.data.datasets[0].bucketNames[idx];
-            openExamplesModal({ label, bucketName });
+            const ds = item.chart.data.datasets[0];
+            const worst = ds?.worstStudents?.[idx] || "—";
+            const best  = ds?.bestStudents?.[idx] || "—";
+            loadExamplesPanel({ label, bucketName, worst, best });
           }
         }
       });
+      
+      // Preload examples for the first bar
+      if (topLabels.length > 0) {
+        const firstLabel = topLabels[0].label;
+        const firstBucketName = bucketNames[0] || "";
+        const firstWorst = worstStudents[0] || "—";
+        const firstBest = bestStudents[0] || "—";
+        loadExamplesPanel({ label: firstLabel, bucketName: firstBucketName, worst: firstWorst, best: firstBest });
+      } else if (examplesPanelContent) {
+        examplesPanelContent.innerHTML = '<div class="examples-empty">No issues found for the current filters.</div>';
+        if (examplesPanelCopyBtn) examplesPanelCopyBtn.style.display = "none";
+      }
     }
     
     function updateBucketChart() {
@@ -2071,6 +2101,13 @@
     const modalContent = document.getElementById("modalContent");
     const copyAllBtn = document.getElementById("copyAllBtn");
     
+    // Examples Panel DOM refs
+    const examplesPanelBucket = document.getElementById("examplesPanelBucket");
+    const examplesPanelLabel = document.getElementById("examplesPanelLabel");
+    const examplesPanelBestWorst = document.getElementById("examplesPanelBestWorst");
+    const examplesPanelContent = document.getElementById("examplesPanelContent");
+    const examplesPanelCopyBtn = document.getElementById("examplesPanelCopyBtn");
+    
     let currentExamples = [];
     let currentLabel = "";
     let currentBucketName = "";
@@ -2145,6 +2182,36 @@
       return filtered.slice(0, 10);
     }
     
+    // Load examples into the panel
+    async function loadExamplesPanel({ label, bucketName, worst, best }) {
+      if (!examplesPanelContent) return;
+
+      currentLabel = label || "";
+      currentBucketName = bucketName || "";
+
+      if (examplesPanelBucket) examplesPanelBucket.textContent = currentBucketName;
+      if (examplesPanelLabel) examplesPanelLabel.textContent = currentLabel;
+
+      const worstTxt = worst ? `Worst: ${worst}` : "Worst: —";
+      const bestTxt  = best  ? `Best: ${best}`   : "Best: —";
+      if (examplesPanelBestWorst) examplesPanelBestWorst.textContent = `${worstTxt}   ${bestTxt}`;
+
+      examplesPanelContent.innerHTML = '<div class="examples-loading">Loading examples...</div>';
+      if (examplesPanelCopyBtn) examplesPanelCopyBtn.style.display = "none";
+
+      const examples = await fetchExamplesForLabel(currentLabel);
+      currentExamples = examples;
+
+      if (!examples || examples.length === 0) {
+        examplesPanelContent.innerHTML =
+          '<div class="examples-empty">No examples saved yet for this issue. Examples appear after essays are marked/ingested.</div>';
+        return;
+      }
+
+      renderExamples(examples, examplesPanelContent);
+      if (examplesPanelCopyBtn) examplesPanelCopyBtn.style.display = "inline-block";
+    }
+    
     // Open examples modal
     async function openExamplesModal({ label, bucketName }) {
       currentLabel = label;
@@ -2163,14 +2230,15 @@
         return;
       }
       
-      renderExamples(examples);
+      renderExamples(examples, modalContent);
     }
     
     // Render examples list
-    function renderExamples(examples) {
-      modalContent.innerHTML = "";
+    function renderExamples(examples, containerEl) {
+      const target = containerEl || modalContent;
+      target.innerHTML = "";
       
-      examples.forEach((example, idx) => {
+      examples.forEach((example) => {
         const item = document.createElement("div");
         item.className = "example-item";
         
@@ -2204,7 +2272,7 @@
         });
         item.appendChild(copyBtn);
         
-        modalContent.appendChild(item);
+        target.appendChild(item);
       });
     }
     
@@ -2256,6 +2324,11 @@
     }
     
     copyAllBtn.addEventListener("click", copyAllExamples);
+    
+    // Wire up examples panel copy button
+    if (examplesPanelCopyBtn) {
+      examplesPanelCopyBtn.addEventListener("click", copyAllExamples);
+    }
     
     // ===== Event listeners =====
     rangeBtns.forEach(btn => {
