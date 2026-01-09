@@ -1073,6 +1073,10 @@ BRIDGE_DEVICE_KEYS: dict[int, set[str]] = {}
 THESIS_PARAGRAPH_INDEX = None
 THESIS_ANCHOR_POS = None
 
+# Global state for collecting example sentences per label
+DOC_EXAMPLES = []
+DOC_EXAMPLE_LABELS = set()  # Track labels already stored so we only keep 1 per label
+
 
 def extract_thesis_topics(thesis_tokens):
     """
@@ -4864,10 +4868,10 @@ def analyze_text(
 
         marks = filtered_marks
 
-    return marks, flat_text, segments
+    return marks, flat_text, segments, sentences
 
 
-def apply_marks(paragraph, flat_text, segments, marks):
+def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph_index=None):
     """
     Rebuild `paragraph` from `flat_text` and a list of `marks`.
 
@@ -4898,6 +4902,54 @@ def apply_marks(paragraph, flat_text, segments, marks):
       * Preserves italic formatting from the original student text character-by-character.
 
     """
+    global DOC_EXAMPLES, DOC_EXAMPLE_LABELS
+    
+    # Collect example sentences from marks before mutating paragraph
+    if sentences is not None and paragraph_index is not None:
+        for mark in marks:
+            # Only consider marks where label=True and note exists
+            if not mark.get("label"):
+                continue
+            note = mark.get("note")
+            if not note:
+                continue
+            
+            # Skip the "The title of major works should be italicized" label
+            if note == "The title of major works should be italicized":
+                continue
+            
+            # Skip if we already stored an example for this label in this doc
+            if note in DOC_EXAMPLE_LABELS:
+                continue
+            
+            # Find the sentence containing the mark
+            mark_start = mark.get("start", 0)
+            # Clamp to valid range
+            mark_start = max(0, min(mark_start, len(flat_text) - 1))
+            
+            # Use get_sentence_index_for_pos to locate sentence span
+            sent_idx = get_sentence_index_for_pos(mark_start, sentences)
+            if sent_idx is None:
+                continue
+            
+            # Extract sentence text
+            s_start, s_end = sentences[sent_idx]
+            sentence_text = flat_text[s_start:s_end].strip()
+            
+            # Normalize whitespace: collapse \s+ to single spaces
+            sentence_text = re.sub(r'\s+', ' ', sentence_text)
+            
+            # Cap at 500 chars
+            if len(sentence_text) > 500:
+                sentence_text = sentence_text[:500]
+            
+            # Append example
+            DOC_EXAMPLES.append({
+                "label": note,
+                "sentence": sentence_text,
+                "paragraph_index": paragraph_index,
+            })
+            DOC_EXAMPLE_LABELS.add(note)
     
     def append_text_with_italics(
         paragraph,
@@ -5831,6 +5883,10 @@ def mark_docx_bytes(
         # 5. Load the marked doc into python-docx to extract the summary metadata
         doc = Document(BytesIO(marked_bytes))
         metadata = extract_summary_metadata(doc)
+        
+        # 6. Add examples to metadata
+        global DOC_EXAMPLES
+        metadata["examples"] = DOC_EXAMPLES
 
     finally:
         # 6. Clean up temp files as best we can
@@ -5861,6 +5917,7 @@ def run_marker(
     global THESIS_DEVICE_SEQUENCE, THESIS_TOPIC_ORDER, BODY_PARAGRAPH_COUNT, BRIDGE_PARAGRAPHS, BRIDGE_DEVICE_KEYS
     global BOOKMARK_ID_COUNTER, FOUNDATION1_LABEL_TARGET
     global THESIS_PARAGRAPH_INDEX, THESIS_ANCHOR_POS, THESIS_ALL_DEVICE_KEYS, THESIS_TEXT_LOWER
+    global DOC_EXAMPLES, DOC_EXAMPLE_LABELS
 
     THESIS_DEVICE_SEQUENCE = []
     THESIS_TOPIC_ORDER = []
@@ -5873,6 +5930,8 @@ def run_marker(
     FOUNDATION1_LABEL_TARGET = None
     THESIS_PARAGRAPH_INDEX = None
     THESIS_ANCHOR_POS = None
+    DOC_EXAMPLES = []
+    DOC_EXAMPLE_LABELS = set()
     
     if config is None:
         # Default behavior remains the existing full analytic mode
@@ -6189,7 +6248,7 @@ def run_marker(
                     labels_used=labels_used,
                 )
                 # Always rebuild the paragraph so any stale labels disappear
-                apply_marks(p, flat_text, seg, title_marks)
+                apply_marks(p, flat_text, seg, title_marks, sentences=None, paragraph_index=new_idx)
                 continue
 
             title_marks = []
@@ -6367,7 +6426,7 @@ def run_marker(
 
             # Apply title-related marks and always rebuild the title paragraph,
             # even when there are no new title issues, so stale labels disappear.
-            apply_marks(p, flat_text, seg, title_marks)
+            apply_marks(p, flat_text, seg, title_marks, sentences=None, paragraph_index=new_idx)
 
             # Skip further analysis of the title paragraph
             continue
@@ -6423,7 +6482,7 @@ def run_marker(
                 
                 # Apply the marks and skip normal analysis entirely
                 # (no weak verbs, no quotation rules, no off-topic checks, etc.)
-                apply_marks(p, flat_text, seg, marks)
+                apply_marks(p, flat_text, seg, marks, sentences=None, paragraph_index=new_idx)
                 continue
             else:
                 # Empty paragraph (only whitespace) - skip it entirely
@@ -6440,7 +6499,7 @@ def run_marker(
 
         # All structural quotation rules now live inside analyze_text,
         # using paragraph_index, total_paragraphs, and intro_idx.
-        marks, flat_text, seg = analyze_text(
+        marks, flat_text, seg, sentences = analyze_text(
             p,
             paragraph_index=new_idx,
             total_paragraphs=total_real_paras,
@@ -6479,7 +6538,7 @@ def run_marker(
         needs_rewrite_practice = rule_break_count >= 5
 
         if marks:
-            apply_marks(p, flat_text, seg, marks)
+            apply_marks(p, flat_text, seg, marks, sentences=sentences, paragraph_index=new_idx)
 
         # If this paragraph has many rule-breaks, add a red "rewrite" label
         # at the very end of the paragraph, after other yellow labels.
