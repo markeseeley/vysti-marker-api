@@ -369,6 +369,33 @@ input:focus, select:focus{
   display: none; 
 }
 
+/* Shared file list (used by index.html + student.html) */
+.file-list{
+  list-style:none;
+  padding:0;
+  margin:12px 0;
+}
+.file-list li{
+  padding:8px 12px;
+  background:#f8f9fa;
+  border-radius:6px;
+  margin-bottom:6px;
+  font-size:13px;
+}
+
+/* Student status block */
+.status-area{
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  color: var(--text);
+}
+.status-area.success{ background:#d4edda; color:#155724; }
+.status-area.error{ background:#f8d7da; color:#721c24; }
+
 /* Title type (Minor/Major) radio block */
 .title-type-block {
   margin-top: 12px;
