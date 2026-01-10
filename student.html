@@ -13,24 +13,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
   <style>
-    .student-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      align-items: start;
-    }
-    .file-list {
-      list-style: none;
-      padding: 0;
-      margin: 12px 0;
-    }
-    .file-list li {
-      padding: 8px 12px;
-      background: #f8f9fa;
-      border-radius: 6px;
-      margin-bottom: 6px;
-      font-size: 13px;
-    }
     .text-details-toggle {
       margin-top: 12px;
       padding: 8px 0;
@@ -83,54 +65,6 @@
       width: 16px;
       height: 16px;
       accent-color: var(--maroon);
-    }
-    .status-area {
-      margin-top: 18px;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      min-height: 40px;
-      font-size: 14px;
-      color: var(--text);
-    }
-    .status-area.success {
-      background: #d4edda;
-      color: #155724;
-    }
-    .status-area.error {
-      background: #f8d7da;
-      color: #721c24;
-    }
-    .download-btn {
-      margin-top: 12px;
-      width: 100%;
-      padding: 12px;
-      border: 0;
-      border-radius: 12px;
-      background: #28a745;
-      color: #fff;
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
-      display: none;
-    }
-    .download-btn.visible {
-      display: block;
-    }
-    .download-btn:hover {
-      filter: brightness(.95);
-    }
-    .switch-role-link {
-      font-size: 13px;
-      color: rgba(255,255,255,.85);
-      text-decoration: none;
-      padding: 8px 12px;
-      border-radius: 6px;
-      margin-right: 8px;
-    }
-    .switch-role-link:hover {
-      background: rgba(255,255,255,.1);
-      color: #fff;
     }
     .assignment-tracker-block {
       margin-bottom: 18px;
@@ -275,11 +209,6 @@
       width: 0;
       height: 0;
     }
-    @media (max-width: 980px) {
-      .student-grid {
-        grid-template-columns: 1fr;
-      }
-    }
   </style>
 </head>
 <body>
@@ -300,7 +229,7 @@
   </header>
 
   <main class="page">
-    <form id="studentForm" class="student-grid" style="display:none;">
+    <form id="studentForm" class="marker-grid" style="display:none;">
       <section class="card form-card">
         <label>
           Select assignment
@@ -465,10 +394,28 @@
         <ul id="fileList" class="file-list"></ul>
         <button type="button" id="clearFileBtn" class="secondary-btn" style="display:none;">Clear file</button>
       </section>
-    </form>
 
-    <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
-    <button id="downloadBtn" class="download-btn" type="button">Download marked essay</button>
+      <section class="card rules-card">
+        <div class="rules-cols">
+          <div>
+            <div class="rules-title">Results</div>
+            <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
+
+            <button id="downloadBtn" class="secondary-btn" type="button" style="display:none; margin-top:12px;">
+              Download marked essay
+            </button>
+          </div>
+
+          <div>
+            <div class="rules-title">Next steps</div>
+            <div style="font-size:13px; color: rgba(0,0,0,.70); line-height:18px;">
+              After you download your marked draft, revise and re-run the checker.
+              (We'll add in-page marked-essay preview + guided revisions next.)
+            </div>
+          </div>
+        </div>
+      </section>
+    </form>
 
     <section class="card marked-preview-card" id="markedPreviewCard" style="display:none;">
       <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Marked Essay Preview</h2>
@@ -649,7 +596,7 @@
       fileInput.value = "";
       downloadUrl = null;
       markedBlob = null;
-      downloadBtn.classList.remove("visible");
+      downloadBtn.style.display = "none";
       statusArea.textContent = "";
       statusArea.className = "status-area";
       detectedMeta.classList.remove("visible");
@@ -927,7 +874,7 @@
       statusArea.textContent = "Uploading…";
       statusArea.className = "status-area";
       checkBtn.disabled = true;
-      downloadBtn.classList.remove("visible");
+      downloadBtn.style.display = "none";
 
       try {
         // Call API
@@ -979,7 +926,7 @@
 
         statusArea.textContent = "Done — preview below. Download is ready.";
         statusArea.className = "status-area success";
-        downloadBtn.classList.add("visible");
+        downloadBtn.style.display = "block";
         
         // Load revision practice data
         await loadRevisionPractice();
