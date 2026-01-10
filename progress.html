@@ -565,7 +565,7 @@
     <div class="actions">
       <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
       <img class="avatar" src="/assets/avatar.png" alt="Profile" />
-      <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+      <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
 
@@ -959,6 +959,7 @@
     
     logoutBtn.addEventListener("click", async () => {
       await supa.auth.signOut();
+      localStorage.removeItem("vysti_role");
       window.location.replace("/signin.html");
     });
     
