@@ -926,6 +926,23 @@
     let bucketChart = null;
     let currentRange = "all";
     
+    // ===== URL class_id handling =====
+    let appliedUrlClassId = false;
+    let initialClassIdFromUrl = null;
+    
+    // Helper: get URL parameter
+    function getUrlParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+    
+    // Helper: clear URL parameter
+    function clearUrlParam(name) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete(name);
+      window.history.replaceState({}, "", url.toString());
+    }
+    
     // ===== Auth =====
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
@@ -1032,25 +1049,33 @@
         return;
       }
       
-      // Read class_id from URL query string
-      const urlClassId = new URLSearchParams(window.location.search).get("class_id");
+      // Read class_id from URL query string only once on initial load (before applying it)
+      if (!appliedUrlClassId) {
+        const urlClassId = getUrlParam("class_id");
+        if (urlClassId) {
+          initialClassIdFromUrl = urlClassId;
+        } else {
+          initialClassIdFromUrl = null;
+          // Mark as applied even if no URL param (so we don't check again)
+          appliedUrlClassId = true;
+        }
+      }
       
-      // Build query
+      // Load classes first (this will apply URL class_id if needed and set appliedUrlClassId)
+      await loadClasses();
+      
+      // Build query - always use dropdown value (which will be set from URL in loadClasses if needed)
       let query = supa
         .from("mark_events")
         .select("created_at, student_name, assignment_name, mode, total_labels, label_counts, issues, class_id")
         .eq("user_id", sessionData.session.user.id);
       
-      // Apply class filter from URL if present, otherwise use dropdown
-      if (urlClassId) {
-        query = query.eq("class_id", urlClassId);
-      } else {
-        const selectedClass = classFilter.value;
-        if (selectedClass === "__unassigned__") {
-          query = query.is("class_id", null);
-        } else if (selectedClass) {
-          query = query.eq("class_id", selectedClass);
-        }
+      // Always use dropdown value now
+      const selectedClass = classFilter.value;
+      if (selectedClass === "__unassigned__") {
+        query = query.is("class_id", null);
+      } else if (selectedClass) {
+        query = query.eq("class_id", selectedClass);
       }
       
       const { data, error } = await query.order("created_at", { ascending: false });
@@ -1070,12 +1095,6 @@
       
       allData = data;
       statusMessage.style.display = "none";
-      await loadClasses();
-      
-      // If URL has class_id, set the class filter dropdown to match
-      if (urlClassId && classFilter) {
-        classFilter.value = urlClassId;
-      }
       
       updateFilters();
       buildBucketCheckboxes();
@@ -1086,6 +1105,9 @@
     async function loadClasses() {
       const { data: sessionData } = await supa.auth.getSession();
       if (!sessionData || !sessionData.session) return;
+      
+      // Preserve current selection before repopulating
+      const currentSelection = classFilter.value;
       
       const { data, error } = await supa
         .from("classes")
@@ -1106,6 +1128,26 @@
         option.textContent = cls.name;
         classFilter.appendChild(option);
       });
+      
+      // Apply initial URL class_id only once after classes are loaded, otherwise restore previous selection
+      if (initialClassIdFromUrl !== null) {
+        // Check if the option exists in the dropdown
+        const optionExists = Array.from(classFilter.options).some(opt => opt.value === initialClassIdFromUrl);
+        if (optionExists) {
+          classFilter.value = initialClassIdFromUrl;
+        }
+        // Mark as applied and clear the URL parameter immediately after applying
+        appliedUrlClassId = true;
+        clearUrlParam("class_id");
+        // Clear the initial value so it's not used again
+        initialClassIdFromUrl = null;
+      } else if (currentSelection) {
+        // Restore previous selection if URL class_id wasn't applied
+        const optionExists = Array.from(classFilter.options).some(opt => opt.value === currentSelection);
+        if (optionExists) {
+          classFilter.value = currentSelection;
+        }
+      }
     }
     
     // ===== Bucket selection =====
@@ -2643,7 +2685,12 @@
       }
     });
     
-    classFilter.addEventListener("change", loadData);
+    classFilter.addEventListener("change", () => {
+      // Clear any lingering URL class_id parameter
+      clearUrlParam("class_id");
+      // Reload data with new class selection
+      loadData();
+    });
     studentFilter.addEventListener("change", applyFilters);
     seriesFilter.addEventListener("change", applyFilters);
     includeDuplicates.addEventListener("change", applyFilters);
