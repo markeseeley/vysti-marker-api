@@ -608,8 +608,8 @@
           <div class="filter-group">
             <label>Assignment Range</label>
             <div class="range-selector">
-              <button class="range-btn" data-range="6">First 6</button>
-              <button class="range-btn" data-range="12">First 12</button>
+              <button class="range-btn" data-range="first">First</button>
+              <button class="range-btn" data-range="latest">Latest</button>
               <button class="range-btn active" data-range="all">All</button>
             </div>
             <div class="range-custom">
@@ -643,7 +643,7 @@
             <h3 style="margin:0;">Examples of Issues</h3>
             <div style="display:flex; gap:10px; align-items:center;">
               <select id="examplesIssueSelect" class="examples-issue-select" style="display:none;"></select>
-              <button class="examples-copy-all-btn" id="examplesPanelCopyBtn" style="display:none;">Copy assignment</button>
+              <button class="examples-copy-all-btn" id="examplesPanelCopyBtn" style="display:none;">Create revision assignment</button>
             </div>
           </div>
 
@@ -1386,7 +1386,55 @@
       });
       
       // Apply range filter
-      if (currentRange !== "all") {
+      if (currentRange === "first") {
+        // Filter to only the earliest numbered assignment (respecting Series filter)
+        const numberedAssignments = filtered.filter(row => {
+          const parsed = parseAssignmentName(row.assignment_name);
+          return parsed.number !== null;
+        });
+        
+        if (numberedAssignments.length > 0) {
+          // Find the earliest assignment number
+          let earliestNum = Infinity;
+          numberedAssignments.forEach(row => {
+            const parsed = parseAssignmentName(row.assignment_name);
+            if (parsed.number !== null && parsed.number < earliestNum) {
+              earliestNum = parsed.number;
+            }
+          });
+          
+          // Filter to only assignments with the earliest number
+          filtered = filtered.filter(row => {
+            const parsed = parseAssignmentName(row.assignment_name);
+            return parsed.number === earliestNum;
+          });
+        }
+        // If no numbered assignments, keep current filter (don't crash)
+      } else if (currentRange === "latest") {
+        // Filter to only the most recent/highest numbered assignment (respecting Series filter)
+        const numberedAssignments = filtered.filter(row => {
+          const parsed = parseAssignmentName(row.assignment_name);
+          return parsed.number !== null;
+        });
+        
+        if (numberedAssignments.length > 0) {
+          // Find the latest assignment number
+          let latestNum = -Infinity;
+          numberedAssignments.forEach(row => {
+            const parsed = parseAssignmentName(row.assignment_name);
+            if (parsed.number !== null && parsed.number > latestNum) {
+              latestNum = parsed.number;
+            }
+          });
+          
+          // Filter to only assignments with the latest number
+          filtered = filtered.filter(row => {
+            const parsed = parseAssignmentName(row.assignment_name);
+            return parsed.number === latestNum;
+          });
+        }
+        // If no numbered assignments, keep current filter (don't crash)
+      } else if (currentRange !== "all") {
         const num = parseInt(currentRange, 10);
         if (!isNaN(num)) {
           filtered = filtered.slice(0, num);
@@ -1655,6 +1703,9 @@
             }
           },
           plugins: {
+            legend: {
+              display: false
+            },
             tooltip: {
               displayColors: false,
               callbacks: {
@@ -2139,8 +2190,8 @@
         const activeRangeBtn = document.querySelector(".range-btn.active");
         if (activeRangeBtn) {
           const rangeData = activeRangeBtn.dataset.range;
-          if (rangeData === "6") rangeText = "First 6";
-          else if (rangeData === "12") rangeText = "First 12";
+          if (rangeData === "first") rangeText = "First";
+          else if (rangeData === "latest") rangeText = "Latest";
           else if (rangeData === "all") rangeText = "All";
           else rangeText = "All";
         } else {
@@ -2407,6 +2458,10 @@
       const target = containerEl || modalContent;
       target.innerHTML = "";
       
+      // Compute occurrence counts for each example
+      // Use filteredData to respect current filters (including duplicates toggle)
+      const canonical = canonicalLabel(currentLabel);
+      
       examples.forEach((example) => {
         const item = document.createElement("div");
         item.className = "example-item";
@@ -2414,9 +2469,34 @@
         const studentInfo = document.createElement("div");
         studentInfo.className = "example-student-info";
         
+        // Compute occurrence count for this student + assignment + current label
+        let occurrenceCount = 0;
+        const studentNameStr = example.student_name || "";
+        const assignmentNameStr = example.assignment_name || "";
+        
+        if (studentNameStr && assignmentNameStr) {
+          // Sum counts from filteredData (already respects duplicates toggle)
+          filteredData.forEach(row => {
+            if (row.student_name === studentNameStr && row.assignment_name === assignmentNameStr) {
+              const obj = row.label_counts && typeof row.label_counts === "object" ? row.label_counts : {};
+              // Sum counts for all aliases of the canonical label
+              Object.entries(obj).forEach(([entryLabel, raw]) => {
+                const entryCanonical = canonicalLabel(entryLabel);
+                if (entryCanonical === canonical) {
+                  const n = typeof raw === "number" ? raw : (parseInt(raw, 10) || 0);
+                  occurrenceCount += n;
+                }
+              });
+            }
+          });
+        }
+        
         const studentName = document.createElement("span");
         studentName.className = "example-student-name";
-        studentName.textContent = example.student_name || "Unknown";
+        const displayName = occurrenceCount > 0 
+          ? `${example.student_name || "Unknown"} (${occurrenceCount})`
+          : (example.student_name || "Unknown");
+        studentName.textContent = displayName;
         studentInfo.appendChild(studentName);
         
         if (example.assignment_name) {
@@ -2435,9 +2515,9 @@
         
         const copyBtn = document.createElement("button");
         copyBtn.className = "example-copy-btn";
-        copyBtn.textContent = "Copy";
+        copyBtn.textContent = "Copy this example";
         copyBtn.addEventListener("click", () => {
-          copySentence(example);
+          copySentence(example, copyBtn);
         });
         item.appendChild(copyBtn);
         
@@ -2446,14 +2526,19 @@
     }
     
     // Copy single sentence
-    async function copySentence(example) {
+    async function copySentence(example, buttonElement) {
       const text = `${example.student_name || "Student"} — "${example.sentence || ""}"`;
-      await copyToClipboard(text);
+      await copyToClipboard(text, buttonElement, "Copied!");
     }
     
     // Copy all examples as revision assignment
     async function copyAllExamples() {
       if (currentExamples.length === 0) return;
+      
+      // Get button element (could be panel or modal button)
+      const panelBtn = document.getElementById("examplesPanelCopyBtn");
+      const modalBtn = document.getElementById("copyAllBtn");
+      const btn = panelBtn || modalBtn;
       
       let text = `Revision Assignment: ${currentBucketName} — ${displayLabel(currentLabel)}\n`;
       text += `Directions: Rewrite each sentence to fix the issue.\n\n`;
@@ -2466,11 +2551,11 @@
         }
       });
       
-      await copyToClipboard(text);
+      await copyToClipboard(text, btn, "Copied!");
     }
     
     // Clipboard helper with fallback
-    async function copyToClipboard(text) {
+    async function copyToClipboard(text, buttonElement, feedbackText) {
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(text);
@@ -2485,7 +2570,25 @@
           document.execCommand("copy");
           document.body.removeChild(textarea);
         }
-        // Visual feedback could be added here if needed
+        
+        // Visual feedback: temporarily change button text and style
+        if (buttonElement && feedbackText) {
+          const originalText = buttonElement.textContent;
+          const originalStyle = {
+            backgroundColor: buttonElement.style.backgroundColor,
+            borderColor: buttonElement.style.borderColor
+          };
+          
+          buttonElement.textContent = feedbackText;
+          buttonElement.style.backgroundColor = "#4CAF50";
+          buttonElement.style.borderColor = "#4CAF50";
+          
+          setTimeout(() => {
+            buttonElement.textContent = originalText;
+            buttonElement.style.backgroundColor = originalStyle.backgroundColor;
+            buttonElement.style.borderColor = originalStyle.borderColor;
+          }, 1500);
+        }
       } catch (err) {
         console.error("Failed to copy:", err);
         alert("Failed to copy to clipboard");
