@@ -222,7 +222,6 @@
     </nav>
   
     <div class="actions">
-      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
       <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
@@ -625,6 +624,98 @@
     });
 
     // ===== Extract metadata from docx =====
+    
+    // Helper: Strip HTML tags and get plain text
+    function stripTags(html) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || "";
+    }
+    
+    // Helper: Check if text has sentence-ending punctuation
+    function hasSentenceEnd(text) {
+      return /[.!?]/.test((text || "").trim());
+    }
+    
+    // Helper: Check if text looks like a header or title line (not an intro sentence)
+    function isLikelyHeaderOrTitle(text) {
+      const plainText = text.trim();
+      
+      // 1) ANY paragraph without sentence-ending punctuation is likely a header/title
+      // (unless it's extremely long, which suggests it's actual content)
+      if (!hasSentenceEnd(plainText) && plainText.length <= 220) {
+        return true;
+      }
+      
+      // Keep the old check for backward compatibility with very short lines
+      if (plainText.length <= 80 && !hasSentenceEnd(plainText)) {
+        return true;
+      }
+      
+      // 2) Looks like a date line
+      if (/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(plainText)) {
+        return true;
+      }
+      const monthMatch = /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(plainText);
+      if (monthMatch && /\d/.test(plainText)) {
+        return true;
+      }
+      
+      // 3) Looks like a teacher/class line
+      if (/\b(Mr\.|Ms\.|Mrs\.|Dr\.|Professor|Prof\.)\b/i.test(plainText)) {
+        return true;
+      }
+      
+      // 4) Looks like a student name line (1-4 tokens, all Title Case, no punctuation, no digits)
+      const tokens = plainText.split(/\s+/).filter(t => t.length > 0);
+      if (tokens.length >= 1 && tokens.length <= 4) {
+        const allTitleCase = tokens.every(t => /^[A-Z][a-z]*$/.test(t));
+        const noDigits = !/\d/.test(plainText);
+        const noSentencePunct = !/[.!?]/.test(plainText);
+        if (allTitleCase && noDigits && noSentencePunct) {
+          return true;
+        }
+      }
+      
+      // 5) Looks like "Homework / Essay / Paper / Assignment" heading
+      if (/^(homework|essay|paper|assignment)\b/i.test(plainText)) {
+        return true;
+      }
+      
+      return false;
+    }
+    
+    // Helper: Count words in text
+    function countWords(text) {
+      const words = (text || "").match(/\b[A-Za-z]+\b/g) || [];
+      return words.length;
+    }
+    
+    // Helper: Extract first sentence from plain text
+    function getFirstSentence(text) {
+      // Find the first sentence-ending punctuation that's not inside quotes
+      let inQuotes = false;
+      let quoteChar = null;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if ((char === '"' || char === '"' || char === "'") && (i === 0 || text[i - 1] !== '\\')) {
+          if (!inQuotes) {
+            inQuotes = true;
+            quoteChar = char;
+          } else if (char === quoteChar) {
+            inQuotes = false;
+            quoteChar = null;
+          }
+        }
+        if (!inQuotes && /[.!?]/.test(char)) {
+          return text.slice(0, i + 1).trim();
+        }
+      }
+      // Fallback: return first sentence by splitting
+      const match = text.match(/^[^.!?]+[.!?]/);
+      return match ? match[0].trim() : text.trim();
+    }
+    
     async function extractMetaFromDocx(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -633,48 +724,116 @@
         
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
-        const firstP = doc.querySelector("p");
         
-        if (!firstP) return null;
+        // Parse HTML into a list of paragraphs with metadata
+        const paras = Array.from(doc.querySelectorAll("p"))
+          .map(p => {
+            const html = p.innerHTML.trim();
+            const plain = stripTags(html).trim();
+            return {
+              html,
+              plain,
+              wordCount: countWords(plain)
+            };
+          })
+          .filter(p => p.plain.length > 0);
         
-        const firstParagraphText = firstP.textContent.trim();
-        if (!firstParagraphText) return null;
+        if (paras.length === 0) return null;
+        
+        // Find the intro paragraph using priority selection:
+        // A) First paragraph that: NOT header/title AND has sentence end AND >= 8 words
+        // B) First paragraph that: NOT header/title AND has sentence end AND >= 5 words
+        // C) First paragraph that: NOT header/title (but still requires sentence end)
+        let introParagraphHtml = null;
+        let introParagraphPlain = null;
+        
+        // Priority A: >= 8 words with sentence end
+        for (const para of paras) {
+          if (isLikelyHeaderOrTitle(para.plain)) continue;
+          if (hasSentenceEnd(para.plain) && para.wordCount >= 8) {
+            introParagraphHtml = para.html;
+            introParagraphPlain = para.plain;
+            break;
+          }
+        }
+        
+        // Priority B: >= 5 words with sentence end
+        if (!introParagraphHtml) {
+          for (const para of paras) {
+            if (isLikelyHeaderOrTitle(para.plain)) continue;
+            if (hasSentenceEnd(para.plain) && para.wordCount >= 5) {
+              introParagraphHtml = para.html;
+              introParagraphPlain = para.plain;
+              break;
+            }
+          }
+        }
+        
+        // Priority C: Any non-header paragraph with sentence end
+        if (!introParagraphHtml) {
+          for (const para of paras) {
+            if (isLikelyHeaderOrTitle(para.plain)) continue;
+            if (hasSentenceEnd(para.plain)) {
+              introParagraphHtml = para.html;
+              introParagraphPlain = para.plain;
+              break;
+            }
+          }
+        }
+        
+        if (!introParagraphHtml || !introParagraphPlain) {
+          return null;
+        }
+        
+        // Extract first sentence from intro paragraph
+        const firstSentencePlain = getFirstSentence(introParagraphPlain);
         
         let detectedTitle = null;
         let detectedAuthor = null;
         let isMinor = true;
         
-        // Check for italic/em tags (Major work)
-        const italicText = firstP.querySelector("em, i");
-        if (italicText) {
-          detectedTitle = italicText.textContent.trim();
-          isMinor = false;
-        } else {
-          // Check for quoted text (Minor work)
-          const quotedMatch = firstParagraphText.match(/[""]([^""]+)[""]|'([^']+)'/);
+        // Extract title from first sentence (prefer italics/quotes)
+        const frag = document.createElement("div");
+        frag.innerHTML = introParagraphHtml;
+        
+        // Check for italic candidates (Major work) - take first italic from intro paragraph
+        const italics = frag.querySelectorAll("em, i");
+        if (italics.length > 0) {
+          const italicText = italics[0].textContent.trim();
+          if (italicText) {
+            detectedTitle = italicText;
+            isMinor = false;
+          }
+        }
+        
+        // If no italics, check for quoted text (Minor work)
+        if (!detectedTitle) {
+          // Match curly/straight quotes (support both " and ")
+          const quotedMatch = firstSentencePlain.match(/[""](.+?)[""]/);
           if (quotedMatch) {
-            detectedTitle = quotedMatch[1] || quotedMatch[2];
-            isMinor = true;
-          } else {
-            // Try to extract title from first sentence (simple heuristic)
-            const firstSentence = firstParagraphText.split(/[.!?]/)[0].trim();
-            if (firstSentence.length > 0 && firstSentence.length < 100) {
-              detectedTitle = firstSentence;
+            const quotedText = (quotedMatch[1] || "").trim();
+            if (quotedText.length >= 2 && quotedText.length <= 80) {
+              detectedTitle = quotedText;
+              isMinor = true;
             }
           }
         }
         
-        // Try to detect author
-        const byMatch = firstParagraphText.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/i);
+        // Extract author from first sentence
+        // Pattern 1: "by Author Name"
+        const byMatch = firstSentencePlain.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/i);
         if (byMatch) {
           detectedAuthor = byMatch[1].trim();
         } else {
-          // Try possessive pattern: "Author's Title"
-          const possessiveMatch = firstParagraphText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'s\s+[""]([^""]+)[""]/i);
-          if (possessiveMatch) {
-            detectedAuthor = possessiveMatch[1].trim();
-            if (!detectedTitle) {
-              detectedTitle = possessiveMatch[2].trim();
+          // Pattern 2: "Author Name presents/argues/shows/etc."
+          const verbMatch = firstSentencePlain.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\s+(presents|argues|shows|reveals|suggests|demonstrates)\b/i);
+          if (verbMatch) {
+            detectedAuthor = verbMatch[1].trim();
+          } else {
+            // Pattern 3: "Author's" or "Author's Title" (support both straight and curly apostrophes)
+            const possessiveMatch = firstSentencePlain.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,5})(?:'s|'s)/);
+            if (possessiveMatch) {
+              detectedAuthor = possessiveMatch[1].trim();
             }
           }
         }
@@ -719,7 +878,6 @@
           const parts = [];
           if (meta.title) parts.push(`Title: ${meta.title}`);
           if (meta.author) parts.push(`Author: ${meta.author}`);
-          parts.push(`Type: ${meta.isMinor ? "Minor" : "Major"} work`);
           
           detectedMeta.textContent = `Detected from first sentence: ${parts.join(" | ")}`;
           detectedMeta.classList.add("visible");
@@ -786,7 +944,6 @@
             const parts = [];
             if (meta.title) parts.push(`Title: ${meta.title}`);
             if (meta.author) parts.push(`Author: ${meta.author}`);
-            parts.push(`Type: ${meta.isMinor ? "Minor" : "Major"} work`);
             
             detectedMeta.textContent = `Detected from first sentence: ${parts.join(" | ")}`;
             detectedMeta.classList.add("visible");
