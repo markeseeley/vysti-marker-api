@@ -147,9 +147,9 @@
     </nav>
   
     <div class="actions">
-      <a href="/role.html" class="switch-role-link">Switch role</a>
       <img class="avatar" src="/assets/avatar.png" alt="Profile" />
-      <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+      <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
+      <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
 
@@ -282,11 +282,8 @@
         return;
       }
 
-      const role = localStorage.getItem("vysti_role");
-      if (role !== "student") {
-        window.location.replace("/role.html");
-        return;
-      }
+      // Set role to student on successful auth guard
+      localStorage.setItem("vysti_role", "student");
 
       // Logged in as student
       form.style.display = "grid";
@@ -297,6 +294,15 @@
     supa.auth.onAuthStateChange((_event, _session) => {
       refreshAuthUI();
     });
+
+    // ===== Switch mode handler =====
+    const switchModeBtn = document.getElementById("switchModeBtn");
+    if (switchModeBtn) {
+      switchModeBtn.addEventListener("click", () => {
+        localStorage.setItem("vysti_role", "teacher");
+        window.location.href = "/index.html";
+      });
+    }
 
     // ===== Logout handler =====
     const logoutBtn = document.getElementById("logoutBtn");
