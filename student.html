@@ -254,19 +254,19 @@
         </div>
 
         <div class="text-details-toggle" id="textDetailsToggle">
-          Text details (optional) ▲
+          Enter author and text titles ▼
         </div>
 
         <div class="text-details-section visible" id="textDetailsSection">
           <div class="work-section" id="work1Section">
-            <div class="work-title">Work 1</div>
+            <div class="work-title">What did you write about?</div>
             <label>
-              Author
+              Who is the author?
               <input type="text" id="author" placeholder="Author's full name" />
             </label>
 
             <label>
-              Title
+              What is the title?
               <input type="text" id="title" placeholder="Title of the text" />
             </label>
 
@@ -277,12 +277,22 @@
                   <span class="type-head">
                     <input type="radio" name="title_type" value="true" checked />
                     <span class="type-name">Minor work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
+                    >i</span>
                   </span>
                 </label>
                 <label class="type-option">
                   <span class="type-head">
                     <input type="radio" name="title_type" value="false" />
                     <span class="type-name">Major work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
+                    >i</span>
                   </span>
                 </label>
               </div>
@@ -293,17 +303,17 @@
             </div>
           </div>
 
-          <button type="button" class="add-work-btn" id="addWork2Btn">Add another text</button>
+          <button type="button" class="add-work-btn" id="addWork2Btn">Add another</button>
 
           <div class="work-section hidden" id="work2Section">
             <div class="work-title">Work 2</div>
             <label>
-              Author
+              Who is the author?
               <input type="text" id="author2" placeholder="Author's full name" />
             </label>
 
             <label>
-              Title
+              What is the title?
               <input type="text" id="title2" placeholder="Title of the text" />
             </label>
 
@@ -314,12 +324,22 @@
                   <span class="type-head">
                     <input type="radio" name="title2_type" value="true" checked />
                     <span class="type-name">Minor work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
+                    >i</span>
                   </span>
                 </label>
                 <label class="type-option">
                   <span class="type-head">
                     <input type="radio" name="title2_type" value="false" />
                     <span class="type-name">Major work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
+                    >i</span>
                   </span>
                 </label>
               </div>
@@ -330,17 +350,17 @@
             </div>
           </div>
 
-          <button type="button" class="add-work-btn hidden" id="addWork3Btn">Add another text</button>
+          <button type="button" class="add-work-btn hidden" id="addWork3Btn">Add another</button>
 
           <div class="work-section hidden" id="work3Section">
             <div class="work-title">Work 3</div>
             <label>
-              Author
+              Who is the author?
               <input type="text" id="author3" placeholder="Author's full name" />
             </label>
 
             <label>
-              Title
+              What is the title?
               <input type="text" id="title3" placeholder="Title of the text" />
             </label>
 
@@ -351,12 +371,22 @@
                   <span class="type-head">
                     <input type="radio" name="title3_type" value="true" checked />
                     <span class="type-name">Minor work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
+                    >i</span>
                   </span>
                 </label>
                 <label class="type-option">
                   <span class="type-head">
                     <input type="radio" name="title3_type" value="false" />
                     <span class="type-name">Major work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
+                    >i</span>
                   </span>
                 </label>
               </div>
@@ -553,13 +583,13 @@
     // ===== Progressive disclosure for Work 2/3 =====
     addWork2Btn.addEventListener("click", () => {
       work2Section.classList.remove("hidden");
-      addWork2Btn.style.display = "none";
+      addWork2Btn.classList.add("hidden");
       addWork3Btn.classList.remove("hidden");
     });
 
     addWork3Btn.addEventListener("click", () => {
       work3Section.classList.remove("hidden");
-      addWork3Btn.style.display = "none";
+      addWork3Btn.classList.add("hidden");
     });
 
     // ===== Text details toggle =====
@@ -567,10 +597,10 @@
       const isVisible = textDetailsSection.classList.contains("visible");
       if (isVisible) {
         textDetailsSection.classList.remove("visible");
-        textDetailsToggle.textContent = "Text details (optional) ▼";
+        textDetailsToggle.textContent = "Enter author and text titles ▼";
       } else {
         textDetailsSection.classList.add("visible");
-        textDetailsToggle.textContent = "Text details (optional) ▲";
+        textDetailsToggle.textContent = "Enter author and text titles ▲";
       }
     });
 
