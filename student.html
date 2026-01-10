@@ -9,6 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/marker.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
   <style>
     .student-grid {
       display: grid;
@@ -129,6 +132,149 @@
       background: rgba(255,255,255,.1);
       color: #fff;
     }
+    .assignment-tracker-block {
+      margin-bottom: 18px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .assignment-tracker-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .assignment-tracker-help {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .work-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .work-section.hidden {
+      display: none;
+    }
+    .work-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .add-work-btn {
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--maroon);
+      border-radius: 6px;
+      color: var(--maroon);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .add-work-btn:hover {
+      background: var(--maroon);
+      color: #fff;
+    }
+    .detected-meta {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #e7f3ff;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #0066cc;
+      display: none;
+    }
+    .detected-meta.visible {
+      display: block;
+    }
+    .marked-preview-card {
+      margin-top: 24px;
+      grid-column: 1 / -1;
+    }
+    .marked-preview-container {
+      max-height: 600px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      background: #fff;
+    }
+    .revision-practice-card {
+      margin-top: 24px;
+      grid-column: 1 / -1;
+    }
+    .issue-select-wrapper {
+      margin-bottom: 16px;
+    }
+    .issue-explanation {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .examples-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .example-item {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .example-sentence {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+    .example-student {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .example-rewrite {
+      width: 100%;
+      min-height: 80px;
+      padding: 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+    .example-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .example-btn {
+      padding: 6px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .example-btn:hover {
+      background: #f0f0f0;
+    }
+    .hidden-select {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      height: 0;
+    }
     @media (max-width: 980px) {
       .student-grid {
         grid-template-columns: 1fr;
@@ -162,8 +308,6 @@
             <option value="textual_analysis">Textual analysis</option>
             <option value="reader_response">Reader response</option>
             <option value="argumentation">Argumentation</option>
-            <option value="analytic_frame">Analytic frame</option>
-            <option value="peel_paragraph">Mini-essay paragraph</option>
           </select>
         </label>
 
@@ -172,47 +316,130 @@
           <input type="text" id="studentName" placeholder="e.g., John Smith" />
         </label>
 
-        <label>
-          Assignment name (optional)
-          <input type="text" id="assignmentName" placeholder="e.g., Homework 01" />
-        </label>
-
-        <div class="text-details-toggle" id="textDetailsToggle">
-          Text details (optional) ▼
+        <div class="assignment-tracker-block">
+          <div class="assignment-tracker-title">Assignment Tracker</div>
+          <div class="assignment-tracker-help">Give the assignment a name to keep track of your work.</div>
+          <label>
+            Assignment name (optional)
+            <input type="text" id="assignmentName" placeholder="e.g., Homework 01" />
+          </label>
         </div>
 
-        <div class="text-details-section" id="textDetailsSection">
-          <label>
-            Author
-            <input type="text" id="author" placeholder="Author's full name" />
-          </label>
+        <div class="text-details-toggle" id="textDetailsToggle">
+          Text details (optional) ▲
+        </div>
 
-          <label>
-            Title
-            <input type="text" id="title" placeholder="Title of the text" />
-          </label>
+        <div class="text-details-section visible" id="textDetailsSection">
+          <div class="work-section" id="work1Section">
+            <div class="work-title">Work 1</div>
+            <label>
+              Author
+              <input type="text" id="author" placeholder="Author's full name" />
+            </label>
 
-          <div class="title-type-block">
-            <div class="title-type-label">Title type</div>
-            <div class="title-type-grid">
-              <label class="type-option">
-                <span class="type-head">
-                  <input type="radio" name="title_type" value="true" checked />
-                  <span class="type-name">Minor work</span>
-                </span>
-              </label>
-              <label class="type-option">
-                <span class="type-head">
-                  <input type="radio" name="title_type" value="false" />
-                  <span class="type-name">Major work</span>
-                </span>
-              </label>
+            <label>
+              Title
+              <input type="text" id="title" placeholder="Title of the text" />
+            </label>
+
+            <div class="title-type-block">
+              <div class="title-type-label">Title type</div>
+              <div class="title-type-grid">
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title_type" value="true" checked />
+                    <span class="type-name">Minor work</span>
+                  </span>
+                </label>
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title_type" value="false" />
+                    <span class="type-name">Major work</span>
+                  </span>
+                </label>
+              </div>
+              <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="true" selected>Minor work</option>
+                <option value="false">Major work</option>
+              </select>
             </div>
-            <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
-              <option value="true" selected>Minor work</option>
-              <option value="false">Major work</option>
-            </select>
           </div>
+
+          <button type="button" class="add-work-btn" id="addWork2Btn">Add another text</button>
+
+          <div class="work-section hidden" id="work2Section">
+            <div class="work-title">Work 2</div>
+            <label>
+              Author
+              <input type="text" id="author2" placeholder="Author's full name" />
+            </label>
+
+            <label>
+              Title
+              <input type="text" id="title2" placeholder="Title of the text" />
+            </label>
+
+            <div class="title-type-block">
+              <div class="title-type-label">Title type</div>
+              <div class="title-type-grid">
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title2_type" value="true" checked />
+                    <span class="type-name">Minor work</span>
+                  </span>
+                </label>
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title2_type" value="false" />
+                    <span class="type-name">Major work</span>
+                  </span>
+                </label>
+              </div>
+              <select id="title2_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="true" selected>Minor work</option>
+                <option value="false">Major work</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="button" class="add-work-btn hidden" id="addWork3Btn">Add another text</button>
+
+          <div class="work-section hidden" id="work3Section">
+            <div class="work-title">Work 3</div>
+            <label>
+              Author
+              <input type="text" id="author3" placeholder="Author's full name" />
+            </label>
+
+            <label>
+              Title
+              <input type="text" id="title3" placeholder="Title of the text" />
+            </label>
+
+            <div class="title-type-block">
+              <div class="title-type-label">Title type</div>
+              <div class="title-type-grid">
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title3_type" value="true" checked />
+                    <span class="type-name">Minor work</span>
+                  </span>
+                </label>
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title3_type" value="false" />
+                    <span class="type-name">Major work</span>
+                  </span>
+                </label>
+              </div>
+              <select id="title3_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="true" selected>Minor work</option>
+                <option value="false">Major work</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="detectedMeta" class="detected-meta"></div>
         </div>
 
         <button class="primary-btn" id="checkBtn" type="submit" disabled>Check My Essay</button>
@@ -243,6 +470,26 @@
     <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
     <button id="downloadBtn" class="download-btn" type="button">Download marked essay</button>
 
+    <section class="card marked-preview-card" id="markedPreviewCard" style="display:none;">
+      <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Marked Essay Preview</h2>
+      <div id="markedPreview" class="marked-preview-container"></div>
+    </section>
+
+    <section class="card revision-practice-card" id="revisionPracticeCard" style="display:none;">
+      <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Fix Your Most Common Issues</h2>
+      <div class="issue-select-wrapper">
+        <label>
+          Select an issue to practice
+          <select id="issueSelect">
+            <option value="">Select an issue...</option>
+          </select>
+        </label>
+      </div>
+      <div id="issueExplanation" class="issue-explanation" style="display:none;"></div>
+      <ul id="examplesList" class="examples-list"></ul>
+      <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
+    </section>
+
     <footer class="marker-footer" aria-label="Site footer">
       <div class="footer-copy">© 2025 Vysti Research. All rights reserved.</div>
       <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
@@ -268,9 +515,23 @@
     const textDetailsSection = document.getElementById("textDetailsSection");
     const titleTypeRadios = Array.from(document.querySelectorAll('input[name="title_type"]'));
     const titleIsMinorSelect = document.getElementById("title_is_minor");
+    const addWork2Btn = document.getElementById("addWork2Btn");
+    const addWork3Btn = document.getElementById("addWork3Btn");
+    const work2Section = document.getElementById("work2Section");
+    const work3Section = document.getElementById("work3Section");
+    const detectedMeta = document.getElementById("detectedMeta");
+    const markedPreviewCard = document.getElementById("markedPreviewCard");
+    const markedPreview = document.getElementById("markedPreview");
+    const revisionPracticeCard = document.getElementById("revisionPracticeCard");
+    const issueSelect = document.getElementById("issueSelect");
+    const issueExplanation = document.getElementById("issueExplanation");
+    const examplesList = document.getElementById("examplesList");
+    const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
 
     let selectedFile = null;
     let downloadUrl = null;
+    let markedBlob = null;
+    let currentMarkEvent = null;
 
     // ===== Auth + role guard =====
     async function refreshAuthUI() {
@@ -321,6 +582,40 @@
       });
     });
 
+    // Sync Work 2 radio
+    const title2TypeRadios = Array.from(document.querySelectorAll('input[name="title2_type"]'));
+    const title2IsMinorSelect = document.getElementById("title2_is_minor");
+    title2TypeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          title2IsMinorSelect.value = e.target.value;
+        }
+      });
+    });
+
+    // Sync Work 3 radio
+    const title3TypeRadios = Array.from(document.querySelectorAll('input[name="title3_type"]'));
+    const title3IsMinorSelect = document.getElementById("title3_is_minor");
+    title3TypeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          title3IsMinorSelect.value = e.target.value;
+        }
+      });
+    });
+
+    // ===== Progressive disclosure for Work 2/3 =====
+    addWork2Btn.addEventListener("click", () => {
+      work2Section.classList.remove("hidden");
+      addWork2Btn.style.display = "none";
+      addWork3Btn.classList.remove("hidden");
+    });
+
+    addWork3Btn.addEventListener("click", () => {
+      work3Section.classList.remove("hidden");
+      addWork3Btn.style.display = "none";
+    });
+
     // ===== Text details toggle =====
     textDetailsToggle.addEventListener("click", () => {
       const isVisible = textDetailsSection.classList.contains("visible");
@@ -353,9 +648,20 @@
       selectedFile = null;
       fileInput.value = "";
       downloadUrl = null;
+      markedBlob = null;
       downloadBtn.classList.remove("visible");
       statusArea.textContent = "";
       statusArea.className = "status-area";
+      detectedMeta.classList.remove("visible");
+      detectedMeta.textContent = "";
+      markedPreviewCard.style.display = "none";
+      markedPreview.innerHTML = "";
+      revisionPracticeCard.style.display = "none";
+      issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+      issueExplanation.style.display = "none";
+      examplesList.innerHTML = "";
+      downloadRevisionNotesBtn.style.display = "none";
+      currentMarkEvent = null;
       updateFileUI();
     }
 
@@ -371,12 +677,106 @@
       }
     });
 
+    // ===== Extract metadata from docx =====
+    async function extractMetaFromDocx(file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        const html = result.value;
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const firstP = doc.querySelector("p");
+        
+        if (!firstP) return null;
+        
+        const firstParagraphText = firstP.textContent.trim();
+        if (!firstParagraphText) return null;
+        
+        let detectedTitle = null;
+        let detectedAuthor = null;
+        let isMinor = true;
+        
+        // Check for italic/em tags (Major work)
+        const italicText = firstP.querySelector("em, i");
+        if (italicText) {
+          detectedTitle = italicText.textContent.trim();
+          isMinor = false;
+        } else {
+          // Check for quoted text (Minor work)
+          const quotedMatch = firstParagraphText.match(/[""]([^""]+)[""]|'([^']+)'/);
+          if (quotedMatch) {
+            detectedTitle = quotedMatch[1] || quotedMatch[2];
+            isMinor = true;
+          } else {
+            // Try to extract title from first sentence (simple heuristic)
+            const firstSentence = firstParagraphText.split(/[.!?]/)[0].trim();
+            if (firstSentence.length > 0 && firstSentence.length < 100) {
+              detectedTitle = firstSentence;
+            }
+          }
+        }
+        
+        // Try to detect author
+        const byMatch = firstParagraphText.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/i);
+        if (byMatch) {
+          detectedAuthor = byMatch[1].trim();
+        } else {
+          // Try possessive pattern: "Author's Title"
+          const possessiveMatch = firstParagraphText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'s\s+[""]([^""]+)[""]/i);
+          if (possessiveMatch) {
+            detectedAuthor = possessiveMatch[1].trim();
+            if (!detectedTitle) {
+              detectedTitle = possessiveMatch[2].trim();
+            }
+          }
+        }
+        
+        return { title: detectedTitle, author: detectedAuthor, isMinor };
+      } catch (error) {
+        console.error("Error extracting metadata:", error);
+        return null;
+      }
+    }
+
     // File selection
-    fileInput.addEventListener("change", (e) => {
+    fileInput.addEventListener("change", async (e) => {
       const files = e.target.files;
       if (files && files.length > 0) {
         selectedFile = files[0];
         updateFileUI();
+        
+        // Extract metadata and prefill if fields are empty
+        const meta = await extractMetaFromDocx(selectedFile);
+        if (meta) {
+          const titleInput = document.getElementById("title");
+          const authorInput = document.getElementById("author");
+          
+          if (meta.title && !titleInput.value.trim()) {
+            titleInput.value = meta.title;
+            // Update radio and select
+            if (meta.isMinor) {
+              titleTypeRadios[0].checked = true;
+              titleIsMinorSelect.value = "true";
+            } else {
+              titleTypeRadios[1].checked = true;
+              titleIsMinorSelect.value = "false";
+            }
+          }
+          
+          if (meta.author && !authorInput.value.trim()) {
+            authorInput.value = meta.author;
+          }
+          
+          // Show detected meta message
+          const parts = [];
+          if (meta.title) parts.push(`Title: ${meta.title}`);
+          if (meta.author) parts.push(`Author: ${meta.author}`);
+          parts.push(`Type: ${meta.isMinor ? "Minor" : "Major"} work`);
+          
+          detectedMeta.textContent = `Detected from first sentence: ${parts.join(" | ")}`;
+          detectedMeta.classList.add("visible");
+        }
       }
     });
 
@@ -397,7 +797,7 @@
       });
     });
 
-    dropZone.addEventListener("drop", (e) => {
+    dropZone.addEventListener("drop", async (e) => {
       e.preventDefault();
       e.stopPropagation();
       dropZone.classList.remove("dragover");
@@ -412,6 +812,38 @@
           dt.items.add(docxFile);
           fileInput.files = dt.files;
           updateFileUI();
+          
+          // Extract metadata and prefill if fields are empty
+          const meta = await extractMetaFromDocx(selectedFile);
+          if (meta) {
+            const titleInput = document.getElementById("title");
+            const authorInput = document.getElementById("author");
+            
+            if (meta.title && !titleInput.value.trim()) {
+              titleInput.value = meta.title;
+              // Update radio and select
+              if (meta.isMinor) {
+                titleTypeRadios[0].checked = true;
+                titleIsMinorSelect.value = "true";
+              } else {
+                titleTypeRadios[1].checked = true;
+                titleIsMinorSelect.value = "false";
+              }
+            }
+            
+            if (meta.author && !authorInput.value.trim()) {
+              authorInput.value = meta.author;
+            }
+            
+            // Show detected meta message
+            const parts = [];
+            if (meta.title) parts.push(`Title: ${meta.title}`);
+            if (meta.author) parts.push(`Author: ${meta.author}`);
+            parts.push(`Type: ${meta.isMinor ? "Minor" : "Major"} work`);
+            
+            detectedMeta.textContent = `Detected from first sentence: ${parts.join(" | ")}`;
+            detectedMeta.classList.add("visible");
+          }
         } else {
           statusArea.textContent = "Please upload a .docx file.";
           statusArea.className = "status-area error";
@@ -443,6 +875,16 @@
       const author = document.getElementById("author").value.trim();
       const title = document.getElementById("title").value.trim();
       const textIsMinorWork = titleIsMinorSelect.value;
+      
+      // Work 2
+      const author2 = document.getElementById("author2").value.trim();
+      const title2 = document.getElementById("title2").value.trim();
+      const title2IsMinor = document.getElementById("title2_is_minor").value;
+      
+      // Work 3
+      const author3 = document.getElementById("author3").value.trim();
+      const title3 = document.getElementById("title3").value.trim();
+      const title3IsMinor = document.getElementById("title3_is_minor").value;
 
       // Build FormData
       const formData = new FormData();
@@ -461,6 +903,24 @@
       if (title) {
         formData.append("title", title);
         formData.append("text_is_minor_work", textIsMinorWork);
+      }
+      
+      // Work 2
+      if (author2) {
+        formData.append("author2", author2);
+      }
+      if (title2) {
+        formData.append("title2", title2);
+        formData.append("text_is_minor_work_2", title2IsMinor);
+      }
+      
+      // Work 3
+      if (author3) {
+        formData.append("author3", author3);
+      }
+      if (title3) {
+        formData.append("title3", title3);
+        formData.append("text_is_minor_work_3", title3IsMinor);
       }
 
       // Update UI
@@ -486,6 +946,7 @@
         }
 
         const blob = await response.blob();
+        markedBlob = blob;
         downloadUrl = URL.createObjectURL(blob);
         
         const baseName = selectedFile.name.replace(/\.docx$/i, "");
@@ -498,12 +959,30 @@
           a.remove();
         };
 
-        statusArea.textContent = "Done — download ready!";
+        // Render marked essay preview
+        try {
+          markedPreview.innerHTML = "";
+          const buf = await blob.arrayBuffer();
+          if (typeof docx !== "undefined" && docx.renderAsync) {
+            await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            markedPreviewCard.style.display = "block";
+          } else {
+            // Fallback: show message if docx-preview not loaded
+            markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
+            markedPreviewCard.style.display = "block";
+          }
+        } catch (previewError) {
+          console.error("Error rendering preview:", previewError);
+          markedPreview.innerHTML = "<p>Error rendering preview. Please download the file to view.</p>";
+          markedPreviewCard.style.display = "block";
+        }
+
+        statusArea.textContent = "Done — preview below. Download is ready.";
         statusArea.className = "status-area success";
         downloadBtn.classList.add("visible");
         
-        // Auto-download immediately (optional feature)
-        setTimeout(() => downloadBtn.click(), 100);
+        // Load revision practice data
+        await loadRevisionPractice();
 
       } catch (error) {
         console.error("Error:", error);
@@ -513,6 +992,210 @@
         checkBtn.disabled = false;
       }
     });
+
+    // ===== Revision Practice =====
+    // Handle issue selection (set up once)
+    issueSelect.addEventListener("change", async (e) => {
+      const selectedLabel = e.target.value;
+      if (!selectedLabel) {
+        issueExplanation.style.display = "none";
+        examplesList.innerHTML = "";
+        downloadRevisionNotesBtn.style.display = "none";
+        return;
+      }
+
+      await loadIssueExamples(selectedLabel);
+    });
+
+    async function loadRevisionPractice() {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session || !selectedFile) {
+        return;
+      }
+
+      try {
+        // Get latest mark event for this user and file
+        const { data: markEvents, error: markError } = await supa
+          .from("mark_events")
+          .select("label_counts, issues, created_at, file_name")
+          .eq("user_id", sessionData.session.user.id)
+          .eq("file_name", selectedFile.name)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (markError) {
+          console.error("Error loading mark events:", markError);
+          revisionPracticeCard.style.display = "block";
+          issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          return;
+        }
+
+        if (!markEvents || markEvents.length === 0) {
+          revisionPracticeCard.style.display = "block";
+          issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          return;
+        }
+
+        currentMarkEvent = markEvents[0];
+        const labelCounts = currentMarkEvent.label_counts || {};
+        
+        // Get top 8 issues by count
+        const sortedLabels = Object.entries(labelCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([label]) => label);
+
+        if (sortedLabels.length === 0) {
+          revisionPracticeCard.style.display = "block";
+          issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          return;
+        }
+
+        // Populate dropdown
+        issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+        sortedLabels.forEach(label => {
+          const option = document.createElement("option");
+          option.value = label;
+          option.textContent = label;
+          issueSelect.appendChild(option);
+        });
+
+        revisionPracticeCard.style.display = "block";
+
+      } catch (error) {
+        console.error("Error loading revision practice:", error);
+        revisionPracticeCard.style.display = "block";
+        issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+      }
+    }
+
+    async function loadIssueExamples(label) {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session || !selectedFile) {
+        return;
+      }
+
+      try {
+        // Get explanation from issues array
+        const issues = currentMarkEvent?.issues || [];
+        const issueData = issues.find(iss => iss.label === label);
+        if (issueData && issueData.explanation) {
+          issueExplanation.textContent = issueData.explanation;
+          issueExplanation.style.display = "block";
+        } else {
+          issueExplanation.style.display = "none";
+        }
+
+        // Get examples from issue_examples
+        const { data: examples, error } = await supa
+          .from("issue_examples")
+          .select("label, sentence, student_name")
+          .eq("user_id", sessionData.session.user.id)
+          .eq("file_name", selectedFile.name)
+          .eq("label", label)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (error) {
+          console.error("Error loading examples:", error);
+          examplesList.innerHTML = "<li>Error loading examples.</li>";
+          return;
+        }
+
+        examplesList.innerHTML = "";
+        
+        if (!examples || examples.length === 0) {
+          examplesList.innerHTML = "<li>No examples available for this issue.</li>";
+          downloadRevisionNotesBtn.style.display = "none";
+          return;
+        }
+
+        examples.forEach((ex, idx) => {
+          const li = document.createElement("li");
+          li.className = "example-item";
+          
+          const sentenceDiv = document.createElement("div");
+          sentenceDiv.className = "example-sentence";
+          sentenceDiv.textContent = ex.sentence || "";
+          
+          const studentDiv = document.createElement("div");
+          studentDiv.className = "example-student";
+          studentDiv.textContent = `From: ${ex.student_name || "You"}`;
+          
+          const rewriteTextarea = document.createElement("textarea");
+          rewriteTextarea.className = "example-rewrite";
+          rewriteTextarea.placeholder = "Rewrite it here...";
+          rewriteTextarea.setAttribute("data-example-idx", idx);
+          
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "example-actions";
+          
+          const copyExampleBtn = document.createElement("button");
+          copyExampleBtn.className = "example-btn";
+          copyExampleBtn.textContent = "Copy example";
+          copyExampleBtn.onclick = () => {
+            navigator.clipboard.writeText(ex.sentence || "").then(() => {
+              copyExampleBtn.textContent = "Copied!";
+              setTimeout(() => copyExampleBtn.textContent = "Copy example", 2000);
+            });
+          };
+          
+          const copyRewriteBtn = document.createElement("button");
+          copyRewriteBtn.className = "example-btn";
+          copyRewriteBtn.textContent = "Copy your rewrite";
+          copyRewriteBtn.onclick = () => {
+            navigator.clipboard.writeText(rewriteTextarea.value).then(() => {
+              copyRewriteBtn.textContent = "Copied!";
+              setTimeout(() => copyRewriteBtn.textContent = "Copy your rewrite", 2000);
+            });
+          };
+          
+          actionsDiv.appendChild(copyExampleBtn);
+          actionsDiv.appendChild(copyRewriteBtn);
+          
+          li.appendChild(sentenceDiv);
+          li.appendChild(studentDiv);
+          li.appendChild(rewriteTextarea);
+          li.appendChild(actionsDiv);
+          
+          examplesList.appendChild(li);
+        });
+
+        downloadRevisionNotesBtn.style.display = "block";
+        downloadRevisionNotesBtn.onclick = () => {
+          downloadRevisionNotes(label, examples);
+        };
+
+      } catch (error) {
+        console.error("Error loading issue examples:", error);
+        examplesList.innerHTML = "<li>Error loading examples.</li>";
+      }
+    }
+
+    function downloadRevisionNotes(label, examples) {
+      const textareas = document.querySelectorAll(".example-rewrite");
+      let content = `Revision Notes: ${label}\n\n`;
+      
+      examples.forEach((ex, idx) => {
+        content += `Example ${idx + 1}:\n`;
+        content += `Original: ${ex.sentence || ""}\n`;
+        const rewrite = textareas[idx]?.value || "";
+        if (rewrite) {
+          content += `Your rewrite: ${rewrite}\n`;
+        }
+        content += `\n`;
+      });
+      
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `revision_notes_${label.replace(/\s+/g, "_")}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
 
     // Initial state
     updateFileUI();
