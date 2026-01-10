@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker — Choose Role</title>
+  <link rel="stylesheet" href="/assets/marker.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--bg);
+    }
+    .role-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 48px 40px;
+      max-width: 460px;
+      width: 100%;
+      margin: 0 18px;
+    }
+    .role-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      text-align: center;
+    }
+    .role-subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .role-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .role-btn {
+      width: 100%;
+      padding: 16px;
+      border: 0;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .role-btn-primary {
+      background: var(--maroon);
+      color: #fff;
+    }
+    .role-btn-primary:hover {
+      filter: brightness(.95);
+    }
+    .role-btn-secondary {
+      background: #f5f6f8;
+      color: var(--text);
+      border: 1px solid rgba(0,0,0,.1);
+    }
+    .role-btn-secondary:hover {
+      background: #e9eaed;
+    }
+    .role-note {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logout-btn {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid rgba(0,0,0,.14);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .logout-btn:hover {
+      background: rgba(0,0,0,.04);
+    }
+  </style>
+</head>
+<body>
+  <div class="role-card">
+    <h1 class="role-title">Choose your workspace</h1>
+    <p class="role-subtitle">Are you a Student or a Teacher?</p>
+    
+    <div class="role-buttons">
+      <button id="studentBtn" class="role-btn role-btn-primary" type="button">I'm a Student</button>
+      <button id="teacherBtn" class="role-btn role-btn-secondary" type="button">I'm a Teacher</button>
+    </div>
+    
+    <p class="role-note">You can change this later.</p>
+    
+    <button id="logoutBtn" class="logout-btn" type="button">Log out</button>
+  </div>
+
+  <script>
+    // ===== Supabase config =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const studentBtn = document.getElementById("studentBtn");
+    const teacherBtn = document.getElementById("teacherBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    // ===== Auth guard =====
+    (async () => {
+      const { data } = await supa.auth.getSession();
+      if (!data.session) {
+        // Not authenticated → redirect to signin
+        window.location.href = "/signin.html";
+        return;
+      }
+
+      // Already authenticated → check localStorage role
+      const role = localStorage.getItem("vysti_role");
+      if (role === "student") {
+        window.location.href = "/student.html";
+        return;
+      }
+      if (role === "teacher") {
+        window.location.href = "/index.html";
+        return;
+      }
+
+      // Role not set yet → show role picker UI (already visible)
+    })();
+
+    // ===== Role selection handlers =====
+    studentBtn.addEventListener("click", () => {
+      localStorage.setItem("vysti_role", "student");
+      window.location.href = "/student.html";
+    });
+
+    teacherBtn.addEventListener("click", () => {
+      localStorage.setItem("vysti_role", "teacher");
+      window.location.href = "/index.html";
+    });
+
+    // ===== Logout handler =====
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      localStorage.removeItem("vysti_role");
+      window.location.href = "/signin.html";
+    });
+  </script>
+</body>
+</html>
