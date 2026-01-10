@@ -369,6 +369,10 @@ input:focus, select:focus{
   display: none; 
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* Shared file list (used by index.html + student.html) */
 .file-list{
   list-style:none;
@@ -440,6 +444,25 @@ input:focus, select:focus{
   width: 16px;
   height: 16px;
   accent-color: var(--maroon);
+}
+
+.type-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.22);
+  color: rgba(0,0,0,.55);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+  cursor: help;
+}
+.type-info:focus {
+  outline: 2px solid rgba(169,13,34,.30);
+  outline-offset: 2px;
 }
 
 /* Tooltip for Minor/Major options */
