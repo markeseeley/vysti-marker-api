@@ -33,7 +33,8 @@
         <div class="actions">
           <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
           <img class="avatar" src="/assets/avatar.png" alt="Profile" />
-          <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+          <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Student Mode</button>
+          <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
         </div>
       </header>
       
@@ -565,12 +566,24 @@
       });
     }
 
+    // Set role to teacher on page load
+    localStorage.setItem("vysti_role", "teacher");
+
+    const switchModeBtn = document.getElementById("switchModeBtn");
     const logoutBtn = document.getElementById("logoutBtn");
+
+    if (switchModeBtn) {
+      switchModeBtn.addEventListener("click", () => {
+        localStorage.setItem("vysti_role", "student");
+        window.location.href = "/student.html";
+      });
+    }
 
     logoutBtn.addEventListener("click", async () => {
       await supa.auth.signOut();
+      localStorage.removeItem("vysti_role");
       window.location.replace("/signin.html");
-});
+    });
 
     const statusEl = document.getElementById("status");
     const classSelect = document.getElementById("classSelect");
