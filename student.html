@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker — Student Check</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/marker.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .student-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .file-list {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0;
+    }
+    .file-list li {
+      padding: 8px 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .text-details-toggle {
+      margin-top: 12px;
+      padding: 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--maroon);
+      cursor: pointer;
+      user-select: none;
+    }
+    .text-details-toggle:hover {
+      text-decoration: underline;
+    }
+    .text-details-section {
+      margin-top: 12px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      display: none;
+    }
+    .text-details-section.visible {
+      display: block;
+    }
+    .title-type-block {
+      margin-top: 12px;
+    }
+    .title-type-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .title-type-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .type-option {
+      cursor: pointer;
+    }
+    .type-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .type-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .title-type-block input[type="radio"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--maroon);
+    }
+    .status-area {
+      margin-top: 18px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      min-height: 40px;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .status-area.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-area.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .download-btn {
+      margin-top: 12px;
+      width: 100%;
+      padding: 12px;
+      border: 0;
+      border-radius: 12px;
+      background: #28a745;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      display: none;
+    }
+    .download-btn.visible {
+      display: block;
+    }
+    .download-btn:hover {
+      filter: brightness(.95);
+    }
+    .switch-role-link {
+      font-size: 13px;
+      color: rgba(255,255,255,.85);
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-right: 8px;
+    }
+    .switch-role-link:hover {
+      background: rgba(255,255,255,.1);
+      color: #fff;
+    }
+    @media (max-width: 980px) {
+      .student-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/assets/logo.svg" alt="Vysti" />
+    </div>
+  
+    <nav>
+      <a href="/student.html" class="active">Student Check</a>
+    </nav>
+  
+    <div class="actions">
+      <a href="/role.html" class="switch-role-link">Switch role</a>
+      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
+      <button class="iconbtn" id="logoutBtn" type="button" title="Log out" aria-label="Log out"></button>
+    </div>
+  </header>
+
+  <main class="page">
+    <form id="studentForm" class="student-grid" style="display:none;">
+      <section class="card form-card">
+        <label>
+          Select assignment
+          <select id="mode">
+            <option value="textual_analysis">Textual analysis</option>
+            <option value="reader_response">Reader response</option>
+            <option value="argumentation">Argumentation</option>
+            <option value="analytic_frame">Analytic frame</option>
+            <option value="peel_paragraph">Mini-essay paragraph</option>
+          </select>
+        </label>
+
+        <label>
+          Your name (optional)
+          <input type="text" id="studentName" placeholder="e.g., John Smith" />
+        </label>
+
+        <label>
+          Assignment name (optional)
+          <input type="text" id="assignmentName" placeholder="e.g., Homework 01" />
+        </label>
+
+        <div class="text-details-toggle" id="textDetailsToggle">
+          Text details (optional) ▼
+        </div>
+
+        <div class="text-details-section" id="textDetailsSection">
+          <label>
+            Author
+            <input type="text" id="author" placeholder="Author's full name" />
+          </label>
+
+          <label>
+            Title
+            <input type="text" id="title" placeholder="Title of the text" />
+          </label>
+
+          <div class="title-type-block">
+            <div class="title-type-label">Title type</div>
+            <div class="title-type-grid">
+              <label class="type-option">
+                <span class="type-head">
+                  <input type="radio" name="title_type" value="true" checked />
+                  <span class="type-name">Minor work</span>
+                </span>
+              </label>
+              <label class="type-option">
+                <span class="type-head">
+                  <input type="radio" name="title_type" value="false" />
+                  <span class="type-name">Major work</span>
+                </span>
+              </label>
+            </div>
+            <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+              <option value="true" selected>Minor work</option>
+              <option value="false">Major work</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="primary-btn" id="checkBtn" type="submit" disabled>Check My Essay</button>
+      </section>
+
+      <section class="card upload-card">
+        <label>Essay (.docx)</label>
+        
+        <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx file">
+          <img class="dz-icon" src="/assets/cloud-upload.svg" alt="" aria-hidden="true" />
+          <div class="dz-title">Drag & drop .docx file here</div>
+          <div class="dz-sub">or click to browse</div>
+          
+          <input
+            type="file"
+            id="fileInput"
+            name="file"
+            accept=".docx"
+            hidden
+          />
+        </div>
+
+        <ul id="fileList" class="file-list"></ul>
+        <button type="button" id="clearFileBtn" class="secondary-btn" style="display:none;">Clear file</button>
+      </section>
+    </form>
+
+    <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
+    <button id="downloadBtn" class="download-btn" type="button">Download marked essay</button>
+
+    <footer class="marker-footer" aria-label="Site footer">
+      <div class="footer-copy">© 2025 Vysti Research. All rights reserved.</div>
+      <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
+    </footer>
+  </main>
+
+  <script>
+    // ===== Supabase auth setup =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
+
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const form = document.getElementById("studentForm");
+    const fileInput = document.getElementById("fileInput");
+    const checkBtn = document.getElementById("checkBtn");
+    const clearFileBtn = document.getElementById("clearFileBtn");
+    const statusArea = document.getElementById("statusArea");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const fileList = document.getElementById("fileList");
+    const dropZone = document.getElementById("dropZone");
+    const textDetailsToggle = document.getElementById("textDetailsToggle");
+    const textDetailsSection = document.getElementById("textDetailsSection");
+    const titleTypeRadios = Array.from(document.querySelectorAll('input[name="title_type"]'));
+    const titleIsMinorSelect = document.getElementById("title_is_minor");
+
+    let selectedFile = null;
+    let downloadUrl = null;
+
+    // ===== Auth + role guard =====
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+
+      if (!session) {
+        window.location.replace("/signin.html");
+        return;
+      }
+
+      const role = localStorage.getItem("vysti_role");
+      if (role !== "student") {
+        window.location.replace("/role.html");
+        return;
+      }
+
+      // Logged in as student
+      form.style.display = "grid";
+    }
+
+    // Initial auth check
+    refreshAuthUI();
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
+
+    // ===== Logout handler =====
+    const logoutBtn = document.getElementById("logoutBtn");
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      localStorage.removeItem("vysti_role");
+      window.location.replace("/signin.html");
+    });
+
+    // ===== Title type radio sync =====
+    titleTypeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          titleIsMinorSelect.value = e.target.value;
+        }
+      });
+    });
+
+    // ===== Text details toggle =====
+    textDetailsToggle.addEventListener("click", () => {
+      const isVisible = textDetailsSection.classList.contains("visible");
+      if (isVisible) {
+        textDetailsSection.classList.remove("visible");
+        textDetailsToggle.textContent = "Text details (optional) ▼";
+      } else {
+        textDetailsSection.classList.add("visible");
+        textDetailsToggle.textContent = "Text details (optional) ▲";
+      }
+    });
+
+    // ===== File handling (single file only) =====
+    function updateFileUI() {
+      fileList.innerHTML = "";
+      clearFileBtn.style.display = "none";
+      
+      if (selectedFile) {
+        const li = document.createElement("li");
+        li.textContent = selectedFile.name;
+        fileList.appendChild(li);
+        clearFileBtn.style.display = "block";
+        checkBtn.disabled = false;
+      } else {
+        checkBtn.disabled = true;
+      }
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = "";
+      downloadUrl = null;
+      downloadBtn.classList.remove("visible");
+      statusArea.textContent = "";
+      statusArea.className = "status-area";
+      updateFileUI();
+    }
+
+    clearFileBtn.addEventListener("click", clearFile);
+
+    // Click drop zone to open file picker
+    dropZone.addEventListener("click", () => fileInput.click());
+
+    dropZone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    // File selection
+    fileInput.addEventListener("change", (e) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        selectedFile = files[0];
+        updateFileUI();
+      }
+    });
+
+    // Drag & drop
+    ["dragenter", "dragover"].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "dragend"].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove("dragover");
+      });
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("dragover");
+
+      if (e.dataTransfer && e.dataTransfer.files) {
+        const files = Array.from(e.dataTransfer.files);
+        const docxFile = files.find(f => /\.docx$/i.test(f.name));
+        if (docxFile) {
+          selectedFile = docxFile;
+          // Update file input programmatically
+          const dt = new DataTransfer();
+          dt.items.add(docxFile);
+          fileInput.files = dt.files;
+          updateFileUI();
+        } else {
+          statusArea.textContent = "Please upload a .docx file.";
+          statusArea.className = "status-area error";
+        }
+      }
+    });
+
+    // ===== Form submission =====
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!selectedFile) {
+        statusArea.textContent = "Please select a .docx file.";
+        statusArea.className = "status-area error";
+        return;
+      }
+
+      // Get session
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        statusArea.textContent = "You must be logged in.";
+        statusArea.className = "status-area error";
+        return;
+      }
+
+      const mode = document.getElementById("mode").value;
+      const studentName = document.getElementById("studentName").value.trim();
+      const assignmentName = document.getElementById("assignmentName").value.trim();
+      const author = document.getElementById("author").value.trim();
+      const title = document.getElementById("title").value.trim();
+      const textIsMinorWork = titleIsMinorSelect.value;
+
+      // Build FormData
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("mode", mode);
+
+      if (studentName) {
+        formData.append("student_name", studentName);
+      }
+      if (assignmentName) {
+        formData.append("assignment_name", assignmentName);
+      }
+      if (author) {
+        formData.append("author", author);
+      }
+      if (title) {
+        formData.append("title", title);
+        formData.append("text_is_minor_work", textIsMinorWork);
+      }
+
+      // Update UI
+      statusArea.textContent = "Uploading…";
+      statusArea.className = "status-area";
+      checkBtn.disabled = true;
+      downloadBtn.classList.remove("visible");
+
+      try {
+        // Call API
+        const API_URL = "https://vysti-rules.onrender.com/mark";
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${sessionData.session.access_token}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+        }
+
+        const blob = await response.blob();
+        downloadUrl = URL.createObjectURL(blob);
+        
+        const baseName = selectedFile.name.replace(/\.docx$/i, "");
+        downloadBtn.onclick = () => {
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = `${baseName}_marked.docx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        };
+
+        statusArea.textContent = "Done — download ready!";
+        statusArea.className = "status-area success";
+        downloadBtn.classList.add("visible");
+        
+        // Auto-download immediately (optional feature)
+        setTimeout(() => downloadBtn.click(), 100);
+
+      } catch (error) {
+        console.error("Error:", error);
+        statusArea.textContent = `Error: ${error.message}`;
+        statusArea.className = "status-area error";
+      } finally {
+        checkBtn.disabled = false;
+      }
+    });
+
+    // Initial state
+    updateFileUI();
+  </script>
+</body>
+</html>
