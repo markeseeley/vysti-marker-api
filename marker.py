@@ -5831,6 +5831,171 @@ def extract_summary_metadata(doc: Document) -> dict:
 
 
 
+def extract_richer_examples(doc: Document) -> list[dict]:
+    """
+    Post-process the marked document to extract richer example snippets.
+    
+    Scans the marked docx for label runs starting with " → " and builds
+    context-aware snippets based on label type.
+    
+    Returns:
+        List of { "label": str, "sentence": str } dictionaries.
+        Max 1 example per label per essay.
+    """
+    examples_map = {}  # label -> example dict (for de-duplication)
+    
+    # Track previous paragraph for boundary statement logic
+    prev_paragraph_text = None
+    
+    for para_idx, paragraph in enumerate(doc.paragraphs):
+        # Build clean paragraph text excluding label runs, while recording label positions
+        clean_text_parts = []
+        label_offsets = []  # List of (offset, label_text) tuples
+        
+        current_offset = 0
+        
+        for run in paragraph.runs:
+            run_text = run.text
+            
+            # Check if this run starts with " → " (label run)
+            if run_text.startswith(" → "):
+                # Extract label text (everything after " → ")
+                label_text = run_text[3:].strip()
+                if label_text:
+                    label_offsets.append((current_offset, label_text))
+            else:
+                # Regular text - add to clean text
+                clean_text_parts.append(run_text)
+                current_offset += len(run_text)
+        
+        clean_text = "".join(clean_text_parts).strip()
+        
+        if not clean_text or not label_offsets:
+            prev_paragraph_text = clean_text
+            continue
+        
+        # Use spaCy to segment sentences
+        doc_spacy = nlp(clean_text)
+        sentences = [(sent.start_char, sent.end_char) for sent in doc_spacy.sents]
+        
+        # Process each label in this paragraph
+        for label_offset, label_text in label_offsets:
+            # Skip if we already have an example for this label
+            if label_text in examples_map:
+                continue
+            
+            # Find the sentence containing the label offset
+            # Labels are usually inserted at the end of marks, so check if offset is at or after sentence end
+            offending_sent_idx = None
+            for idx, (s_start, s_end) in enumerate(sentences):
+                if s_start <= label_offset <= s_end:
+                    offending_sent_idx = idx
+                    break
+            
+            if offending_sent_idx is None:
+                # Fallback: use last sentence if offset is after all sentences, or first if before
+                if sentences:
+                    if label_offset >= sentences[-1][1]:
+                        offending_sent_idx = len(sentences) - 1
+                    else:
+                        offending_sent_idx = 0
+                else:
+                    continue
+            
+            # Extract snippet based on label type
+            snippet = None
+            
+            # Normalize label for matching (case-insensitive)
+            label_lower = label_text.lower()
+            
+            # Boundary statement: last sentence of previous + first sentence of current
+            if "boundary statement" in label_lower and "transitioning" in label_lower and "between paragraphs" in label_lower:
+                if prev_paragraph_text and prev_paragraph_text.strip():
+                    # Get last sentence of previous paragraph
+                    prev_doc_spacy = nlp(prev_paragraph_text)
+                    prev_sentences = list(prev_doc_spacy.sents)
+                    if prev_sentences:
+                        last_prev_sent = prev_sentences[-1].text.strip()
+                        # Get first sentence of current paragraph (where the label is)
+                        if sentences:
+                            first_curr_sent = clean_text[sentences[0][0]:sentences[0][1]].strip()
+                            snippet = f"{last_prev_sent}\n\n{first_curr_sent}"
+                # Fallback: just first sentence of current paragraph
+                if not snippet and sentences:
+                    snippet = clean_text[sentences[0][0]:sentences[0][1]].strip()
+            
+            # Evidence-related: middle sentences only
+            elif "follow the process for inserting evidence" in label_lower or ("process" in label_lower and "inserting" in label_lower and "evidence" in label_lower):
+                if len(sentences) >= 3:
+                    # Middle sentences: all except first and last
+                    middle_sents = []
+                    for idx in range(1, len(sentences) - 1):
+                        s_start, s_end = sentences[idx]
+                        middle_sents.append(clean_text[s_start:s_end].strip())
+                    snippet = " ".join(middle_sents)
+                else:
+                    # Fallback: whole paragraph if too short
+                    snippet = clean_text
+            
+            # Every paragraph needs evidence: same as above
+            elif "every paragraph" in label_lower and "evidence" in label_lower:
+                if len(sentences) >= 3:
+                    middle_sents = []
+                    for idx in range(1, len(sentences) - 1):
+                        s_start, s_end = sentences[idx]
+                        middle_sents.append(clean_text[s_start:s_end].strip())
+                    snippet = " ".join(middle_sents)
+                else:
+                    snippet = clean_text
+            
+            # Pronoun/antecedent: preceding sentence + offending sentence
+            elif "pronoun" in label_lower and "antecedent" in label_lower:
+                if offending_sent_idx > 0:
+                    # Preceding sentence in same paragraph
+                    prev_s_start, prev_s_end = sentences[offending_sent_idx - 1]
+                    prev_sent = clean_text[prev_s_start:prev_s_end].strip()
+                    off_s_start, off_s_end = sentences[offending_sent_idx]
+                    off_sent = clean_text[off_s_start:off_s_end].strip()
+                    snippet = f"{prev_sent} {off_sent}"
+                elif prev_paragraph_text and prev_paragraph_text.strip():
+                    # Try last sentence of previous paragraph
+                    prev_doc_spacy = nlp(prev_paragraph_text)
+                    prev_sentences = list(prev_doc_spacy.sents)
+                    if prev_sentences:
+                        last_prev_sent = prev_sentences[-1].text.strip()
+                        off_s_start, off_s_end = sentences[offending_sent_idx]
+                        off_sent = clean_text[off_s_start:off_s_end].strip()
+                        snippet = f"{last_prev_sent} {off_sent}"
+                # Fallback: just offending sentence
+                if not snippet and sentences:
+                    off_s_start, off_s_end = sentences[offending_sent_idx]
+                    snippet = clean_text[off_s_start:off_s_end].strip()
+            
+            # Quotation rules (topic sentence / final sentence): just offending sentence
+            elif ("no quotations" in label_lower or "no quotation" in label_lower) and ("topic sentence" in label_lower or ("final sentence" in label_lower and "body paragraph" in label_lower)):
+                if sentences:
+                    off_s_start, off_s_end = sentences[offending_sent_idx]
+                    snippet = clean_text[off_s_start:off_s_end].strip()
+            
+            # Default: just offending sentence
+            else:
+                if sentences:
+                    off_s_start, off_s_end = sentences[offending_sent_idx]
+                    snippet = clean_text[off_s_start:off_s_end].strip()
+            
+            # Store example if we got a snippet
+            if snippet:
+                examples_map[label_text] = {
+                    "label": label_text,
+                    "sentence": snippet,
+                }
+        
+        # Update previous paragraph text for next iteration
+        prev_paragraph_text = clean_text
+    
+    return list(examples_map.values())
+
+
 def mark_docx_bytes(
     docx_bytes: bytes,
     mode: str = "textual_analysis",
@@ -5884,9 +6049,16 @@ def mark_docx_bytes(
         doc = Document(BytesIO(marked_bytes))
         metadata = extract_summary_metadata(doc)
         
-        # 6. Add examples to metadata
+        # 6. Extract richer examples via post-processing the marked document
+        # This replaces the simple sentence extraction done during marking
+        richer_examples = extract_richer_examples(doc)
+        
+        # If richer extraction found examples, use them; otherwise fall back to DOC_EXAMPLES
         global DOC_EXAMPLES
-        metadata["examples"] = DOC_EXAMPLES
+        if richer_examples:
+            metadata["examples"] = richer_examples
+        else:
+            metadata["examples"] = DOC_EXAMPLES
 
     finally:
         # 6. Clean up temp files as best we can
