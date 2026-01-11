@@ -234,10 +234,31 @@
           Select assignment
           <select id="mode">
             <option value="textual_analysis">Textual analysis</option>
+            <option value="peel_paragraph">Mini-essay paragraph</option>
             <option value="reader_response">Reader response</option>
             <option value="argumentation">Argumentation</option>
           </select>
         </label>
+
+        <!-- Mode explainer card (single, dynamic) -->
+        <div class="mode-card" id="modeCard">
+          <div class="mode-card-header">
+            <span class="mode-badge" id="modeBadge">Textual analysis</span>
+            <span class="mode-tag" id="modeTag"></span>
+          </div>
+
+          <div class="mode-desc" id="modeDesc">
+            A formal and academic essay of analysis with all Vysti Rules running.
+          </div>
+
+          <button type="button" class="mode-more" id="modeMoreBtn" aria-expanded="false">
+            Want more details?
+          </button>
+
+          <div class="mode-details" id="modeDetails" hidden>
+            <ul id="modeDetailsList"></ul>
+          </div>
+        </div>
 
         <label>
           Your name (optional)
@@ -503,11 +524,118 @@
     const issueExplanation = document.getElementById("issueExplanation");
     const examplesList = document.getElementById("examplesList");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
+    const modeSelect = document.getElementById("mode");
 
     let selectedFile = null;
     let downloadUrl = null;
     let markedBlob = null;
     let currentMarkEvent = null;
+
+    // ===== Mode explainer card =====
+    const MODE_RULE_DEFAULTS = {
+      textual_analysis: {
+        description: "A formal and academic essay of analysis with all Vysti Rules running.",
+        details: [
+          "No first-person allowed or personal pronouns",
+          "First sentence should state the author & title of the work.",
+          "Requires a closed thesis statement.",
+          "Requires quoted evidence in body paragraphs.",
+          "Strict requirements on organization, evidence, and language.",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+          "Green highlights devices and strategies."
+        ]
+      },
+      peel_paragraph: {
+        description: "One focused analytical paragraph following the Vysti Rules.",
+        details: [
+          "The first sentence should state the author & title of the work.",
+          "The first sentence should include devices and/or strategies like a closed thesis",
+          "No first-person allowed or personal pronouns",
+          "Requires quoted evidence in the body of the paragraph.",
+          "Strict requirements on organization, evidence, and language.",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+          "Green highlights devices and strategies."
+        ]
+      },
+      reader_response: {
+        description: "More personal voice allowed, but still needs argument + evidence.",
+        details: [
+          "Allows first-person and personal pronouns",
+          "Allows contractions and 'which'",
+          "First sentence should state the author & title of the work.",
+          "Requires a closed thesis statement.",
+          "Requires quoted evidence in body paragraphs.",
+          "Strict requirements on organization, evidence, and language.",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+          "Green highlights devices and strategies."
+        ]
+      },
+      argumentation: {
+        description: "Argumentation is more open mode beyond textual analysis.",
+        details: [
+          "Allows for past tense.",
+          "Allows first-person and personal pronouns",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+        ]
+      }
+    };
+
+    // Mode explainer elements
+    const modeBadge = document.getElementById("modeBadge");
+    const modeTagEl = document.getElementById("modeTag");
+    const modeDesc = document.getElementById("modeDesc");
+    const modeMoreBtn = document.getElementById("modeMoreBtn");
+    const modeDetails = document.getElementById("modeDetails");
+    const modeDetailsList = document.getElementById("modeDetailsList");
+
+    function setModeExplainer(mode) {
+      const cfg = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis;
+      const label = modeSelect.options[modeSelect.selectedIndex]?.textContent || mode;
+
+      if (modeBadge) modeBadge.textContent = label;
+      if (modeTagEl) modeTagEl.textContent = cfg.tag || "";
+      if (modeDesc) modeDesc.textContent = cfg.description || "";
+
+      if (modeDetailsList) {
+        modeDetailsList.innerHTML = "";
+        (cfg.details || []).forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          modeDetailsList.appendChild(li);
+        });
+      }
+
+      const hasDetails = Array.isArray(cfg.details) && cfg.details.length > 0;
+      if (modeMoreBtn) modeMoreBtn.hidden = !hasDetails;
+
+      if (modeMoreBtn && modeDetails) {
+        modeMoreBtn.setAttribute("aria-expanded", "false");
+        modeDetails.hidden = true;
+        modeMoreBtn.textContent = "Want more details?";
+      }
+    }
+
+    // Expand / collapse once
+    if (modeMoreBtn && modeDetails) {
+      modeMoreBtn.addEventListener("click", () => {
+        const expanded = modeMoreBtn.getAttribute("aria-expanded") === "true";
+        modeMoreBtn.setAttribute("aria-expanded", String(!expanded));
+        modeDetails.hidden = expanded;
+        modeMoreBtn.textContent = expanded ? "Want more details?" : "Hide details";
+      });
+    }
+
+    // Initialize mode explainer
+    if (modeSelect) {
+      setModeExplainer(modeSelect.value);
+      modeSelect.addEventListener("change", () => {
+        setModeExplainer(modeSelect.value);
+      });
+    }
 
     // ===== Auth + role guard =====
     async function refreshAuthUI() {
@@ -815,19 +943,100 @@
           return null;
         }
         
-        // Extract first sentence from intro paragraph
-        const firstSentencePlain = getFirstSentence(introParagraphPlain);
+        // IMPORTANT: Split intro paragraph on <br> if present to isolate intro sentence
+        // Mammoth sometimes outputs student title + intro sentence in the same <p>
+        let introSentenceHtml = introParagraphHtml;
+        let selectedSegmentPlain = introParagraphPlain;
+        
+        // Split into segments by <br>
+        const frag = document.createElement("div");
+        frag.innerHTML = introParagraphHtml;
+        
+        const segments = [];
+        let buf = [];
+        
+        // Walk through child nodes and split on <br>
+        frag.childNodes.forEach(node => {
+          if (node.nodeName === "BR") {
+            if (buf.length > 0) {
+              segments.push(buf);
+              buf = [];
+            }
+          } else {
+            buf.push(node);
+          }
+        });
+        if (buf.length > 0) {
+          segments.push(buf);
+        }
+        
+        // If we found segments (meaning there were <br> tags), try to pick the first real sentence
+        if (segments.length > 1) {
+          let selectedSegment = null;
+          
+          // Priority 1: First segment with sentence end AND >= 8 words
+          for (const buf of segments) {
+            const segDiv = document.createElement("div");
+            buf.forEach(n => {
+              try {
+                segDiv.appendChild(n.cloneNode(true));
+              } catch (e) {
+                // Skip nodes that can't be cloned (e.g., some text nodes)
+              }
+            });
+            const segHtml = segDiv.innerHTML.trim();
+            const segPlain = stripTags(segHtml).trim();
+            const wc = countWords(segPlain);
+            
+            if (hasSentenceEnd(segPlain) && wc >= 8) {
+              selectedSegment = { html: segHtml, plain: segPlain };
+              break;
+            }
+          }
+          
+          // Priority 2: First segment with sentence end AND >= 5 words
+          if (!selectedSegment) {
+            for (const buf of segments) {
+              const segDiv = document.createElement("div");
+              buf.forEach(n => {
+                try {
+                  segDiv.appendChild(n.cloneNode(true));
+                } catch (e) {
+                  // Skip nodes that can't be cloned
+                }
+              });
+              const segHtml = segDiv.innerHTML.trim();
+              const segPlain = stripTags(segHtml).trim();
+              const wc = countWords(segPlain);
+              
+              if (hasSentenceEnd(segPlain) && wc >= 5) {
+                selectedSegment = { html: segHtml, plain: segPlain };
+                break;
+              }
+            }
+          }
+          
+          // If we found a selected segment, use it
+          if (selectedSegment) {
+            introSentenceHtml = selectedSegment.html;
+            selectedSegmentPlain = selectedSegment.plain;
+          }
+          // Otherwise, fallback to whole paragraph (already set above)
+        }
+        
+        // Extract first sentence from the selected segment
+        const firstSentencePlain = getFirstSentence(selectedSegmentPlain);
         
         let detectedTitle = null;
         let detectedAuthor = null;
         let isMinor = true;
         
-        // Extract title from first sentence (prefer italics/quotes)
-        const frag = document.createElement("div");
-        frag.innerHTML = introParagraphHtml;
+        // Extract title from intro sentence segment ONLY (not from essay title line)
+        const frag2 = document.createElement("div");
+        frag2.innerHTML = introSentenceHtml;
         
-        // Check for italic candidates (Major work) - take first italic from intro paragraph
-        const italics = frag.querySelectorAll("em, i");
+        // Check for italic candidates (Major work) - take first italic from intro sentence
+        const italics = frag2.querySelectorAll("em, i");
         if (italics.length > 0) {
           const italicText = italics[0].textContent.trim();
           if (italicText) {
@@ -837,8 +1046,8 @@
         }
         
         // If no italics, check for quoted text (Minor work)
+        // Fix: Support curly quotes "" as well as straight quotes ""
         if (!detectedTitle) {
-          // Match curly/straight quotes (support both " and ")
           const quotedMatch = firstSentencePlain.match(/[""](.+?)[""]/);
           if (quotedMatch) {
             const quotedText = (quotedMatch[1] || "").trim();
@@ -860,7 +1069,8 @@
           if (verbMatch) {
             detectedAuthor = verbMatch[1].trim();
           } else {
-            // Pattern 3: "Author's" or "Author's Title" (support both straight and curly apostrophes)
+            // Pattern 3: "Author's" or "Author's Title" 
+            // Fix: Support curly apostrophe ' as well as straight apostrophe '
             const possessiveMatch = firstSentencePlain.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,5})(?:'s|'s)/);
             if (possessiveMatch) {
               detectedAuthor = possessiveMatch[1].trim();
