@@ -1213,6 +1213,7 @@
         const meta = await extractMetaFromDocx(selectedFile);
         if (meta) {
           pendingDetectedMeta = meta;
+          applyDetectedMetaAfterCheck();
         }
       }
     });
@@ -1254,6 +1255,7 @@
           const meta = await extractMetaFromDocx(selectedFile);
           if (meta) {
             pendingDetectedMeta = meta;
+            applyDetectedMetaAfterCheck();
           }
         } else {
           statusArea.textContent = "Please upload a .docx file.";
