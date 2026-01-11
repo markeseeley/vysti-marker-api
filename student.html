@@ -791,6 +791,16 @@
       return tmp.textContent || tmp.innerText || "";
     }
     
+    // Helper: Normalize typography (curly quotes to straight quotes, non-breaking spaces, whitespace)
+    function normalizeTypography(s) {
+      return (s || "")
+        .replace(/\u00A0/g, " ")
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    
     // Helper: Normalize punctuation (curly quotes/apostrophes to straight ones, non-breaking spaces)
     function normalizePunct(s) {
       return (s || "")
@@ -807,14 +817,14 @@
     
     // Helper: Check if text looks like a student essay-title header format
     function isEssayTitleHeaderLine(text) {
-      const s = normalizePunct(text).trim();
+      const s = normalizeTypography(text);
       // "Quotation": Topic in Essay Title
       return /^"[^"]+"\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
     }
     
     // Helper: Check if text looks like a header or title line (not an intro sentence)
     function isLikelyHeaderOrTitle(text) {
-      const plainText = text.trim();
+      const plainText = normalizeTypography(text);
       
       // First check: Skip student essay-title header format
       if (isEssayTitleHeaderLine(plainText)) {
@@ -1058,7 +1068,7 @@
         
         // Extract first sentence from the selected segment
         const firstSentencePlain = getFirstSentence(selectedSegmentPlain);
-        const firstSentenceNorm = normalizePunct(firstSentencePlain);
+        const firstSentenceNorm = normalizeTypography(firstSentencePlain);
         
         let detectedTitle = null;
         let detectedAuthor = null;
@@ -1069,29 +1079,51 @@
         frag2.innerHTML = introSentenceHtml;
         
         // Check for italic candidates (Major work) - take first italic from intro sentence
-        const italics = frag2.querySelectorAll("em, i, span[style*='italic'], span[style*='font-style: italic']");
+        const italics = frag2.querySelectorAll("em, i, span[style*='italic']");
         if (italics.length > 0) {
-          const italicText = italics[0].textContent.trim();
-          if (italicText) {
-            detectedTitle = italicText;
+          const italicTexts = Array.from(italics)
+            .map(el => (el.textContent || "").trim())
+            .filter(Boolean);
+
+          if (italicTexts.length) {
+            italicTexts.sort((a, b) => b.length - a.length);
+            detectedTitle = italicTexts[0];
             isMinor = false;
           }
         }
         
         // If no italics, check for quoted text (Minor work)
         if (!detectedTitle) {
-          const allQuoted = Array.from(firstSentenceNorm.matchAll(/"([^"]+)"/g))
-            .map(m => (m[1] || "").trim())
-            .filter(Boolean);
+          const quoted = Array.from(firstSentenceNorm.matchAll(/"([^"]+)"/g))
+            .map(m => ({
+              text: (m[1] || "").trim(),
+              idx: m.index ?? 0
+            }))
+            .filter(x => x.text && x.text.length >= 2 && x.text.length <= 120);
 
-          // Prefer non-question quoted phrases (title-like)
-          const titleLike = allQuoted.find(s =>
-            s.length >= 2 && s.length <= 120 && !/\?$/.test(s)
-          );
+          if (quoted.length) {
+            // Prefer a quote that looks like a work title in context:
+            // e.g., "essay "Title"", "article "Title"", "novel "Title"", etc.
+            const workWords = /(essay|article|novel|poem|short story|story|play|film|movie|book|chapter|speech|song|album)\b/i;
 
-          const chosen = titleLike || allQuoted[0];
-          if (chosen) {
-            detectedTitle = chosen;
+            const hasNonQuestion = quoted.some(q => !q.text.includes("?"));
+
+            function scoreCandidate(q) {
+              const left = firstSentenceNorm.slice(Math.max(0, q.idx - 45), q.idx);
+              let score = 0;
+
+              if (workWords.test(left)) score += 10;         // strongest signal
+              if (q.idx < firstSentenceNorm.length / 2) score += 2; // earlier is better
+
+              // Questions are often quoted prompts, not titles (but allow if it's the only option)
+              if (q.text.includes("?") && hasNonQuestion) score -= 6;
+
+              return score;
+            }
+
+            quoted.sort((a, b) => scoreCandidate(b) - scoreCandidate(a) || a.idx - b.idx);
+
+            detectedTitle = quoted[0].text;
             isMinor = true;
           }
         }
