@@ -800,7 +800,7 @@
     function isEssayTitleHeaderLine(text) {
       const s = (text || "").trim();
       // "Quotation": Topic in Essay Title  (common student format)
-      return /^[""][^""]+[""]\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
+      return /^["""][^"""]+["""]\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
     }
     
     // Helper: Check if text looks like a header or title line (not an intro sentence)
@@ -1069,13 +1069,36 @@
         }
         
         // If no italics, check for quoted text (Minor work)
-        // Fix: Support curly quotes "" as well as straight quotes ""
         if (!detectedTitle) {
-          const quotedMatch = firstSentencePlain.match(/[""](.+?)[""]/);
-          if (quotedMatch) {
-            const quotedText = (quotedMatch[1] || "").trim();
-            if (quotedText.length >= 2 && quotedText.length <= 80) {
-              detectedTitle = quotedText;
+          // A) Prefer Word-style curly quotes first: "Title"
+          const curlyMatch = firstSentencePlain.match(/["](.+?)["]/);
+          if (curlyMatch) {
+            const t = (curlyMatch[1] || "").trim();
+            if (t.length >= 2 && t.length <= 120) {
+              detectedTitle = t;
+              isMinor = true;
+            }
+          }
+
+          // B) Otherwise, fall back to straight quotes: "Title"
+          if (!detectedTitle) {
+            const allStraight = Array.from(firstSentencePlain.matchAll(/"([^"]+)"/g))
+              .map(m => (m[1] || "").trim())
+              .filter(Boolean);
+
+            // Prefer "title-like" quotes over questions
+            // (If the student quotes questions like "Who are we?", don't treat that as the text title.)
+            const titleLike = allStraight.find(s =>
+              s.length >= 2 &&
+              s.length <= 120 &&
+              !/[?]/.test(s) // skip quoted questions
+            );
+
+            const fallback = allStraight[0]; // if everything is a question, still take first
+
+            const chosen = titleLike || fallback;
+            if (chosen) {
+              detectedTitle = chosen;
               isMinor = true;
             }
           }
