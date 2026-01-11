@@ -791,16 +791,25 @@
       return tmp.textContent || tmp.innerText || "";
     }
     
+    // Helper: Normalize punctuation (curly quotes/apostrophes to straight ones, non-breaking spaces)
+    function normalizePunct(s) {
+      return (s || "")
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        .replace(/\u00A0/g, " ");
+    }
+    
     // Helper: Check if text has sentence-ending punctuation
     function hasSentenceEnd(text) {
-      return /[.!?]/.test((text || "").trim());
+      const t = normalizePunct(text).trim();
+      return /[.!?]/.test(t);
     }
     
     // Helper: Check if text looks like a student essay-title header format
     function isEssayTitleHeaderLine(text) {
-      const s = (text || "").trim();
-      // "Quotation": Topic in Essay Title  (common student format)
-      return /^["""][^"""]+["""]\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
+      const s = normalizePunct(text).trim();
+      // "Quotation": Topic in Essay Title
+      return /^"[^"]+"\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
     }
     
     // Helper: Check if text looks like a header or title line (not an intro sentence)
@@ -1049,6 +1058,7 @@
         
         // Extract first sentence from the selected segment
         const firstSentencePlain = getFirstSentence(selectedSegmentPlain);
+        const firstSentenceNorm = normalizePunct(firstSentencePlain);
         
         let detectedTitle = null;
         let detectedAuthor = null;
@@ -1059,7 +1069,7 @@
         frag2.innerHTML = introSentenceHtml;
         
         // Check for italic candidates (Major work) - take first italic from intro sentence
-        const italics = frag2.querySelectorAll("em, i");
+        const italics = frag2.querySelectorAll("em, i, span[style*='italic'], span[style*='font-style: italic']");
         if (italics.length > 0) {
           const italicText = italics[0].textContent.trim();
           if (italicText) {
@@ -1070,54 +1080,36 @@
         
         // If no italics, check for quoted text (Minor work)
         if (!detectedTitle) {
-          // A) Prefer Word-style curly quotes first: "Title"
-          const curlyMatch = firstSentencePlain.match(/["](.+?)["]/);
-          if (curlyMatch) {
-            const t = (curlyMatch[1] || "").trim();
-            if (t.length >= 2 && t.length <= 120) {
-              detectedTitle = t;
-              isMinor = true;
-            }
-          }
+          const allQuoted = Array.from(firstSentenceNorm.matchAll(/"([^"]+)"/g))
+            .map(m => (m[1] || "").trim())
+            .filter(Boolean);
 
-          // B) Otherwise, fall back to straight quotes: "Title"
-          if (!detectedTitle) {
-            const allStraight = Array.from(firstSentencePlain.matchAll(/"([^"]+)"/g))
-              .map(m => (m[1] || "").trim())
-              .filter(Boolean);
+          // Prefer non-question quoted phrases (title-like)
+          const titleLike = allQuoted.find(s =>
+            s.length >= 2 && s.length <= 120 && !/\?$/.test(s)
+          );
 
-            // Prefer "title-like" quotes over questions
-            // (If the student quotes questions like "Who are we?", don't treat that as the text title.)
-            const titleLike = allStraight.find(s =>
-              s.length >= 2 &&
-              s.length <= 120 &&
-              !/[?]/.test(s) // skip quoted questions
-            );
-
-            const fallback = allStraight[0]; // if everything is a question, still take first
-
-            const chosen = titleLike || fallback;
-            if (chosen) {
-              detectedTitle = chosen;
-              isMinor = true;
-            }
+          const chosen = titleLike || allQuoted[0];
+          if (chosen) {
+            detectedTitle = chosen;
+            isMinor = true;
           }
         }
         
         // Extract author from first sentence
         // Pattern 1: "by Author Name"
-        const byMatch = firstSentencePlain.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/i);
+        const byMatch = firstSentenceNorm.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/i);
         if (byMatch) {
           detectedAuthor = byMatch[1].trim();
         } else {
           // Pattern 2: "Author Name presents/argues/shows/etc."
-          const verbMatch = firstSentencePlain.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\s+(presents|argues|shows|reveals|suggests|demonstrates)\b/i);
+          const verbMatch = firstSentenceNorm.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\s+(presents|argues|shows|reveals|suggests|demonstrates)\b/i);
           if (verbMatch) {
             detectedAuthor = verbMatch[1].trim();
           } else {
             // Pattern 3: "Author's" or "Author's Title" 
             // Fix: Support curly apostrophe ' as well as straight apostrophe '
-            const possessiveMatch = firstSentencePlain.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,5})(?:'s|'s)/);
+            const possessiveMatch = firstSentenceNorm.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,5})(?:'s|'s)/);
             if (possessiveMatch) {
               detectedAuthor = possessiveMatch[1].trim();
             }
@@ -1167,7 +1159,7 @@
             return null;
           }
           
-          const pn = extractProperNounName(firstSentencePlain, detectedTitle);
+          const pn = extractProperNounName(firstSentenceNorm, detectedTitle);
           if (pn) detectedAuthor = pn;
         }
         
