@@ -256,7 +256,7 @@ async def mark_essay(
         teacher_config=teacher_config if teacher_config else None,
     )
 
-    # You can watch this in Render logs to confirm the flags:
+    # You can watch this in Render logs to conafirm the flags:
     print("Vysti metadata:", metadata)
     print("Teacher config used:", teacher_config)
 
@@ -285,10 +285,11 @@ async def mark_essay(
 
 
     # Log usage in Supabase mark_events (best-effort; do not break marking if this fails)
+    mark_event_id = None
     try:
         if SUPABASE_URL and SUPABASE_SERVICE_KEY:
             user_id = user.get("id") if isinstance(user, dict) else None
-            db_url = f"{SUPABASE_URL}/rest/v1/mark_events"
+            db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
             payload = {
                 "user_id": user_id,
                 "file_name": file.filename,
@@ -303,16 +304,21 @@ async def mark_essay(
             }
 
             async with httpx.AsyncClient(timeout=5) as client:
-                await client.post(
+                resp = await client.post(
                     db_url,
                     json=payload,
                     headers={
                         "apikey": SUPABASE_SERVICE_KEY,
                         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                         "Content-Type": "application/json",
-                        "Prefer": "return=minimal",
+                        "Prefer": "return=representation",
                     },
                 )
+                # Capture mark_event_id from response
+                if resp.status_code >= 200 and resp.status_code < 300:
+                    resp_data = resp.json()
+                    if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
+                        mark_event_id = resp_data[0].get("id")
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
 
@@ -330,7 +336,7 @@ async def mark_essay(
                     paragraph_index = ex.get("paragraph_index")
                     if not label or not sentence:
                         continue
-                    example_rows.append({
+                    example_row = {
                         "user_id": user_id,
                         "class_id": class_id_validated,
                         "assignment_name": assignment_name,
@@ -340,7 +346,11 @@ async def mark_essay(
                         "label": label,
                         "sentence": sentence,
                         "paragraph_index": paragraph_index,
-                    })
+                    }
+                    # Include mark_event_id if we captured it
+                    if mark_event_id:
+                        example_row["mark_event_id"] = mark_event_id
+                    example_rows.append(example_row)
                 
                 if example_rows:
                     db_url = f"{SUPABASE_URL}/rest/v1/issue_examples"
