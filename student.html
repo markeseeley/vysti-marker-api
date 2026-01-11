@@ -796,9 +796,21 @@
       return /[.!?]/.test((text || "").trim());
     }
     
+    // Helper: Check if text looks like a student essay-title header format
+    function isEssayTitleHeaderLine(text) {
+      const s = (text || "").trim();
+      // "Quotation": Topic in Essay Title  (common student format)
+      return /^[""][^""]+[""]\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
+    }
+    
     // Helper: Check if text looks like a header or title line (not an intro sentence)
     function isLikelyHeaderOrTitle(text) {
       const plainText = text.trim();
+      
+      // First check: Skip student essay-title header format
+      if (isEssayTitleHeaderLine(plainText)) {
+        return true;
+      }
       
       // 1) ANY paragraph without sentence-ending punctuation is likely a header/title
       // (unless it's extremely long, which suggests it's actual content)
@@ -987,6 +999,11 @@
             });
             const segHtml = segDiv.innerHTML.trim();
             const segPlain = stripTags(segHtml).trim();
+            
+            // Skip essay title header segments
+            if (isEssayTitleHeaderLine(segPlain)) continue;
+            if (isLikelyHeaderOrTitle(segPlain)) continue;
+            
             const wc = countWords(segPlain);
             
             if (hasSentenceEnd(segPlain) && wc >= 8) {
@@ -1008,6 +1025,11 @@
               });
               const segHtml = segDiv.innerHTML.trim();
               const segPlain = stripTags(segHtml).trim();
+              
+              // Skip essay title header segments
+              if (isEssayTitleHeaderLine(segPlain)) continue;
+              if (isLikelyHeaderOrTitle(segPlain)) continue;
+              
               const wc = countWords(segPlain);
               
               if (hasSentenceEnd(segPlain) && wc >= 5) {
@@ -1077,6 +1099,53 @@
               detectedAuthor = possessiveMatch[1].trim();
             }
           }
+        }
+        
+        // Fallback: Extract author using proper noun clustering if no author detected
+        if (!detectedAuthor) {
+          function cleanPossessive(tok) {
+            return tok.replace(/('s|'s)$/, "");
+          }
+          
+          function isNameToken(tok) {
+            return /^[A-Z][a-z]+$/.test(tok) || /^[A-Z]$/.test(tok) || /^[A-Z]\.$/.test(tok) || /^[A-Z][a-z]+('s|'s)$/.test(tok);
+          }
+          
+          function extractProperNounName(sentence, detectedTitle) {
+            const toks = (sentence.match(/[A-Za-z''.]+/g) || []).filter(Boolean);
+            const titleKey = (detectedTitle || "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+            const titleWords = new Set(titleKey.split(/\s+/).filter(Boolean));
+            
+            const candidates = [];
+            let run = [];
+            
+            for (const raw of toks) {
+              const tok = cleanPossessive(raw);
+              if (isNameToken(raw)) {
+                run.push(tok);
+                if (run.length > 5) run.shift();
+              } else {
+                if (run.length >= 2) candidates.push(run.slice());
+                run = [];
+              }
+            }
+            if (run.length >= 2) candidates.push(run.slice());
+            
+            // Filter out candidates that overlap heavily with title words
+            const filtered = candidates
+              .map(arr => arr.join(" "))
+              .filter(name => {
+                const words = name.toLowerCase().split(/\s+/);
+                const overlap = words.filter(w => titleWords.has(w)).length;
+                return overlap === 0;
+              });
+            
+            if (filtered.length > 0) return filtered[0];
+            return null;
+          }
+          
+          const pn = extractProperNounName(firstSentencePlain, detectedTitle);
+          if (pn) detectedAuthor = pn;
         }
         
         return { title: detectedTitle, author: detectedAuthor, isMinor };
