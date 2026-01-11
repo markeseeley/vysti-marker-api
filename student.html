@@ -281,6 +281,7 @@
         <div class="text-details-section visible" id="textDetailsSection">
           <div class="work-section" id="work1Section">
             <div class="work-title">What did you write about?</div>
+            <div id="metaConfirm" class="detected-meta"></div>
             <label>
               Who is the author?
               <input type="text" id="author" placeholder="Author's full name" />
@@ -417,8 +418,6 @@
               </select>
             </div>
           </div>
-
-          <div id="detectedMeta" class="detected-meta"></div>
         </div>
 
         <button class="primary-btn" id="checkBtn" type="submit" disabled>Check My Essay</button>
@@ -516,7 +515,7 @@
     const addWork3Btn = document.getElementById("addWork3Btn");
     const work2Section = document.getElementById("work2Section");
     const work3Section = document.getElementById("work3Section");
-    const detectedMeta = document.getElementById("detectedMeta");
+    const metaConfirm = document.getElementById("metaConfirm");
     const markedPreviewCard = document.getElementById("markedPreviewCard");
     const markedPreview = document.getElementById("markedPreview");
     const revisionPracticeCard = document.getElementById("revisionPracticeCard");
@@ -530,6 +529,7 @@
     let downloadUrl = null;
     let markedBlob = null;
     let currentMarkEvent = null;
+    let pendingDetectedMeta = null;
 
     // ===== Mode explainer card =====
     const MODE_RULE_DEFAULTS = {
@@ -756,8 +756,9 @@
       downloadBtn.style.display = "none";
       statusArea.textContent = "";
       statusArea.className = "status-area";
-      detectedMeta.classList.remove("visible");
-      detectedMeta.textContent = "";
+      pendingDetectedMeta = null;
+      metaConfirm.classList.remove("visible");
+      metaConfirm.textContent = "";
       markedPreviewCard.style.display = "none";
       markedPreview.innerHTML = "";
       revisionPracticeCard.style.display = "none";
@@ -1092,35 +1093,10 @@
         selectedFile = files[0];
         updateFileUI();
         
-        // Extract metadata and prefill if fields are empty
+        // Extract metadata and store for later (after Check My Essay)
         const meta = await extractMetaFromDocx(selectedFile);
         if (meta) {
-          const titleInput = document.getElementById("title");
-          const authorInput = document.getElementById("author");
-          
-          if (meta.title && !titleInput.value.trim()) {
-            titleInput.value = meta.title;
-            // Update radio and select
-            if (meta.isMinor) {
-              titleTypeRadios[0].checked = true;
-              titleIsMinorSelect.value = "true";
-            } else {
-              titleTypeRadios[1].checked = true;
-              titleIsMinorSelect.value = "false";
-            }
-          }
-          
-          if (meta.author && !authorInput.value.trim()) {
-            authorInput.value = meta.author;
-          }
-          
-          // Show detected meta message
-          const parts = [];
-          if (meta.title) parts.push(`Title: ${meta.title}`);
-          if (meta.author) parts.push(`Author: ${meta.author}`);
-          
-          detectedMeta.textContent = `Detected from first sentence: ${parts.join(" | ")}`;
-          detectedMeta.classList.add("visible");
+          pendingDetectedMeta = meta;
         }
       }
     });
@@ -1158,35 +1134,10 @@
           fileInput.files = dt.files;
           updateFileUI();
           
-          // Extract metadata and prefill if fields are empty
+          // Extract metadata and store for later (after Check My Essay)
           const meta = await extractMetaFromDocx(selectedFile);
           if (meta) {
-            const titleInput = document.getElementById("title");
-            const authorInput = document.getElementById("author");
-            
-            if (meta.title && !titleInput.value.trim()) {
-              titleInput.value = meta.title;
-              // Update radio and select
-              if (meta.isMinor) {
-                titleTypeRadios[0].checked = true;
-                titleIsMinorSelect.value = "true";
-              } else {
-                titleTypeRadios[1].checked = true;
-                titleIsMinorSelect.value = "false";
-              }
-            }
-            
-            if (meta.author && !authorInput.value.trim()) {
-              authorInput.value = meta.author;
-            }
-            
-            // Show detected meta message
-            const parts = [];
-            if (meta.title) parts.push(`Title: ${meta.title}`);
-            if (meta.author) parts.push(`Author: ${meta.author}`);
-            
-            detectedMeta.textContent = `Detected from first sentence: ${parts.join(" | ")}`;
-            detectedMeta.classList.add("visible");
+            pendingDetectedMeta = meta;
           }
         } else {
           statusArea.textContent = "Please upload a .docx file.";
@@ -1325,6 +1276,9 @@
         statusArea.className = "status-area success";
         downloadBtn.style.display = "block";
         
+        // Apply detected meta after successful marking
+        applyDetectedMetaAfterCheck();
+        
         // Load revision practice data
         await loadRevisionPractice();
 
@@ -1336,6 +1290,50 @@
         checkBtn.disabled = false;
       }
     });
+
+    // ===== Apply detected meta after Check My Essay =====
+    function applyDetectedMetaAfterCheck() {
+      if (!pendingDetectedMeta) return;
+
+      const meta = pendingDetectedMeta;
+      const titleInput = document.getElementById("title");
+      const authorInput = document.getElementById("author");
+
+      // Apply only if empty (don't overwrite student edits)
+      const titleWasEmpty = titleInput && !titleInput.value.trim();
+      if (meta.author && authorInput && !authorInput.value.trim()) {
+        authorInput.value = meta.author;
+      }
+      if (meta.title && titleInput && titleWasEmpty) {
+        titleInput.value = meta.title;
+      }
+
+      // Apply type toggle only if we filled the title field (it was empty before)
+      if (meta.title && titleWasEmpty) {
+        if (meta.isMinor) {
+          const minorRadio = document.querySelector('input[name="title_type"][value="true"]');
+          if (minorRadio) minorRadio.checked = true;
+          titleIsMinorSelect.value = "true";
+        } else {
+          const majorRadio = document.querySelector('input[name="title_type"][value="false"]');
+          if (majorRadio) majorRadio.checked = true;
+          titleIsMinorSelect.value = "false";
+        }
+      }
+
+      // Show confirmation banner above the inputs
+      const parts = [];
+      if (meta.author) parts.push(`Author: ${meta.author}`);
+      if (meta.title) parts.push(`Title: ${meta.title}`);
+      parts.push(`Type: ${meta.isMinor ? "Minor work" : "Major work"}`);
+
+      metaConfirm.textContent = `Is this information correct? Detected from first sentence: ${parts.join(" | ")}`;
+      metaConfirm.classList.add("visible");
+
+      // Ensure the section is open so the student sees it
+      textDetailsSection.classList.add("visible");
+      textDetailsToggle.textContent = "Enter author and text titles ▲";
+    }
 
     // ===== Revision Practice =====
     // Handle issue selection (set up once)
@@ -1383,13 +1381,23 @@
         currentMarkEvent = markEvents[0];
         const labelCounts = currentMarkEvent.label_counts || {};
         
-        // Get top 8 issues by count
+        // Get top issues by count, then deduplicate
         const sortedLabels = Object.entries(labelCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8)
-          .map(([label]) => label);
+          .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+          .map(([label]) => String(label || "").trim())
+          .filter(Boolean);
 
-        if (sortedLabels.length === 0) {
+        // Deduplicate while preserving order
+        const seen = new Set();
+        const uniqueLabels = [];
+        for (const lbl of sortedLabels) {
+          if (seen.has(lbl)) continue;
+          seen.add(lbl);
+          uniqueLabels.push(lbl);
+          if (uniqueLabels.length >= 8) break;
+        }
+
+        if (uniqueLabels.length === 0) {
           revisionPracticeCard.style.display = "block";
           issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
           return;
@@ -1397,7 +1405,7 @@
 
         // Populate dropdown
         issueSelect.innerHTML = '<option value="">Select an issue...</option>';
-        sortedLabels.forEach(label => {
+        uniqueLabels.forEach(label => {
           const option = document.createElement("option");
           option.value = label;
           option.textContent = label;
@@ -1438,7 +1446,7 @@
           .eq("file_name", selectedFile.name)
           .eq("label", label)
           .order("created_at", { ascending: false })
-          .limit(3);
+          .limit(10); // Fetch more to allow deduplication
 
         if (error) {
           console.error("Error loading examples:", error);
@@ -1446,15 +1454,27 @@
           return;
         }
 
+        // Deduplicate examples by sentence text (trimmed)
+        const uniq = [];
+        const seenSent = new Set();
+        for (const ex of (examples || [])) {
+          const s = String(ex?.sentence || "").trim();
+          if (!s) continue;
+          if (seenSent.has(s)) continue;
+          seenSent.add(s);
+          uniq.push(ex);
+          if (uniq.length >= 3) break;
+        }
+
         examplesList.innerHTML = "";
         
-        if (!examples || examples.length === 0) {
-          examplesList.innerHTML = "<li>No examples available for this issue.</li>";
+        if (!uniq || uniq.length === 0) {
+          examplesList.innerHTML = "<li>No examples available for this issue. Try fixing similar issues from other assignments.</li>";
           downloadRevisionNotesBtn.style.display = "none";
           return;
         }
 
-        examples.forEach((ex, idx) => {
+        uniq.forEach((ex, idx) => {
           const li = document.createElement("li");
           li.className = "example-item";
           
@@ -1507,7 +1527,7 @@
 
         downloadRevisionNotesBtn.style.display = "block";
         downloadRevisionNotesBtn.onclick = () => {
-          downloadRevisionNotes(label, examples);
+          downloadRevisionNotes(label, uniq);
         };
 
       } catch (error) {
