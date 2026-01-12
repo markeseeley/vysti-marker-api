@@ -74,10 +74,21 @@
       border: 1px solid #e0e0e0;
     }
     .assignment-tracker-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       color: var(--text);
       margin-bottom: 4px;
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     .assignment-tracker-help {
       font-size: 13px;
@@ -121,7 +132,7 @@
       background: #e7f3ff;
       border-radius: 6px;
       font-size: 12px;
-      color: #0066cc;
+      color: #000;
       display: none;
     }
     .detected-meta.visible {
@@ -231,9 +242,9 @@
     <form id="studentForm" class="marker-grid" style="display:none;">
       <section class="card form-card">
         <label>
-          Select assignment
+          What is the assignment?
           <select id="mode">
-            <option value="textual_analysis">Textual analysis</option>
+            <option value="textual_analysis">Analytic essay</option>
             <option value="peel_paragraph">Mini-essay paragraph</option>
             <option value="reader_response">Reader response</option>
             <option value="argumentation">Argumentation</option>
@@ -243,7 +254,7 @@
         <!-- Mode explainer card (single, dynamic) -->
         <div class="mode-card" id="modeCard">
           <div class="mode-card-header">
-            <span class="mode-badge" id="modeBadge">Textual analysis</span>
+            <span class="mode-badge" id="modeBadge">Analytic essay</span>
             <span class="mode-tag" id="modeTag"></span>
           </div>
 
@@ -268,10 +279,13 @@
         <div class="assignment-tracker-block">
           <div class="assignment-tracker-title">Assignment Tracker</div>
           <div class="assignment-tracker-help">Give the assignment a name to keep track of your work.</div>
-          <label>
-            Assignment name (optional)
-            <input type="text" id="assignmentName" placeholder="e.g., Homework 01" />
+          <label class="visually-hidden" for="assignmentName">Assignment name (optional)</label>
+          <input type="text" id="assignmentName" placeholder="Assignment name (optional) — e.g., Homework 01" aria-label="Assignment name (optional)" />
+          <label style="margin-top: 12px;">
+            Word count (optional)
+            <input type="number" id="targetWordCount" min="0" step="1" placeholder="e.g., 800" />
           </label>
+          <div id="wordCountReadout" style="margin-top: 8px; font-size: 13px; color: var(--text);"></div>
         </div>
 
         <div class="text-details-toggle" id="textDetailsToggle">
@@ -280,7 +294,6 @@
 
         <div class="text-details-section visible" id="textDetailsSection">
           <div class="work-section" id="work1Section">
-            <div class="work-title">What did you write about?</div>
             <div id="metaConfirm" class="detected-meta"></div>
             <label>
               Who is the author?
@@ -467,7 +480,7 @@
     </form>
 
     <section class="card marked-preview-card" id="markedPreviewCard" style="display:none;">
-      <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Marked Essay Preview</h2>
+      <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Preview</h2>
       <div id="markedPreview" class="marked-preview-container"></div>
     </section>
 
@@ -524,12 +537,15 @@
     const examplesList = document.getElementById("examplesList");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
     const modeSelect = document.getElementById("mode");
+    const wordCountReadout = document.getElementById("wordCountReadout");
+    const targetWordCountInput = document.getElementById("targetWordCount");
 
     let selectedFile = null;
     let downloadUrl = null;
     let markedBlob = null;
     let currentMarkEvent = null;
     let pendingDetectedMeta = null;
+    let currentWordCount = null;
 
     // ===== Mode explainer card =====
     const MODE_RULE_DEFAULTS = {
@@ -748,6 +764,30 @@
       }
     }
 
+    function updateWordCountUI() {
+      if (!wordCountReadout) return;
+      
+      if (currentWordCount === null || currentWordCount === undefined) {
+        wordCountReadout.textContent = "";
+        return;
+      }
+      
+      const target = targetWordCountInput ? parseInt(targetWordCountInput.value, 10) : null;
+      
+      if (!isNaN(target) && target > 0) {
+        const diff = currentWordCount - target;
+        if (diff === 0) {
+          wordCountReadout.textContent = `Word count: ${currentWordCount} (on target)`;
+        } else if (diff > 0) {
+          wordCountReadout.textContent = `Word count: ${currentWordCount} (target ${target}: ${diff} words over)`;
+        } else {
+          wordCountReadout.textContent = `Word count: ${currentWordCount} (target ${target}: ${Math.abs(diff)} words under)`;
+        }
+      } else {
+        wordCountReadout.textContent = `Word count: ${currentWordCount}`;
+      }
+    }
+
     function clearFile() {
       selectedFile = null;
       fileInput.value = "";
@@ -767,6 +807,8 @@
       examplesList.innerHTML = "";
       downloadRevisionNotesBtn.style.display = "none";
       currentMarkEvent = null;
+      currentWordCount = null;
+      if (wordCountReadout) wordCountReadout.textContent = "";
       
       // Clear Work 1 inputs
       const authorInput = document.getElementById("author");
@@ -1385,7 +1427,15 @@
           // Silently ignore test errors to not break production
         }
         
-        return { title: detectedTitle, author: detectedAuthor, isMinor };
+        // Calculate word count: sum wordCount for paragraphs that are NOT header/title
+        let wordCount = 0;
+        for (const para of paras) {
+          if (!isLikelyHeaderOrTitle(para.plain)) {
+            wordCount += para.wordCount;
+          }
+        }
+        
+        return { title: detectedTitle, author: detectedAuthor, isMinor, wordCount };
       } catch (error) {
         console.error("Error extracting metadata:", error);
         return null;
@@ -1403,9 +1453,23 @@
         const meta = await extractMetaFromDocx(selectedFile);
         if (meta) {
           pendingDetectedMeta = meta;
+          if (meta.wordCount !== undefined) {
+            currentWordCount = meta.wordCount;
+            updateWordCountUI();
+          }
           applyDetectedMetaAfterCheck();
         }
       }
+    });
+
+    // Global drag-and-drop prevention (prevents browser from navigating/opening files)
+    window.addEventListener("dragover", (e) => {
+      e.preventDefault();
+    });
+    
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      // Only process if dropped on dropZone (handled below)
     });
 
     // Drag & drop
@@ -1445,6 +1509,10 @@
           const meta = await extractMetaFromDocx(selectedFile);
           if (meta) {
             pendingDetectedMeta = meta;
+            if (meta.wordCount !== undefined) {
+              currentWordCount = meta.wordCount;
+              updateWordCountUI();
+            }
             applyDetectedMetaAfterCheck();
           }
         } else {
@@ -1630,12 +1698,7 @@
       }
 
       // Show confirmation banner above the inputs
-      const parts = [];
-      if (meta.author) parts.push(`Author: ${meta.author}`);
-      if (meta.title) parts.push(`Title: ${meta.title}`);
-      parts.push(`Type: ${meta.isMinor ? "Minor work" : "Major work"}`);
-
-      metaConfirm.textContent = `Is this information correct? Detected from first sentence: ${parts.join(" | ")}`;
+      metaConfirm.textContent = "Did we get the author and title right?";
       metaConfirm.classList.add("visible");
 
       // Ensure the section is open so the student sees it
@@ -1882,6 +1945,11 @@
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    }
+
+    // Word count target input listener
+    if (targetWordCountInput) {
+      targetWordCountInput.addEventListener("input", updateWordCountUI);
     }
 
     // Initial state
