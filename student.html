@@ -501,6 +501,7 @@
 
     <section class="card marked-preview-card" id="markedPreviewCard" style="display:none;">
       <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Preview</h2>
+      <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Tip: Click into the preview to edit. Changes here are not saved yet.</div>
       <div id="markedPreview" class="marked-preview-container"></div>
     </section>
 
@@ -1689,6 +1690,10 @@
           const buf = await blob.arrayBuffer();
           if (typeof docx !== "undefined" && docx.renderAsync) {
             await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            // Make preview editable
+            markedPreview.contentEditable = "true";
+            markedPreview.spellcheck = true;
+            markedPreview.classList.add("preview-editable");
             markedPreviewCard.style.display = "block";
           } else {
             // Fallback: show message if docx-preview not loaded
@@ -1956,22 +1961,36 @@
             });
           };
           
+          const findInPreviewBtn = document.createElement("button");
+          findInPreviewBtn.className = "example-btn";
+          findInPreviewBtn.textContent = "Find in preview";
+          findInPreviewBtn.onclick = () => {
+            if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+              rewriteStatusDiv.textContent = "Run Check My Essay to load the preview first.";
+              rewriteStatusDiv.className = "rewrite-status visible";
+              rewriteStatusDiv.classList.remove("ok", "bad");
+              return;
+            }
+            highlightAndScrollToSentence(ex.sentence || "", rewriteStatusDiv);
+          };
+          
           const checkRewriteBtn = document.createElement("button");
           checkRewriteBtn.className = "example-btn";
           checkRewriteBtn.textContent = "Check rewrite";
           checkRewriteBtn.onclick = async () => {
-            await checkRewrite(label, rewriteTextarea, rewriteStatusDiv);
+            await checkRewrite(label, ex.sentence || "", rewriteTextarea, rewriteStatusDiv);
           };
           
           actionsDiv.appendChild(copyExampleBtn);
           actionsDiv.appendChild(copyRewriteBtn);
+          actionsDiv.appendChild(findInPreviewBtn);
           actionsDiv.appendChild(checkRewriteBtn);
           
           // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
           rewriteTextarea.addEventListener("keydown", async (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
               e.preventDefault();
-              await checkRewrite(label, rewriteTextarea, rewriteStatusDiv);
+              await checkRewrite(label, ex.sentence || "", rewriteTextarea, rewriteStatusDiv);
             }
           });
           
@@ -1995,7 +2014,60 @@
       }
     }
 
-    async function checkRewrite(label, textarea, statusDiv) {
+    // ===== Preview highlighting helpers =====
+    function normalizeForMatch(text) {
+      return (text || "")
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')  // curly quotes to straight
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // curly quotes to straight
+        .replace(/\u00A0/g, " ")  // non-breaking spaces to normal spaces
+        .replace(/\s+/g, " ")  // collapse whitespace
+        .trim();
+    }
+
+    function clearPreviewHighlights() {
+      const highlighted = markedPreview.querySelectorAll(".vysti-preview-hit");
+      highlighted.forEach(el => el.classList.remove("vysti-preview-hit"));
+    }
+
+    function findBestPreviewBlockForSentence(sentence) {
+      const container = markedPreview;
+      if (!container) return null;
+
+      const candidates = container.querySelectorAll("p, li, .docx p, .docx li, div");
+      const normalizedSentence = normalizeForMatch(sentence);
+
+      for (const el of candidates) {
+        const elText = normalizeForMatch(el.innerText || "");
+        if (elText.includes(normalizedSentence)) {
+          return el;
+        }
+      }
+
+      return null;
+    }
+
+    function highlightAndScrollToSentence(sentence, statusDivOptional) {
+      clearPreviewHighlights();
+
+      const blockEl = findBestPreviewBlockForSentence(sentence);
+      if (blockEl) {
+        blockEl.classList.add("vysti-preview-hit");
+        blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Highlighted in preview below. Paste your approved rewrite here.";
+        }
+        // Focus the preview container for easy pasting
+        if (markedPreview) {
+          markedPreview.focus();
+        }
+      } else {
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Couldn't find that exact sentence in the preview. Try using Copy + paste manually.";
+        }
+      }
+    }
+
+    async function checkRewrite(label, originalSentence, textarea, statusDiv) {
       const rewrite = textarea.value.trim();
       if (!rewrite) {
         statusDiv.textContent = "Please enter a rewrite first.";
@@ -2038,6 +2110,11 @@
         const result = await response.json();
         statusDiv.textContent = result.message || "Check complete.";
         statusDiv.className = `rewrite-status visible ${result.approved ? "ok" : "bad"}`;
+        
+        // Auto-highlight on approval
+        if (result.approved === true && originalSentence) {
+          highlightAndScrollToSentence(originalSentence, statusDiv);
+        }
       } catch (error) {
         console.error("Error checking rewrite:", error);
         statusDiv.textContent = `Error: ${error.message}`;
