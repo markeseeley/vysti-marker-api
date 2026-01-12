@@ -645,3 +645,11 @@ input:focus, select:focus{
   border-radius: 4px;
 }
 
+/* Fallback when we can only find the paragraph, not the exact sentence */
+.vysti-preview-hit-block {
+  outline: 2px dashed #f2c94c;
+  background: rgba(242, 201, 76, 0.08);
+  border-radius: 6px;
+  padding: 2px;
+}
+
