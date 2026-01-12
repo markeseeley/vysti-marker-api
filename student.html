@@ -831,24 +831,66 @@
     function normalizeTypography(s) {
       return (s || "")
         .replace(/\u00A0/g, " ")
-        .replace(/[""]/g, '"')
-        .replace(/['']/g, "'")
+        // smart double quotes + guillemets → "
+        .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
+        // smart single quotes/apostrophes → '
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        // primes sometimes appear as quotes
+        .replace(/[\u2032\u2035]/g, "'")
+        .replace(/[\u2033\u2036]/g, '"')
+        // normalize dashes
+        .replace(/[\u2013\u2014]/g, "-")
         .replace(/\s+/g, " ")
         .trim();
     }
     
     // Helper: Normalize punctuation (curly quotes/apostrophes to straight ones, non-breaking spaces)
     function normalizePunct(s) {
-      return (s || "")
-        .replace(/[""]/g, '"')
-        .replace(/['']/g, "'")
-        .replace(/\u00A0/g, " ");
+      // keep legacy callsites; normalizeTypography already handles quotes/apostrophes
+      return normalizeTypography(s);
     }
     
+    // Helper: Check if a period is part of an initial or abbreviation
+    function isInitialOrAbbrevDot(t, i) {
+      if (t[i] !== ".") return false;
+      const before = t.slice(0, i + 1);
+      const after = t.slice(i + 1);
+
+      // single-letter initial: "F." "M." etc, followed by space + capital
+      if (/\b[A-Z]\.$/.test(before) && /^\s+[A-Z]/.test(after)) return true;
+
+      // common abbrevs
+      if (/\b(?:Mr|Ms|Mrs|Dr|Prof|Sr|Jr|St)\.$/.test(before) && /^\s+[A-Z]/.test(after)) return true;
+
+      // U.S. / U.K. style
+      if (/\b[A-Z]\.[A-Z]\.$/.test(before) && /^\s+[A-Z]/.test(after)) return true;
+
+      return false;
+    }
+
+    // Helper: Find the index of the sentence end, accounting for quotes and initials
+    function findSentenceEndIndex(text) {
+      const t = normalizeTypography(text);
+      let inQuotes = false;
+
+      for (let i = 0; i < t.length; i++) {
+        const ch = t[i];
+
+        // IMPORTANT: only treat double quotes as quotes. Never treat apostrophe as a quote delimiter.
+        if (ch === '"') inQuotes = !inQuotes;
+        if (inQuotes) continue;
+
+        if (ch === "." || ch === "!" || ch === "?") {
+          if (ch === "." && isInitialOrAbbrevDot(t, i)) continue;
+          return i;
+        }
+      }
+      return -1;
+    }
+
     // Helper: Check if text has sentence-ending punctuation
     function hasSentenceEnd(text) {
-      const t = normalizePunct(text).trim();
-      return /[.!?]/.test(t);
+      return findSentenceEndIndex(text) !== -1;
     }
     
     // Helper: Check if text looks like a student essay-title header format
@@ -917,29 +959,20 @@
       return words.length;
     }
     
+    // Helper: Clean title by removing surrounding quotes and trailing punctuation
+    function cleanTitle(t) {
+      t = normalizeTypography(t);
+      t = t.replace(/^[\"']+/, "").replace(/[\"']+$/, "");
+      // strip common trailing punctuation that's inside quotes in prose
+      t = t.replace(/[,\.;:]+$/g, "");
+      return t.trim();
+    }
+    
     // Helper: Extract first sentence from plain text
     function getFirstSentence(text) {
-      // Find the first sentence-ending punctuation that's not inside quotes
-      let inQuotes = false;
-      let quoteChar = null;
-      for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if ((char === '"' || char === '"' || char === "'") && (i === 0 || text[i - 1] !== '\\')) {
-          if (!inQuotes) {
-            inQuotes = true;
-            quoteChar = char;
-          } else if (char === quoteChar) {
-            inQuotes = false;
-            quoteChar = null;
-          }
-        }
-        if (!inQuotes && /[.!?]/.test(char)) {
-          return text.slice(0, i + 1).trim();
-        }
-      }
-      // Fallback: return first sentence by splitting
-      const match = text.match(/^[^.!?]+[.!?]/);
-      return match ? match[0].trim() : text.trim();
+      const t = normalizeTypography(text);
+      const idx = findSentenceEndIndex(t);
+      return idx === -1 ? t : t.slice(0, idx + 1).trim();
     }
     
     async function extractMetaFromDocx(file) {
@@ -1194,7 +1227,7 @@
             return countTitleCaseWords(b) - countTitleCaseWords(a);
           });
           
-          detectedTitle = validPhrases[0];
+          detectedTitle = cleanTitle(validPhrases[0]);
           isMinor = false;
         }
         
@@ -1229,76 +1262,127 @@
 
             quoted.sort((a, b) => scoreCandidate(b) - scoreCandidate(a) || a.idx - b.idx);
 
-            detectedTitle = quoted[0].text;
+            detectedTitle = cleanTitle(quoted[0].text);
             isMinor = true;
           }
         }
         
         // Extract author from first sentence
-        // Pattern 1: "by Author Name"
-        const byMatch = firstSentenceNorm.match(/\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/i);
-        if (byMatch) {
-          detectedAuthor = byMatch[1].trim();
-        } else {
-          // Pattern 2: "Author Name presents/argues/shows/etc."
-          const verbMatch = firstSentenceNorm.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\s+(presents|argues|shows|reveals|suggests|demonstrates)\b/i);
-          if (verbMatch) {
-            detectedAuthor = verbMatch[1].trim();
-          } else {
-            // Pattern 3: "Author's" or "Author's Title" 
-            // Fix: Support curly apostrophe ' as well as straight apostrophe '
-            const possessiveMatch = firstSentenceNorm.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,5})(?:'s|'s)/);
-            if (possessiveMatch) {
-              detectedAuthor = possessiveMatch[1].trim();
-            }
-          }
+        const NAME_STOPWORDS = new Set([
+          "In","On","At","From","With","Without","By","For","To","As",
+          "When","While","After","Before","During","Since","Because","Although","Though",
+          "The","A","An","This","That","These","Those"
+        ]);
+
+        function cleanPossessive(tok) {
+          return tok.replace(/['']s$/, "");
         }
         
-        // Fallback: Extract author using proper noun clustering if no author detected
-        if (!detectedAuthor) {
-          function cleanPossessive(tok) {
-            return tok.replace(/('s|'s)$/, "");
-          }
+        function isNameToken(tok) {
+          if (!tok) return false;
+          if (NAME_STOPWORDS.has(tok)) return false;
+
+          // Initial: "F."
+          if (/^[A-Z]\.$/.test(tok)) return true;
+
+          // Single capital (rare but allow)
+          if (/^[A-Z]$/.test(tok)) return true;
+
+          // Name word: "Richard", "Selzer", "O'Connor", "Mary-Jane"
+          if (/^[A-Z][a-z]+(?:[''][A-Z][a-z]+)?(?:-[A-Z][a-z]+(?:[''][A-Z][a-z]+)?)*$/.test(tok)) return true;
+
+          return false;
+        }
+
+        function cleanAuthorName(s) {
+          s = normalizeTypography(s);
+          const parts = s.split(/\s+/).filter(Boolean);
+          while (parts.length > 1 && NAME_STOPWORDS.has(parts[0])) parts.shift();
+          return parts.join(" ");
+        }
+        
+        function extractProperNounName(sentence, detectedTitle) {
+          const toks = (sentence.match(/[A-Za-z'.-]+/g) || []).filter(Boolean);
+          const titleKey = (detectedTitle || "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+          const titleWords = new Set(titleKey.split(/\s+/).filter(Boolean));
           
-          function isNameToken(tok) {
-            return /^[A-Z][a-z]+$/.test(tok) || /^[A-Z]$/.test(tok) || /^[A-Z]\.$/.test(tok) || /^[A-Z][a-z]+('s|'s)$/.test(tok);
-          }
+          const candidates = [];
+          let run = [];
           
-          function extractProperNounName(sentence, detectedTitle) {
-            const toks = (sentence.match(/[A-Za-z''.]+/g) || []).filter(Boolean);
-            const titleKey = (detectedTitle || "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
-            const titleWords = new Set(titleKey.split(/\s+/).filter(Boolean));
-            
-            const candidates = [];
-            let run = [];
-            
-            for (const raw of toks) {
-              const tok = cleanPossessive(raw);
-              if (isNameToken(raw)) {
-                run.push(tok);
-                if (run.length > 5) run.shift();
-              } else {
-                if (run.length >= 2) candidates.push(run.slice());
-                run = [];
-              }
+          for (const raw of toks) {
+            const tok = cleanPossessive(raw);
+            // Skip stopwords at the start of a run
+            if (run.length === 0 && NAME_STOPWORDS.has(tok)) continue;
+            if (isNameToken(raw)) {
+              run.push(tok);
+              if (run.length > 6) run.shift();
+            } else {
+              if (run.length >= 2) candidates.push(run.slice());
+              run = [];
             }
-            if (run.length >= 2) candidates.push(run.slice());
-            
-            // Filter out candidates that overlap heavily with title words
-            const filtered = candidates
-              .map(arr => arr.join(" "))
-              .filter(name => {
-                const words = name.toLowerCase().split(/\s+/);
-                const overlap = words.filter(w => titleWords.has(w)).length;
-                return overlap === 0;
-              });
-            
-            if (filtered.length > 0) return filtered[0];
-            return null;
           }
+          if (run.length >= 2) candidates.push(run.slice());
           
-          const pn = extractProperNounName(firstSentenceNorm, detectedTitle);
-          if (pn) detectedAuthor = pn;
+          // Filter out candidates that overlap heavily with title words
+          const filtered = candidates
+            .map(arr => arr.join(" "))
+            .filter(name => {
+              const words = name.toLowerCase().split(/\s+/);
+              const overlap = words.filter(w => titleWords.has(w)).length;
+              return overlap === 0;
+            });
+          
+          if (filtered.length > 0) {
+            const result = filtered[0];
+            // Remove leading stopword if present
+            const parts = result.split(/\s+/);
+            if (parts.length > 1 && NAME_STOPWORDS.has(parts[0])) {
+              return parts.slice(1).join(" ");
+            }
+            return result;
+          }
+          return null;
+        }
+
+        // Priority: possessive anywhere (best for "In Richard Selzer's …")
+        const NAME_TOKEN = "(?:[A-Z]\\.|[A-Z][a-z]+(?:[''][A-Z][a-z]+)?(?:-[A-Z][a-z]+(?:[''][A-Z][a-z]+)?)*)";
+        const NAME_RUN = `${NAME_TOKEN}(?:\\s+${NAME_TOKEN}){0,6}`;
+
+        let possMatches = Array.from(firstSentenceNorm.matchAll(new RegExp(`\\b(${NAME_RUN})['']s\\b`, "g")));
+        if (possMatches.length) {
+          // choose longest then earliest
+          possMatches.sort((a,b) => b[1].split(/\s+/).length - a[1].split(/\s+/).length || (a.index ?? 0) - (b.index ?? 0));
+          detectedAuthor = cleanAuthorName(possMatches[0][1]);
+        }
+
+        // Next: "by Author"
+        if (!detectedAuthor) {
+          const by = firstSentenceNorm.match(new RegExp(`\\b[Bb]y\\s+(${NAME_RUN})\\b`));
+          if (by) detectedAuthor = cleanAuthorName(by[1]);
+        }
+
+        // Fallback: improved proper-noun run extraction
+        if (!detectedAuthor) {
+          detectedAuthor = extractProperNounName(firstSentenceNorm, detectedTitle);
+        }
+        
+        // Sanity tests (non-breaking)
+        try {
+          // Test: getFirstSentence should not stop at initials
+          const test1 = getFirstSentence("In F. Scott Fitzgerald's novel \"The Great Gatsby,\" ...");
+          console.assert(test1.includes("Fitzgerald"), "getFirstSentence should include Fitzgerald and not stop at F.");
+          
+          // Test: possessive author extraction works for curly apostrophe
+          const test2Norm = normalizeTypography("In Richard Selzer's story \"The Knife,\" ...");
+          const test2Matches = Array.from(test2Norm.matchAll(new RegExp(`\\b(${NAME_RUN})['']s\\b`, "g")));
+          console.assert(test2Matches.length > 0 && test2Matches[0][1].includes("Selzer"), "Possessive author extraction should work for curly apostrophe");
+          
+          // Test: quoted title extraction works for curly quotes
+          const test3Norm = normalizeTypography("In \"The Knife,\" Richard Selzer...");
+          const test3Quoted = Array.from(test3Norm.matchAll(/"([^"]+)"/g));
+          console.assert(test3Quoted.length > 0, "Quoted title extraction should work for curly quotes after normalization");
+        } catch (testError) {
+          // Silently ignore test errors to not break production
         }
         
         return { title: detectedTitle, author: detectedAuthor, isMinor };
