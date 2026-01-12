@@ -1,4 +1,4 @@
-# vysti_api.py 2026
+# vysti_api.py
 
 import os
 import io
@@ -18,6 +18,7 @@ from fastapi import (
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
 from docx import Document
 
 from marker import mark_docx_bytes, extract_summary_metadata  # uses your existing engine
@@ -40,6 +41,13 @@ SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 auth_scheme = HTTPBearer(auto_error=False)
+
+
+# ===== Pydantic models =====
+class RevisionCheckRequest(BaseModel):
+    label: str
+    rewrite: str
+    mode: str | None = None
 
 
 
@@ -532,3 +540,88 @@ async def ingest_marked_essay(
             "issues": issues,
         }
     )
+
+
+@app.post("/revision/check")
+async def check_revision(
+    request: RevisionCheckRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Check if a rewritten sentence still triggers a specific issue label.
+    
+    Creates a minimal .docx document with the rewrite and checks if the
+    target label still appears in the issues.
+    """
+    # Validate rewrite: reject empty/whitespace
+    if not request.rewrite or not request.rewrite.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rewrite cannot be empty or whitespace only",
+        )
+    
+    # Cap rewrite length (2000 chars)
+    if len(request.rewrite) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rewrite exceeds maximum length of 2000 characters",
+        )
+    
+    # Build minimal .docx in-memory
+    doc = Document()
+    
+    # Intro paragraph
+    doc.add_paragraph("Placeholder introduction sentence.")
+    
+    # Body paragraph: rewrite as first sentence
+    body_text = f"{request.rewrite.strip()} Placeholder second sentence."
+    doc.add_paragraph(body_text)
+    
+    # Conclusion paragraph
+    doc.add_paragraph("Placeholder conclusion sentence.")
+    
+    # Save to BytesIO
+    docx_buffer = BytesIO()
+    doc.save(docx_buffer)
+    docx_buffer.seek(0)
+    docx_bytes = docx_buffer.getvalue()
+    docx_buffer.close()
+    
+    # Call mark_docx_bytes
+    mode = request.mode or "no_title"
+    marked_bytes, metadata = mark_docx_bytes(
+        docx_bytes,
+        mode=mode,
+        teacher_config=None,
+    )
+    
+    # Read metadata["issues"]
+    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    
+    # Check if target label appears in issues
+    matched_issue = None
+    for issue in issues:
+        if isinstance(issue, dict) and issue.get("label") == request.label:
+            matched_issue = issue
+            break
+    
+    # Return JSON response
+    if matched_issue is None:
+        # Label not present - revision approved
+        return JSONResponse(
+            content={
+                "approved": True,
+                "label": request.label,
+                "message": "Looks good! Revision approved.",
+            }
+        )
+    else:
+        # Label present - still failing
+        return JSONResponse(
+            content={
+                "approved": False,
+                "label": request.label,
+                "message": "Looks like we still have an issue.",
+                "triggered": matched_issue,
+            }
+        )
