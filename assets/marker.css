@@ -643,6 +643,8 @@ input:focus, select:focus{
   background: rgba(255, 213, 79, 0.25);
   box-shadow: 0 0 0 6px rgba(255, 213, 79, 0.18);
   border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* Fallback when we can only find the paragraph, not the exact sentence */
