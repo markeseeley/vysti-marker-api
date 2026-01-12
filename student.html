@@ -220,6 +220,26 @@
       width: 0;
       height: 0;
     }
+    .rewrite-status {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+    }
+    .rewrite-status.visible {
+      display: block;
+    }
+    .rewrite-status.ok {
+      background: #e7f5e7;
+      color: #2d5a2d;
+      border: 1px solid #a8d5a8;
+    }
+    .rewrite-status.bad {
+      background: #ffe7e7;
+      color: #5a2d2d;
+      border: 1px solid #d5a8a8;
+    }
   </style>
 </head>
 <body>
@@ -1910,6 +1930,9 @@
           rewriteTextarea.placeholder = "Rewrite it here...";
           rewriteTextarea.setAttribute("data-example-idx", idx);
           
+          const rewriteStatusDiv = document.createElement("div");
+          rewriteStatusDiv.className = "rewrite-status";
+          
           const actionsDiv = document.createElement("div");
           actionsDiv.className = "example-actions";
           
@@ -1933,12 +1956,29 @@
             });
           };
           
+          const checkRewriteBtn = document.createElement("button");
+          checkRewriteBtn.className = "example-btn";
+          checkRewriteBtn.textContent = "Check rewrite";
+          checkRewriteBtn.onclick = async () => {
+            await checkRewrite(label, rewriteTextarea, rewriteStatusDiv);
+          };
+          
           actionsDiv.appendChild(copyExampleBtn);
           actionsDiv.appendChild(copyRewriteBtn);
+          actionsDiv.appendChild(checkRewriteBtn);
+          
+          // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
+          rewriteTextarea.addEventListener("keydown", async (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+              e.preventDefault();
+              await checkRewrite(label, rewriteTextarea, rewriteStatusDiv);
+            }
+          });
           
           li.appendChild(sentenceDiv);
           li.appendChild(studentDiv);
           li.appendChild(rewriteTextarea);
+          li.appendChild(rewriteStatusDiv);
           li.appendChild(actionsDiv);
           
           examplesList.appendChild(li);
@@ -1952,6 +1992,56 @@
       } catch (error) {
         console.error("Error loading issue examples:", error);
         examplesList.innerHTML = "<li>Error loading examples.</li>";
+      }
+    }
+
+    async function checkRewrite(label, textarea, statusDiv) {
+      const rewrite = textarea.value.trim();
+      if (!rewrite) {
+        statusDiv.textContent = "Please enter a rewrite first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        statusDiv.textContent = "You must be logged in.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      statusDiv.textContent = "Checking...";
+      statusDiv.className = "rewrite-status visible";
+      statusDiv.classList.remove("ok", "bad");
+
+      try {
+        const API_BASE = "https://vysti-rules.onrender.com";
+        const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+        const response = await fetch(`${API_BASE}/revision/check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            label: label,
+            rewrite: rewrite,
+            mode: currentMode,
+          }),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+        }
+
+        const result = await response.json();
+        statusDiv.textContent = result.message || "Check complete.";
+        statusDiv.className = `rewrite-status visible ${result.approved ? "ok" : "bad"}`;
+      } catch (error) {
+        console.error("Error checking rewrite:", error);
+        statusDiv.textContent = `Error: ${error.message}`;
+        statusDiv.className = "rewrite-status visible bad";
       }
     }
 
