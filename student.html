@@ -2138,6 +2138,82 @@
       }
     }
 
+    function highlightAnchoredSentenceInElement(rootEl, sentence) {
+      const target = normalizeForMatch(sentence);
+      if (!target) return null;
+
+      const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+      const posMap = [];
+      let normText = "";
+      let lastWasSpace = false;
+
+      let node;
+      while ((node = walker.nextNode())) {
+        const t = node.textContent || "";
+        for (let i = 0; i < t.length; i++) {
+          let ch = normalizeCharForMatch(t[i]);
+          if (ch === "") continue;
+
+          if (ch === " ") {
+            if (normText.length === 0 || lastWasSpace) continue;
+            lastWasSpace = true;
+          } else {
+            lastWasSpace = false;
+          }
+
+          normText += ch;
+          posMap.push({ node, offset: i });
+        }
+      }
+
+      // Build prefix anchor: first ~60 chars, then trim back to last space
+      let prefix = target.substring(0, Math.min(60, target.length));
+      const lastSpaceIdx = prefix.lastIndexOf(" ");
+      if (lastSpaceIdx > 20) {
+        prefix = prefix.substring(0, lastSpaceIdx);
+      }
+
+      // Build suffix anchor: last ~60 chars, then trim forward to start at word boundary
+      let suffix = target.substring(Math.max(0, target.length - 60));
+      const firstSpaceIdx = suffix.indexOf(" ");
+      if (firstSpaceIdx > 0 && firstSpaceIdx < suffix.length - 20) {
+        suffix = suffix.substring(firstSpaceIdx + 1);
+      }
+
+      const start = normText.indexOf(prefix);
+      if (start === -1) return null;
+
+      const endStart = normText.indexOf(suffix, start + prefix.length);
+      if (endStart === -1) return null;
+
+      const end = endStart + suffix.length - 1;
+      const startPos = posMap[start];
+      const endPos = posMap[end];
+      if (!startPos || !endPos) return null;
+
+      const range = document.createRange();
+      range.setStart(startPos.node, startPos.offset);
+      range.setEnd(endPos.node, endPos.offset + 1);
+
+      const span = document.createElement("span");
+      span.className = "vysti-preview-hit";
+      span.setAttribute("data-vysti-hit", "1");
+
+      try {
+        range.surroundContents(span);
+        return span;
+      } catch (e) {
+        try {
+          const frag = range.extractContents();
+          span.appendChild(frag);
+          range.insertNode(span);
+          return span;
+        } catch (e2) {
+          return null;
+        }
+      }
+    }
+
     function scoreBlockMatch(sentence, blockText) {
       const normSentence = normalizeForMatch(sentence);
       const normBlock = normalizeForMatch(blockText);
@@ -2235,7 +2311,12 @@
       }
       
       // Try to highlight the exact sentence
-      const span = highlightExactTextInElement(blockEl, sentence);
+      let span = highlightExactTextInElement(blockEl, sentence);
+      
+      // If exact match fails, try anchor match
+      if (!span) {
+        span = highlightAnchoredSentenceInElement(blockEl, sentence);
+      }
       
       if (span) {
         // Sentence-level highlighting succeeded
@@ -2262,7 +2343,7 @@
         }
         return true;
       } else {
-        // Fallback to block-level highlighting
+        // Fallback to block-level highlighting (dashed)
         blockEl.classList.add("vysti-preview-hit-block");
         blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
         
@@ -2271,7 +2352,7 @@
         }
         
         if (statusDivOptional) {
-          statusDivOptional.textContent = "Found the paragraph, but couldn't isolate the exact sentence. You can still paste manually.";
+          statusDivOptional.textContent = "Found paragraph, couldn't isolate sentence";
         }
         return true;
       }
