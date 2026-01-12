@@ -2044,9 +2044,134 @@
         .trim();
     }
 
+    function unwrapNode(el) {
+      const parent = el.parentNode;
+      if (!parent) return;
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
+      }
+      parent.removeChild(el);
+      parent.normalize();
+    }
+
     function clearPreviewHighlights() {
-      const highlighted = markedPreview.querySelectorAll(".vysti-preview-hit");
-      highlighted.forEach(el => el.classList.remove("vysti-preview-hit"));
+      // Unwrap any highlight spans
+      const highlightedSpans = markedPreview.querySelectorAll("span.vysti-preview-hit[data-vysti-hit='1']");
+      highlightedSpans.forEach(unwrapNode);
+      
+      // Remove classes from any elements
+      const highlighted = markedPreview.querySelectorAll(".vysti-preview-hit, .vysti-preview-hit-block");
+      highlighted.forEach(el => {
+        el.classList.remove("vysti-preview-hit", "vysti-preview-hit-block");
+      });
+    }
+
+    function normalizeCharForMatch(ch) {
+      // Convert curly quotes to straight
+      if (ch === '\u201C' || ch === '\u201D' || ch === '\u201E' || ch === '\u201F') return '"';
+      if (ch === '\u2018' || ch === '\u2019' || ch === '\u201A' || ch === '\u201B') return "'";
+      // Convert NBSP to space
+      if (ch === '\u00A0') return ' ';
+      // Strip soft hyphen and zero-width chars
+      if (ch === '\u00AD' || (ch >= '\u200B' && ch <= '\u200D') || ch === '\uFEFF') return '';
+      // Treat any whitespace as space
+      if (/\s/.test(ch)) return ' ';
+      return ch;
+    }
+
+    function highlightExactTextInElement(rootEl, targetSentence) {
+      const target = normalizeForMatch(targetSentence);
+      if (!target || !target.trim()) return null;
+      
+      // Collect all text nodes in order
+      const textNodes = [];
+      const walker = document.createTreeWalker(
+        rootEl,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      
+      let node;
+      while (node = walker.nextNode()) {
+        textNodes.push(node);
+      }
+      
+      // Strategy 1: Try to find the sentence within a single text node (most common case)
+      for (let i = 0; i < textNodes.length; i++) {
+        const nodeText = textNodes[i].textContent || '';
+        if (!nodeText.trim()) continue;
+        
+        const nodeNormalized = normalizeForMatch(nodeText);
+        const localStart = nodeNormalized.indexOf(target);
+        
+        if (localStart !== -1) {
+          // Found match within this text node
+          // Create a range - use the normalized position as approximate offset
+          // Since normalization can change lengths, we'll highlight the whole node
+          // if the match is close enough, or use approximate offsets
+          const range = document.createRange();
+          try {
+            // Try to map normalized position back to original
+            // Use a simple proportional mapping
+            const ratio = localStart / nodeNormalized.length;
+            const startOffset = Math.floor(ratio * nodeText.length);
+            const endRatio = (localStart + target.length) / nodeNormalized.length;
+            const endOffset = Math.min(Math.ceil(endRatio * nodeText.length), nodeText.length);
+            
+            range.setStart(textNodes[i], Math.max(0, startOffset));
+            range.setEnd(textNodes[i], endOffset);
+            
+            const span = document.createElement('span');
+            span.className = 'vysti-preview-hit';
+            span.setAttribute('data-vysti-hit', '1');
+            
+            range.surroundContents(span);
+            return span;
+          } catch (e) {
+            // If range operations fail, return null (fallback will handle it)
+            return null;
+          }
+        }
+      }
+      
+      // Strategy 2: Try concatenated adjacent text nodes (sentence might span nodes)
+      // Check up to 3 consecutive nodes
+      for (let i = 0; i < textNodes.length - 1; i++) {
+        let combinedText = '';
+        const candidateNodes = [];
+        
+        for (let j = i; j < Math.min(i + 3, textNodes.length); j++) {
+          const nodeText = textNodes[j].textContent || '';
+          if (nodeText.trim()) {
+            combinedText += nodeText + ' ';
+            candidateNodes.push(textNodes[j]);
+          }
+        }
+        
+        if (combinedText.trim()) {
+          const combinedNormalized = normalizeForMatch(combinedText);
+          if (combinedNormalized.indexOf(target) !== -1 && candidateNodes.length > 0) {
+            // Found match across nodes - highlight from first to last node
+            const range = document.createRange();
+            try {
+              range.setStart(candidateNodes[0], 0);
+              const lastNode = candidateNodes[candidateNodes.length - 1];
+              range.setEnd(lastNode, lastNode.textContent.length);
+              
+              const span = document.createElement('span');
+              span.className = 'vysti-preview-hit';
+              span.setAttribute('data-vysti-hit', '1');
+              
+              range.surroundContents(span);
+              return span;
+            } catch (e) {
+              return null;
+            }
+          }
+        }
+      }
+      
+      return null;
     }
 
     function scoreBlockMatch(sentence, blockText) {
@@ -2135,23 +2260,56 @@
     function highlightAndScrollToExample(example, statusDivOptional) {
       clearPreviewHighlights();
       
+      const sentence = example?.sentence || "";
       const blockEl = findBestPreviewBlockForExample(example);
-      if (blockEl) {
-        blockEl.classList.add("vysti-preview-hit");
-        blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Focus the preview container for easy pasting
-        if (markedPreview) {
-          markedPreview.focus();
-        }
-        if (statusDivOptional) {
-          statusDivOptional.textContent = "Jumped to the paragraph in the preview below.";
-        }
-        return true;
-      } else {
+      
+      if (!blockEl) {
         if (statusDivOptional) {
           statusDivOptional.textContent = "Couldn't locate it in the preview automatically. Use Copy + paste manually.";
         }
         return false;
+      }
+      
+      // Try to highlight the exact sentence
+      const span = highlightExactTextInElement(blockEl, sentence);
+      
+      if (span) {
+        // Sentence-level highlighting succeeded
+        span.scrollIntoView({ behavior: "smooth", block: "center" });
+        
+        // Auto-select the span's contents so paste replaces the sentence
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(span);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (e) {
+          // Selection might fail, that's okay
+        }
+        
+        // Focus preview container
+        if (markedPreview) {
+          markedPreview.focus();
+        }
+        
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Highlighted the sentence in the preview. Paste your rewrite to replace it.";
+        }
+        return true;
+      } else {
+        // Fallback to block-level highlighting
+        blockEl.classList.add("vysti-preview-hit-block");
+        blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        
+        if (markedPreview) {
+          markedPreview.focus();
+        }
+        
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Found the paragraph, but couldn't isolate the exact sentence. You can still paste manually.";
+        }
+        return true;
       }
     }
 
