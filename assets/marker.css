@@ -638,7 +638,7 @@ input:focus, select:focus{
   cursor: text;
 }
 
-.vysti-preview-hit {
+span.vysti-preview-hit[data-vysti-hit="1"] {
   outline: 3px solid #ffd54f;
   background: rgba(255, 213, 79, 0.25);
   box-shadow: 0 0 0 6px rgba(255, 213, 79, 0.18);
