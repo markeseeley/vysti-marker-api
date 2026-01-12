@@ -1971,14 +1971,14 @@
               rewriteStatusDiv.classList.remove("ok", "bad");
               return;
             }
-            highlightAndScrollToSentence(ex.sentence || "", rewriteStatusDiv);
+            highlightAndScrollToExample(ex, rewriteStatusDiv);
           };
           
           const checkRewriteBtn = document.createElement("button");
           checkRewriteBtn.className = "example-btn";
           checkRewriteBtn.textContent = "Check rewrite";
           checkRewriteBtn.onclick = async () => {
-            await checkRewrite(label, ex.sentence || "", rewriteTextarea, rewriteStatusDiv);
+            await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
           };
           
           actionsDiv.appendChild(copyExampleBtn);
@@ -1990,7 +1990,7 @@
           rewriteTextarea.addEventListener("keydown", async (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
               e.preventDefault();
-              await checkRewrite(label, ex.sentence || "", rewriteTextarea, rewriteStatusDiv);
+              await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
             }
           });
           
@@ -2015,11 +2015,31 @@
     }
 
     // ===== Preview highlighting helpers =====
+    function getPreviewBlocks() {
+      if (!markedPreview) return [];
+      
+      // Prefer: markedPreview.querySelectorAll(".docx p, .docx li, p, li")
+      let blocks = Array.from(markedPreview.querySelectorAll(".docx p, .docx li, p, li"));
+      
+      // Filter out empty innerText
+      blocks = blocks.filter(block => (block.innerText || "").trim().length > 0);
+      
+      // If none found, fallback to markedPreview.querySelectorAll("p, li, div") filtered
+      if (blocks.length === 0) {
+        blocks = Array.from(markedPreview.querySelectorAll("p, li, div"));
+        blocks = blocks.filter(block => (block.innerText || "").trim().length > 0);
+      }
+      
+      return blocks;
+    }
+
     function normalizeForMatch(text) {
       return (text || "")
         .replace(/[\u201C\u201D\u201E\u201F]/g, '"')  // curly quotes to straight
         .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // curly quotes to straight
+        .replace(/\u00AD/g, "")  // remove soft hyphens
         .replace(/\u00A0/g, " ")  // non-breaking spaces to normal spaces
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")  // remove zero-width chars
         .replace(/\s+/g, " ")  // collapse whitespace
         .trim();
     }
@@ -2029,45 +2049,113 @@
       highlighted.forEach(el => el.classList.remove("vysti-preview-hit"));
     }
 
-    function findBestPreviewBlockForSentence(sentence) {
-      const container = markedPreview;
-      if (!container) return null;
-
-      const candidates = container.querySelectorAll("p, li, .docx p, .docx li, div");
-      const normalizedSentence = normalizeForMatch(sentence);
-
-      for (const el of candidates) {
-        const elText = normalizeForMatch(el.innerText || "");
-        if (elText.includes(normalizedSentence)) {
-          return el;
+    function scoreBlockMatch(sentence, blockText) {
+      const normSentence = normalizeForMatch(sentence);
+      const normBlock = normalizeForMatch(blockText);
+      
+      // Return 1.0 if blockText includes sentence after normalize
+      if (normBlock.includes(normSentence)) {
+        return 1.0;
+      }
+      
+      // Else do token score
+      // tokenize normalized sentence into words length >= 4 (strip punctuation)
+      const sentenceTokens = normSentence
+        .replace(/[^\w\s]/g, " ")
+        .split(/\s+/)
+        .filter(t => t.length >= 4);
+      
+      if (sentenceTokens.length === 0) {
+        return 0.0;
+      }
+      
+      // Count hits (case-insensitive)
+      const blockLower = normBlock.toLowerCase();
+      let hits = 0;
+      for (const token of sentenceTokens) {
+        if (blockLower.includes(token.toLowerCase())) {
+          hits++;
         }
       }
-
-      return null;
+      
+      // score = hits/tokens
+      return hits / sentenceTokens.length;
     }
 
-    function highlightAndScrollToSentence(sentence, statusDivOptional) {
-      clearPreviewHighlights();
+    function findBestPreviewBlockForExample(example) {
+      const blocks = getPreviewBlocks();
+      if (blocks.length === 0) return null;
+      
+      const sentence = example?.sentence || "";
+      const paraIndex = example?.paragraph_index;
+      
+      // Candidate search
+      if (typeof paraIndex === "number") {
+        // Try a small window around both paraIndex and (paraIndex-1) to handle off-by-one
+        const candidates = [];
+        for (const base of [paraIndex, paraIndex - 1]) {
+          for (let i = Math.max(0, base - 4); i <= Math.min(blocks.length - 1, base + 4); i++) {
+            const blockText = blocks[i].innerText || "";
+            const score = scoreBlockMatch(sentence, blockText);
+            candidates.push({ block: blocks[i], score: score, index: i });
+          }
+        }
+        
+        // Pick candidate with best score
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => b.score - a.score);
+          const best = candidates[0];
+          
+          // If best score is very low but paraIndex exists, fallback to blocks[clamped paraIndex] or blocks[clamped paraIndex-1]
+          if (best.score < 0.3) {
+            const fallbackIdx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
+            const fallbackIdx2 = Math.max(0, Math.min(blocks.length - 1, paraIndex - 1));
+            return blocks[fallbackIdx] || blocks[fallbackIdx2] || null;
+          }
+          
+          return best.block;
+        }
+      }
+      
+      // If no paraIndex, score all blocks and pick best
+      let bestBlock = null;
+      let bestScore = 0;
+      for (const block of blocks) {
+        const blockText = block.innerText || "";
+        const score = scoreBlockMatch(sentence, blockText);
+        if (score > bestScore) {
+          bestScore = score;
+          bestBlock = block;
+        }
+      }
+      
+      return bestBlock;
+    }
 
-      const blockEl = findBestPreviewBlockForSentence(sentence);
+    function highlightAndScrollToExample(example, statusDivOptional) {
+      clearPreviewHighlights();
+      
+      const blockEl = findBestPreviewBlockForExample(example);
       if (blockEl) {
         blockEl.classList.add("vysti-preview-hit");
         blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (statusDivOptional) {
-          statusDivOptional.textContent = "Highlighted in preview below. Paste your approved rewrite here.";
-        }
         // Focus the preview container for easy pasting
         if (markedPreview) {
           markedPreview.focus();
         }
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Jumped to the paragraph in the preview below.";
+        }
+        return true;
       } else {
         if (statusDivOptional) {
-          statusDivOptional.textContent = "Couldn't find that exact sentence in the preview. Try using Copy + paste manually.";
+          statusDivOptional.textContent = "Couldn't locate it in the preview automatically. Use Copy + paste manually.";
         }
+        return false;
       }
     }
 
-    async function checkRewrite(label, originalSentence, textarea, statusDiv) {
+    async function checkRewrite(label, example, textarea, statusDiv) {
       const rewrite = textarea.value.trim();
       if (!rewrite) {
         statusDiv.textContent = "Please enter a rewrite first.";
@@ -2108,12 +2196,16 @@
         }
 
         const result = await response.json();
-        statusDiv.textContent = result.message || "Check complete.";
-        statusDiv.className = `rewrite-status visible ${result.approved ? "ok" : "bad"}`;
+        const ok = !!result.approved;
+        statusDiv.textContent = result.message || (ok ? "Revision approved." : "Looks like we still have an issue.");
+        statusDiv.className = `rewrite-status visible ${ok ? "ok" : "bad"}`;
         
-        // Auto-highlight on approval
-        if (result.approved === true && originalSentence) {
-          highlightAndScrollToSentence(originalSentence, statusDiv);
+        // Auto-highlight on approval (without overwriting the status message)
+        if (ok && example) {
+          const found = highlightAndScrollToExample(example, null);
+          statusDiv.textContent += found
+            ? " Jumped to it in Preview."
+            : " Approved — couldn't auto-locate in Preview; use Copy + paste.";
         }
       } catch (error) {
         console.error("Error checking rewrite:", error);
