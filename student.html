@@ -2081,97 +2081,61 @@
 
     function highlightExactTextInElement(rootEl, targetSentence) {
       const target = normalizeForMatch(targetSentence);
-      if (!target || !target.trim()) return null;
-      
-      // Collect all text nodes in order
-      const textNodes = [];
-      const walker = document.createTreeWalker(
-        rootEl,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      
+      if (!target) return null;
+
+      const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+      const posMap = [];
+      let normText = "";
+      let lastWasSpace = false;
+
       let node;
-      while (node = walker.nextNode()) {
-        textNodes.push(node);
-      }
-      
-      // Strategy 1: Try to find the sentence within a single text node (most common case)
-      for (let i = 0; i < textNodes.length; i++) {
-        const nodeText = textNodes[i].textContent || '';
-        if (!nodeText.trim()) continue;
-        
-        const nodeNormalized = normalizeForMatch(nodeText);
-        const localStart = nodeNormalized.indexOf(target);
-        
-        if (localStart !== -1) {
-          // Found match within this text node
-          // Create a range - use the normalized position as approximate offset
-          // Since normalization can change lengths, we'll highlight the whole node
-          // if the match is close enough, or use approximate offsets
-          const range = document.createRange();
-          try {
-            // Try to map normalized position back to original
-            // Use a simple proportional mapping
-            const ratio = localStart / nodeNormalized.length;
-            const startOffset = Math.floor(ratio * nodeText.length);
-            const endRatio = (localStart + target.length) / nodeNormalized.length;
-            const endOffset = Math.min(Math.ceil(endRatio * nodeText.length), nodeText.length);
-            
-            range.setStart(textNodes[i], Math.max(0, startOffset));
-            range.setEnd(textNodes[i], endOffset);
-            
-            const span = document.createElement('span');
-            span.className = 'vysti-preview-hit';
-            span.setAttribute('data-vysti-hit', '1');
-            
-            range.surroundContents(span);
-            return span;
-          } catch (e) {
-            // If range operations fail, return null (fallback will handle it)
-            return null;
+      while ((node = walker.nextNode())) {
+        const t = node.textContent || "";
+        for (let i = 0; i < t.length; i++) {
+          let ch = normalizeCharForMatch(t[i]);
+          if (ch === "") continue;
+
+          if (ch === " ") {
+            if (normText.length === 0 || lastWasSpace) continue;
+            lastWasSpace = true;
+          } else {
+            lastWasSpace = false;
           }
+
+          normText += ch;
+          posMap.push({ node, offset: i });
         }
       }
-      
-      // Strategy 2: Try concatenated adjacent text nodes (sentence might span nodes)
-      // Check up to 3 consecutive nodes
-      for (let i = 0; i < textNodes.length - 1; i++) {
-        let combinedText = '';
-        const candidateNodes = [];
-        
-        for (let j = i; j < Math.min(i + 3, textNodes.length); j++) {
-          const nodeText = textNodes[j].textContent || '';
-          if (nodeText.trim()) {
-            combinedText += nodeText + ' ';
-            candidateNodes.push(textNodes[j]);
-          }
-        }
-        
-        if (combinedText.trim()) {
-          const combinedNormalized = normalizeForMatch(combinedText);
-          if (combinedNormalized.indexOf(target) !== -1 && candidateNodes.length > 0) {
-            // Found match across nodes - highlight from first to last node
-            const range = document.createRange();
-            try {
-              range.setStart(candidateNodes[0], 0);
-              const lastNode = candidateNodes[candidateNodes.length - 1];
-              range.setEnd(lastNode, lastNode.textContent.length);
-              
-              const span = document.createElement('span');
-              span.className = 'vysti-preview-hit';
-              span.setAttribute('data-vysti-hit', '1');
-              
-              range.surroundContents(span);
-              return span;
-            } catch (e) {
-              return null;
-            }
-          }
+
+      const start = normText.indexOf(target);
+      if (start === -1) return null;
+
+      const end = start + target.length - 1;
+      const startPos = posMap[start];
+      const endPos = posMap[end];
+      if (!startPos || !endPos) return null;
+
+      const range = document.createRange();
+      range.setStart(startPos.node, startPos.offset);
+      range.setEnd(endPos.node, endPos.offset + 1);
+
+      const span = document.createElement("span");
+      span.className = "vysti-preview-hit";
+      span.setAttribute("data-vysti-hit", "1");
+
+      try {
+        range.surroundContents(span);
+        return span;
+      } catch (e) {
+        try {
+          const frag = range.extractContents();
+          span.appendChild(frag);
+          range.insertNode(span);
+          return span;
+        } catch (e2) {
+          return null;
         }
       }
-      
-      return null;
     }
 
     function scoreBlockMatch(sentence, blockText) {
