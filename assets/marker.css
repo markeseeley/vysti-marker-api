@@ -646,6 +646,15 @@ span.vysti-preview-hit[data-vysti-hit="1"] {
   border-radius: 4px;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+
+  /* NEW: keep the document-looking font + add a stronger highlight via bold */
+  font-family: "Times New Roman", Times, serif !important;
+  font-weight: 700 !important;
+
+  /* Safety: don't accidentally wipe other styling */
+  font-style: inherit;
+  color: inherit;
+  text-decoration: inherit;
 }
 
 /* Fallback when we can only find the paragraph, not the exact sentence */
