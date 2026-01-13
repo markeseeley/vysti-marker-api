@@ -2283,34 +2283,34 @@
     function scoreBlockMatch(sentence, blockText) {
       const normSentence = normalizeForMatch(sentence);
       const normBlock = normalizeForMatch(blockText);
-      
-      // Return 1.0 if blockText includes sentence after normalize
-      if (normBlock.includes(normSentence)) {
-        return 1.0;
-      }
-      
-      // Else do token score
-      // tokenize normalized sentence into words length >= 4 (strip punctuation)
-      const sentenceTokens = normSentence
-        .replace(/[^\w\s]/g, " ")
-        .split(/\s+/)
-        .filter(t => t.length >= 4);
-      
-      if (sentenceTokens.length === 0) {
-        return 0.0;
-      }
-      
-      // Count hits (case-insensitive)
+
+      if (!normSentence || !normBlock) return 0.0;
+
+      // Perfect match if the normalized block contains the full normalized sentence.
+      if (normBlock.includes(normSentence)) return 1.0;
+
+      // Token scoring fallback:
+      // - Prefer longer tokens to avoid false positives.
+      // - But if the sentence is short (or gets split by injected "→ ..."), relax token length.
+      const tokenize = (minLen) =>
+        normSentence
+          .replace(/[^\w\s]/g, " ")
+          .split(/\s+/)
+          .filter((t) => t.length >= minLen);
+
+      let tokens = tokenize(4);
+      if (tokens.length === 0) tokens = tokenize(3);
+      if (tokens.length === 0) tokens = tokenize(2);
+
+      if (tokens.length === 0) return 0.0;
+
       const blockLower = normBlock.toLowerCase();
       let hits = 0;
-      for (const token of sentenceTokens) {
-        if (blockLower.includes(token.toLowerCase())) {
-          hits++;
-        }
+      for (const token of tokens) {
+        if (blockLower.includes(token.toLowerCase())) hits++;
       }
-      
-      // score = hits/tokens
-      return hits / sentenceTokens.length;
+
+      return hits / tokens.length;
     }
 
     function findBestPreviewBlockForExample(example) {
@@ -2320,7 +2320,7 @@
       const sentence = (example?.sentence || "").trim();
       const paraIndex = example?.paragraph_index;
 
-      // If we don't have usable text, fall back deterministically.
+      // If there's no usable sentence text, fall back deterministically.
       if (!sentence) {
         if (typeof paraIndex === "number") {
           const idx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
@@ -2329,31 +2329,41 @@
         return blocks[0] || null;
       }
 
-      // --- Global best (search all blocks) ---
-      let globalBest = null;
+      // 1) Global best (search all blocks). This protects us when paragraph_index is offset
+      // by title/name/spacing blocks at the top of docx-preview.
+      let globalBest = blocks[0];
       let globalBestScore = -1;
+
       for (let i = 0; i < blocks.length; i++) {
         const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
         if (score > globalBestScore) {
           globalBestScore = score;
           globalBest = blocks[i];
-          if (score === 1.0) break; // can't do better than perfect
+          if (score === 1.0) break; // can't beat perfect
         }
       }
 
-      // If paragraph_index is missing, just use global best.
+      // If paragraph_index is missing, just use the global best.
       if (typeof paraIndex !== "number") {
         return globalBest;
       }
 
-      // --- Local window best (prefer speed/accuracy when paraIndex aligns) ---
+      // 2) Local window best (prefer local when it's confident, but widen near top of document)
       const candidates = [];
-      for (const base of [paraIndex, paraIndex - 1]) {
+      const bases = [paraIndex, paraIndex - 1, paraIndex + 1];
+
+      for (const base of bases) {
+        if (typeof base !== "number") continue;
+
         const backward = 4;
-        // Near the top of the doc, indexes are most likely to be offset by title/spacing blocks.
+
+        // Near the top, docx-preview often adds extra blocks (title/name/blank lines),
+        // so we search farther forward to avoid missing the true first body paragraph.
         const forward = base <= 2 ? 12 : 4;
+
         const start = Math.max(0, base - backward);
         const end = Math.min(blocks.length - 1, base + forward);
+
         for (let i = start; i <= end; i++) {
           const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
           candidates.push({ block: blocks[i], score, index: i });
@@ -2364,20 +2374,20 @@
       candidates.sort((a, b) => b.score - a.score);
       const bestLocal = candidates[0];
 
-      // If the local match is good, trust it.
+      // If local is good, use it.
       if (bestLocal && bestLocal.score >= 0.3) {
         return bestLocal.block;
       }
 
-      // If local match is weak (common for first paragraph / top-of-doc),
-      // trust the global best instead of falling back to blocks[paraIndex].
-      if (globalBest) {
+      // Otherwise, if global is decent, use it (THIS fixes first-sentence problems).
+      if (globalBestScore >= 0.3) {
         return globalBest;
       }
 
-      // Last-resort deterministic fallback (should be rare).
-      const idx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
-      return blocks[idx] || null;
+      // Last resort: old deterministic fallback.
+      const fallbackIdx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
+      const fallbackIdx2 = Math.max(0, Math.min(blocks.length - 1, paraIndex - 1));
+      return blocks[fallbackIdx] || blocks[fallbackIdx2] || globalBest || null;
     }
 
     function highlightAndScrollToExample(example, statusDivOptional) {
