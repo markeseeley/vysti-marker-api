@@ -4874,6 +4874,11 @@ def analyze_text(
     return marks, flat_text, segments, sentences
 
 
+# Constants for quotation label insertion
+CLOSING_QUOTE_CHARS = {'"', '"', "'", "'"}
+TRAILING_QUOTE_PUNCT = {",", ".", "!", "?", ";", ":"}
+
+
 def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph_index=None):
     """
     Rebuild `paragraph` from `flat_text` and a list of `marks`.
@@ -5160,7 +5165,7 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
 
             if is_quote_label:
                 # For quotation rules, move the label AFTER the closing quote if it is next
-                if cursor < len(flat_text) and flat_text[cursor] == '"':
+                if cursor < len(flat_text) and flat_text[cursor] in CLOSING_QUOTE_CHARS:
                     append_text_with_italics(
                         paragraph,
                         flat_text,
@@ -5171,6 +5176,19 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
                         strike=False,
                     )
                     cursor += 1
+
+                    # Optional but recommended: keep punctuation immediately after the closing quote attached
+                    while cursor < len(flat_text) and flat_text[cursor] in TRAILING_QUOTE_PUNCT:
+                        append_text_with_italics(
+                            paragraph,
+                            flat_text,
+                            cursor,
+                            cursor + 1,
+                            original_italic_spans,
+                            color=None,
+                            strike=False,
+                        )
+                        cursor += 1
 
             # Build the label run
             # NOTE: Label runs are Vysti-generated and should NOT inherit student italics,
