@@ -2434,6 +2434,13 @@
       }
 
       // Only now do paragraph fallback
+      console.debug("[FindPreview fallback]", {
+        label: example?.label,
+        paragraph_index: example?.paragraph_index,
+        sentence: example?.sentence,
+        normSentence: normalizeForMatch(example?.sentence || "").slice(0, 200),
+        normBlock: normalizeForMatch(blockEl?.innerText || "").slice(0, 200),
+      });
       blockEl.classList.add("vysti-preview-hit-block");
       blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
       if (markedPreview) markedPreview.focus();
