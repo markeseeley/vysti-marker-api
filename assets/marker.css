@@ -638,30 +638,38 @@ input:focus, select:focus{
   cursor: text;
 }
 
+/* Find-in-preview exact sentence highlight */
 span.vysti-preview-hit[data-vysti-hit="1"] {
-  display: inline;
-  outline: 3px solid #ffd54f;
-  background: rgba(255, 213, 79, 0.25);
-  box-shadow: 0 0 0 6px rgba(255, 213, 79, 0.18);
-  border-radius: 4px;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+  /* Remove yellow box styling */
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 
-  /* NEW: keep the document-looking font + add a stronger highlight via bold */
+  /* Make the highlight "pop" using brand styling */
   font-family: "Times New Roman", Times, serif !important;
   font-weight: 700 !important;
+  color: #A90D22 !important;
 
-  /* Safety: don't accidentally wipe other styling */
+  /* Keep safe inheritance for everything else */
   font-style: inherit;
-  color: inherit;
   text-decoration: inherit;
+
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* Fallback when we can only find the paragraph, not the exact sentence */
 .vysti-preview-hit-block {
-  outline: 2px dashed #f2c94c;
-  background: rgba(242, 201, 76, 0.08);
-  border-radius: 6px;
-  padding: 2px;
+  /* Remove yellow box styling */
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+
+  /* Same brand highlight styling */
+  font-family: "Times New Roman", Times, serif !important;
+  font-weight: 700 !important;
+  color: #A90D22 !important;
 }
 
