@@ -2316,51 +2316,68 @@
     function findBestPreviewBlockForExample(example) {
       const blocks = getPreviewBlocks();
       if (blocks.length === 0) return null;
-      
-      const sentence = example?.sentence || "";
+
+      const sentence = (example?.sentence || "").trim();
       const paraIndex = example?.paragraph_index;
-      
-      // Candidate search
-      if (typeof paraIndex === "number") {
-        // Try a small window around both paraIndex and (paraIndex-1) to handle off-by-one
-        const candidates = [];
-        for (const base of [paraIndex, paraIndex - 1]) {
-          for (let i = Math.max(0, base - 4); i <= Math.min(blocks.length - 1, base + 4); i++) {
-            const blockText = blocks[i].innerText || "";
-            const score = scoreBlockMatch(sentence, blockText);
-            candidates.push({ block: blocks[i], score: score, index: i });
-          }
+
+      // If we don't have usable text, fall back deterministically.
+      if (!sentence) {
+        if (typeof paraIndex === "number") {
+          const idx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
+          return blocks[idx] || blocks[0] || null;
         }
-        
-        // Pick candidate with best score
-        if (candidates.length > 0) {
-          candidates.sort((a, b) => b.score - a.score);
-          const best = candidates[0];
-          
-          // If best score is very low but paraIndex exists, fallback to blocks[clamped paraIndex] or blocks[clamped paraIndex-1]
-          if (best.score < 0.3) {
-            const fallbackIdx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
-            const fallbackIdx2 = Math.max(0, Math.min(blocks.length - 1, paraIndex - 1));
-            return blocks[fallbackIdx] || blocks[fallbackIdx2] || null;
-          }
-          
-          return best.block;
+        return blocks[0] || null;
+      }
+
+      // --- Global best (search all blocks) ---
+      let globalBest = null;
+      let globalBestScore = -1;
+      for (let i = 0; i < blocks.length; i++) {
+        const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
+        if (score > globalBestScore) {
+          globalBestScore = score;
+          globalBest = blocks[i];
+          if (score === 1.0) break; // can't do better than perfect
         }
       }
-      
-      // If no paraIndex, score all blocks and pick best
-      let bestBlock = null;
-      let bestScore = 0;
-      for (const block of blocks) {
-        const blockText = block.innerText || "";
-        const score = scoreBlockMatch(sentence, blockText);
-        if (score > bestScore) {
-          bestScore = score;
-          bestBlock = block;
+
+      // If paragraph_index is missing, just use global best.
+      if (typeof paraIndex !== "number") {
+        return globalBest;
+      }
+
+      // --- Local window best (prefer speed/accuracy when paraIndex aligns) ---
+      const candidates = [];
+      for (const base of [paraIndex, paraIndex - 1]) {
+        const backward = 4;
+        // Near the top of the doc, indexes are most likely to be offset by title/spacing blocks.
+        const forward = base <= 2 ? 12 : 4;
+        const start = Math.max(0, base - backward);
+        const end = Math.min(blocks.length - 1, base + forward);
+        for (let i = start; i <= end; i++) {
+          const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
+          candidates.push({ block: blocks[i], score, index: i });
+          if (score === 1.0) return blocks[i];
         }
       }
-      
-      return bestBlock;
+
+      candidates.sort((a, b) => b.score - a.score);
+      const bestLocal = candidates[0];
+
+      // If the local match is good, trust it.
+      if (bestLocal && bestLocal.score >= 0.3) {
+        return bestLocal.block;
+      }
+
+      // If local match is weak (common for first paragraph / top-of-doc),
+      // trust the global best instead of falling back to blocks[paraIndex].
+      if (globalBest) {
+        return globalBest;
+      }
+
+      // Last-resort deterministic fallback (should be rare).
+      const idx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
+      return blocks[idx] || null;
     }
 
     function highlightAndScrollToExample(example, statusDivOptional) {
