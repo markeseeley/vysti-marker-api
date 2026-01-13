@@ -2107,32 +2107,111 @@
       return { normText, posMap };
     }
 
-    function wrapMappedRange(posMap, startIdx, endIdx) {
-      const startPos = posMap[startIdx];
-      const endPos = posMap[endIdx];
-      if (!startPos || !endPos) return null;
-
-      const range = document.createRange();
-      range.setStart(startPos.node, startPos.offset);
-      range.setEnd(endPos.node, endPos.offset + 1);
-
+    // Helper: Wrap a substring of a single Text node by splitting it
+    function wrapTextNodeSubstring(node, startOffset, endOffsetInclusive) {
+      if (node.nodeType !== Node.TEXT_NODE) return null;
+      
+      const text = node.textContent || "";
+      const endOffsetExclusive = endOffsetInclusive + 1;
+      
+      // Split at endOffsetExclusive if needed
+      if (endOffsetExclusive < text.length) {
+        const afterNode = node.splitText(endOffsetExclusive);
+        // afterNode is now the node after the split
+      }
+      
+      // Split at startOffset if needed (now node might have been shortened)
+      let targetNode = node;
+      if (startOffset > 0) {
+        targetNode = node.splitText(startOffset);
+      }
+      
+      // Now targetNode contains the substring we want to wrap
       const span = document.createElement("span");
       span.className = "vysti-preview-hit";
       span.setAttribute("data-vysti-hit", "1");
+      
+      // Wrap the targetNode
+      const parent = targetNode.parentNode;
+      if (parent) {
+        parent.insertBefore(span, targetNode);
+        span.appendChild(targetNode);
+      }
+      
+      return span;
+    }
 
-      try {
-        range.surroundContents(span);
-        return span;
-      } catch (e) {
-        try {
-          const frag = range.extractContents();
-          span.appendChild(frag);
-          range.insertNode(span);
-          return span;
-        } catch (e2) {
-          return null;
+    // Multi-span wrapper that handles ranges across multiple text nodes
+    function wrapMappedRangeMulti(posMap, startIdx, endIdx) {
+      if (startIdx < 0 || endIdx < startIdx || endIdx >= posMap.length) {
+        return null;
+      }
+      
+      // Build segments by grouping consecutive entries with the same node
+      const segments = [];
+      let currentSegment = null;
+      
+      for (let i = startIdx; i <= endIdx; i++) {
+        const pos = posMap[i];
+        if (!pos || !pos.node) continue;
+        
+        if (!currentSegment || currentSegment.node !== pos.node) {
+          // Start new segment
+          if (currentSegment) {
+            segments.push(currentSegment);
+          }
+          currentSegment = {
+            node: pos.node,
+            startOffset: pos.offset,
+            endOffset: pos.offset
+          };
+        } else {
+          // Extend current segment
+          currentSegment.endOffset = pos.offset;
         }
       }
+      
+      if (currentSegment) {
+        segments.push(currentSegment);
+      }
+      
+      if (segments.length === 0) return null;
+      
+      // Group segments by node, then process each node's segments in reverse offset order
+      // This ensures that when we split a node, earlier offsets in the same node are still valid
+      const nodeToSegments = new Map();
+      for (const seg of segments) {
+        if (!nodeToSegments.has(seg.node)) {
+          nodeToSegments.set(seg.node, []);
+        }
+        nodeToSegments.get(seg.node).push(seg);
+      }
+      
+      const createdSpans = [];
+      
+      // Process each node's segments separately, in reverse offset order
+      for (const [originalNode, nodeSegments] of nodeToSegments) {
+        // Sort by endOffset descending (process highest offsets first)
+        nodeSegments.sort((a, b) => b.endOffset - a.endOffset);
+        
+        for (const seg of nodeSegments) {
+          // Use the original node reference - wrapTextNodeSubstring handles splitting
+          const span = wrapTextNodeSubstring(seg.node, seg.startOffset, seg.endOffset);
+          if (span) {
+            createdSpans.push(span);
+          }
+        }
+      }
+      
+      // Sort spans by DOM order
+      createdSpans.sort((a, b) => {
+        const pos = a.compareDocumentPosition(b);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      });
+      
+      return createdSpans.length > 0 ? createdSpans : null;
     }
 
     function highlightExactTextInElement(rootEl, targetSentence) {
@@ -2145,7 +2224,7 @@
       if (start === -1) return null;
 
       const end = start + target.length - 1;
-      return wrapMappedRange(posMap, start, end);
+      return wrapMappedRangeMulti(posMap, start, end);
     }
 
     function buildAnchorCandidates(target) {
@@ -2193,8 +2272,8 @@
 
           if (spanLen <= 0 || spanLen > maxAllowed) continue;
 
-          const span = wrapMappedRange(posMap, start, end);
-          if (span) return span;
+          const spans = wrapMappedRangeMulti(posMap, start, end);
+          if (spans && spans.length > 0) return spans;
         }
       }
 
@@ -2297,23 +2376,54 @@
         return false;
       }
       
-      let span = highlightExactTextInElement(blockEl, sentence);
+      let hits = highlightExactTextInElement(blockEl, sentence);
 
       // NEW: if exact fails, try anchored match (handles injected "→ ..." text inside the sentence)
-      if (!span) {
-        span = highlightAnchoredSentenceInElement(blockEl, sentence);
+      if (!hits || hits.length === 0) {
+        hits = highlightAnchoredSentenceInElement(blockEl, sentence);
       }
 
-      if (span) {
-        span.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (hits && hits.length > 0) {
+        const first = hits[0];
+        const last = hits[hits.length - 1];
+        
+        // Scroll to first span
+        first.scrollIntoView({ behavior: "smooth", block: "center" });
 
+        // Create selection range that selects the full sentence
         try {
-          const range = document.createRange();
-          range.selectNodeContents(span);
-          const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-        } catch (e) {}
+          // Find first text node in first span
+          let firstTextNode = first.firstChild;
+          while (firstTextNode && firstTextNode.nodeType !== Node.TEXT_NODE) {
+            firstTextNode = firstTextNode.firstChild;
+          }
+          
+          // Find first text node in last span
+          let lastTextNode = last.firstChild;
+          while (lastTextNode && lastTextNode.nodeType !== Node.TEXT_NODE) {
+            lastTextNode = lastTextNode.firstChild;
+          }
+          
+          if (firstTextNode && lastTextNode) {
+            const range = document.createRange();
+            range.setStart(firstTextNode, 0);
+            range.setEnd(lastTextNode, lastTextNode.textContent.length);
+            
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch (e) {
+          // Fallback: select all spans
+          try {
+            const range = document.createRange();
+            range.setStartBefore(first);
+            range.setEndAfter(last);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } catch (e2) {}
+        }
 
         if (markedPreview) markedPreview.focus();
 
