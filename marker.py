@@ -3720,7 +3720,8 @@ def analyze_text(
     # Any token/phrase that resolves to a canonical thesis device (including synonyms
     # and inflected forms via canonical_device_key and THESIS_MULTIWORD_SYNONYMS)
     # gets a simple BRIGHT_GREEN highlight, as long as it is outside of direct quotations.
-    if getattr(config, "highlight_thesis_devices", True):
+    # NOTE: Do NOT highlight devices in essay title lines (matching TITLE_PATTERN or TITLE_PATTERN_NO_COLON)
+    if getattr(config, "highlight_thesis_devices", True) and not is_essay_title_line:
         for device_key, start, end in iter_device_spans(doc):
             # Skip any device words/phrases that appear inside direct quotations
             if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
