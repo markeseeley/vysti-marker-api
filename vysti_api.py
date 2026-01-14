@@ -20,6 +20,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from docx import Document
+from docx.shared import Pt
+from docx.oxml.ns import qn
+import re
 
 from marker import mark_docx_bytes, extract_summary_metadata  # uses your existing engine
 
@@ -50,10 +53,17 @@ class RevisionCheckRequest(BaseModel):
     mode: str | None = None
 
 
+class TitleInfo(BaseModel):
+    author: str
+    title: str
+    is_minor: bool = True
+
+
 class MarkTextRequest(BaseModel):
     file_name: str
     text: str
     mode: str = "student"
+    titles: list[TitleInfo] | None = None
 
 
 
@@ -653,12 +663,27 @@ async def mark_text(
     Returns the marked .docx bytes (same as /mark).
     """
     # 1. Create .docx from text
-    # Split into paragraphs on blank lines (or \n\n)
-    doc = Document()
-    paragraphs = request.text.split("\n\n")
+    # Normalize newlines to \n
+    text = request.text.replace("\r\n", "\n").replace("\r", "\n")
     
-    for para_text in paragraphs:
-        para_text = para_text.strip()
+    # Split paragraphs on 2+ newlines
+    para_chunks = re.split(r"\n{2,}", text)
+    
+    # Create document
+    doc = Document()
+    
+    # Set default style to Times New Roman 12pt
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = "Times New Roman"
+    font.size = Pt(12)
+    # Set eastAsia font too
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+    
+    # Add paragraphs (collapsing single newlines within paragraphs to spaces)
+    for para_chunk in para_chunks:
+        # Collapse single newlines within paragraph to spaces
+        para_text = re.sub(r"\n+", " ", para_chunk).strip()
         if para_text:  # Skip empty paragraphs
             doc.add_paragraph(para_text)
     
@@ -673,15 +698,36 @@ async def mark_text(
     docx_bytes = docx_buffer.getvalue()
     docx_buffer.close()
     
-    # 2. Call mark_docx_bytes (same pipeline as /mark)
+    # 2. Build teacher_config from request.titles
+    teacher_config: dict = {}
+    if request.titles:
+        # Take first 3 entries to match current marker schema
+        titles = request.titles[:3]
+        if len(titles) > 0:
+            t1 = titles[0]
+            teacher_config["author_name"] = t1.author
+            teacher_config["text_title"] = t1.title
+            teacher_config["text_is_minor_work"] = t1.is_minor
+        if len(titles) > 1:
+            t2 = titles[1]
+            teacher_config["author_name_2"] = t2.author
+            teacher_config["text_title_2"] = t2.title
+            teacher_config["text_is_minor_work_2"] = t2.is_minor
+        if len(titles) > 2:
+            t3 = titles[2]
+            teacher_config["author_name_3"] = t3.author
+            teacher_config["text_title_3"] = t3.title
+            teacher_config["text_is_minor_work_3"] = t3.is_minor
+    
+    # 3. Call mark_docx_bytes (same pipeline as /mark)
     mode = request.mode or "textual_analysis"
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
-        teacher_config=None,
+        teacher_config=teacher_config if teacher_config else None,
     )
     
-    # 3. Extract examples and issues from metadata
+    # 4. Extract examples and issues from metadata
     examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
     issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
     
