@@ -649,7 +649,7 @@ span.vysti-preview-hit[data-vysti-hit="1"] {
   /* Make the highlight "pop" using brand styling */
   font-family: "Times New Roman", Times, serif !important;
   font-weight: 700 !important;
-  color: #A90D22 !important;
+  color: var(--maroon) !important;
 
   /* Keep safe inheritance for everything else */
   font-style: inherit;
@@ -657,6 +657,17 @@ span.vysti-preview-hit[data-vysti-hit="1"] {
 
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+
+/* Optional modifier class for old yellow-box styling (not applied by default) */
+span.vysti-preview-hit[data-vysti-hit="1"].boxed {
+  outline: 2px solid #ffeb3b !important;
+  background: rgba(255, 235, 59, 0.2) !important;
+  box-shadow: 0 0 0 2px #ffeb3b !important;
+  border-radius: 3px !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-weight: inherit !important;
 }
 
 /* Fallback when we can only find the paragraph, not the exact sentence */
@@ -670,6 +681,6 @@ span.vysti-preview-hit[data-vysti-hit="1"] {
   /* Same brand highlight styling */
   font-family: "Times New Roman", Times, serif !important;
   font-weight: 700 !important;
-  color: #A90D22 !important;
+  color: var(--maroon) !important;
 }
 
