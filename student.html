@@ -2037,6 +2037,7 @@
       return (text || "")
         .replace(/[\u201C\u201D\u201E\u201F]/g, '"')  // curly quotes to straight
         .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // curly quotes to straight
+        .replace(/[\u2013\u2014]/g, "-")  // en dash and em dash to hyphen
         .replace(/\u00AD/g, "")  // remove soft hyphens
         .replace(/\u00A0/g, " ")  // non-breaking spaces to normal spaces
         .replace(/[\u200B-\u200D\uFEFF]/g, "")  // remove zero-width chars
@@ -2070,6 +2071,8 @@
       // Convert curly quotes to straight
       if (ch === '\u201C' || ch === '\u201D' || ch === '\u201E' || ch === '\u201F') return '"';
       if (ch === '\u2018' || ch === '\u2019' || ch === '\u201A' || ch === '\u201B') return "'";
+      // Convert en dash and em dash to hyphen
+      if (ch === '\u2013' || ch === '\u2014') return '-';
       // Convert NBSP to space
       if (ch === '\u00A0') return ' ';
       // Strip soft hyphen and zero-width chars
@@ -2077,6 +2080,27 @@
       // Treat any whitespace as space
       if (/\s/.test(ch)) return ' ';
       return ch;
+    }
+
+    // Helper: Check if a text node is a Vysti label run (starts with "→")
+    function isVystiLabelTextNode(node) {
+      if (node.nodeType !== Node.TEXT_NODE) return false;
+      
+      // Check if the node's textContent (trimmed) starts with "→"
+      const text = (node.textContent || "").trim();
+      if (text.startsWith("→")) return true;
+      
+      // Also check the closest SPAN's textContent (handles cases where docx-preview splits arrow + label across nodes)
+      let current = node.parentElement;
+      while (current && current.tagName !== "SPAN") {
+        current = current.parentElement;
+      }
+      if (current && current.tagName === "SPAN") {
+        const spanText = (current.textContent || "").trim();
+        if (spanText.startsWith("→")) return true;
+      }
+      
+      return false;
     }
 
     function buildNormalizedTextMap(rootEl) {
@@ -2087,6 +2111,9 @@
 
       let node;
       while ((node = walker.nextNode())) {
+        // Skip Vysti label runs (text starting with "→")
+        if (isVystiLabelTextNode(node)) continue;
+        
         const t = node.textContent || "";
         for (let i = 0; i < t.length; i++) {
           let ch = normalizeCharForMatch(t[i]);
