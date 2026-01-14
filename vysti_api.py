@@ -691,6 +691,13 @@ async def mark_text(
     # Normalize newlines to \n
     text = request.text.replace("\r\n", "\n").replace("\r", "\n")
     
+    # Safety net: Remove rewrite-practice tag if it appears in the text
+    # This is a conservative cleanup - the real fix is in the frontend DOM extraction
+    # Match the exact phrase from marker.py: " * Rewrite this paragraph for practice  *"
+    # Use regex to handle variations in whitespace
+    rewrite_pattern = r'\s*\*\s*Rewrite this paragraph for practice\s*\*\s*'
+    text = re.sub(rewrite_pattern, '', text, flags=re.IGNORECASE)
+    
     # Split paragraphs on 2+ newlines
     para_chunks = re.split(r"\n{2,}", text)
     
