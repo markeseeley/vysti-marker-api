@@ -2329,6 +2329,70 @@
       return false;
     }
 
+    // Helper: Check if a text node is any Vysti artifact (arrow labels or rewrite-practice tags)
+    function isVystiArtifactTextNode(node) {
+      if (node.nodeType !== Node.TEXT_NODE) return false;
+      
+      // Check for arrow labels using existing helper
+      if (isVystiLabelTextNode(node)) return true;
+      
+      // Check for rewrite-practice tag
+      const text = (node.textContent || "").trim();
+      // Match the exact phrase from marker.py: " * Rewrite this paragraph for practice  *"
+      // Also handle case-insensitive and variations in whitespace
+      const rewritePattern = /^\s*\*\s*Rewrite this paragraph for practice\s*\*\s*$/i;
+      if (rewritePattern.test(text)) return true;
+      
+      // Also check the closest SPAN's textContent (handles cases where docx-preview splits text across nodes)
+      let current = node.parentElement;
+      while (current && current.tagName !== "SPAN") {
+        current = current.parentElement;
+      }
+      if (current && current.tagName === "SPAN") {
+        const spanText = (current.textContent || "").trim();
+        if (rewritePattern.test(spanText)) return true;
+      }
+      
+      return false;
+    }
+
+    // Helper: Extract clean text from an element, excluding Vysti artifacts
+    function extractCleanTextFromElement(el) {
+      if (!el) return "";
+      
+      const walker = document.createTreeWalker(
+        el,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      
+      const textParts = [];
+      let node;
+      
+      while ((node = walker.nextNode())) {
+        // Skip Vysti artifacts (arrow labels and rewrite-practice tags)
+        if (isVystiArtifactTextNode(node)) continue;
+        
+        const text = node.textContent || "";
+        if (text.trim()) {
+          textParts.push(text);
+        }
+      }
+      
+      // Concatenate all text parts
+      let combined = textParts.join("");
+      
+      // Normalize whitespace:
+      // - Convert NBSP to space
+      combined = combined.replace(/\u00A0/g, " ");
+      // - Collapse multiple whitespace to single spaces
+      combined = combined.replace(/\s+/g, " ");
+      // - Trim
+      combined = combined.trim();
+      
+      return combined;
+    }
+
     function buildNormalizedTextMap(rootEl) {
       const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
       const posMap = [];
@@ -3030,18 +3094,18 @@
       const elements = markedPreview.querySelectorAll("p, li");
       
       for (const el of elements) {
-        const text = el.innerText || el.textContent || "";
-        const trimmed = text.trim();
-        if (trimmed) {
-          paragraphs.push(trimmed);
+        // Use clean extraction that excludes Vysti artifacts
+        const text = extractCleanTextFromElement(el);
+        if (text) {
+          paragraphs.push(text);
         }
       }
       
-      // If no paragraphs found, try getting all text
+      // If no paragraphs found, try getting all text (also clean)
       if (paragraphs.length === 0) {
-        const allText = markedPreview.innerText || markedPreview.textContent || "";
-        if (allText.trim()) {
-          return allText.trim();
+        const allText = extractCleanTextFromElement(markedPreview);
+        if (allText) {
+          return allText;
         }
         return null;
       }
