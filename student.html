@@ -2768,6 +2768,48 @@
         recheckDocumentBtn.disabled = true;
 
         try {
+          // Collect title metadata (same as initial /mark flow)
+          const author = document.getElementById("author")?.value.trim() || "";
+          const title = document.getElementById("title")?.value.trim() || "";
+          const titleIsMinorSelect = document.getElementById("title_is_minor");
+          const textIsMinorWork = titleIsMinorSelect ? titleIsMinorSelect.value : "true";
+          
+          // Work 2
+          const author2 = document.getElementById("author2")?.value.trim() || "";
+          const title2 = document.getElementById("title2")?.value.trim() || "";
+          const title2IsMinorSelect = document.getElementById("title2_is_minor");
+          const title2IsMinor = title2IsMinorSelect ? title2IsMinorSelect.value : "true";
+          
+          // Work 3
+          const author3 = document.getElementById("author3")?.value.trim() || "";
+          const title3 = document.getElementById("title3")?.value.trim() || "";
+          const title3IsMinorSelect = document.getElementById("title3_is_minor");
+          const title3IsMinor = title3IsMinorSelect ? title3IsMinorSelect.value : "true";
+          
+          // Build titles array
+          const titles = [];
+          if (title) {
+            titles.push({
+              author: author,
+              title: title,
+              is_minor: textIsMinorWork === "true"
+            });
+          }
+          if (title2) {
+            titles.push({
+              author: author2,
+              title: title2,
+              is_minor: title2IsMinor === "true"
+            });
+          }
+          if (title3) {
+            titles.push({
+              author: author3,
+              title: title3,
+              is_minor: title3IsMinor === "true"
+            });
+          }
+          
           const API_BASE = "https://vysti-rules.onrender.com";
           const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
           const response = await fetch(`${API_BASE}/mark_text`, {
@@ -2780,6 +2822,7 @@
               file_name: selectedFile.name,
               text: previewText,
               mode: currentMode,
+              titles: titles.length > 0 ? titles : null,
             }),
           });
 
