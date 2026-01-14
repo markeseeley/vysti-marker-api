@@ -684,3 +684,14 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   color: var(--maroon) !important;
 }
 
+/* Text inserted into Preview via "Apply to Preview" */
+.vysti-applied-rewrite {
+  font-family: "Times New Roman", Times, serif !important;
+  font-size: 12pt !important;
+  font-weight: 400 !important;
+  font-style: inherit;
+  text-decoration: inherit;
+  color: inherit !important;
+  background: transparent !important;
+  outline: none !important;
+}
