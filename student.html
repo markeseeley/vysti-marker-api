@@ -1,718 +1,3056 @@
-:root{
-  --maroon:#A90D22;
-  --bg:#f5f6f8;
-  --card:#ffffff;
-  --border:rgba(0,0,0,.08);
-  --text:#111;
-  --muted:rgba(0,0,0,.6);
-  --shadow: 0 14px 45px rgba(0,0,0,.08);
-  --radius:16px;
-}
-
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-.dz-icon{
-  width: 40px;   /* adjust to the exact Figma W/H if it’s different */
-  height: 40px;
-}
-
-/* Top bar */
-.topbar{
-  background: var(--maroon);
-  color:#fff;
-  height:64px;
-  display:flex;
-  align-items:center;
-  padding:0 18px;
-  gap:18px;
-  box-shadow: 0 2px 0 rgba(0,0,0,.08);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-.topbar .brand{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  min-width: 150px;
-}
-.topbar .brand img{
-  height:28px;
-  width:auto;
-  filter: drop-shadow(0 6px 14px rgba(0,0,0,.18));
-}
-.topbar nav{
-  display:flex;
-  gap:14px;
-  align-items:center;
-  flex:1;
-}
-.topbar a{
-  color: rgba(255,255,255,.85);
-  text-decoration:none;
-  font-weight:600;
-  font-size:14px;
-  padding:10px 12px;
-  border-radius:10px;
-}
-.topbar a.active{
-  background: rgba(255,255,255,.12);
-  color:#fff;
-}
-.topbar .actions{
-  display:flex;
-  align-items:center;
-  gap:12px;
-}
-.iconbtn{
-  width:36px;
-  height:36px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.22);
-  background: rgba(255,255,255,.10);
-  cursor:pointer;
-}
-.topbar-btn{
-  height:36px;
-  padding:0 12px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.22);
-  background: rgba(255,255,255,.10);
-  color:#fff;
-  font-weight:700;
-  font-size:13px;
-  cursor:pointer;
-}
-.topbar-btn:hover{ 
-  background: rgba(255,255,255,.16); 
-}
-.topbar-btn:active{ 
-  transform: translateY(0.5px); 
-}
-.avatar{
-  width:34px;
-  height:34px;
-  border-radius:999px;
-  border:2px solid rgba(255,255,255,.35);
-  object-fit:cover;
-}
-
-/* Page layout */
-.page{
-  max-width: 1600px;
-  margin: 22px auto;
-  padding: 0 18px 40px;
-}
-
-.marker-grid{
-  display:grid;
-  grid-template-columns: 379px 1fr;
-  grid-template-areas:
-    "form  upload"
-    "form  rules";
-  gap: 18px;
-  align-items:start;
-}
-
-.form-card{ grid-area: form; }
-.upload-card{ grid-area: upload; }
-.rules-card{ grid-area: rules; }
-
-
-
-/* Cards */
-.card{
-  background: #FAFAFB;                 /* Figma */
-  border: 0 solid #000;                /* Figma says border 0 */
-  border-radius: 12px;                 /* Figma */
-  box-shadow: 0 2px 4px 0 rgba(0,0,0,.08); /* Figma */
-}
-
-
-/* Left form card */
-.form-card{
-  grid-area: form;
-  padding: 18px;
-}
-.form-card h2{
-  margin: 0 0 12px;
-  font-size: 16px;
-}
-label{ display:block; font-size:13px; font-weight:600; margin-top:12px; }
-input[type="text"], input[type="email"], select{
-  width:100%;
-  height:40px;
-  padding: 0 12px;
-  border:1px solid rgba(0,0,0,.14);
-  border-radius:10px;
-  background:#fff;
-  outline:none;
-}
-input:focus, select:focus{
-  border-color: var(--maroon);
-  box-shadow: 0 0 0 3px rgba(169,13,34,.15);
-}
-
-.primary-btn{
-  margin-top: 16px;
-  width:100%;
-  height:44px;
-  border:0;
-  border-radius:12px;
-  background: var(--maroon);
-  color:#fff;
-  font-weight:700;
-  cursor:pointer;
-}
-.primary-btn:hover{ filter:brightness(.95); }
-
-.secondary-btn{
-  margin-top: 12px;
-  width: 100%;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,.14);
-  background: #fff;
-  color: rgba(0,0,0,.75);
-  font-weight: 700;
-  cursor: pointer;
-}
-.secondary-btn:hover{ filter:brightness(.98); }
-.secondary-btn:disabled{
-  opacity: .6;
-  cursor: not-allowed;
-}
-.primary-btn:disabled{
-  opacity: .6;
-  cursor: not-allowed;
-}
-
-
-/* Upload card */
-.upload-card{
-  padding: 16px;
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-}
-
-.drop-zone{
-  flex: 1;                 /* fill the upload-card */
-  width: 100%;             /* instead of width: min(928px, 100%) */
-  min-height: 220px;       /* keeps it tall */
-  height: auto;            /* instead of fixed 192px */
-
-  padding: 40px 16px;      /* instead of the huge Figma paddings */
-  display:flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-
-  border-radius: 12px;
-  border: 2px dashed #DEE1E6;
-  background: transparent;
-
-  cursor: pointer;
-  user-select: none;
-  margin-top: 6px;
-}
-
-
-.drop-zone.dragover{
-  border-color: var(--maroon);
-  background: rgba(169,13,34,.05);
-}
-.dz-icon{
-  width:40px; height:40px;
-  opacity:.8;
-}
-
-.rules-card{
-  grid-area: rules;
-  width: 100%;
-  min-height: 474px;                 /* keep flexible; Figma says 474 */
-  padding: 16px;
-  background: #FAFAFB;               /* Figma */
-  border-radius: 12px;               /* Figma */
-  border: 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,.08); /* Figma */
-}
-
-.rules-cols{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 40px;   /* Figma */
-  row-gap: 0;
-}
-
-
-.rules-title.spaced{ margin-top: 14px; }
-
-.rules-title{
-  color: #171A1F;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-size: 18px;     /* Figma */
-  font-weight: 500;    /* Figma */
-  line-height: 24px;   /* Figma */
-  margin: 0 0 8px;
-}
-
-
-/* Switch look for rule checkboxes (scoped) */
-.rules-card input[type="checkbox"]{
-  appearance: none;
-  width: 44px;               /* Figma */
-  height: 24px;              /* Figma */
-  border-radius: 12px;
-  background: #BCC1CA;       /* Figma off */
-  position: relative;
-  cursor: pointer;
-  outline: none;
-}
-
-.rules-card input[type="checkbox"]::before{
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;               /* ~circle diameter in Figma svg */
-  height: 20px;
-  border-radius: 999px;
-  background: #fff;
-  transition: transform .15s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,.18);
-}
-
-.rules-card input[type="checkbox"]:checked{
-  background: #A90D22;       /* your maroon */
-}
-
-.rules-card input[type="checkbox"]:checked::before{
-  transform: translateX(20px); /* 44 - 20 - 4 = 20 */
-}
-
-
-/* Rule row */
-
-/* Figma row geometry:
-   - Row height: 24
-   - Left gap to toggle: 4
-   - Switch → i: 10
-   - i → label: 4
-   - i size: 16 (toggle/label line-height 24)
-*/
-.rule-row{
-  display:flex;
-  align-items:flex-start;
-  min-height:24px;
-  padding-left:4px;     /* left gap to toggle */
-  margin: 10px 0;       /* keep your vertical spacing; adjust later if needed */
-}
-
-/* switch is already styled elsewhere; this just locks its slot */
-.rule-row > input[type="checkbox"],
-.rule-row > .info{
-  margin-top: 2px; /* nudge to match 24px text line */
-}
-
-
-/* the i column */
-.rule-row > .info{
-  flex: 0 0 16px;
-  width:16px;
-  height:16px;
-  line-height:16px;
-  text-align:center;
-  cursor: help;
-
-  /* IMPORTANT: do NOT use opacity here or the tooltip turns grey */
-  opacity: 1;
-  color: rgba(0,0,0,.55);  /* fades just the "i" */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker — Student Check</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/marker.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
+  <style>
+    .text-details-toggle {
+      margin-top: 12px;
+      padding: 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--maroon);
+      cursor: pointer;
+      user-select: none;
+    }
+    .text-details-toggle:hover {
+      text-decoration: underline;
+    }
+    .text-details-section {
+      margin-top: 12px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      display: none;
+    }
+    .text-details-section.visible {
+      display: block;
+    }
+    .title-type-block {
+      margin-top: 12px;
+    }
+    .title-type-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .title-type-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .type-option {
+      cursor: pointer;
+    }
+    .type-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .type-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .title-type-block input[type="radio"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--maroon);
+    }
+    .assignment-tracker-block {
+      margin-bottom: 18px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .assignment-tracker-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .assignment-tracker-help {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .work-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .work-section.hidden {
+      display: none;
+    }
+    .work-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .add-work-btn {
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--maroon);
+      border-radius: 6px;
+      color: var(--maroon);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .add-work-btn:hover {
+      background: var(--maroon);
+      color: #fff;
+    }
+    .detected-meta {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #e7f3ff;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #000;
+      display: none;
+    }
+    .detected-meta.visible {
+      display: block;
+    }
+    .marked-preview-card {
+      margin-top: 24px;
+      grid-column: 1 / -1;
+    }
+    .marked-preview-container {
+      max-height: 600px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      background: #fff;
+    }
+    .revision-practice-card {
+      margin-top: 24px;
+      grid-column: 1 / -1;
+    }
+    .issue-select-wrapper {
+      margin-bottom: 16px;
+    }
+    .issue-explanation {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .examples-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .example-item {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .example-sentence {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+    .example-student {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .example-rewrite {
+      width: 100%;
+      min-height: 80px;
+      padding: 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+    .example-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .example-btn {
+      padding: 6px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .example-btn:hover {
+      background: #f0f0f0;
+    }
+    .example-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .apply-to-preview-btn {
+      background: #f8f9fa;
+      border-color: rgba(0,0,0,.14);
+      color: rgba(0,0,0,.75);
+    }
+    .apply-to-preview-btn:not(:disabled):hover {
+      background: #e9ecef;
+    }
+    .example-applied {
+      opacity: 0.7;
+      background: #f0f0f0;
+    }
+    .hidden-select {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      height: 0;
+    }
+    .rewrite-status {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+    }
+    .rewrite-status.visible {
+      display: block;
+    }
+    .rewrite-status.ok {
+      background: #e7f5e7;
+      color: #2d5a2d;
+      border: 1px solid #a8d5a8;
+    }
+    .rewrite-status.bad {
+      background: #ffe7e7;
+      color: #5a2d2d;
+      border: 1px solid #d5a8a8;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/assets/logo.svg" alt="Vysti" />
+    </div>
   
-  margin-left:10px;
-  margin-right:4px;
-}
+    <nav>
+      <a href="/student.html" class="active">Student Check</a>
+    </nav>
+  
+    <div class="actions">
+      <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
+      <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
+    </div>
+  </header>
 
+  <main class="page">
+    <form id="studentForm" class="marker-grid" style="display:none;">
+      <section class="card form-card">
+        <label>
+          What is the assignment?
+          <select id="mode">
+            <option value="textual_analysis">Analytic essay</option>
+            <option value="peel_paragraph">Mini-essay paragraph</option>
+            <option value="reader_response">Reader response</option>
+            <option value="argumentation">Argumentation</option>
+          </select>
+        </label>
 
+        <!-- Mode explainer card (single, dynamic) -->
+        <div class="mode-card" id="modeCard">
+          <div class="mode-card-header">
+            <span class="mode-badge" id="modeBadge">Analytic essay</span>
+            <span class="mode-tag" id="modeTag"></span>
+          </div>
 
+          <div class="mode-desc" id="modeDesc">
+            A formal and academic essay of analysis with all Vysti Rules running.
+          </div>
 
+          <button type="button" class="mode-more" id="modeMoreBtn" aria-expanded="false">
+            Want more details?
+          </button>
 
+          <div class="mode-details" id="modeDetails" hidden>
+            <ul id="modeDetailsList"></ul>
+          </div>
+        </div>
 
-@media (max-width: 980px){
-  .marker-grid{
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "form"
-      "upload"
-      "rules";
-  }
+        <label>
+          Your name (optional)
+          <input type="text" id="studentName" placeholder="e.g., John Smith" />
+        </label>
 
-  .rules-cols{
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
+        <div class="assignment-tracker-block">
+          <div class="assignment-tracker-title">Assignment Tracker</div>
+          <div class="assignment-tracker-help">Give the assignment a name to keep track of your work.</div>
+          <label class="visually-hidden" for="assignmentName">Assignment name (optional)</label>
+          <input type="text" id="assignmentName" placeholder="Assignment name (optional) — e.g., Homework 01" aria-label="Assignment name (optional)" />
+          <label style="margin-top: 12px;">
+            Word count (optional)
+            <input type="number" id="targetWordCount" min="0" step="1" placeholder="e.g., 800" />
+          </label>
+          <div id="wordCountReadout" style="margin-top: 8px; font-size: 13px; color: var(--text);"></div>
+        </div>
 
-  .drop-zone{
-    padding: 40px 16px;
-    height: auto;
-    min-height: 192px;
-  }
-}
-.hidden-select { 
-  display: none; 
-}
+        <div class="text-details-toggle" id="textDetailsToggle">
+          Enter author and text titles ▼
+        </div>
 
-.hidden {
-  display: none !important;
-}
+        <div class="text-details-section visible" id="textDetailsSection">
+          <div class="work-section" id="work1Section">
+            <div id="metaConfirm" class="detected-meta"></div>
+            <label>
+              Who is the author?
+              <input type="text" id="author" placeholder="Author's full name" />
+            </label>
 
-/* Shared file list (used by index.html + student.html) */
-.file-list{
-  list-style:none;
-  padding:0;
-  margin:12px 0;
-}
-.file-list li{
-  padding:8px 12px;
-  background:#f8f9fa;
-  border-radius:6px;
-  margin-bottom:6px;
-  font-size:13px;
-}
+            <label>
+              What is the title?
+              <input type="text" id="title" placeholder="Title of the text" />
+            </label>
 
-/* Student status block */
-.status-area{
-  margin-top: 12px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  min-height: 40px;
-  font-size: 14px;
-  color: var(--text);
-}
-.status-area.success{ background:#d4edda; color:#155724; }
-.status-area.error{ background:#f8d7da; color:#721c24; }
+            <div class="title-type-block">
+              <div class="title-type-label">Title type</div>
+              <div class="title-type-grid">
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title_type" value="true" checked />
+                    <span class="type-name">Minor work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
+                    >i</span>
+                  </span>
+                </label>
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title_type" value="false" />
+                    <span class="type-name">Major work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
+                    >i</span>
+                  </span>
+                </label>
+              </div>
+              <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="true" selected>Minor work</option>
+                <option value="false">Major work</option>
+              </select>
+            </div>
+          </div>
 
-/* Title type (Minor/Major) radio block */
-.title-type-block {
-  margin-top: 12px;
-}
+          <button type="button" class="add-work-btn" id="addWork2Btn">Add another</button>
 
-.title-type-label {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
+          <div class="work-section hidden" id="work2Section">
+            <div class="work-title">Work 2</div>
+            <label>
+              Who is the author?
+              <input type="text" id="author2" placeholder="Author's full name" />
+            </label>
 
-.title-type-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
+            <label>
+              What is the title?
+              <input type="text" id="title2" placeholder="Title of the text" />
+            </label>
 
-.type-option {
-  cursor: pointer;
-}
+            <div class="title-type-block">
+              <div class="title-type-label">Title type</div>
+              <div class="title-type-grid">
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title2_type" value="true" checked />
+                    <span class="type-name">Minor work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
+                    >i</span>
+                  </span>
+                </label>
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title2_type" value="false" />
+                    <span class="type-name">Major work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
+                    >i</span>
+                  </span>
+                </label>
+              </div>
+              <select id="title2_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="true" selected>Minor work</option>
+                <option value="false">Major work</option>
+              </select>
+            </div>
+          </div>
 
-.type-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+          <button type="button" class="add-work-btn hidden" id="addWork3Btn">Add another</button>
 
-.type-name {
-  font-weight: 600;
-}
+          <div class="work-section hidden" id="work3Section">
+            <div class="work-title">Work 3</div>
+            <label>
+              Who is the author?
+              <input type="text" id="author3" placeholder="Author's full name" />
+            </label>
 
-.type-help {
-  display: block;
-  margin-left: 28px; /* pushes help under the label text, not under the radio */
-  margin-top: 4px;
-  font-size: 14px;
-  color: #6b7280;
-  line-height: 20px;
-}
+            <label>
+              What is the title?
+              <input type="text" id="title3" placeholder="Title of the text" />
+            </label>
 
-.title-type-block input[type="radio"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--maroon);
-}
+            <div class="title-type-block">
+              <div class="title-type-label">Title type</div>
+              <div class="title-type-grid">
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title3_type" value="true" checked />
+                    <span class="type-name">Minor work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
+                    >i</span>
+                  </span>
+                </label>
+                <label class="type-option">
+                  <span class="type-head">
+                    <input type="radio" name="title3_type" value="false" />
+                    <span class="type-name">Major work</span>
+                    <span
+                      class="type-info tt"
+                      tabindex="0"
+                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
+                    >i</span>
+                  </span>
+                </label>
+              </div>
+              <select id="title3_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="true" selected>Minor work</option>
+                <option value="false">Major work</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-.type-info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.22);
-  color: rgba(0,0,0,.55);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 16px;
-  cursor: help;
-}
-.type-info:focus {
-  outline: 2px solid rgba(169,13,34,.30);
-  outline-offset: 2px;
-}
+        <button class="primary-btn" id="checkBtn" type="submit" disabled>Check My Essay</button>
+      </section>
 
-/* Tooltip for Minor/Major options */
-.tt{ position: relative; }
+      <section class="card upload-card">
+        <label>Essay (.docx)</label>
+        
+        <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx file">
+          <img class="dz-icon" src="/assets/cloud-upload.svg" alt="" aria-hidden="true" />
+          <div class="dz-title">Drag & drop .docx file here</div>
+          <div class="dz-sub">or click to browse</div>
+          
+          <input
+            type="file"
+            id="fileInput"
+            name="file"
+            accept=".docx"
+            hidden
+          />
+        </div>
 
-.tt::after{
-  content: attr(data-tip);
-  position: absolute;
-  left: 0;
-  top: calc(100% + 8px);
-  z-index: 50;
+        <ul id="fileList" class="file-list"></ul>
+        <button type="button" id="clearFileBtn" class="secondary-btn" style="display:none;">Clear file</button>
+      </section>
 
-  background: #171A1F;
-  color: #fff;
-  font-size: 12px;
-  line-height: 16px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      <section class="card rules-card">
+        <div class="rules-cols">
+          <div>
+            <div class="rules-title">Results</div>
+            <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
 
-  width: max-content;
-  max-width: 280px;
+            <button id="downloadBtn" class="secondary-btn" type="button" style="display:none; margin-top:12px;">
+              Download marked essay
+            </button>
+          </div>
 
-  opacity: 0;
-  transform: translateY(4px);
-  pointer-events: none;
-}
+          <div>
+            <div class="rules-title">Next steps</div>
+            <div style="font-size:13px; color: rgba(0,0,0,.70); line-height:18px;">
+              After you download your marked draft, revise and re-run the checker.
+              (We'll add in-page marked-essay preview + guided revisions next.)
+            </div>
+          </div>
+        </div>
+      </section>
+    </form>
 
-.tt:hover::after,
-.tt:focus-within::after{
-  opacity: 1;
-  transform: translateY(0);
-}
+    <section class="card marked-preview-card" id="markedPreviewCard" style="display:none;">
+      <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Preview</h2>
+      <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Tip: Click into the preview to edit. Changes here are not saved yet.</div>
+      <div id="markedPreview" class="marked-preview-container"></div>
+    </section>
 
-/* Rule "i" tooltips: match Minor/Major (black bubble) */
-.rule-row .info.tt::after{
-  top: auto;
-  bottom: calc(100% + 8px);
-  left: 0;
+    <section class="card revision-practice-card" id="revisionPracticeCard" style="display:none;">
+      <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Fix Your Most Common Issues</h2>
+      <div class="issue-select-wrapper">
+        <label>
+          Select a section
+          <select id="sectionSelect">
+            <option value="">All sections</option>
+          </select>
+        </label>
+        <label style="margin-top: 12px;">
+          Select an issue to practice
+          <select id="issueSelect">
+            <option value="">Select an issue...</option>
+          </select>
+        </label>
+      </div>
+      <div id="issueExplanation" class="issue-explanation" style="display:none;"></div>
+      <ul id="examplesList" class="examples-list"></ul>
+      <button type="button" class="secondary-btn" id="recheckDocumentBtn" style="margin-top: 16px; display:none;">Recheck document</button>
+      <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
+    </section>
 
-  background: #171A1F;          /* same as Minor/Major */
-  color: #fff;
-  font-size: 12px;              /* same as Minor/Major */
-  line-height: 16px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    <footer class="marker-footer" aria-label="Site footer">
+      <div class="footer-copy">© 2025 Vysti Research. All rights reserved.</div>
+      <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
+    </footer>
+  </main>
 
-  width: max-content;
-  max-width: 360px;
+  <script>
+    // ===== Supabase auth setup =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
 
-  opacity: 0;
-  transform: translateY(4px);
-  pointer-events: none;
-  z-index: 50;
-}
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const form = document.getElementById("studentForm");
+    const fileInput = document.getElementById("fileInput");
+    const checkBtn = document.getElementById("checkBtn");
+    const clearFileBtn = document.getElementById("clearFileBtn");
+    const statusArea = document.getElementById("statusArea");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const fileList = document.getElementById("fileList");
+    const dropZone = document.getElementById("dropZone");
+    const textDetailsToggle = document.getElementById("textDetailsToggle");
+    const textDetailsSection = document.getElementById("textDetailsSection");
+    const titleTypeRadios = Array.from(document.querySelectorAll('input[name="title_type"]'));
+    const titleIsMinorSelect = document.getElementById("title_is_minor");
+    const addWork2Btn = document.getElementById("addWork2Btn");
+    const addWork3Btn = document.getElementById("addWork3Btn");
+    const work2Section = document.getElementById("work2Section");
+    const work3Section = document.getElementById("work3Section");
+    const metaConfirm = document.getElementById("metaConfirm");
+    const markedPreviewCard = document.getElementById("markedPreviewCard");
+    const markedPreview = document.getElementById("markedPreview");
+    const revisionPracticeCard = document.getElementById("revisionPracticeCard");
+    const sectionSelect = document.getElementById("sectionSelect");
+    const issueSelect = document.getElementById("issueSelect");
+    const issueExplanation = document.getElementById("issueExplanation");
+    const examplesList = document.getElementById("examplesList");
+    const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
+    const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
+    const modeSelect = document.getElementById("mode");
+    const wordCountReadout = document.getElementById("wordCountReadout");
+    const targetWordCountInput = document.getElementById("targetWordCount");
 
-/* Force rule "i" tooltips to show on hover/focus (beats specificity issue) */
-.rule-row .info.tt:hover::after,
-.rule-row .info.tt:focus::after,
-.rule-row .info.tt:focus-within::after{
-  opacity: 1;
-  transform: translateY(0);
-}
+    let selectedFile = null;
+    let downloadUrl = null;
+    let markedBlob = null;
+    let currentMarkEvent = null;
+    let pendingDetectedMeta = null;
+    let currentWordCount = null;
 
-.mode-card{
-  margin-top: 12px;
-  padding: 14px 12px 12px;
+    // ===== Mode explainer card =====
+    const MODE_RULE_DEFAULTS = {
+      textual_analysis: {
+        description: "A formal and academic essay of analysis with all Vysti Rules running.",
+        details: [
+          "No first-person allowed or personal pronouns",
+          "First sentence should state the author & title of the work.",
+          "Requires a closed thesis statement.",
+          "Requires quoted evidence in body paragraphs.",
+          "Strict requirements on organization, evidence, and language.",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+          "Green highlights devices and strategies."
+        ]
+      },
+      peel_paragraph: {
+        description: "One focused analytical paragraph following the Vysti Rules.",
+        details: [
+          "The first sentence should state the author & title of the work.",
+          "The first sentence should include devices and/or strategies like a closed thesis",
+          "No first-person allowed or personal pronouns",
+          "Requires quoted evidence in the body of the paragraph.",
+          "Strict requirements on organization, evidence, and language.",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+          "Green highlights devices and strategies."
+        ]
+      },
+      reader_response: {
+        description: "More personal voice allowed, but still needs argument + evidence.",
+        details: [
+          "Allows first-person and personal pronouns",
+          "Allows contractions and 'which'",
+          "First sentence should state the author & title of the work.",
+          "Requires a closed thesis statement.",
+          "Requires quoted evidence in body paragraphs.",
+          "Strict requirements on organization, evidence, and language.",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+          "Green highlights devices and strategies."
+        ]
+      },
+      argumentation: {
+        description: "Argumentation is more open mode beyond textual analysis.",
+        details: [
+          "Allows for past tense.",
+          "Allows first-person and personal pronouns",
+          "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+          "Red strikethroughs forbidden terms.",
+        ]
+      }
+    };
 
-  /* black stroke like Work fieldsets */
-  border: 1px solid #000;
-  border-radius: 0px;
+    // Mode explainer elements
+    const modeBadge = document.getElementById("modeBadge");
+    const modeTagEl = document.getElementById("modeTag");
+    const modeDesc = document.getElementById("modeDesc");
+    const modeMoreBtn = document.getElementById("modeMoreBtn");
+    const modeDetails = document.getElementById("modeDetails");
+    const modeDetailsList = document.getElementById("modeDetailsList");
 
-  /* match the form feel */
-  background: transparent;
-}
+    function setModeExplainer(mode) {
+      const cfg = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis;
+      const label = modeSelect.options[modeSelect.selectedIndex]?.textContent || mode;
 
+      if (modeBadge) modeBadge.textContent = label;
+      if (modeTagEl) modeTagEl.textContent = cfg.tag || "";
+      if (modeDesc) modeDesc.textContent = cfg.description || "";
 
-.mode-card-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
+      if (modeDetailsList) {
+        modeDetailsList.innerHTML = "";
+        (cfg.details || []).forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          modeDetailsList.appendChild(li);
+        });
+      }
 
-.mode-badge{
-  display:inline-flex;
-  align-items:center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(169,13,34,0.10);
-  color: #A90D22;
-  font-weight: 700;
-  font-size: 12px;
-}
+      const hasDetails = Array.isArray(cfg.details) && cfg.details.length > 0;
+      if (modeMoreBtn) modeMoreBtn.hidden = !hasDetails;
 
-.mode-tag{
-  font-size: 12px;
-  color: rgba(0,0,0,0.55);
-  font-weight: 600;
-}
+      if (modeMoreBtn && modeDetails) {
+        modeMoreBtn.setAttribute("aria-expanded", "false");
+        modeDetails.hidden = true;
+        modeMoreBtn.textContent = "Want more details?";
+      }
+    }
 
-.mode-desc{
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-  color: rgba(0,0,0,0.75);
-}
+    // Expand / collapse once
+    if (modeMoreBtn && modeDetails) {
+      modeMoreBtn.addEventListener("click", () => {
+        const expanded = modeMoreBtn.getAttribute("aria-expanded") === "true";
+        modeMoreBtn.setAttribute("aria-expanded", String(!expanded));
+        modeDetails.hidden = expanded;
+        modeMoreBtn.textContent = expanded ? "Want more details?" : "Hide details";
+      });
+    }
 
-.mode-more{
-  margin-top: 8px;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  color: #A90D22;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-}
+    // Initialize mode explainer
+    if (modeSelect) {
+      setModeExplainer(modeSelect.value);
+      modeSelect.addEventListener("change", () => {
+        setModeExplainer(modeSelect.value);
+      });
+    }
 
-.mode-details{
-  margin-top: 10px;
-  font-size: 13px;
-  line-height: 18px;
-  color: rgba(0,0,0,0.75);
-}
+    // ===== Auth + role guard =====
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
 
-.mode-details ul{
-  margin: 0;
-  padding-left: 18px;
-}
+      if (!session) {
+        window.location.replace("/signin.html");
+        return;
+      }
 
-/* ===== Footer (center text + bottom-right logo) ===== */
-.marker-footer{
-  margin-top: 18px;
-  padding: 18px 0 8px;
+      // Set role to student on successful auth guard
+      localStorage.setItem("vysti_role", "student");
 
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
+      // Logged in as student
+      form.style.display = "grid";
+    }
 
-  color: rgba(0,0,0,.55);
-  font-size: 12px;
-}
+    // Initial auth check
+    refreshAuthUI();
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
 
-.footer-copy{
-  grid-column: 2;
-  justify-self: center;
-}
+    // ===== Switch mode handler =====
+    const switchModeBtn = document.getElementById("switchModeBtn");
+    if (switchModeBtn) {
+      switchModeBtn.addEventListener("click", () => {
+        localStorage.setItem("vysti_role", "teacher");
+        window.location.href = "/index.html";
+      });
+    }
 
-.footer-logo{
-  grid-column: 3;
-  justify-self: end;
-  height: 140px;      /* tweak size here */
-  width: auto;
-  opacity: 1;
-}
+    // ===== Logout handler =====
+    const logoutBtn = document.getElementById("logoutBtn");
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      localStorage.removeItem("vysti_role");
+      window.location.replace("/signin.html");
+    });
 
-@media (max-width: 520px){
-  .marker-footer{
-    grid-template-columns: 1fr;
-    row-gap: 10px;
-    justify-items: center;
-    text-align: center;
-  }
-  .footer-copy{ grid-column: 1; }
-  .footer-logo{ grid-column: 1; justify-self: center; }
-}
+    // ===== Title type radio sync =====
+    titleTypeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          titleIsMinorSelect.value = e.target.value;
+        }
+      });
+    });
 
-/* Preview editing and highlighting */
-.preview-editable {
-  cursor: text;
-}
+    // Sync Work 2 radio
+    const title2TypeRadios = Array.from(document.querySelectorAll('input[name="title2_type"]'));
+    const title2IsMinorSelect = document.getElementById("title2_is_minor");
+    title2TypeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          title2IsMinorSelect.value = e.target.value;
+        }
+      });
+    });
 
-/* Find-in-preview exact sentence highlight */
-span.vysti-preview-hit[data-vysti-hit="1"] {
-  /* Remove yellow box styling */
-  outline: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
+    // Sync Work 3 radio
+    const title3TypeRadios = Array.from(document.querySelectorAll('input[name="title3_type"]'));
+    const title3IsMinorSelect = document.getElementById("title3_is_minor");
+    title3TypeRadios.forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          title3IsMinorSelect.value = e.target.value;
+        }
+      });
+    });
 
-  /* Make the highlight "pop" using brand styling */
-  font-family: "Times New Roman", Times, serif !important;
-  font-weight: 700 !important;
-  color: var(--maroon) !important;
+    // ===== Progressive disclosure for Work 2/3 =====
+    addWork2Btn.addEventListener("click", () => {
+      work2Section.classList.remove("hidden");
+      addWork2Btn.classList.add("hidden");
+      addWork3Btn.classList.remove("hidden");
+    });
 
-  /* Keep safe inheritance for everything else */
-  font-style: inherit;
-  text-decoration: inherit;
+    addWork3Btn.addEventListener("click", () => {
+      work3Section.classList.remove("hidden");
+      addWork3Btn.classList.add("hidden");
+    });
 
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
+    // ===== Text details toggle =====
+    textDetailsToggle.addEventListener("click", () => {
+      const isVisible = textDetailsSection.classList.contains("visible");
+      if (isVisible) {
+        textDetailsSection.classList.remove("visible");
+        textDetailsToggle.textContent = "Enter author and text titles ▼";
+      } else {
+        textDetailsSection.classList.add("visible");
+        textDetailsToggle.textContent = "Enter author and text titles ▲";
+      }
+    });
 
-/* Optional modifier class for old yellow-box styling (not applied by default) */
-span.vysti-preview-hit[data-vysti-hit="1"].boxed {
-  outline: 2px solid #ffeb3b !important;
-  background: rgba(255, 235, 59, 0.2) !important;
-  box-shadow: 0 0 0 2px #ffeb3b !important;
-  border-radius: 3px !important;
-  color: inherit !important;
-  font-family: inherit !important;
-  font-weight: inherit !important;
-}
+    // ===== File handling (single file only) =====
+    function updateFileUI() {
+      fileList.innerHTML = "";
+      clearFileBtn.style.display = "none";
+      
+      if (selectedFile) {
+        const li = document.createElement("li");
+        li.textContent = selectedFile.name;
+        fileList.appendChild(li);
+        clearFileBtn.style.display = "block";
+        checkBtn.disabled = false;
+      } else {
+        checkBtn.disabled = true;
+      }
+    }
 
-/* Fallback when we can only find the paragraph, not the exact sentence */
-.vysti-preview-hit-block {
-  /* Remove yellow box styling */
-  outline: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
+    function updateWordCountUI() {
+      if (!wordCountReadout) return;
+      
+      if (currentWordCount === null || currentWordCount === undefined) {
+        wordCountReadout.textContent = "";
+        return;
+      }
+      
+      const target = targetWordCountInput ? parseInt(targetWordCountInput.value, 10) : null;
+      
+      if (!isNaN(target) && target > 0) {
+        const diff = currentWordCount - target;
+        if (diff === 0) {
+          wordCountReadout.textContent = `Word count: ${currentWordCount} (on target)`;
+        } else if (diff > 0) {
+          wordCountReadout.textContent = `Word count: ${currentWordCount} (target ${target}: ${diff} words over)`;
+        } else {
+          wordCountReadout.textContent = `Word count: ${currentWordCount} (target ${target}: ${Math.abs(diff)} words under)`;
+        }
+      } else {
+        wordCountReadout.textContent = `Word count: ${currentWordCount}`;
+      }
+    }
 
-  /* Same brand highlight styling */
-  font-family: "Times New Roman", Times, serif !important;
-  font-weight: 700 !important;
-  color: var(--maroon) !important;
-}
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = "";
+      downloadUrl = null;
+      markedBlob = null;
+      downloadBtn.style.display = "none";
+      statusArea.textContent = "";
+      statusArea.className = "status-area";
+      pendingDetectedMeta = null;
+      metaConfirm.classList.remove("visible");
+      metaConfirm.textContent = "";
+      markedPreviewCard.style.display = "none";
+      markedPreview.innerHTML = "";
+      revisionPracticeCard.style.display = "none";
+      issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+      issueExplanation.style.display = "none";
+      examplesList.innerHTML = "";
+      downloadRevisionNotesBtn.style.display = "none";
+      if (recheckDocumentBtn) recheckDocumentBtn.style.display = "none";
+      currentMarkEvent = null;
+      currentWordCount = null;
+      if (wordCountReadout) wordCountReadout.textContent = "";
+      
+      // Clear Work 1 inputs
+      const authorInput = document.getElementById("author");
+      const titleInput = document.getElementById("title");
+      if (authorInput) authorInput.value = "";
+      if (titleInput) titleInput.value = "";
+      
+      // Reset Work 1 title type to Minor
+      const minorRadio1 = document.querySelector('input[name="title_type"][value="true"]');
+      if (minorRadio1) minorRadio1.checked = true;
+      if (titleIsMinorSelect) titleIsMinorSelect.value = "true";
+      
+      // Clear Work 2 inputs
+      const author2Input = document.getElementById("author2");
+      const title2Input = document.getElementById("title2");
+      if (author2Input) author2Input.value = "";
+      if (title2Input) title2Input.value = "";
+      
+      // Reset Work 2 title type to Minor
+      const minorRadio2 = document.querySelector('input[name="title2_type"][value="true"]');
+      if (minorRadio2) minorRadio2.checked = true;
+      const title2IsMinorSelect = document.getElementById("title2_is_minor");
+      if (title2IsMinorSelect) title2IsMinorSelect.value = "true";
+      
+      // Clear Work 3 inputs
+      const author3Input = document.getElementById("author3");
+      const title3Input = document.getElementById("title3");
+      if (author3Input) author3Input.value = "";
+      if (title3Input) title3Input.value = "";
+      
+      // Reset Work 3 title type to Minor
+      const minorRadio3 = document.querySelector('input[name="title3_type"][value="true"]');
+      if (minorRadio3) minorRadio3.checked = true;
+      const title3IsMinorSelect = document.getElementById("title3_is_minor");
+      if (title3IsMinorSelect) title3IsMinorSelect.value = "true";
+      
+      updateFileUI();
+    }
 
-/* Text inserted into Preview via "Apply to Preview" */
-.vysti-applied-rewrite {
-  font-family: "Times New Roman", Times, serif !important;
-  font-size: 12pt !important;
-  font-weight: 400 !important;
-  font-style: inherit;
-  text-decoration: inherit;
-  color: inherit !important;
-  background: transparent !important;
-  outline: none !important;
-}
+    clearFileBtn.addEventListener("click", clearFile);
 
-/* Force bright green for device highlights in docx preview */
-/* Override dark green highlight colors to bright neon green */
-#markedPreview span[style*="#00B050"],
-#markedPreview span[style*="#00b050"],
-#markedPreview span[style*="rgb(0, 176, 80)"],
-#markedPreview span[style*="rgb(0,176,80)"],
-.docx-wrapper span[style*="#00B050"],
-.docx-wrapper span[style*="#00b050"],
-.docx-wrapper span[style*="rgb(0, 176, 80)"],
-.docx-wrapper span[style*="rgb(0,176,80)"],
-.docx span[style*="#00B050"],
-.docx span[style*="#00b050"],
-.docx span[style*="rgb(0, 176, 80)"],
-.docx span[style*="rgb(0,176,80)"],
-.preview-editable span[style*="#00B050"],
-.preview-editable span[style*="#00b050"],
-.preview-editable span[style*="rgb(0, 176, 80)"],
-.preview-editable span[style*="rgb(0,176,80)"] {
-  background-color: #00ff00 !important;
-}
+    // Click drop zone to open file picker
+    dropZone.addEventListener("click", () => fileInput.click());
+
+    dropZone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    // ===== Extract metadata from docx =====
+    
+    // Helper: Strip HTML tags and get plain text
+    function stripTags(html) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || "";
+    }
+    
+    // Helper: Normalize typography (curly quotes to straight quotes, non-breaking spaces, whitespace)
+    function normalizeTypography(s) {
+      return (s || "")
+        .replace(/\u00A0/g, " ")
+        // smart double quotes + guillemets → "
+        .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
+        // smart single quotes/apostrophes → '
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        // primes sometimes appear as quotes
+        .replace(/[\u2032\u2035]/g, "'")
+        .replace(/[\u2033\u2036]/g, '"')
+        // normalize dashes
+        .replace(/[\u2013\u2014]/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    
+    // Helper: Normalize punctuation (curly quotes/apostrophes to straight ones, non-breaking spaces)
+    function normalizePunct(s) {
+      // keep legacy callsites; normalizeTypography already handles quotes/apostrophes
+      return normalizeTypography(s);
+    }
+    
+    // Helper: Check if a period is part of an initial or abbreviation
+    function isInitialOrAbbrevDot(t, i) {
+      if (t[i] !== ".") return false;
+      const before = t.slice(0, i + 1);
+      const after = t.slice(i + 1);
+
+      // single-letter initial: "F." "M." etc, followed by space + capital
+      if (/\b[A-Z]\.$/.test(before) && /^\s+[A-Z]/.test(after)) return true;
+
+      // common abbrevs
+      if (/\b(?:Mr|Ms|Mrs|Dr|Prof|Sr|Jr|St)\.$/.test(before) && /^\s+[A-Z]/.test(after)) return true;
+
+      // U.S. / U.K. style
+      if (/\b[A-Z]\.[A-Z]\.$/.test(before) && /^\s+[A-Z]/.test(after)) return true;
+
+      return false;
+    }
+
+    // Helper: Find the index of the sentence end, accounting for quotes and initials
+    function findSentenceEndIndex(text) {
+      const t = normalizeTypography(text);
+      let inQuotes = false;
+
+      for (let i = 0; i < t.length; i++) {
+        const ch = t[i];
+
+        // IMPORTANT: only treat double quotes as quotes. Never treat apostrophe as a quote delimiter.
+        if (ch === '"') inQuotes = !inQuotes;
+        if (inQuotes) continue;
+
+        if (ch === "." || ch === "!" || ch === "?") {
+          if (ch === "." && isInitialOrAbbrevDot(t, i)) continue;
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    // Helper: Check if text has sentence-ending punctuation
+    function hasSentenceEnd(text) {
+      return findSentenceEndIndex(text) !== -1;
+    }
+    
+    // Helper: Check if text looks like a student essay-title header format
+    function isEssayTitleHeaderLine(text) {
+      const s = normalizeTypography(text);
+      // "Quotation": Topic in Essay Title
+      return /^"[^"]+"\s*:\s*.+/.test(s) && !hasSentenceEnd(s);
+    }
+    
+    // Helper: Check if text looks like a header or title line (not an intro sentence)
+    function isLikelyHeaderOrTitle(text) {
+      const plainText = normalizeTypography(text);
+      
+      // First check: Skip student essay-title header format
+      if (isEssayTitleHeaderLine(plainText)) {
+        return true;
+      }
+      
+      // 1) ANY paragraph without sentence-ending punctuation is likely a header/title
+      // (unless it's extremely long, which suggests it's actual content)
+      if (!hasSentenceEnd(plainText) && plainText.length <= 220) {
+        return true;
+      }
+      
+      // Keep the old check for backward compatibility with very short lines
+      if (plainText.length <= 80 && !hasSentenceEnd(plainText)) {
+        return true;
+      }
+      
+      // 2) Looks like a date line
+      if (/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(plainText)) {
+        return true;
+      }
+      const monthMatch = /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(plainText);
+      if (monthMatch && /\d/.test(plainText)) {
+        return true;
+      }
+      
+      // 3) Looks like a teacher/class line
+      if (/\b(Mr\.|Ms\.|Mrs\.|Dr\.|Professor|Prof\.)\b/i.test(plainText)) {
+        return true;
+      }
+      
+      // 4) Looks like a student name line (1-4 tokens, all Title Case, no punctuation, no digits)
+      const tokens = plainText.split(/\s+/).filter(t => t.length > 0);
+      if (tokens.length >= 1 && tokens.length <= 4) {
+        const allTitleCase = tokens.every(t => /^[A-Z][a-z]*$/.test(t));
+        const noDigits = !/\d/.test(plainText);
+        const noSentencePunct = !/[.!?]/.test(plainText);
+        if (allTitleCase && noDigits && noSentencePunct) {
+          return true;
+        }
+      }
+      
+      // 5) Looks like "Homework / Essay / Paper / Assignment" heading
+      if (/^(homework|essay|paper|assignment)\b/i.test(plainText)) {
+        return true;
+      }
+      
+      return false;
+    }
+    
+    // Helper: Count words in text
+    function countWords(text) {
+      const words = (text || "").match(/\b[A-Za-z]+\b/g) || [];
+      return words.length;
+    }
+    
+    // Helper: Clean title by removing surrounding quotes and trailing punctuation
+    function cleanTitle(t) {
+      t = normalizeTypography(t);
+      t = t.replace(/^[\"']+/, "").replace(/[\"']+$/, "");
+      // strip common trailing punctuation that's inside quotes in prose
+      t = t.replace(/[,\.;:]+$/g, "");
+      return t.trim();
+    }
+    
+    // Helper: Extract first sentence from plain text
+    function getFirstSentence(text) {
+      const t = normalizeTypography(text);
+      const idx = findSentenceEndIndex(t);
+      return idx === -1 ? t : t.slice(0, idx + 1).trim();
+    }
+    
+    async function extractMetaFromDocx(file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        const html = result.value;
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        
+        // Parse HTML into a list of paragraphs with metadata
+        const paras = Array.from(doc.querySelectorAll("p"))
+          .map(p => {
+            const html = p.innerHTML.trim();
+            const plain = stripTags(html).trim();
+            return {
+              html,
+              plain,
+              wordCount: countWords(plain)
+            };
+          })
+          .filter(p => p.plain.length > 0);
+        
+        if (paras.length === 0) return null;
+        
+        // Find the intro paragraph using priority selection:
+        // A) First paragraph that: NOT header/title AND has sentence end AND >= 8 words
+        // B) First paragraph that: NOT header/title AND has sentence end AND >= 5 words
+        // C) First paragraph that: NOT header/title (but still requires sentence end)
+        let introParagraphHtml = null;
+        let introParagraphPlain = null;
+        
+        // Priority A: >= 8 words with sentence end
+        for (const para of paras) {
+          if (isLikelyHeaderOrTitle(para.plain)) continue;
+          if (hasSentenceEnd(para.plain) && para.wordCount >= 8) {
+            introParagraphHtml = para.html;
+            introParagraphPlain = para.plain;
+            break;
+          }
+        }
+        
+        // Priority B: >= 5 words with sentence end
+        if (!introParagraphHtml) {
+          for (const para of paras) {
+            if (isLikelyHeaderOrTitle(para.plain)) continue;
+            if (hasSentenceEnd(para.plain) && para.wordCount >= 5) {
+              introParagraphHtml = para.html;
+              introParagraphPlain = para.plain;
+              break;
+            }
+          }
+        }
+        
+        // Priority C: Any non-header paragraph with sentence end
+        if (!introParagraphHtml) {
+          for (const para of paras) {
+            if (isLikelyHeaderOrTitle(para.plain)) continue;
+            if (hasSentenceEnd(para.plain)) {
+              introParagraphHtml = para.html;
+              introParagraphPlain = para.plain;
+              break;
+            }
+          }
+        }
+        
+        if (!introParagraphHtml || !introParagraphPlain) {
+          return null;
+        }
+        
+        // IMPORTANT: Split intro paragraph on <br> if present to isolate intro sentence
+        // Mammoth sometimes outputs student title + intro sentence in the same <p>
+        let introSentenceHtml = introParagraphHtml;
+        let selectedSegmentPlain = introParagraphPlain;
+        
+        // Split into segments by <br>
+        const frag = document.createElement("div");
+        frag.innerHTML = introParagraphHtml;
+        
+        const segments = [];
+        let buf = [];
+        
+        // Walk through child nodes and split on <br>
+        frag.childNodes.forEach(node => {
+          if (node.nodeName === "BR") {
+            if (buf.length > 0) {
+              segments.push(buf);
+              buf = [];
+            }
+          } else {
+            buf.push(node);
+          }
+        });
+        if (buf.length > 0) {
+          segments.push(buf);
+        }
+        
+        // If we found segments (meaning there were <br> tags), try to pick the first real sentence
+        if (segments.length > 1) {
+          let selectedSegment = null;
+          
+          // Priority 1: First segment with sentence end AND >= 8 words
+          for (const buf of segments) {
+            const segDiv = document.createElement("div");
+            buf.forEach(n => {
+              try {
+                segDiv.appendChild(n.cloneNode(true));
+              } catch (e) {
+                // Skip nodes that can't be cloned (e.g., some text nodes)
+              }
+            });
+            const segHtml = segDiv.innerHTML.trim();
+            const segPlain = stripTags(segHtml).trim();
+            
+            // Skip essay title header segments
+            if (isEssayTitleHeaderLine(segPlain)) continue;
+            if (isLikelyHeaderOrTitle(segPlain)) continue;
+            
+            const wc = countWords(segPlain);
+            
+            if (hasSentenceEnd(segPlain) && wc >= 8) {
+              selectedSegment = { html: segHtml, plain: segPlain };
+              break;
+            }
+          }
+          
+          // Priority 2: First segment with sentence end AND >= 5 words
+          if (!selectedSegment) {
+            for (const buf of segments) {
+              const segDiv = document.createElement("div");
+              buf.forEach(n => {
+                try {
+                  segDiv.appendChild(n.cloneNode(true));
+                } catch (e) {
+                  // Skip nodes that can't be cloned
+                }
+              });
+              const segHtml = segDiv.innerHTML.trim();
+              const segPlain = stripTags(segHtml).trim();
+              
+              // Skip essay title header segments
+              if (isEssayTitleHeaderLine(segPlain)) continue;
+              if (isLikelyHeaderOrTitle(segPlain)) continue;
+              
+              const wc = countWords(segPlain);
+              
+              if (hasSentenceEnd(segPlain) && wc >= 5) {
+                selectedSegment = { html: segHtml, plain: segPlain };
+                break;
+              }
+            }
+          }
+          
+          // If we found a selected segment, use it
+          if (selectedSegment) {
+            introSentenceHtml = selectedSegment.html;
+            selectedSegmentPlain = selectedSegment.plain;
+          }
+          // Otherwise, fallback to whole paragraph (already set above)
+        }
+        
+        // Extract first sentence from the selected segment
+        const firstSentencePlain = getFirstSentence(selectedSegmentPlain);
+        const firstSentenceNorm = normalizeTypography(firstSentencePlain);
+        
+        let detectedTitle = null;
+        let detectedAuthor = null;
+        let isMinor = true;
+        
+        // Extract title from intro sentence segment ONLY (not from essay title line)
+        const frag2 = document.createElement("div");
+        frag2.innerHTML = introSentenceHtml;
+        
+        // Helper: Check if element or any ancestor is italic
+        function isItalicAncestor(el) {
+          let current = el;
+          while (current && current !== frag2) {
+            if (current.nodeType === Node.ELEMENT_NODE) {
+              const tagName = current.tagName?.toLowerCase();
+              if (tagName === "em" || tagName === "i") return true;
+              const style = current.style?.fontStyle || window.getComputedStyle(current).fontStyle;
+              if (style && style.includes("italic")) return true;
+            }
+            current = current.parentNode;
+          }
+          return false;
+        }
+        
+        // Collect italic phrases using TreeWalker
+        const italicPhrases = [];
+        const walker = document.createTreeWalker(
+          frag2,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        
+        let currentPhrase = "";
+        let node = walker.nextNode();
+        
+        while (node) {
+          const isItalic = isItalicAncestor(node);
+          const text = node.textContent || "";
+          
+          if (isItalic) {
+            // Add text to current phrase
+            currentPhrase += text;
+          } else {
+            // Non-italic node
+            if (currentPhrase) {
+              // If we have a phrase building, check if this is whitespace between italic nodes
+              if (text.trim() === "" && text.length > 0) {
+                // Single whitespace-only node between italic nodes - add space and continue
+                currentPhrase += " ";
+              } else {
+                // Non-whitespace or empty - finalize the phrase
+                if (currentPhrase.trim()) {
+                  italicPhrases.push(currentPhrase);
+                }
+                currentPhrase = "";
+              }
+            }
+          }
+          
+          node = walker.nextNode();
+        }
+        
+        // Don't forget the last phrase if we ended in italic text
+        if (currentPhrase.trim()) {
+          italicPhrases.push(currentPhrase);
+        }
+        
+        // Filter and normalize phrases
+        const validPhrases = italicPhrases
+          .map(p => normalizeTypography(p).trim())
+          .filter(p => {
+            if (p.length < 2 || p.length > 160) return false;
+            // Not just punctuation/quotes
+            if (/^[^\w]+$/.test(p)) return false;
+            return true;
+          });
+        
+        // Pick best phrase (prefer longest; tie-breaker: more Title-Cased words)
+        if (validPhrases.length > 0) {
+          function countTitleCaseWords(s) {
+            const words = s.match(/\b[A-Z][a-z]+\b/g) || [];
+            return words.length;
+          }
+          
+          validPhrases.sort((a, b) => {
+            if (b.length !== a.length) return b.length - a.length;
+            return countTitleCaseWords(b) - countTitleCaseWords(a);
+          });
+          
+          detectedTitle = cleanTitle(validPhrases[0]);
+          isMinor = false;
+        }
+        
+        // If no italics, check for quoted text (Minor work)
+        if (!detectedTitle) {
+          const quoted = Array.from(firstSentenceNorm.matchAll(/"([^"]+)"/g))
+            .map(m => ({
+              text: (m[1] || "").trim(),
+              idx: m.index ?? 0
+            }))
+            .filter(x => x.text && x.text.length >= 2 && x.text.length <= 120);
+
+          if (quoted.length) {
+            // Prefer a quote that looks like a work title in context:
+            // e.g., "essay "Title"", "article "Title"", "novel "Title"", etc.
+            const workWords = /(essay|article|novel|poem|short story|story|play|film|movie|book|chapter|speech|song|album)\b/i;
+
+            const hasNonQuestion = quoted.some(q => !q.text.includes("?"));
+
+            function scoreCandidate(q) {
+              const left = firstSentenceNorm.slice(Math.max(0, q.idx - 45), q.idx);
+              let score = 0;
+
+              if (workWords.test(left)) score += 10;         // strongest signal
+              if (q.idx < firstSentenceNorm.length / 2) score += 2; // earlier is better
+
+              // Questions are often quoted prompts, not titles (but allow if it's the only option)
+              if (q.text.includes("?") && hasNonQuestion) score -= 6;
+
+              return score;
+            }
+
+            quoted.sort((a, b) => scoreCandidate(b) - scoreCandidate(a) || a.idx - b.idx);
+
+            detectedTitle = cleanTitle(quoted[0].text);
+            isMinor = true;
+          }
+        }
+        
+        // Extract author from first sentence
+        const NAME_STOPWORDS = new Set([
+          "In","On","At","From","With","Without","By","For","To","As",
+          "When","While","After","Before","During","Since","Because","Although","Though",
+          "The","A","An","This","That","These","Those"
+        ]);
+
+        function cleanPossessive(tok) {
+          return tok.replace(/['']s$/, "");
+        }
+        
+        function isNameToken(tok) {
+          if (!tok) return false;
+          if (NAME_STOPWORDS.has(tok)) return false;
+
+          // Initial: "F."
+          if (/^[A-Z]\.$/.test(tok)) return true;
+
+          // Single capital (rare but allow)
+          if (/^[A-Z]$/.test(tok)) return true;
+
+          // Name word: "Richard", "Selzer", "O'Connor", "Mary-Jane"
+          if (/^[A-Z][a-z]+(?:[''][A-Z][a-z]+)?(?:-[A-Z][a-z]+(?:[''][A-Z][a-z]+)?)*$/.test(tok)) return true;
+
+          return false;
+        }
+
+        function cleanAuthorName(s) {
+          s = normalizeTypography(s);
+          const parts = s.split(/\s+/).filter(Boolean);
+          while (parts.length > 1 && NAME_STOPWORDS.has(parts[0])) parts.shift();
+          return parts.join(" ");
+        }
+        
+        function extractProperNounName(sentence, detectedTitle) {
+          const toks = (sentence.match(/[A-Za-z'.-]+/g) || []).filter(Boolean);
+          const titleKey = (detectedTitle || "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+          const titleWords = new Set(titleKey.split(/\s+/).filter(Boolean));
+          
+          const candidates = [];
+          let run = [];
+          
+          for (const raw of toks) {
+            const tok = cleanPossessive(raw);
+            // Skip stopwords at the start of a run
+            if (run.length === 0 && NAME_STOPWORDS.has(tok)) continue;
+            if (isNameToken(raw)) {
+              run.push(tok);
+              if (run.length > 6) run.shift();
+            } else {
+              if (run.length >= 2) candidates.push(run.slice());
+              run = [];
+            }
+          }
+          if (run.length >= 2) candidates.push(run.slice());
+          
+          // Filter out candidates that overlap heavily with title words
+          const filtered = candidates
+            .map(arr => arr.join(" "))
+            .filter(name => {
+              const words = name.toLowerCase().split(/\s+/);
+              const overlap = words.filter(w => titleWords.has(w)).length;
+              return overlap === 0;
+            });
+          
+          if (filtered.length > 0) {
+            const result = filtered[0];
+            // Remove leading stopword if present
+            const parts = result.split(/\s+/);
+            if (parts.length > 1 && NAME_STOPWORDS.has(parts[0])) {
+              return parts.slice(1).join(" ");
+            }
+            return result;
+          }
+          return null;
+        }
+
+        // Priority: possessive anywhere (best for "In Richard Selzer's …")
+        const NAME_TOKEN = "(?:[A-Z]\\.|[A-Z][a-z]+(?:[''][A-Z][a-z]+)?(?:-[A-Z][a-z]+(?:[''][A-Z][a-z]+)?)*)";
+        const NAME_RUN = `${NAME_TOKEN}(?:\\s+${NAME_TOKEN}){0,6}`;
+
+        let possMatches = Array.from(firstSentenceNorm.matchAll(new RegExp(`\\b(${NAME_RUN})['']s\\b`, "g")));
+        if (possMatches.length) {
+          // choose longest then earliest
+          possMatches.sort((a,b) => b[1].split(/\s+/).length - a[1].split(/\s+/).length || (a.index ?? 0) - (b.index ?? 0));
+          detectedAuthor = cleanAuthorName(possMatches[0][1]);
+        }
+
+        // Next: "by Author"
+        if (!detectedAuthor) {
+          const by = firstSentenceNorm.match(new RegExp(`\\b[Bb]y\\s+(${NAME_RUN})\\b`));
+          if (by) detectedAuthor = cleanAuthorName(by[1]);
+        }
+
+        // Fallback: improved proper-noun run extraction
+        if (!detectedAuthor) {
+          detectedAuthor = extractProperNounName(firstSentenceNorm, detectedTitle);
+        }
+        
+        // Sanity tests (non-breaking)
+        try {
+          // Test: getFirstSentence should not stop at initials
+          const test1 = getFirstSentence("In F. Scott Fitzgerald's novel \"The Great Gatsby,\" ...");
+          console.assert(test1.includes("Fitzgerald"), "getFirstSentence should include Fitzgerald and not stop at F.");
+          
+          // Test: possessive author extraction works for curly apostrophe
+          const test2Norm = normalizeTypography("In Richard Selzer's story \"The Knife,\" ...");
+          const test2Matches = Array.from(test2Norm.matchAll(new RegExp(`\\b(${NAME_RUN})['']s\\b`, "g")));
+          console.assert(test2Matches.length > 0 && test2Matches[0][1].includes("Selzer"), "Possessive author extraction should work for curly apostrophe");
+          
+          // Test: quoted title extraction works for curly quotes
+          const test3Norm = normalizeTypography("In \"The Knife,\" Richard Selzer...");
+          const test3Quoted = Array.from(test3Norm.matchAll(/"([^"]+)"/g));
+          console.assert(test3Quoted.length > 0, "Quoted title extraction should work for curly quotes after normalization");
+        } catch (testError) {
+          // Silently ignore test errors to not break production
+        }
+        
+        // Calculate word count: sum wordCount for paragraphs that are NOT header/title
+        let wordCount = 0;
+        for (const para of paras) {
+          if (!isLikelyHeaderOrTitle(para.plain)) {
+            wordCount += para.wordCount;
+          }
+        }
+        
+        return { title: detectedTitle, author: detectedAuthor, isMinor, wordCount };
+      } catch (error) {
+        console.error("Error extracting metadata:", error);
+        return null;
+      }
+    }
+
+    // File selection
+    fileInput.addEventListener("change", async (e) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        selectedFile = files[0];
+        updateFileUI();
+        
+        // Extract metadata and store for later (after Check My Essay)
+        const meta = await extractMetaFromDocx(selectedFile);
+        if (meta) {
+          pendingDetectedMeta = meta;
+          if (meta.wordCount !== undefined) {
+            currentWordCount = meta.wordCount;
+            updateWordCountUI();
+          }
+          applyDetectedMetaAfterCheck();
+        }
+      }
+    });
+
+    // Global file drag/drop guard:
+    // - Prevent browser from opening/navigating to dropped files anywhere on the page.
+    // - Only allow our custom handling when the drop target is inside #dropZone.
+    // - Use capture phase so we intercept before the browser/default handlers.
+    function isFileDragEvent(e) {
+      const dt = e.dataTransfer;
+      if (!dt) return false;
+
+      // "Files" appears in types during file drag in most browsers
+      const types = dt.types ? Array.from(dt.types) : [];
+      if (types.includes("Files")) return true;
+
+      // Fallback (some browsers/devtools quirks)
+      return !!(dt.files && dt.files.length);
+    }
+
+    function isInsideDropZone(target) {
+      return dropZone && target instanceof Node && dropZone.contains(target);
+    }
+
+    function guardFileDnD(e) {
+      // Only interfere with file drags/drops (do not break text dragging inside inputs)
+      if (!isFileDragEvent(e)) return;
+
+      // Always cancel default so the browser never opens/navigates to the file
+      e.preventDefault();
+
+      // If NOT inside the dropZone, block any other handlers too
+      if (!isInsideDropZone(e.target)) {
+        e.stopPropagation();
+
+        // Optional UX hint: show "not allowed" cursor on dragover
+        if (e.type === "dragover") {
+          try { e.dataTransfer.dropEffect = "none"; } catch (_) {}
+        }
+      }
+    }
+
+    // Capture phase + passive:false so preventDefault always works.
+    ["dragenter", "dragover", "drop"].forEach((evt) => {
+      window.addEventListener(evt, guardFileDnD, { capture: true, passive: false });
+    });
+
+    // Drag & drop
+    ["dragenter", "dragover"].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "dragend"].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove("dragover");
+      });
+    });
+
+    dropZone.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("dragover");
+
+      if (e.dataTransfer && e.dataTransfer.files) {
+        const files = Array.from(e.dataTransfer.files);
+        const docxFile = files.find(f => /\.docx$/i.test(f.name));
+        if (docxFile) {
+          selectedFile = docxFile;
+          // Update file input programmatically
+          const dt = new DataTransfer();
+          dt.items.add(docxFile);
+          fileInput.files = dt.files;
+          updateFileUI();
+          
+          // Extract metadata and store for later (after Check My Essay)
+          const meta = await extractMetaFromDocx(selectedFile);
+          if (meta) {
+            pendingDetectedMeta = meta;
+            if (meta.wordCount !== undefined) {
+              currentWordCount = meta.wordCount;
+              updateWordCountUI();
+            }
+            applyDetectedMetaAfterCheck();
+          }
+        } else {
+          statusArea.textContent = "Please upload a .docx file.";
+          statusArea.className = "status-area error";
+        }
+      }
+    });
+
+    // ===== Form submission =====
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!selectedFile) {
+        statusArea.textContent = "Please select a .docx file.";
+        statusArea.className = "status-area error";
+        return;
+      }
+
+      // Get session
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        statusArea.textContent = "You must be logged in.";
+        statusArea.className = "status-area error";
+        return;
+      }
+
+      const mode = document.getElementById("mode").value;
+      const studentName = document.getElementById("studentName").value.trim();
+      const assignmentName = document.getElementById("assignmentName").value.trim();
+      const author = document.getElementById("author").value.trim();
+      const title = document.getElementById("title").value.trim();
+      const textIsMinorWork = titleIsMinorSelect.value;
+      
+      // Work 2
+      const author2 = document.getElementById("author2").value.trim();
+      const title2 = document.getElementById("title2").value.trim();
+      const title2IsMinor = document.getElementById("title2_is_minor").value;
+      
+      // Work 3
+      const author3 = document.getElementById("author3").value.trim();
+      const title3 = document.getElementById("title3").value.trim();
+      const title3IsMinor = document.getElementById("title3_is_minor").value;
+
+      // Build FormData
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("mode", mode);
+      formData.append("include_summary_table", "false");
+
+      if (studentName) {
+        formData.append("student_name", studentName);
+      }
+      if (assignmentName) {
+        formData.append("assignment_name", assignmentName);
+      }
+      if (author) {
+        formData.append("author", author);
+      }
+      if (title) {
+        formData.append("title", title);
+        formData.append("text_is_minor_work", textIsMinorWork);
+      }
+      
+      // Work 2
+      if (author2) {
+        formData.append("author2", author2);
+      }
+      if (title2) {
+        formData.append("title2", title2);
+        formData.append("text_is_minor_work_2", title2IsMinor);
+      }
+      
+      // Work 3
+      if (author3) {
+        formData.append("author3", author3);
+      }
+      if (title3) {
+        formData.append("title3", title3);
+        formData.append("text_is_minor_work_3", title3IsMinor);
+      }
+
+      // Update UI
+      statusArea.textContent = "Uploading…";
+      statusArea.className = "status-area";
+      checkBtn.disabled = true;
+      downloadBtn.style.display = "none";
+
+      try {
+        // Call API
+        const API_URL = "https://vysti-rules.onrender.com/mark";
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${sessionData.session.access_token}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+        }
+
+        const blob = await response.blob();
+        markedBlob = blob;
+        downloadUrl = URL.createObjectURL(blob);
+        
+        const baseName = selectedFile.name.replace(/\.docx$/i, "");
+        downloadBtn.onclick = () => {
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = `${baseName}_marked.docx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        };
+
+        // Render marked essay preview
+        try {
+          markedPreview.innerHTML = "";
+          const buf = await blob.arrayBuffer();
+          if (typeof docx !== "undefined" && docx.renderAsync) {
+            await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            // Make preview editable
+            markedPreview.contentEditable = "true";
+            markedPreview.spellcheck = true;
+            markedPreview.classList.add("preview-editable");
+            markedPreviewCard.style.display = "block";
+          } else {
+            // Fallback: show message if docx-preview not loaded
+            markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
+            markedPreviewCard.style.display = "block";
+          }
+        } catch (previewError) {
+          console.error("Error rendering preview:", previewError);
+          markedPreview.innerHTML = "<p>Error rendering preview. Please download the file to view.</p>";
+          markedPreviewCard.style.display = "block";
+        }
+
+        statusArea.textContent = "Done — preview below. Download is ready.";
+        statusArea.className = "status-area success";
+        downloadBtn.style.display = "block";
+        
+        // Apply detected meta after successful marking
+        applyDetectedMetaAfterCheck();
+        
+        // Load revision practice data
+        await loadRevisionPractice();
+
+      } catch (error) {
+        console.error("Error:", error);
+        statusArea.textContent = `Error: ${error.message}`;
+        statusArea.className = "status-area error";
+      } finally {
+        checkBtn.disabled = false;
+      }
+    });
+
+    // ===== Apply detected meta after Check My Essay =====
+    function applyDetectedMetaAfterCheck() {
+      if (!pendingDetectedMeta) return;
+
+      const meta = pendingDetectedMeta;
+      const titleInput = document.getElementById("title");
+      const authorInput = document.getElementById("author");
+
+      // Apply only if empty (don't overwrite student edits)
+      const titleWasEmpty = titleInput && !titleInput.value.trim();
+      if (meta.author && authorInput && !authorInput.value.trim()) {
+        authorInput.value = meta.author;
+      }
+      if (meta.title && titleInput && titleWasEmpty) {
+        titleInput.value = meta.title;
+      }
+
+      // Apply type toggle only if we filled the title field (it was empty before)
+      if (meta.title && titleWasEmpty) {
+        if (meta.isMinor) {
+          const minorRadio = document.querySelector('input[name="title_type"][value="true"]');
+          if (minorRadio) minorRadio.checked = true;
+          titleIsMinorSelect.value = "true";
+        } else {
+          const majorRadio = document.querySelector('input[name="title_type"][value="false"]');
+          if (majorRadio) majorRadio.checked = true;
+          titleIsMinorSelect.value = "false";
+        }
+      }
+
+      // Show confirmation banner above the inputs
+      metaConfirm.textContent = "Did we get the author and title right?";
+      metaConfirm.classList.add("visible");
+
+      // Ensure the section is open so the student sees it
+      textDetailsSection.classList.add("visible");
+      textDetailsToggle.textContent = "Enter author and text titles ▲";
+    }
+
+    // ===== Revision Practice =====
+    // Handle section selection (set up once)
+    sectionSelect.addEventListener("change", (e) => {
+      const selectedSection = e.target.value;
+      const sectionData = window.revisionSectionData;
+      
+      if (!sectionData) {
+        return;
+      }
+      
+      // Clear issue selection when section changes
+      issueSelect.value = "";
+      issueExplanation.style.display = "none";
+      examplesList.innerHTML = "";
+      downloadRevisionNotesBtn.style.display = "none";
+      
+      // Repopulate issueSelect with labels in selected section
+      issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+      
+      let labelsToShow = [];
+      if (!selectedSection || selectedSection === "") {
+        // Show all labels
+        labelsToShow = Object.keys(sectionData.labelCounts);
+      } else {
+        // Show labels in selected section
+        labelsToShow = sectionData.sectionLabels[selectedSection] || [];
+      }
+      
+      // Sort by count desc
+      const sortedLabels = labelsToShow
+        .map(label => ({
+          label,
+          count: sectionData.labelCounts[label] || 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .map(item => item.label);
+      
+      sortedLabels.forEach(label => {
+        const option = document.createElement("option");
+        option.value = label;
+        const count = sectionData.labelCounts[label] || 0;
+        option.textContent = `${label} (${count})`;
+        issueSelect.appendChild(option);
+      });
+    });
+    
+    // Handle issue selection (set up once)
+    issueSelect.addEventListener("change", async (e) => {
+      const selectedLabel = e.target.value;
+      if (!selectedLabel) {
+        issueExplanation.style.display = "none";
+        examplesList.innerHTML = "";
+        downloadRevisionNotesBtn.style.display = "none";
+        return;
+      }
+
+      await loadIssueExamples(selectedLabel);
+    });
+
+    async function loadRevisionPractice() {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session || !selectedFile) {
+        return;
+      }
+
+      try {
+        // Get latest mark event for this user and file
+        const { data: markEvents, error: markError } = await supa
+          .from("mark_events")
+          .select("id, label_counts, issues, created_at, file_name")
+          .eq("user_id", sessionData.session.user.id)
+          .eq("file_name", selectedFile.name)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (markError) {
+          console.error("Error loading mark events:", markError);
+          revisionPracticeCard.style.display = "block";
+          sectionSelect.innerHTML = '<option value="">All sections</option>';
+          issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          return;
+        }
+
+        if (!markEvents || markEvents.length === 0) {
+          revisionPracticeCard.style.display = "block";
+          sectionSelect.innerHTML = '<option value="">All sections</option>';
+          issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          return;
+        }
+
+        currentMarkEvent = markEvents[0];
+        const labelCounts = currentMarkEvent.label_counts || {};
+        
+        // Build section index by querying issue_examples
+        let examplesQuery = supa
+          .from("issue_examples")
+          .select("label, paragraph_index")
+          .eq("user_id", sessionData.session.user.id)
+          .eq("file_name", selectedFile.name);
+        
+        // Filter by mark_event_id if available
+        if (currentMarkEvent.id) {
+          examplesQuery = examplesQuery.eq("mark_event_id", currentMarkEvent.id);
+        }
+        
+        const { data: examplesData, error: examplesError } = await examplesQuery;
+        
+        if (examplesError) {
+          console.warn("Error loading examples for section index:", examplesError);
+        }
+        
+        // Determine intro_idx_est and conclusion_idx_est from paragraph_index values
+        const paraIndices = (examplesData || [])
+          .map(ex => ex.paragraph_index)
+          .filter(idx => idx != null && typeof idx === 'number');
+        
+        const intro_idx_est = paraIndices.length > 0 ? Math.min(...paraIndices) : 0;
+        const conclusion_idx_est = paraIndices.length > 0 ? Math.max(...paraIndices) : 0;
+        
+        // Build label-to-section mapping
+        // For each label, find its dominant paragraph_index (most frequent)
+        const labelParaCounts = {};
+        (examplesData || []).forEach(ex => {
+          const label = String(ex.label || "").trim();
+          const paraIdx = ex.paragraph_index;
+          if (!label || paraIdx == null) return;
+          
+          if (!labelParaCounts[label]) {
+            labelParaCounts[label] = {};
+          }
+          labelParaCounts[label][paraIdx] = (labelParaCounts[label][paraIdx] || 0) + 1;
+        });
+        
+        // Determine section for each label
+        const labelToSection = {};
+        const sectionLabels = {
+          "Title & Intro": [],
+          "Conclusion": [],
+        };
+        const bodySections = {}; // "Body paragraph N" -> [labels]
+        
+        Object.keys(labelCounts).forEach(label => {
+          const labelLower = label.toLowerCase();
+          const paraCounts = labelParaCounts[label] || {};
+          
+          // Find dominant paragraph_index
+          let dominantParaIdx = null;
+          let maxCount = 0;
+          Object.entries(paraCounts).forEach(([paraIdx, count]) => {
+            if (count > maxCount) {
+              maxCount = count;
+              dominantParaIdx = parseInt(paraIdx, 10);
+            }
+          });
+          
+          // Bucket into section
+          let section = null;
+          if (dominantParaIdx === intro_idx_est || 
+              labelLower.includes("title") || 
+              labelLower.includes("thesis") || 
+              labelLower.includes("first sentence") || 
+              labelLower.includes("introduction")) {
+            section = "Title & Intro";
+            sectionLabels["Title & Intro"].push(label);
+          } else if (dominantParaIdx === conclusion_idx_est || 
+                     labelLower.includes("conclusion")) {
+            section = "Conclusion";
+            sectionLabels["Conclusion"].push(label);
+          } else if (dominantParaIdx != null) {
+            const bodyNum = dominantParaIdx - intro_idx_est;
+            const sectionName = `Body paragraph ${bodyNum}`;
+            section = sectionName;
+            if (!bodySections[sectionName]) {
+              bodySections[sectionName] = [];
+            }
+            bodySections[sectionName].push(label);
+          } else {
+            // Fallback: put in Title & Intro if we can't determine
+            section = "Title & Intro";
+            sectionLabels["Title & Intro"].push(label);
+          }
+          
+          labelToSection[label] = section;
+        });
+        
+        // Merge body sections into sectionLabels
+        Object.keys(bodySections).forEach(sectionName => {
+          sectionLabels[sectionName] = bodySections[sectionName];
+        });
+        
+        // Store section data for filtering
+        window.revisionSectionData = {
+          labelToSection,
+          sectionLabels,
+          labelCounts
+        };
+        
+        // Populate sectionSelect (only include sections with at least one label)
+        sectionSelect.innerHTML = '<option value="">All sections</option>';
+        // Sort body sections numerically (Body paragraph 1, 2, 10, not 1, 10, 2)
+        const bodySectionNames = Object.keys(bodySections).sort((a, b) => {
+          const numA = parseInt(a.match(/\d+/)?.[0] || "0", 10);
+          const numB = parseInt(b.match(/\d+/)?.[0] || "0", 10);
+          return numA - numB;
+        });
+        const sectionOrder = ["Title & Intro", ...bodySectionNames, "Conclusion"];
+        sectionOrder.forEach(sectionName => {
+          if (sectionLabels[sectionName] && sectionLabels[sectionName].length > 0) {
+            const option = document.createElement("option");
+            option.value = sectionName;
+            option.textContent = sectionName;
+            sectionSelect.appendChild(option);
+          }
+        });
+        
+        // Populate issueSelect with all labels (sorted by count desc)
+        const sortedLabels = Object.entries(labelCounts)
+          .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+          .map(([label]) => String(label || "").trim())
+          .filter(Boolean);
+        
+        issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+        sortedLabels.forEach(label => {
+          const option = document.createElement("option");
+          option.value = label;
+          const count = labelCounts[label] || 0;
+          option.textContent = `${label} (${count})`;
+          issueSelect.appendChild(option);
+        });
+
+        revisionPracticeCard.style.display = "block";
+
+      } catch (error) {
+        console.error("Error loading revision practice:", error);
+        revisionPracticeCard.style.display = "block";
+        sectionSelect.innerHTML = '<option value="">All sections</option>';
+        issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+      }
+    }
+
+    async function loadIssueExamples(label) {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session || !selectedFile) {
+        return;
+      }
+
+      try {
+        // Get explanation from issues array
+        const issues = currentMarkEvent?.issues || [];
+        const issueData = issues.find(iss => iss.label === label);
+        if (issueData && issueData.explanation) {
+          issueExplanation.textContent = issueData.explanation;
+          issueExplanation.style.display = "block";
+        } else {
+          issueExplanation.style.display = "none";
+        }
+
+        // Get examples from issue_examples
+        // Fetch 50 rows to allow deduplication while still getting 10 unique examples
+        // Filter by mark_event_id if available (prevents stale examples after recheck)
+        let examples = null;
+        let error = null;
+        
+        if (currentMarkEvent && currentMarkEvent.id) {
+          // Try filtered query with mark_event_id
+          const { data, error: err } = await supa
+            .from("issue_examples")
+            .select("label, sentence, student_name, paragraph_index, created_at")
+            .eq("user_id", sessionData.session.user.id)
+            .eq("file_name", selectedFile.name)
+            .eq("label", label)
+            .eq("mark_event_id", currentMarkEvent.id)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          
+          if (err) {
+            // If mark_event_id column doesn't exist (older DB), fallback to old query
+            console.warn("mark_event_id filter failed, falling back to old query:", err);
+            const { data: fallbackData, error: fallbackError } = await supa
+              .from("issue_examples")
+              .select("label, sentence, student_name, paragraph_index, created_at")
+              .eq("user_id", sessionData.session.user.id)
+              .eq("file_name", selectedFile.name)
+              .eq("label", label)
+              .order("created_at", { ascending: false })
+              .limit(50);
+            examples = fallbackData;
+            error = fallbackError;
+          } else {
+            examples = data;
+          }
+        } else {
+          // No mark_event_id available, use old query
+          const { data: fallbackData, error: fallbackError } = await supa
+            .from("issue_examples")
+            .select("label, sentence, student_name, paragraph_index, created_at")
+            .eq("user_id", sessionData.session.user.id)
+            .eq("file_name", selectedFile.name)
+            .eq("label", label)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          examples = fallbackData;
+          error = fallbackError;
+        }
+
+        if (error) {
+          console.error("Error loading examples:", error);
+          examplesList.innerHTML = "<li>Error loading examples.</li>";
+          return;
+        }
+
+        // Sort: first by created_at desc (latest run first), then by paragraph_index asc (doc order)
+        const sortedExamples = (examples || []).sort((a, b) => {
+          // First, sort by created_at descending (latest first)
+          const timeA = new Date(a.created_at || 0).getTime();
+          const timeB = new Date(b.created_at || 0).getTime();
+          if (timeA !== timeB) {
+            return timeB - timeA; // Descending
+          }
+          // If created_at is the same (same mark event), sort by paragraph_index ascending
+          const paraA = a.paragraph_index ?? 999999;
+          const paraB = b.paragraph_index ?? 999999;
+          return paraA - paraB;
+        });
+
+        // Deduplicate examples by sentence text (trimmed)
+        const uniq = [];
+        const seenSent = new Set();
+        for (const ex of sortedExamples) {
+          const s = String(ex?.sentence || "").trim();
+          if (!s) continue;
+          if (seenSent.has(s)) continue;
+          seenSent.add(s);
+          uniq.push(ex);
+          if (uniq.length >= 10) break; // Cap at 10 examples
+        }
+
+        examplesList.innerHTML = "";
+        
+        if (!uniq || uniq.length === 0) {
+          examplesList.innerHTML = "<li>No examples available for this issue. Try fixing similar issues from other assignments.</li>";
+          downloadRevisionNotesBtn.style.display = "none";
+          return;
+        }
+
+        uniq.forEach((ex, idx) => {
+          const li = document.createElement("li");
+          li.className = "example-item";
+          
+          const sentenceDiv = document.createElement("div");
+          sentenceDiv.className = "example-sentence";
+          sentenceDiv.textContent = ex.sentence || "";
+          
+          const studentDiv = document.createElement("div");
+          studentDiv.className = "example-student";
+          studentDiv.textContent = `From: ${ex.student_name || "You"}`;
+          
+          const rewriteTextarea = document.createElement("textarea");
+          rewriteTextarea.className = "example-rewrite";
+          rewriteTextarea.placeholder = "Edit directly here...";
+          rewriteTextarea.setAttribute("data-example-idx", idx);
+          // Prefill with the example sentence
+          rewriteTextarea.value = ex.sentence || "";
+          
+          const rewriteStatusDiv = document.createElement("div");
+          rewriteStatusDiv.className = "rewrite-status";
+          
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "example-actions";
+          
+          const resetExampleBtn = document.createElement("button");
+          resetExampleBtn.className = "example-btn";
+          resetExampleBtn.textContent = "Reset example";
+          resetExampleBtn.onclick = () => {
+            rewriteTextarea.value = ex.sentence || "";
+          };
+          
+          const copyRewriteBtn = document.createElement("button");
+          copyRewriteBtn.className = "example-btn";
+          copyRewriteBtn.textContent = "Copy your rewrite";
+          copyRewriteBtn.onclick = () => {
+            navigator.clipboard.writeText(rewriteTextarea.value).then(() => {
+              copyRewriteBtn.textContent = "Copied!";
+              setTimeout(() => copyRewriteBtn.textContent = "Copy your rewrite", 2000);
+            });
+          };
+          
+          const findInPreviewBtn = document.createElement("button");
+          findInPreviewBtn.className = "example-btn";
+          findInPreviewBtn.textContent = "Find in preview";
+          findInPreviewBtn.onclick = () => {
+            if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+              rewriteStatusDiv.textContent = "Run Check My Essay to load the preview first.";
+              rewriteStatusDiv.className = "rewrite-status visible";
+              rewriteStatusDiv.classList.remove("ok", "bad");
+              return;
+            }
+            highlightAndScrollToExample(ex, rewriteStatusDiv);
+          };
+          
+          const checkRewriteBtn = document.createElement("button");
+          checkRewriteBtn.className = "example-btn";
+          checkRewriteBtn.textContent = "Check rewrite";
+          checkRewriteBtn.onclick = async () => {
+            await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
+          };
+          
+          const applyToPreviewBtn = document.createElement("button");
+          applyToPreviewBtn.className = "example-btn apply-to-preview-btn";
+          applyToPreviewBtn.textContent = "Apply to Preview";
+          applyToPreviewBtn.disabled = true;
+          applyToPreviewBtn.onclick = () => {
+            applyRewriteToPreview(ex, li, rewriteStatusDiv, applyToPreviewBtn);
+          };
+          
+          actionsDiv.appendChild(resetExampleBtn);
+          actionsDiv.appendChild(copyRewriteBtn);
+          actionsDiv.appendChild(findInPreviewBtn);
+          actionsDiv.appendChild(checkRewriteBtn);
+          actionsDiv.appendChild(applyToPreviewBtn);
+          
+          // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
+          rewriteTextarea.addEventListener("keydown", async (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+              e.preventDefault();
+              await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
+            }
+          });
+          
+          li.appendChild(sentenceDiv);
+          li.appendChild(studentDiv);
+          li.appendChild(rewriteTextarea);
+          li.appendChild(rewriteStatusDiv);
+          li.appendChild(actionsDiv);
+          
+          examplesList.appendChild(li);
+        });
+
+        downloadRevisionNotesBtn.style.display = "block";
+        downloadRevisionNotesBtn.onclick = () => {
+          downloadRevisionNotes(label, uniq);
+        };
+
+      } catch (error) {
+        console.error("Error loading issue examples:", error);
+        examplesList.innerHTML = "<li>Error loading examples.</li>";
+      }
+    }
+
+    // ===== Preview highlighting helpers =====
+    function getPreviewBlocks() {
+      if (!markedPreview) return [];
+      
+      // Prefer: markedPreview.querySelectorAll(".docx p, .docx li, p, li")
+      let blocks = Array.from(markedPreview.querySelectorAll(".docx p, .docx li, p, li"));
+      
+      // Filter out empty innerText
+      blocks = blocks.filter(block => (block.innerText || "").trim().length > 0);
+      
+      // If none found, fallback to markedPreview.querySelectorAll("p, li, div") filtered
+      if (blocks.length === 0) {
+        blocks = Array.from(markedPreview.querySelectorAll("p, li, div"));
+        blocks = blocks.filter(block => (block.innerText || "").trim().length > 0);
+      }
+      
+      return blocks;
+    }
+
+    function normalizeForMatch(text) {
+      return (text || "")
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')  // curly quotes to straight
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // curly quotes to straight
+        .replace(/[\u2013\u2014]/g, "-")  // en dash and em dash to hyphen
+        .replace(/\u00AD/g, "")  // remove soft hyphens
+        .replace(/\u00A0/g, " ")  // non-breaking spaces to normal spaces
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")  // remove zero-width chars
+        .replace(/\s+/g, " ")  // collapse whitespace
+        .trim();
+    }
+
+    function unwrapNode(el) {
+      const parent = el.parentNode;
+      if (!parent) return;
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
+      }
+      parent.removeChild(el);
+      parent.normalize();
+    }
+
+    function clearPreviewHighlights() {
+      // Unwrap any highlight spans
+      const highlightedSpans = markedPreview.querySelectorAll("span.vysti-preview-hit[data-vysti-hit='1']");
+      highlightedSpans.forEach(unwrapNode);
+      
+      // Remove classes from any elements
+      const highlighted = markedPreview.querySelectorAll(".vysti-preview-hit, .vysti-preview-hit-block");
+      highlighted.forEach(el => {
+        el.classList.remove("vysti-preview-hit", "vysti-preview-hit-block");
+      });
+    }
+
+    function normalizeCharForMatch(ch) {
+      // Convert curly quotes to straight
+      if (ch === '\u201C' || ch === '\u201D' || ch === '\u201E' || ch === '\u201F') return '"';
+      if (ch === '\u2018' || ch === '\u2019' || ch === '\u201A' || ch === '\u201B') return "'";
+      // Convert en dash and em dash to hyphen
+      if (ch === '\u2013' || ch === '\u2014') return '-';
+      // Convert NBSP to space
+      if (ch === '\u00A0') return ' ';
+      // Strip soft hyphen and zero-width chars
+      if (ch === '\u00AD' || (ch >= '\u200B' && ch <= '\u200D') || ch === '\uFEFF') return '';
+      // Treat any whitespace as space
+      if (/\s/.test(ch)) return ' ';
+      return ch;
+    }
+
+    // Helper: Check if a text node is a Vysti label run (starts with "→")
+    function isVystiLabelTextNode(node) {
+      if (node.nodeType !== Node.TEXT_NODE) return false;
+      
+      // Check if the node's textContent (trimmed) starts with "→"
+      const text = (node.textContent || "").trim();
+      if (text.startsWith("→")) return true;
+      
+      // Also check the closest SPAN's textContent (handles cases where docx-preview splits arrow + label across nodes)
+      let current = node.parentElement;
+      while (current && current.tagName !== "SPAN") {
+        current = current.parentElement;
+      }
+      if (current && current.tagName === "SPAN") {
+        const spanText = (current.textContent || "").trim();
+        if (spanText.startsWith("→")) return true;
+      }
+      
+      return false;
+    }
+
+    function buildNormalizedTextMap(rootEl) {
+      const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+      const posMap = [];
+      let normText = "";
+      let lastWasSpace = false;
+
+      let node;
+      while ((node = walker.nextNode())) {
+        // Skip Vysti label runs (text starting with "→")
+        if (isVystiLabelTextNode(node)) continue;
+        
+        const t = node.textContent || "";
+        for (let i = 0; i < t.length; i++) {
+          let ch = normalizeCharForMatch(t[i]);
+          if (ch === "") continue;
+
+          if (ch === " ") {
+            if (normText.length === 0 || lastWasSpace) continue;
+            lastWasSpace = true;
+          } else {
+            lastWasSpace = false;
+          }
+
+          normText += ch;
+          posMap.push({ node, offset: i });
+        }
+      }
+
+      return { normText, posMap };
+    }
+
+    // Helper: Wrap a substring of a single Text node by splitting it
+    function wrapTextNodeSubstring(node, startOffset, endOffsetInclusive) {
+      if (node.nodeType !== Node.TEXT_NODE) return null;
+      
+      const text = node.textContent || "";
+      const endOffsetExclusive = endOffsetInclusive + 1;
+      
+      // Split at endOffsetExclusive if needed
+      if (endOffsetExclusive < text.length) {
+        const afterNode = node.splitText(endOffsetExclusive);
+        // afterNode is now the node after the split
+      }
+      
+      // Split at startOffset if needed (now node might have been shortened)
+      let targetNode = node;
+      if (startOffset > 0) {
+        targetNode = node.splitText(startOffset);
+      }
+      
+      // Now targetNode contains the substring we want to wrap
+      const span = document.createElement("span");
+      span.className = "vysti-preview-hit";
+      span.setAttribute("data-vysti-hit", "1");
+      
+      // Wrap the targetNode
+      const parent = targetNode.parentNode;
+      if (parent) {
+        parent.insertBefore(span, targetNode);
+        span.appendChild(targetNode);
+      }
+      
+      return span;
+    }
+
+    // Multi-span wrapper that handles ranges across multiple text nodes
+    function wrapMappedRangeMulti(posMap, startIdx, endIdx) {
+      if (startIdx < 0 || endIdx < startIdx || endIdx >= posMap.length) {
+        return null;
+      }
+      
+      // Build segments by grouping consecutive entries with the same node
+      const segments = [];
+      let currentSegment = null;
+      
+      for (let i = startIdx; i <= endIdx; i++) {
+        const pos = posMap[i];
+        if (!pos || !pos.node) continue;
+        
+        if (!currentSegment || currentSegment.node !== pos.node) {
+          // Start new segment
+          if (currentSegment) {
+            segments.push(currentSegment);
+          }
+          currentSegment = {
+            node: pos.node,
+            startOffset: pos.offset,
+            endOffset: pos.offset
+          };
+        } else {
+          // Extend current segment
+          currentSegment.endOffset = pos.offset;
+        }
+      }
+      
+      if (currentSegment) {
+        segments.push(currentSegment);
+      }
+      
+      if (segments.length === 0) return null;
+      
+      // Group segments by node, then process each node's segments in reverse offset order
+      // This ensures that when we split a node, earlier offsets in the same node are still valid
+      const nodeToSegments = new Map();
+      for (const seg of segments) {
+        if (!nodeToSegments.has(seg.node)) {
+          nodeToSegments.set(seg.node, []);
+        }
+        nodeToSegments.get(seg.node).push(seg);
+      }
+      
+      const createdSpans = [];
+      
+      // Process each node's segments separately, in reverse offset order
+      for (const [originalNode, nodeSegments] of nodeToSegments) {
+        // Sort by endOffset descending (process highest offsets first)
+        nodeSegments.sort((a, b) => b.endOffset - a.endOffset);
+        
+        for (const seg of nodeSegments) {
+          // Use the original node reference - wrapTextNodeSubstring handles splitting
+          const span = wrapTextNodeSubstring(seg.node, seg.startOffset, seg.endOffset);
+          if (span) {
+            createdSpans.push(span);
+          }
+        }
+      }
+      
+      // Sort spans by DOM order
+      createdSpans.sort((a, b) => {
+        const pos = a.compareDocumentPosition(b);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      });
+      
+      return createdSpans.length > 0 ? createdSpans : null;
+    }
+
+    function highlightExactTextInElement(rootEl, targetSentence) {
+      const target = normalizeForMatch(targetSentence);
+      if (!target) return null;
+
+      const { normText, posMap } = buildNormalizedTextMap(rootEl);
+
+      const start = normText.indexOf(target);
+      if (start === -1) return null;
+
+      const end = start + target.length - 1;
+      return wrapMappedRangeMulti(posMap, start, end);
+    }
+
+    function buildAnchorCandidates(target) {
+      const lens = [80, 60, 45, 35, 25, 18];
+      const prefixes = [];
+      const suffixes = [];
+
+      for (const L of lens) {
+        let p = target.substring(0, Math.min(L, target.length));
+        const cut = p.lastIndexOf(" ");
+        if (cut > 12) p = p.substring(0, cut);
+        if (p.length >= 12 && !prefixes.includes(p)) prefixes.push(p);
+      }
+
+      for (const L of lens) {
+        let s = target.substring(Math.max(0, target.length - L));
+        const cut = s.indexOf(" ");
+        if (cut !== -1 && (s.length - (cut + 1)) >= 12) s = s.substring(cut + 1);
+        if (s.length >= 12 && !suffixes.includes(s)) suffixes.push(s);
+      }
+
+      return { prefixes, suffixes };
+    }
+
+    function highlightAnchoredSentenceInElement(rootEl, sentence) {
+      const target = normalizeForMatch(sentence);
+      if (!target) return null;
+
+      const { normText, posMap } = buildNormalizedTextMap(rootEl);
+      const { prefixes, suffixes } = buildAnchorCandidates(target);
+
+      // Prevent "highlight half the paragraph" accidents
+      const maxAllowed = Math.max(220, target.length * 3 + 120);
+
+      for (const prefix of prefixes) {
+        const start = normText.indexOf(prefix);
+        if (start === -1) continue;
+
+        for (const suffix of suffixes) {
+          const endStart = normText.indexOf(suffix, start + prefix.length);
+          if (endStart === -1) continue;
+
+          const end = endStart + suffix.length - 1;
+          const spanLen = end - start + 1;
+
+          if (spanLen <= 0 || spanLen > maxAllowed) continue;
+
+          const spans = wrapMappedRangeMulti(posMap, start, end);
+          if (spans && spans.length > 0) return spans;
+        }
+      }
+
+      return null;
+    }
+
+    function scoreBlockMatch(sentence, blockText) {
+      const normSentence = normalizeForMatch(sentence);
+      const normBlock = normalizeForMatch(blockText);
+
+      if (!normSentence || !normBlock) return 0.0;
+
+      // Perfect match if the normalized block contains the full normalized sentence.
+      if (normBlock.includes(normSentence)) return 1.0;
+
+      // Token scoring fallback:
+      // - Prefer longer tokens to avoid false positives.
+      // - But if the sentence is short (or gets split by injected "→ ..."), relax token length.
+      const tokenize = (minLen) =>
+        normSentence
+          .replace(/[^\w\s]/g, " ")
+          .split(/\s+/)
+          .filter((t) => t.length >= minLen);
+
+      let tokens = tokenize(4);
+      if (tokens.length === 0) tokens = tokenize(3);
+      if (tokens.length === 0) tokens = tokenize(2);
+
+      if (tokens.length === 0) return 0.0;
+
+      const blockLower = normBlock.toLowerCase();
+      let hits = 0;
+      for (const token of tokens) {
+        if (blockLower.includes(token.toLowerCase())) hits++;
+      }
+
+      return hits / tokens.length;
+    }
+
+    function findBestPreviewBlockForExample(example) {
+      const blocks = getPreviewBlocks();
+      if (blocks.length === 0) return null;
+
+      const sentence = (example?.sentence || "").trim();
+      const paraIndex = example?.paragraph_index;
+
+      // If there's no usable sentence text, fall back deterministically.
+      if (!sentence) {
+        if (typeof paraIndex === "number") {
+          const idx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
+          return blocks[idx] || blocks[0] || null;
+        }
+        return blocks[0] || null;
+      }
+
+      // 1) Global best (search all blocks). This protects us when paragraph_index is offset
+      // by title/name/spacing blocks at the top of docx-preview.
+      let globalBest = blocks[0];
+      let globalBestScore = -1;
+
+      for (let i = 0; i < blocks.length; i++) {
+        const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
+        if (score > globalBestScore) {
+          globalBestScore = score;
+          globalBest = blocks[i];
+          if (score === 1.0) break; // can't beat perfect
+        }
+      }
+
+      // If paragraph_index is missing, just use the global best.
+      if (typeof paraIndex !== "number") {
+        return globalBest;
+      }
+
+      // 2) Local window best (prefer local when it's confident, but widen near top of document)
+      const candidates = [];
+      const bases = [paraIndex, paraIndex - 1, paraIndex + 1];
+
+      for (const base of bases) {
+        if (typeof base !== "number") continue;
+
+        const backward = 4;
+
+        // Near the top, docx-preview often adds extra blocks (title/name/blank lines),
+        // so we search farther forward to avoid missing the true first body paragraph.
+        const forward = base <= 2 ? 12 : 4;
+
+        const start = Math.max(0, base - backward);
+        const end = Math.min(blocks.length - 1, base + forward);
+
+        for (let i = start; i <= end; i++) {
+          const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
+          candidates.push({ block: blocks[i], score, index: i });
+          if (score === 1.0) return blocks[i];
+        }
+      }
+
+      candidates.sort((a, b) => b.score - a.score);
+      const bestLocal = candidates[0];
+
+      // If local is good, use it.
+      if (bestLocal && bestLocal.score >= 0.3) {
+        return bestLocal.block;
+      }
+
+      // Otherwise, if global is decent, use it (THIS fixes first-sentence problems).
+      if (globalBestScore >= 0.3) {
+        return globalBest;
+      }
+
+      // Last resort: old deterministic fallback.
+      const fallbackIdx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
+      const fallbackIdx2 = Math.max(0, Math.min(blocks.length - 1, paraIndex - 1));
+      return blocks[fallbackIdx] || blocks[fallbackIdx2] || globalBest || null;
+    }
+
+    function highlightAndScrollToExample(example, statusDivOptional) {
+      clearPreviewHighlights();
+      
+      const sentence = example?.sentence || "";
+      const blockEl = findBestPreviewBlockForExample(example);
+      
+      if (!blockEl) {
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Couldn't locate it in the preview automatically. Use Copy + paste manually.";
+        }
+        return { ok: false, hits: [], blockEl: null, used: "none" };
+      }
+      
+      let hits = highlightExactTextInElement(blockEl, sentence);
+      let used = "exact";
+
+      // NEW: if exact fails, try anchored match (handles injected "→ ..." text inside the sentence)
+      if (!hits || hits.length === 0) {
+        hits = highlightAnchoredSentenceInElement(blockEl, sentence);
+        used = "anchor";
+      }
+
+      if (hits && hits.length > 0) {
+        const first = hits[0];
+        const last = hits[hits.length - 1];
+        
+        // Scroll to first span
+        first.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Create selection range that selects the full sentence
+        try {
+          // Find first text node in first span
+          let firstTextNode = first.firstChild;
+          while (firstTextNode && firstTextNode.nodeType !== Node.TEXT_NODE) {
+            firstTextNode = firstTextNode.firstChild;
+          }
+          
+          // Find first text node in last span
+          let lastTextNode = last.firstChild;
+          while (lastTextNode && lastTextNode.nodeType !== Node.TEXT_NODE) {
+            lastTextNode = lastTextNode.firstChild;
+          }
+          
+          if (firstTextNode && lastTextNode) {
+            const range = document.createRange();
+            range.setStart(firstTextNode, 0);
+            range.setEnd(lastTextNode, lastTextNode.textContent.length);
+            
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch (e) {
+          // Fallback: select all spans
+          try {
+            const range = document.createRange();
+            range.setStartBefore(first);
+            range.setEndAfter(last);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } catch (e2) {}
+        }
+
+        if (markedPreview) markedPreview.focus();
+
+        if (statusDivOptional) {
+          statusDivOptional.textContent = "Highlighted the sentence in the preview. Paste your rewrite to replace it.";
+        }
+        return { ok: true, hits: hits, blockEl: blockEl, used: used };
+      }
+
+      // Only now do paragraph fallback
+      console.debug("[FindPreview fallback]", {
+        label: example?.label,
+        paragraph_index: example?.paragraph_index,
+        sentence: example?.sentence,
+        normSentence: normalizeForMatch(example?.sentence || "").slice(0, 200),
+        normBlock: normalizeForMatch(blockEl?.innerText || "").slice(0, 200),
+      });
+      blockEl.classList.add("vysti-preview-hit-block");
+      blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (markedPreview) markedPreview.focus();
+      if (statusDivOptional) {
+        statusDivOptional.textContent = "Found the paragraph, but couldn't isolate the exact sentence. You can still paste manually.";
+      }
+      return { ok: true, hits: [], blockEl: blockEl, used: "paragraph" };
+    }
+
+    async function checkRewrite(label, example, textarea, statusDiv) {
+      const rewrite = textarea.value.trim();
+      if (!rewrite) {
+        statusDiv.textContent = "Please enter a rewrite first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        statusDiv.textContent = "You must be logged in.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      statusDiv.textContent = "Checking...";
+      statusDiv.className = "rewrite-status visible";
+      statusDiv.classList.remove("ok", "bad");
+
+      try {
+        const API_BASE = "https://vysti-rules.onrender.com";
+        const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+        const response = await fetch(`${API_BASE}/revision/check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            label: label,
+            rewrite: rewrite,
+            mode: currentMode,
+          }),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+        }
+
+        const result = await response.json();
+        const ok = !!result.approved;
+        statusDiv.textContent = result.message || (ok ? "Revision approved." : "Looks like we still have an issue.");
+        statusDiv.className = `rewrite-status visible ${ok ? "ok" : "bad"}`;
+        
+        // Store approved rewrite and enable Apply button
+        if (ok) {
+          const exampleRow = statusDiv.closest(".example-item");
+          if (exampleRow) {
+            exampleRow.dataset.approvedRewrite = rewrite;
+            const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
+            if (applyBtn) {
+              applyBtn.disabled = false;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking rewrite:", error);
+        statusDiv.textContent = `Error: ${error.message}`;
+        statusDiv.className = "rewrite-status visible bad";
+      }
+    }
+
+    function applyRewriteToPreview(example, exampleRow, statusDiv, applyBtn) {
+      // Ensure preview exists
+      if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+        statusDiv.textContent = "Run Check My Essay to load the preview first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      // Get approved rewrite from dataset
+      const rewriteText = exampleRow.dataset.approvedRewrite;
+      if (!rewriteText) {
+        statusDiv.textContent = "Please check and approve your rewrite first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      // Find the sentence in preview
+      const result = highlightAndScrollToExample(example, null);
+      
+      if (!result.ok || result.hits.length === 0) {
+        statusDiv.textContent = "Couldn't isolate the exact sentence in preview — please paste manually.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      // Replace the matched range with the approved rewrite
+      try {
+        const first = result.hits[0];
+        const last = result.hits[result.hits.length - 1];
+        const range = document.createRange();
+        range.setStartBefore(first);
+        range.setEndAfter(last);
+        range.deleteContents();
+
+        // Insert rewrite as a styled span so it doesn't inherit UI fonts
+        const rewriteSpan = document.createElement("span");
+        rewriteSpan.className = "vysti-applied-rewrite";
+        rewriteSpan.textContent = rewriteText;
+
+        range.insertNode(rewriteSpan);
+
+        // Move caret after inserted rewrite (nice UX, avoids weird selection states)
+        range.setStartAfter(rewriteSpan);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        // Normalize to merge any split text nodes after DOM surgery
+        if (markedPreview) markedPreview.normalize();
+        
+        // Clear any leftover highlight styling
+        clearPreviewHighlights();
+        
+        // Update UI
+        statusDiv.textContent = "✅ Applied to preview.";
+        statusDiv.className = "rewrite-status visible ok";
+        applyBtn.disabled = true;
+        
+        // Mark example as applied
+        exampleRow.classList.add("example-applied");
+        
+        // Show recheck button if hidden
+        const recheckBtn = document.getElementById("recheckDocumentBtn");
+        if (recheckBtn) {
+          recheckBtn.style.display = "block";
+        }
+      } catch (error) {
+        console.error("Error applying rewrite:", error);
+        statusDiv.textContent = "Error applying rewrite. Please paste manually.";
+        statusDiv.className = "rewrite-status visible bad";
+      }
+    }
+
+    function downloadRevisionNotes(label, examples) {
+      const textareas = document.querySelectorAll(".example-rewrite");
+      let content = `Revision Notes: ${label}\n\n`;
+      
+      examples.forEach((ex, idx) => {
+        content += `Example ${idx + 1}:\n`;
+        content += `Original: ${ex.sentence || ""}\n`;
+        const rewrite = textareas[idx]?.value || "";
+        if (rewrite) {
+          content += `Your rewrite: ${rewrite}\n`;
+        }
+        content += `\n`;
+      });
+      
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `revision_notes_${label.replace(/\s+/g, "_")}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Word count target input listener
+    if (targetWordCountInput) {
+      targetWordCountInput.addEventListener("input", updateWordCountUI);
+    }
+
+    // Recheck document button handler
+    if (recheckDocumentBtn) {
+      recheckDocumentBtn.addEventListener("click", async () => {
+        if (!selectedFile || !markedPreview) {
+          return;
+        }
+
+        // Extract current preview text in a paragraph-preserving way
+        const previewText = extractPreviewText();
+        if (!previewText) {
+          statusArea.textContent = "Could not extract text from preview.";
+          statusArea.className = "status-area error";
+          return;
+        }
+
+        // Get session
+        const { data: sessionData } = await supa.auth.getSession();
+        if (!sessionData || !sessionData.session) {
+          statusArea.textContent = "You must be logged in.";
+          statusArea.className = "status-area error";
+          return;
+        }
+
+        // Update UI
+        statusArea.textContent = "Rechecking document...";
+        statusArea.className = "status-area";
+        recheckDocumentBtn.disabled = true;
+
+        try {
+          // Collect title metadata (same as initial /mark flow)
+          const author = document.getElementById("author")?.value.trim() || "";
+          const title = document.getElementById("title")?.value.trim() || "";
+          const titleIsMinorSelect = document.getElementById("title_is_minor");
+          const textIsMinorWork = titleIsMinorSelect ? titleIsMinorSelect.value : "true";
+          
+          // Work 2
+          const author2 = document.getElementById("author2")?.value.trim() || "";
+          const title2 = document.getElementById("title2")?.value.trim() || "";
+          const title2IsMinorSelect = document.getElementById("title2_is_minor");
+          const title2IsMinor = title2IsMinorSelect ? title2IsMinorSelect.value : "true";
+          
+          // Work 3
+          const author3 = document.getElementById("author3")?.value.trim() || "";
+          const title3 = document.getElementById("title3")?.value.trim() || "";
+          const title3IsMinorSelect = document.getElementById("title3_is_minor");
+          const title3IsMinor = title3IsMinorSelect ? title3IsMinorSelect.value : "true";
+          
+          // Build titles array
+          const titles = [];
+          if (title) {
+            titles.push({
+              author: author,
+              title: title,
+              is_minor: textIsMinorWork === "true"
+            });
+          }
+          if (title2) {
+            titles.push({
+              author: author2,
+              title: title2,
+              is_minor: title2IsMinor === "true"
+            });
+          }
+          if (title3) {
+            titles.push({
+              author: author3,
+              title: title3,
+              is_minor: title3IsMinor === "true"
+            });
+          }
+          
+          const API_BASE = "https://vysti-rules.onrender.com";
+          const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+          const response = await fetch(`${API_BASE}/mark_text`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${sessionData.session.access_token}`,
+            },
+            body: JSON.stringify({
+              file_name: selectedFile.name,
+              text: previewText,
+              mode: currentMode,
+              titles: titles.length > 0 ? titles : null,
+            }),
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+          }
+
+          const blob = await response.blob();
+          markedBlob = blob;
+          downloadUrl = URL.createObjectURL(blob);
+
+          // Replace the preview with the returned docx blob
+          markedPreview.innerHTML = "";
+          const buf = await blob.arrayBuffer();
+          if (typeof docx !== "undefined" && docx.renderAsync) {
+            await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            markedPreview.contentEditable = "true";
+            markedPreview.spellcheck = true;
+            markedPreview.classList.add("preview-editable");
+          } else {
+            markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
+          }
+
+          // Reload revision practice to refresh issues + examples
+          await loadRevisionPractice();
+
+          statusArea.textContent = "Document rechecked. Preview updated.";
+          statusArea.className = "status-area success";
+        } catch (error) {
+          console.error("Error rechecking document:", error);
+          statusArea.textContent = `Error: ${error.message}`;
+          statusArea.className = "status-area error";
+        } finally {
+          recheckDocumentBtn.disabled = false;
+        }
+      });
+    }
+
+    function extractPreviewText() {
+      if (!markedPreview) return null;
+      
+      // Collect all <p> and <li> in preview container and join with \n\n
+      const paragraphs = [];
+      const elements = markedPreview.querySelectorAll("p, li");
+      
+      for (const el of elements) {
+        const text = el.innerText || el.textContent || "";
+        const trimmed = text.trim();
+        if (trimmed) {
+          paragraphs.push(trimmed);
+        }
+      }
+      
+      // If no paragraphs found, try getting all text
+      if (paragraphs.length === 0) {
+        const allText = markedPreview.innerText || markedPreview.textContent || "";
+        if (allText.trim()) {
+          return allText.trim();
+        }
+        return null;
+      }
+      
+      return paragraphs.join("\n\n");
+    }
+
+    // Initial state
+    updateFileUI();
+  </script>
+</body>
+</html>
