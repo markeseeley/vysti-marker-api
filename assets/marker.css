@@ -18,7 +18,7 @@ body{
   color: var(--text);
 }
 .dz-icon{
-  width: 40px;   /* adjust to the exact Figma W/H if it is different */
+  width: 40px;   /* adjust to the exact Figma W/H if it’s different */
   height: 40px;
 }
 
