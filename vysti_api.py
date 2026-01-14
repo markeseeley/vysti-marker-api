@@ -109,6 +109,7 @@ async def mark_essay(
     file: UploadFile = File(...),
     mode: str = Form("textual_analysis"),
     user: dict = Depends(get_current_user),  # <-- require Supabase auth
+    include_summary_table: bool = Form(True),
 
     # Primary work
     author: str | None = Form(None),
@@ -268,6 +269,7 @@ async def mark_essay(
         docx_bytes,
         mode=mode,
         teacher_config=teacher_config if teacher_config else None,
+        include_summary_table=include_summary_table,
     )
 
     # You can watch this in Render logs to conafirm the flags:
