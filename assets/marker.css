@@ -695,3 +695,14 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   background: transparent !important;
   outline: none !important;
 }
+
+/* Force bright green for device highlights in docx preview */
+/* Override dark green highlight colors to bright neon green */
+.docx-wrapper span[style*="#00B050"],
+.docx-wrapper span[style*="rgb(0, 176, 80)"],
+.docx-wrapper span[style*="#008000"],
+.preview-editable span[style*="#00B050"],
+.preview-editable span[style*="rgb(0, 176, 80)"],
+.preview-editable span[style*="#008000"] {
+  background-color: #00ff00 !important;
+}
