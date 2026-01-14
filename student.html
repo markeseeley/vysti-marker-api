@@ -2627,14 +2627,6 @@
             }
           }
         }
-        
-        // Auto-highlight on approval (without overwriting the status message)
-        if (ok && example) {
-          const found = highlightAndScrollToExample(example, null);
-          statusDiv.textContent += found.ok
-            ? " Jumped to it in Preview."
-            : " Approved — couldn't auto-locate in Preview; use Copy + paste.";
-        }
       } catch (error) {
         console.error("Error checking rewrite:", error);
         statusDiv.textContent = `Error: ${error.message}`;
@@ -2675,7 +2667,23 @@
         range.setStartBefore(first);
         range.setEndAfter(last);
         range.deleteContents();
-        range.insertNode(document.createTextNode(rewriteText));
+
+        // Insert rewrite as a styled span so it doesn't inherit UI fonts
+        const rewriteSpan = document.createElement("span");
+        rewriteSpan.className = "vysti-applied-rewrite";
+        rewriteSpan.textContent = rewriteText;
+
+        range.insertNode(rewriteSpan);
+
+        // Move caret after inserted rewrite (nice UX, avoids weird selection states)
+        range.setStartAfter(rewriteSpan);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        // Normalize to merge any split text nodes after DOM surgery
+        if (markedPreview) markedPreview.normalize();
         
         // Clear any leftover highlight styling
         clearPreviewHighlights();
