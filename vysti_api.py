@@ -50,6 +50,12 @@ class RevisionCheckRequest(BaseModel):
     mode: str | None = None
 
 
+class MarkTextRequest(BaseModel):
+    file_name: str
+    text: str
+    mode: str = "student"
+
+
 
 async def get_current_user(
     cred: HTTPAuthorizationCredentials = Depends(auth_scheme),
@@ -625,3 +631,157 @@ async def check_revision(
                 "triggered": matched_issue,
             }
         )
+
+
+@app.post("/mark_text")
+async def mark_text(
+    request: MarkTextRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Mark text content by creating a .docx in memory and running the marking pipeline.
+    
+    Request JSON:
+    {
+      "file_name": "OriginalFileName.docx",
+      "text": "Full essay text with paragraphs",
+      "mode": "student"
+    }
+    
+    Returns the marked .docx bytes (same as /mark).
+    """
+    # 1. Create .docx from text
+    # Split into paragraphs on blank lines (or \n\n)
+    doc = Document()
+    paragraphs = request.text.split("\n\n")
+    
+    for para_text in paragraphs:
+        para_text = para_text.strip()
+        if para_text:  # Skip empty paragraphs
+            doc.add_paragraph(para_text)
+    
+    # If no paragraphs were created, add at least one
+    if len(doc.paragraphs) == 0:
+        doc.add_paragraph(request.text.strip() or "Empty document")
+    
+    # Save to BytesIO
+    docx_buffer = BytesIO()
+    doc.save(docx_buffer)
+    docx_buffer.seek(0)
+    docx_bytes = docx_buffer.getvalue()
+    docx_buffer.close()
+    
+    # 2. Call mark_docx_bytes (same pipeline as /mark)
+    mode = request.mode or "textual_analysis"
+    marked_bytes, metadata = mark_docx_bytes(
+        docx_bytes,
+        mode=mode,
+        teacher_config=None,
+    )
+    
+    # 3. Extract examples and issues from metadata
+    examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
+    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    
+    # 4. Count labels
+    label_counter = Counter()
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        lbl = issue.get("label")
+        if not lbl:
+            continue
+        cnt = issue.get("count")
+        try:
+            cnt_i = int(cnt) if cnt is not None else 1
+        except Exception:
+            cnt_i = 1
+        label_counter[lbl] += (cnt_i if cnt_i > 0 else 1)
+    
+    total_labels = sum(label_counter.values())
+    
+    # 5. Log to Supabase mark_events (best-effort)
+    mark_event_id = None
+    try:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+            user_id = user.get("id") if isinstance(user, dict) else None
+            db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
+            payload = {
+                "user_id": user_id,
+                "file_name": request.file_name,
+                "mode": mode,
+                "bytes": len(docx_bytes),
+                "total_labels": total_labels,
+                "label_counts": dict(label_counter),
+                "issues": issues,
+            }
+            
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.post(
+                    db_url,
+                    json=payload,
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation",
+                    },
+                )
+                if resp.status_code >= 200 and resp.status_code < 300:
+                    resp_data = resp.json()
+                    if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
+                        mark_event_id = resp_data[0].get("id")
+    except Exception as e:
+        print("Failed to log mark_event:", repr(e))
+    
+    # 6. Log examples to Supabase issue_examples (best-effort)
+    try:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and examples:
+            user_id = user.get("id") if isinstance(user, dict) else None
+            if user_id:
+                example_rows = []
+                for ex in examples:
+                    if not isinstance(ex, dict):
+                        continue
+                    label = ex.get("label")
+                    sentence = ex.get("sentence")
+                    paragraph_index = ex.get("paragraph_index")
+                    if not label or not sentence:
+                        continue
+                    example_row = {
+                        "user_id": user_id,
+                        "file_name": request.file_name,
+                        "mode": mode,
+                        "label": label,
+                        "sentence": sentence,
+                        "paragraph_index": paragraph_index,
+                    }
+                    if mark_event_id:
+                        example_row["mark_event_id"] = mark_event_id
+                    example_rows.append(example_row)
+                
+                if example_rows:
+                    db_url = f"{SUPABASE_URL}/rest/v1/issue_examples"
+                    async with httpx.AsyncClient(timeout=5) as client:
+                        await client.post(
+                            db_url,
+                            json=example_rows,
+                            headers={
+                                "apikey": SUPABASE_SERVICE_KEY,
+                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                                "Content-Type": "application/json",
+                                "Prefer": "return=minimal",
+                            },
+                        )
+    except Exception as e:
+        print("Failed to log issue_examples:", repr(e))
+    
+    # 7. Return marked .docx bytes
+    base_name = request.file_name.rsplit(".", 1)[0] if request.file_name else "essay"
+    output_filename = f"{base_name}_marked.docx"
+    
+    return StreamingResponse(
+        io.BytesIO(marked_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+    )
