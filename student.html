@@ -213,6 +213,22 @@
     .example-btn:hover {
       background: #f0f0f0;
     }
+    .example-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .apply-to-preview-btn {
+      background: #f8f9fa;
+      border-color: rgba(0,0,0,.14);
+      color: rgba(0,0,0,.75);
+    }
+    .apply-to-preview-btn:not(:disabled):hover {
+      background: #e9ecef;
+    }
+    .example-applied {
+      opacity: 0.7;
+      background: #f0f0f0;
+    }
     .hidden-select {
       position: absolute;
       opacity: 0;
@@ -517,6 +533,7 @@
       </div>
       <div id="issueExplanation" class="issue-explanation" style="display:none;"></div>
       <ul id="examplesList" class="examples-list"></ul>
+      <button type="button" class="secondary-btn" id="recheckDocumentBtn" style="margin-top: 16px; display:none;">Recheck document</button>
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
     </section>
 
@@ -556,6 +573,7 @@
     const issueSelect = document.getElementById("issueSelect");
     const issueExplanation = document.getElementById("issueExplanation");
     const examplesList = document.getElementById("examplesList");
+    const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
@@ -827,6 +845,7 @@
       issueExplanation.style.display = "none";
       examplesList.innerHTML = "";
       downloadRevisionNotesBtn.style.display = "none";
+      if (recheckDocumentBtn) recheckDocumentBtn.style.display = "none";
       currentMarkEvent = null;
       currentWordCount = null;
       if (wordCountReadout) wordCountReadout.textContent = "";
@@ -1788,7 +1807,7 @@
         // Get latest mark event for this user and file
         const { data: markEvents, error: markError } = await supa
           .from("mark_events")
-          .select("label_counts, issues, created_at, file_name")
+          .select("id, label_counts, issues, created_at, file_name")
           .eq("user_id", sessionData.session.user.id)
           .eq("file_name", selectedFile.name)
           .order("created_at", { ascending: false })
@@ -1869,14 +1888,51 @@
 
         // Get examples from issue_examples
         // Fetch 50 rows to allow deduplication while still getting 10 unique examples
-        const { data: examples, error } = await supa
-          .from("issue_examples")
-          .select("label, sentence, student_name, paragraph_index, created_at")
-          .eq("user_id", sessionData.session.user.id)
-          .eq("file_name", selectedFile.name)
-          .eq("label", label)
-          .order("created_at", { ascending: false })
-          .limit(50);
+        // Filter by mark_event_id if available (prevents stale examples after recheck)
+        let examples = null;
+        let error = null;
+        
+        if (currentMarkEvent && currentMarkEvent.id) {
+          // Try filtered query with mark_event_id
+          const { data, error: err } = await supa
+            .from("issue_examples")
+            .select("label, sentence, student_name, paragraph_index, created_at")
+            .eq("user_id", sessionData.session.user.id)
+            .eq("file_name", selectedFile.name)
+            .eq("label", label)
+            .eq("mark_event_id", currentMarkEvent.id)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          
+          if (err) {
+            // If mark_event_id column doesn't exist (older DB), fallback to old query
+            console.warn("mark_event_id filter failed, falling back to old query:", err);
+            const { data: fallbackData, error: fallbackError } = await supa
+              .from("issue_examples")
+              .select("label, sentence, student_name, paragraph_index, created_at")
+              .eq("user_id", sessionData.session.user.id)
+              .eq("file_name", selectedFile.name)
+              .eq("label", label)
+              .order("created_at", { ascending: false })
+              .limit(50);
+            examples = fallbackData;
+            error = fallbackError;
+          } else {
+            examples = data;
+          }
+        } else {
+          // No mark_event_id available, use old query
+          const { data: fallbackData, error: fallbackError } = await supa
+            .from("issue_examples")
+            .select("label, sentence, student_name, paragraph_index, created_at")
+            .eq("user_id", sessionData.session.user.id)
+            .eq("file_name", selectedFile.name)
+            .eq("label", label)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          examples = fallbackData;
+          error = fallbackError;
+        }
 
         if (error) {
           console.error("Error loading examples:", error);
@@ -1981,10 +2037,19 @@
             await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
           };
           
+          const applyToPreviewBtn = document.createElement("button");
+          applyToPreviewBtn.className = "example-btn apply-to-preview-btn";
+          applyToPreviewBtn.textContent = "Apply to Preview";
+          applyToPreviewBtn.disabled = true;
+          applyToPreviewBtn.onclick = () => {
+            applyRewriteToPreview(ex, li, rewriteStatusDiv, applyToPreviewBtn);
+          };
+          
           actionsDiv.appendChild(copyExampleBtn);
           actionsDiv.appendChild(copyRewriteBtn);
           actionsDiv.appendChild(findInPreviewBtn);
           actionsDiv.appendChild(checkRewriteBtn);
+          actionsDiv.appendChild(applyToPreviewBtn);
           
           // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
           rewriteTextarea.addEventListener("keydown", async (e) => {
@@ -2427,14 +2492,16 @@
         if (statusDivOptional) {
           statusDivOptional.textContent = "Couldn't locate it in the preview automatically. Use Copy + paste manually.";
         }
-        return false;
+        return { ok: false, hits: [], blockEl: null, used: "none" };
       }
       
       let hits = highlightExactTextInElement(blockEl, sentence);
+      let used = "exact";
 
       // NEW: if exact fails, try anchored match (handles injected "→ ..." text inside the sentence)
       if (!hits || hits.length === 0) {
         hits = highlightAnchoredSentenceInElement(blockEl, sentence);
+        used = "anchor";
       }
 
       if (hits && hits.length > 0) {
@@ -2484,7 +2551,7 @@
         if (statusDivOptional) {
           statusDivOptional.textContent = "Highlighted the sentence in the preview. Paste your rewrite to replace it.";
         }
-        return true;
+        return { ok: true, hits: hits, blockEl: blockEl, used: used };
       }
 
       // Only now do paragraph fallback
@@ -2501,7 +2568,7 @@
       if (statusDivOptional) {
         statusDivOptional.textContent = "Found the paragraph, but couldn't isolate the exact sentence. You can still paste manually.";
       }
-      return true;
+      return { ok: true, hits: [], blockEl: blockEl, used: "paragraph" };
     }
 
     async function checkRewrite(label, example, textarea, statusDiv) {
@@ -2549,16 +2616,86 @@
         statusDiv.textContent = result.message || (ok ? "Revision approved." : "Looks like we still have an issue.");
         statusDiv.className = `rewrite-status visible ${ok ? "ok" : "bad"}`;
         
+        // Store approved rewrite and enable Apply button
+        if (ok) {
+          const exampleRow = statusDiv.closest(".example-item");
+          if (exampleRow) {
+            exampleRow.dataset.approvedRewrite = rewrite;
+            const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
+            if (applyBtn) {
+              applyBtn.disabled = false;
+            }
+          }
+        }
+        
         // Auto-highlight on approval (without overwriting the status message)
         if (ok && example) {
           const found = highlightAndScrollToExample(example, null);
-          statusDiv.textContent += found
+          statusDiv.textContent += found.ok
             ? " Jumped to it in Preview."
             : " Approved — couldn't auto-locate in Preview; use Copy + paste.";
         }
       } catch (error) {
         console.error("Error checking rewrite:", error);
         statusDiv.textContent = `Error: ${error.message}`;
+        statusDiv.className = "rewrite-status visible bad";
+      }
+    }
+
+    function applyRewriteToPreview(example, exampleRow, statusDiv, applyBtn) {
+      // Ensure preview exists
+      if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+        statusDiv.textContent = "Run Check My Essay to load the preview first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      // Get approved rewrite from dataset
+      const rewriteText = exampleRow.dataset.approvedRewrite;
+      if (!rewriteText) {
+        statusDiv.textContent = "Please check and approve your rewrite first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      // Find the sentence in preview
+      const result = highlightAndScrollToExample(example, null);
+      
+      if (!result.ok || result.hits.length === 0) {
+        statusDiv.textContent = "Couldn't isolate the exact sentence in preview — please paste manually.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      // Replace the matched range with the approved rewrite
+      try {
+        const first = result.hits[0];
+        const last = result.hits[result.hits.length - 1];
+        const range = document.createRange();
+        range.setStartBefore(first);
+        range.setEndAfter(last);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(rewriteText));
+        
+        // Clear any leftover highlight styling
+        clearPreviewHighlights();
+        
+        // Update UI
+        statusDiv.textContent = "✅ Applied to preview.";
+        statusDiv.className = "rewrite-status visible ok";
+        applyBtn.disabled = true;
+        
+        // Mark example as applied
+        exampleRow.classList.add("example-applied");
+        
+        // Show recheck button if hidden
+        const recheckBtn = document.getElementById("recheckDocumentBtn");
+        if (recheckBtn) {
+          recheckBtn.style.display = "block";
+        }
+      } catch (error) {
+        console.error("Error applying rewrite:", error);
+        statusDiv.textContent = "Error applying rewrite. Please paste manually.";
         statusDiv.className = "rewrite-status visible bad";
       }
     }
@@ -2591,6 +2728,113 @@
     // Word count target input listener
     if (targetWordCountInput) {
       targetWordCountInput.addEventListener("input", updateWordCountUI);
+    }
+
+    // Recheck document button handler
+    if (recheckDocumentBtn) {
+      recheckDocumentBtn.addEventListener("click", async () => {
+        if (!selectedFile || !markedPreview) {
+          return;
+        }
+
+        // Extract current preview text in a paragraph-preserving way
+        const previewText = extractPreviewText();
+        if (!previewText) {
+          statusArea.textContent = "Could not extract text from preview.";
+          statusArea.className = "status-area error";
+          return;
+        }
+
+        // Get session
+        const { data: sessionData } = await supa.auth.getSession();
+        if (!sessionData || !sessionData.session) {
+          statusArea.textContent = "You must be logged in.";
+          statusArea.className = "status-area error";
+          return;
+        }
+
+        // Update UI
+        statusArea.textContent = "Rechecking document...";
+        statusArea.className = "status-area";
+        recheckDocumentBtn.disabled = true;
+
+        try {
+          const API_BASE = "https://vysti-rules.onrender.com";
+          const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+          const response = await fetch(`${API_BASE}/mark_text`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${sessionData.session.access_token}`,
+            },
+            body: JSON.stringify({
+              file_name: selectedFile.name,
+              text: previewText,
+              mode: currentMode,
+            }),
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+          }
+
+          const blob = await response.blob();
+          markedBlob = blob;
+          downloadUrl = URL.createObjectURL(blob);
+
+          // Replace the preview with the returned docx blob
+          markedPreview.innerHTML = "";
+          const buf = await blob.arrayBuffer();
+          if (typeof docx !== "undefined" && docx.renderAsync) {
+            await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            markedPreview.contentEditable = "true";
+            markedPreview.spellcheck = true;
+            markedPreview.classList.add("preview-editable");
+          } else {
+            markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
+          }
+
+          // Reload revision practice to refresh issues + examples
+          await loadRevisionPractice();
+
+          statusArea.textContent = "Document rechecked. Preview updated.";
+          statusArea.className = "status-area success";
+        } catch (error) {
+          console.error("Error rechecking document:", error);
+          statusArea.textContent = `Error: ${error.message}`;
+          statusArea.className = "status-area error";
+        } finally {
+          recheckDocumentBtn.disabled = false;
+        }
+      });
+    }
+
+    function extractPreviewText() {
+      if (!markedPreview) return null;
+      
+      // Collect all <p> and <li> in preview container and join with \n\n
+      const paragraphs = [];
+      const elements = markedPreview.querySelectorAll("p, li");
+      
+      for (const el of elements) {
+        const text = el.innerText || el.textContent || "";
+        const trimmed = text.trim();
+        if (trimmed) {
+          paragraphs.push(trimmed);
+        }
+      }
+      
+      // If no paragraphs found, try getting all text
+      if (paragraphs.length === 0) {
+        const allText = markedPreview.innerText || markedPreview.textContent || "";
+        if (allText.trim()) {
+          return allText.trim();
+        }
+        return null;
+      }
+      
+      return paragraphs.join("\n\n");
     }
 
     // Initial state
