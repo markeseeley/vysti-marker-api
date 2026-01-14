@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================
-#   VYSTI MARKER —  CLEAN ENGINE
+#   VYSTI MARKER — CLEAN ENGINE
 # ============================================================
 
 import os
@@ -36,8 +36,6 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Dict, Tuple, NamedTuple
 
-
-nlp = spacy.load("en_core_web_sm")
 
 # ============================================================
 # FOUNDATION ASSIGNMENT 1 — GLOBAL LABEL TRACKING
