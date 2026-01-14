@@ -1634,6 +1634,7 @@
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("mode", mode);
+      formData.append("include_summary_table", "false");
 
       if (studentName) {
         formData.append("student_name", studentName);
