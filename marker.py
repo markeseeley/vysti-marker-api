@@ -5858,6 +5858,50 @@ def extract_summary_metadata(doc: Document) -> dict:
     return {"issues": issues}
 
 
+def strip_summary_table_in_place(doc: Document) -> bool:
+    """
+    Remove the trailing summary table whose header is exactly: Issue | Explanation.
+    Returns True if removed, False if not found.
+    """
+    target = None
+
+    # Find the summary table from the end (same logic as extract_summary_metadata)
+    for table in reversed(doc.tables):
+        try:
+            if len(table.rows) < 1 or len(table.rows[0].cells) < 2:
+                continue
+            h0 = table.rows[0].cells[0].text.strip().lower()
+            h1 = table.rows[0].cells[1].text.strip().lower()
+            if h0 == "issue" and h1 == "explanation":
+                target = table
+                break
+        except Exception:
+            continue
+
+    if target is None:
+        return False
+
+    # Remove the table XML element
+    tbl_el = target._element
+    parent = tbl_el.getparent()
+    if parent is not None:
+        parent.remove(tbl_el)
+
+    # add_summary_table() also adds a spacer paragraph before the table.
+    # After table removal, that spacer is usually at the end. Remove a small
+    # number of trailing blank paragraphs (don't nuke the whole ending).
+    for _ in range(3):
+        if doc.paragraphs and not (doc.paragraphs[-1].text or "").strip():
+            p = doc.paragraphs[-1]
+            p_el = p._element
+            p_parent = p_el.getparent()
+            if p_parent is not None:
+                p_parent.remove(p_el)
+        else:
+            break
+
+    return True
+
 
 def extract_richer_examples(doc: Document) -> list[dict]:
     """
@@ -6029,6 +6073,7 @@ def mark_docx_bytes(
     mode: str = "textual_analysis",
     teacher_config: dict | None = None,
     rules_path: str = "Vysti Rules for Writing.xlsx",
+    include_summary_table: bool = True,
 ) -> tuple[bytes, dict]:
     """
     High-level engine API for web/backend use.
@@ -6083,6 +6128,15 @@ def mark_docx_bytes(
         # occurrences that don't have yellow labels.
         global DOC_EXAMPLES
         metadata["examples"] = DOC_EXAMPLES if DOC_EXAMPLES else []
+
+        # If the caller doesn't want the summary table inside the returned document
+        # (Student Mode), strip it AFTER extracting metadata.
+        if not include_summary_table:
+            removed = strip_summary_table_in_place(doc)
+            if removed:
+                out = BytesIO()
+                doc.save(out)
+                marked_bytes = out.getvalue()
 
     finally:
         # 6. Clean up temp files as best we can
