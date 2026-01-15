@@ -2231,13 +2231,13 @@
           const li = document.createElement("li");
           li.className = "example-item";
           
-          const studentDiv = document.createElement("div");
-          studentDiv.className = "example-student";
-          studentDiv.textContent = `From: ${ex.student_name || "You"}`;
-          
           const guidanceDiv = document.createElement("div");
           guidanceDiv.className = "example-guidance";
-          guidanceDiv.textContent = guidance || "Rewrite this sentence to fix the issue above.";
+          if (guidance) {
+            guidanceDiv.textContent = guidance;
+          } else {
+            guidanceDiv.style.display = "none";
+          }
 
           const rewriteTextarea = document.createElement("textarea");
           rewriteTextarea.className = "example-rewrite";
@@ -2312,7 +2312,6 @@
             }
           });
           
-          li.appendChild(studentDiv);
           li.appendChild(guidanceDiv);
           li.appendChild(rewriteTextarea);
           li.appendChild(rewriteStatusDiv);
