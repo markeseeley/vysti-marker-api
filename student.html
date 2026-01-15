@@ -604,8 +604,7 @@
           "Requires quoted evidence in body paragraphs.",
           "Strict requirements on organization, evidence, and language.",
           "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-          "Red strikethroughs forbidden terms.",
-          "Green highlights devices and strategies."
+          "Red strikethroughs forbidden terms."
         ]
       },
       peel_paragraph: {
@@ -617,8 +616,7 @@
           "Requires quoted evidence in the body of the paragraph.",
           "Strict requirements on organization, evidence, and language.",
           "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-          "Red strikethroughs forbidden terms.",
-          "Green highlights devices and strategies."
+          "Red strikethroughs forbidden terms."
         ]
       },
       reader_response: {
@@ -631,8 +629,7 @@
           "Requires quoted evidence in body paragraphs.",
           "Strict requirements on organization, evidence, and language.",
           "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-          "Red strikethroughs forbidden terms.",
-          "Green highlights devices and strategies."
+          "Red strikethroughs forbidden terms."
         ]
       },
       argumentation: {
@@ -1642,6 +1639,8 @@
       formData.append("file", selectedFile);
       formData.append("mode", mode);
       formData.append("include_summary_table", "false");
+      // Student mode: no green device/strategy highlighting in the returned docx
+      formData.append("highlight_thesis_devices", "false");
 
       if (studentName) {
         formData.append("student_name", studentName);
