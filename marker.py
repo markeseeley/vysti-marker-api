@@ -537,6 +537,9 @@ class MarkerConfig:
     enforce_topic_thesis_alignment: bool = True  # "Follow the organization..." etc.
     enforce_off_topic: bool = True
 
+    # Student mode toggle (default = teacher mode)
+    student_mode: bool = False
+
     require_body_evidence: bool = True  # "Every paragraph needs evidence"
 # Controls whether the generic contractions rule is enforced
 
@@ -4870,6 +4873,63 @@ def analyze_text(
 
         marks = filtered_marks
 
+    def ensure_student_labels_per_sentence(marks_in, sentence_spans):
+        """
+        In student mode, ensure each sentence shows at least one yellow label
+        per issue note, without repeating the same label within the sentence.
+        """
+        if not sentence_spans or not marks_in:
+            return marks_in
+
+        groups: dict[tuple[int, str], list[dict]] = {}
+
+        for m in marks_in:
+            note = m.get("note")
+            if not note:
+                continue
+            if m.get("praise") or m.get("device_highlight"):
+                continue
+
+            start = m.get("start", 0)
+            sent_idx = get_sentence_index_for_pos(start, sentence_spans)
+            if sent_idx is None:
+                if start < sentence_spans[0][0]:
+                    sent_idx = 0
+                elif start >= sentence_spans[-1][1]:
+                    sent_idx = len(sentence_spans) - 1
+                else:
+                    best_idx = 0
+                    best_dist = None
+                    for idx, (s_start, s_end) in enumerate(sentence_spans):
+                        if start < s_start:
+                            dist = s_start - start
+                        elif start >= s_end:
+                            dist = start - s_end
+                        else:
+                            dist = 0
+                        if best_dist is None or dist < best_dist:
+                            best_dist = dist
+                            best_idx = idx
+                    sent_idx = best_idx
+
+            key = (sent_idx, str(note))
+            groups.setdefault(key, []).append(m)
+
+        for group_marks in groups.values():
+            if any(mark.get("label") for mark in group_marks):
+                continue
+            def mark_sort_key(mark):
+                end = mark.get("end", mark.get("start", 0))
+                start = mark.get("start", 0)
+                return (end, start)
+            best_mark = max(group_marks, key=mark_sort_key)
+            best_mark["label"] = True
+
+        return marks_in
+
+    if getattr(config, "student_mode", False):
+        marks = ensure_student_labels_per_sentence(marks, sentences)
+
     return marks, flat_text, segments, sentences
 
 
@@ -6101,6 +6161,8 @@ def mark_docx_bytes(
             if hasattr(config, key):
                 setattr(config, key, value)
 
+    config.student_mode = not include_summary_table
+
     # 2. Write the uploaded bytes to a temporary .docx file
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp_in:
         tmp_in.write(docx_bytes)
@@ -6792,7 +6854,7 @@ def run_marker(
 
         # If this paragraph has many rule-breaks, add a red "rewrite" label
         # at the very end of the paragraph, after other yellow labels.
-        if needs_rewrite_practice and flat_text:
+        if needs_rewrite_practice and flat_text and not getattr(config, "student_mode", False):
             # Main label text only: white font, red highlight, underlined, no bold.
             # The leading space keeps it visually separated from the paragraph text.
             lbl = p.add_run(" * Rewrite this paragraph for practice  *")
@@ -6801,6 +6863,7 @@ def run_marker(
             lbl.font.bold = False
             lbl.font.underline = True
             lbl.font.color.rgb = RGBColor(255, 255, 255)
+            lbl._element.set("data-vysti", "yes")
 
     # =====================================================================
     # FOUNDATION ASSIGNMENT 4 — MISSING FIRST BODY TOPIC SENTENCE
