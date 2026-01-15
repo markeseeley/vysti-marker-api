@@ -1311,6 +1311,20 @@ def load_rules(excel_path):
     return dict(zip(df[0], df[1]))
 
 
+def load_student_guidance(excel_path) -> dict[str, str]:
+    df = pd.read_excel(excel_path, header=None)
+    if df.shape[1] < 3:
+        return {}
+    df = df.dropna(subset=[0, 2])
+    df[0] = df[0].astype(str).str.strip()
+    df[2] = df[2].astype(str).str.strip()
+
+    # Optional safety: drop a header row if someone adds one
+    df = df[~df[0].str.lower().isin(["issue", "label"])]
+
+    return dict(zip(df[0], df[2]))
+
+
 def is_intro_paragraph(idx, intro_idx):
     return idx == intro_idx
 
@@ -6182,6 +6196,12 @@ def mark_docx_bytes(
         # 5. Load the marked doc into python-docx to extract the summary metadata
         doc = Document(BytesIO(marked_bytes))
         metadata = extract_summary_metadata(doc)
+        guidance_map = load_student_guidance(rules_path)
+        for issue in metadata.get("issues", []):
+            if isinstance(issue, dict):
+                lbl = issue.get("label")
+                if lbl and lbl in guidance_map:
+                    issue["student_guidance"] = guidance_map[lbl]
         
         # 6. Always use DOC_EXAMPLES (the multi-example list collected during marking)
         # DO NOT overwrite with extract_richer_examples() which can only capture
