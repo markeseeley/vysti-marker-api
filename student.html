@@ -158,6 +158,13 @@
     .issue-select-wrapper {
       margin-bottom: 16px;
     }
+    .issue-explanation-header {
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: rgba(0, 0, 0, .75);
+      text-transform: none;
+    }
     .issue-explanation {
       margin-bottom: 16px;
       padding: 12px;
@@ -178,11 +185,14 @@
       border-radius: 8px;
       border: 1px solid #e0e0e0;
     }
-    .example-sentence {
-      font-size: 14px;
-      color: var(--text);
+    .example-guidance {
+      font-size: 12px;
+      color: rgba(0, 0, 0, .75);
       margin-bottom: 8px;
-      font-style: italic;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
     }
     .example-student {
       font-size: 12px;
@@ -545,9 +555,12 @@
           </select>
         </label>
       </div>
-      <div id="issueExplanation" class="issue-explanation" style="display:none;"></div>
+      <div id="issueExplanationBlock" style="display:none;">
+        <div class="issue-explanation-header">Explanation of the Issue</div>
+        <div id="issueExplanation" class="issue-explanation"></div>
+      </div>
       <ul id="examplesList" class="examples-list"></ul>
-      <button type="button" class="secondary-btn" id="recheckDocumentBtn" style="margin-top: 16px; display:none;">Recheck document</button>
+      <button type="button" class="secondary-btn" id="recheckDocumentBtn" style="margin-top: 16px; display:none;" disabled>Recheck my essay</button>
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
     </section>
 
@@ -586,6 +599,7 @@
     const revisionPracticeCard = document.getElementById("revisionPracticeCard");
     const sectionSelect = document.getElementById("sectionSelect");
     const issueSelect = document.getElementById("issueSelect");
+    const issueExplanationBlock = document.getElementById("issueExplanationBlock");
     const issueExplanation = document.getElementById("issueExplanation");
     const examplesList = document.getElementById("examplesList");
     const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
@@ -858,10 +872,13 @@
       markedPreview.innerHTML = "";
       revisionPracticeCard.style.display = "none";
       issueSelect.innerHTML = '<option value="">Select an issue...</option>';
-      issueExplanation.style.display = "none";
+      if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       examplesList.innerHTML = "";
       downloadRevisionNotesBtn.style.display = "none";
-      if (recheckDocumentBtn) recheckDocumentBtn.style.display = "none";
+      if (recheckDocumentBtn) {
+        recheckDocumentBtn.style.display = "none";
+        recheckDocumentBtn.disabled = true;
+      }
       currentMarkEvent = null;
       currentWordCount = null;
       if (wordCountReadout) wordCountReadout.textContent = "";
@@ -1744,6 +1761,11 @@
           markedPreviewCard.style.display = "block";
         }
 
+        if (recheckDocumentBtn) {
+          recheckDocumentBtn.style.display = "block";
+          recheckDocumentBtn.disabled = false;
+        }
+
         statusArea.textContent = "Done — preview below. Download is ready.";
         statusArea.className = "status-area success";
         downloadBtn.style.display = "block";
@@ -1814,7 +1836,7 @@
       
       // Clear issue selection when section changes
       issueSelect.value = "";
-      issueExplanation.style.display = "none";
+      if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       examplesList.innerHTML = "";
       downloadRevisionNotesBtn.style.display = "none";
       
@@ -1852,7 +1874,7 @@
     issueSelect.addEventListener("change", async (e) => {
       const selectedLabel = e.target.value;
       if (!selectedLabel) {
-        issueExplanation.style.display = "none";
+        if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
         downloadRevisionNotesBtn.style.display = "none";
         return;
@@ -2111,10 +2133,11 @@
         const issueData = issues.find(iss => iss.label === label);
         if (issueData && issueData.explanation) {
           issueExplanation.textContent = issueData.explanation;
-          issueExplanation.style.display = "block";
-        } else {
-          issueExplanation.style.display = "none";
+          if (issueExplanationBlock) issueExplanationBlock.style.display = "block";
+        } else if (issueExplanationBlock) {
+          issueExplanationBlock.style.display = "none";
         }
+        const guidance = issueData?.student_guidance || "";
 
         // Get examples from issue_examples
         // Fetch 50 rows to allow deduplication while still getting 10 unique examples
@@ -2208,20 +2231,21 @@
           const li = document.createElement("li");
           li.className = "example-item";
           
-          const sentenceDiv = document.createElement("div");
-          sentenceDiv.className = "example-sentence";
-          sentenceDiv.textContent = ex.sentence || "";
-          
           const studentDiv = document.createElement("div");
           studentDiv.className = "example-student";
           studentDiv.textContent = `From: ${ex.student_name || "You"}`;
           
+          const guidanceDiv = document.createElement("div");
+          guidanceDiv.className = "example-guidance";
+          guidanceDiv.textContent = guidance || "Rewrite this sentence to fix the issue above.";
+
           const rewriteTextarea = document.createElement("textarea");
           rewriteTextarea.className = "example-rewrite";
           rewriteTextarea.placeholder = "Edit directly here...";
           rewriteTextarea.setAttribute("data-example-idx", idx);
           // Prefill with the example sentence
           rewriteTextarea.value = ex.sentence || "";
+          const originalSentence = ex.sentence || "";
           
           const rewriteStatusDiv = document.createElement("div");
           rewriteStatusDiv.className = "rewrite-status";
@@ -2233,7 +2257,7 @@
           resetExampleBtn.className = "example-btn";
           resetExampleBtn.textContent = "Reset example";
           resetExampleBtn.onclick = () => {
-            rewriteTextarea.value = ex.sentence || "";
+            rewriteTextarea.value = originalSentence;
           };
           
           const copyRewriteBtn = document.createElement("button");
@@ -2288,8 +2312,8 @@
             }
           });
           
-          li.appendChild(sentenceDiv);
           li.appendChild(studentDiv);
+          li.appendChild(guidanceDiv);
           li.appendChild(rewriteTextarea);
           li.appendChild(rewriteStatusDiv);
           li.appendChild(actionsDiv);
