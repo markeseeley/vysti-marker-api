@@ -12,6 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     .text-details-toggle {
       margin-top: 12px;
@@ -512,6 +513,13 @@
             </div>
           </div>
         </div>
+
+        <div id="mostCommonIssuesWrap" style="margin-top: 20px; display:none;">
+          <div class="rules-title">Most Common Issues</div>
+          <div style="position: relative; height: 280px;">
+            <canvas id="mostCommonIssuesChart"></canvas>
+          </div>
+        </div>
       </section>
     </form>
 
@@ -582,6 +590,10 @@
     const examplesList = document.getElementById("examplesList");
     const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
+    const mostCommonIssuesWrap = document.getElementById("mostCommonIssuesWrap");
+    const mostCommonIssuesChartEl = document.getElementById("mostCommonIssuesChart");
+
+    let mostCommonIssuesChart = null;
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
     const targetWordCountInput = document.getElementById("targetWordCount");
@@ -1849,6 +1861,62 @@
       await loadIssueExamples(selectedLabel);
     });
 
+    function renderMostCommonIssues(labelCounts) {
+      if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
+
+      const entries = Object.entries(labelCounts || {})
+        .filter(([label, count]) => label && (count || 0) > 0)
+        .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+        .slice(0, 8);
+
+      if (entries.length === 0) {
+        mostCommonIssuesWrap.style.display = "none";
+        if (mostCommonIssuesChart) {
+          mostCommonIssuesChart.destroy();
+          mostCommonIssuesChart = null;
+        }
+        return;
+      }
+
+      const labels = entries.map(([label]) => label);
+      const values = entries.map(([, count]) => count || 0);
+
+      mostCommonIssuesWrap.style.display = "block";
+
+      if (mostCommonIssuesChart) {
+        mostCommonIssuesChart.destroy();
+        mostCommonIssuesChart = null;
+      }
+
+      const ctx = mostCommonIssuesChartEl.getContext("2d");
+      mostCommonIssuesChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: "#f2b632"
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
+            },
+            x: {
+              ticks: { autoSkip: false }
+            }
+          }
+        }
+      });
+    }
+
     async function loadRevisionPractice() {
       const { data: sessionData } = await supa.auth.getSession();
       if (!sessionData || !sessionData.session || !selectedFile) {
@@ -1882,6 +1950,7 @@
 
         currentMarkEvent = markEvents[0];
         const labelCounts = currentMarkEvent.label_counts || {};
+        renderMostCommonIssues(labelCounts);
         
         // Build section index by querying issue_examples
         let examplesQuery = supa
