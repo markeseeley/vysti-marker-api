@@ -138,23 +138,6 @@ def read_root():
     return {"status": "ok", "message": "Vysti marker API is running"}
 
 
-@app.get("/_debug_marker_head")
-def debug_marker_head():
-    try:
-        import os
-        path = os.path.abspath("marker.py")
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            head_lines = []
-            for _ in range(40):
-                line = f.readline()
-                if not line:
-                    break
-                head_lines.append(line)
-        return {"marker_py_path": path, "marker_py_head": "".join(head_lines)}
-    except Exception as e:
-        return {"error": repr(e)}
-
-
 @app.post("/mark")
 async def mark_essay(
     file: UploadFile = File(...),
