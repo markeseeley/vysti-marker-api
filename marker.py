@@ -1316,8 +1316,13 @@ def load_student_guidance(excel_path) -> dict[str, str]:
     if df.shape[1] < 3:
         return {}
     df = df.dropna(subset=[0, 2])
+    if df.empty:
+        return {}
     df[0] = df[0].astype(str).str.strip()
     df[2] = df[2].astype(str).str.strip()
+    df = df[(df[0] != "") & (df[2] != "")]
+    if df.empty:
+        return {}
 
     # Optional safety: drop a header row if someone adds one
     df = df[~df[0].str.lower().isin(["issue", "label"])]
@@ -4494,7 +4499,7 @@ def analyze_text(
     if getattr(config, "enforce_weak_verbs_rule", True):
         weak_verbs_regex = re.compile(r"\b(show|shows|showing|use|uses|using)\b", re.IGNORECASE)
 
-        rule_note_weak_verbs = "Refer to the Power Verbs list"
+        rule_note_weak_verbs = "Avoid weak verbs"
 
         for match in weak_verbs_regex.finditer(flat_text):
             match_start = match.start()
@@ -5379,7 +5384,7 @@ def add_summary_table(doc, labels, rules, issue_counts=None):
         explanation = rules.get(lbl, "")
 
         # Special case: make the Power Verbs explanation a hyperlink
-        if lbl == "Refer to the Power Verbs list":
+        if lbl in ("Avoid weak verbs", "Refer to the Power Verbs list"):
             expl_p = expl_cell.paragraphs[0]
             expl_p.text = ""
 
@@ -6196,12 +6201,13 @@ def mark_docx_bytes(
         # 5. Load the marked doc into python-docx to extract the summary metadata
         doc = Document(BytesIO(marked_bytes))
         metadata = extract_summary_metadata(doc)
-        guidance_map = load_student_guidance(rules_path)
+        try:
+            guidance_map = load_student_guidance(rules_path)
+        except Exception:
+            guidance_map = {}
         for issue in metadata.get("issues", []):
             if isinstance(issue, dict):
-                lbl = issue.get("label")
-                if lbl and lbl in guidance_map:
-                    issue["student_guidance"] = guidance_map[lbl]
+                issue["student_guidance"] = guidance_map.get(issue.get("label"), "")
         
         # 6. Always use DOC_EXAMPLES (the multi-example list collected during marking)
         # DO NOT overwrite with extract_richer_examples() which can only capture
