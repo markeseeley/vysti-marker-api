@@ -805,10 +805,13 @@ async def mark_text(
     # 3. Call mark_docx_bytes (same pipeline as /mark)
     mark_docx_bytes, _ = get_engine()
     mode = request.mode or "textual_analysis"
+    teacher_config = teacher_config or {}
+    teacher_config["highlight_thesis_devices"] = False
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
-        teacher_config=teacher_config if teacher_config else None,
+        teacher_config=teacher_config,
+        include_summary_table=False,
     )
     
     # 4. Extract examples and issues from metadata
