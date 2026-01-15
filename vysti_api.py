@@ -1,5 +1,5 @@
 # vysti_api.py
-
+import traceback
 import os
 import io
 from io import BytesIO
@@ -54,10 +54,12 @@ def get_engine():
         return _ENGINE
     except Exception as e:
         print("Failed to import marker engine:", repr(e))
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Marker engine failed to load on server. Check Render logs for the real import error.",
-        )
+    )
+
 
 # ===== Supabase config (from environment variables) =====
 # ===== Supabase config (from environment variables) =====
