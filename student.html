@@ -1883,6 +1883,24 @@
       await loadIssueExamples(selectedLabel);
     });
 
+    // Wrap text for tooltip display
+    function wrapTooltipText(text, maxLineLen = 70) {
+      const words = text.split(/\s+/).filter(Boolean);
+      const lines = [];
+      let line = "";
+      for (const w of words) {
+        const test = line ? line + " " + w : w;
+        if (test.length > maxLineLen) {
+          if (line) lines.push(line);
+          line = w;
+        } else {
+          line = test;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    }
+
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
 
@@ -1902,6 +1920,16 @@
 
       const labels = entries.map(([label]) => label);
       const values = entries.map(([, count]) => count || 0);
+      const issues = currentMarkEvent?.issues || [];
+      const explanationByLabel = {};
+      issues.forEach((iss) => {
+        const lbl = String(iss?.label || "").trim();
+        if (!lbl) return;
+        if (iss?.explanation && !explanationByLabel[lbl]) {
+          explanationByLabel[lbl] = String(iss.explanation);
+        }
+      });
+      const explanations = labels.map((lbl) => explanationByLabel[lbl] || "");
 
       mostCommonIssuesWrap.style.display = "block";
 
@@ -1917,14 +1945,44 @@
           labels,
           datasets: [{
             data: values,
-            backgroundColor: "#f2b632"
+            backgroundColor: "#f2b632",
+            explanations: explanations
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: false }
+            legend: { display: false },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title: (items) => {
+                  const item = items?.[0];
+                  return item?.label || "";
+                },
+                label: (item) => {
+                  return `Count: ${item.formattedValue}`;
+                },
+                afterBody: (items) => {
+                  const item = items?.[0];
+                  if (!item) return [];
+                  const idx = item.dataIndex;
+                  const expl = item.dataset?.explanations?.[idx];
+                  if (!expl) return [];
+
+                  const lines = wrapTooltipText(String(expl).trim(), 70);
+                  const maxLines = 10;
+                  const clipped = lines.slice(0, maxLines);
+
+                  // If we clipped, add ellipsis to last line
+                  if (lines.length > maxLines && clipped.length) {
+                    clipped[clipped.length - 1] = clipped[clipped.length - 1].replace(/[.…]?$/, "…");
+                  }
+                  return clipped;
+                }
+              }
+            }
           },
           scales: {
             y: {
