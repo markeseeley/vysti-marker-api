@@ -575,25 +575,12 @@
         <button type="button" id="clearFileBtn" class="secondary-btn" style="display:none;">Clear file</button>
       </section>
 
-      <section class="card rules-card">
-        <div class="rules-cols">
-          <div>
-            <div class="rules-title">Results</div>
-            <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
+      <section class="card rules-card" id="resultsCard" style="display:none;">
+        <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
 
-            <button id="downloadBtn" class="secondary-btn" type="button" style="display:none; margin-top:12px;">
-              Download marked essay
-            </button>
-          </div>
-
-          <div>
-            <div class="rules-title">Next steps</div>
-            <div style="font-size: var(--fs-sm); color: rgba(0,0,0,.70); line-height:18px;">
-              After you download your marked draft, revise and re-run the checker.
-              (We'll add in-page marked-essay preview + guided revisions next.)
-            </div>
-          </div>
-        </div>
+        <button id="downloadBtn" class="secondary-btn" type="button" style="display:none; margin-top:12px;">
+          Download marked essay
+        </button>
 
         <div id="mostCommonIssuesWrap" style="margin-top: 20px; display:none;">
           <div class="rules-title">Most Common Issues</div>
@@ -787,6 +774,7 @@
     const checkBtn = document.getElementById("checkBtn");
     const clearFileBtn = document.getElementById("clearFileBtn");
     const statusArea = document.getElementById("statusArea");
+    const resultsCard = document.getElementById("resultsCard");
     const downloadBtn = document.getElementById("downloadBtn");
     const fileList = document.getElementById("fileList");
     const dropZone = document.getElementById("dropZone");
@@ -1105,6 +1093,7 @@
     function clearFile() {
       // Safety: stop any in-progress button loader
       stopCheckBtnLoading();
+      if (resultsCard) resultsCard.style.display = "none";
       selectedFile = null;
       fileInput.value = "";
       downloadUrl = null;
@@ -1889,6 +1878,7 @@
       if (!selectedFile) {
         statusArea.textContent = "Please select a .docx file.";
         statusArea.className = "status-area error";
+        if (resultsCard) resultsCard.style.display = "block";
         return;
       }
 
@@ -1897,6 +1887,7 @@
       if (!sessionData || !sessionData.session) {
         statusArea.textContent = "You must be logged in.";
         statusArea.className = "status-area error";
+        if (resultsCard) resultsCard.style.display = "block";
         return;
       }
 
@@ -1958,9 +1949,15 @@
       }
 
       // Update UI (don’t show Uploading... in Results; show it on the button instead)
+      if (resultsCard) resultsCard.style.display = "none";
       statusArea.textContent = "";
       statusArea.className = "status-area";
       downloadBtn.style.display = "none";
+      if (mostCommonIssuesWrap) mostCommonIssuesWrap.style.display = "none";
+      if (mostCommonIssuesChart) {
+        mostCommonIssuesChart.destroy();
+        mostCommonIssuesChart = null;
+      }
       startCheckBtnLoading();
 
       try {
@@ -2023,6 +2020,7 @@
         statusArea.textContent = "Done — preview below. Download is ready.";
         statusArea.className = "status-area success";
         downloadBtn.style.display = "block";
+        if (resultsCard) resultsCard.style.display = "block";
         
         // Apply detected meta after successful marking
         applyDetectedMetaAfterCheck();
@@ -2034,6 +2032,7 @@
         console.error("Error:", error);
         statusArea.textContent = `Error: ${error.message}`;
         statusArea.className = "status-area error";
+        if (resultsCard) resultsCard.style.display = "block";
       } finally {
         stopCheckBtnLoading();
       }
@@ -3473,6 +3472,7 @@
         if (!previewText) {
           statusArea.textContent = "Could not extract text from preview.";
           statusArea.className = "status-area error";
+          if (resultsCard) resultsCard.style.display = "block";
           return;
         }
 
@@ -3481,6 +3481,7 @@
         if (!sessionData || !sessionData.session) {
           statusArea.textContent = "You must be logged in.";
           statusArea.className = "status-area error";
+          if (resultsCard) resultsCard.style.display = "block";
           return;
         }
 
