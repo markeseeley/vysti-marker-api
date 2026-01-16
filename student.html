@@ -41,7 +41,7 @@
       margin-top: 12px;
     }
     .title-type-label {
-      font-size: var(--fs-xs);
+      font-size: var(--fs-sm);
       font-weight: 600;
       margin-bottom: 8px;
     }
@@ -75,7 +75,7 @@
       border: 1px solid #e0e0e0;
     }
     .assignment-tracker-title {
-      font-size: 14px;
+      font-size: var(--fs-sm);
       font-weight: 700;
       color: var(--text);
       margin-bottom: 4px;
@@ -107,7 +107,7 @@
       display: none;
     }
     .work-title {
-      font-size: 14px;
+      font-size: var(--fs-sm);
       font-weight: 600;
       color: var(--text);
       margin-bottom: 12px;
@@ -336,7 +336,15 @@
     <form id="studentForm" class="marker-grid" style="display:none;">
       <section class="card form-card">
         <label>
-          What is the assignment?
+          <span class="label-row">
+            What is the assignment?
+            <span class="type-info tt"
+                  tabindex="0"
+                  aria-label="What is the assignment?"
+                  data-tip="Pick what you’re writing so Vysti can use the right rules. Different assignments = different checks. If you’re doing an analytic essay, you’re in the right place — that mode is the most complete. Choose it, upload your .docx, and we’ll start fixing things.">
+              i
+            </span>
+          </span>
           <select id="mode">
             <option value="textual_analysis">Analytic essay</option>
             <option value="peel_paragraph">Mini-essay paragraph</option>
@@ -371,8 +379,17 @@
         </label>
 
         <div class="assignment-tracker-block">
-          <div class="assignment-tracker-title">Assignment Tracker</div>
-          <div class="assignment-tracker-help">Give the assignment a name to keep track of your work.</div>
+          <div class="assignment-tracker-title">
+            <span class="label-row">
+              Assignment Tracker
+              <span class="type-info tt"
+                    tabindex="0"
+                    aria-label="Assignment Tracker"
+                    data-tip="Want to track progress? Name drafts like Homework 01, 02, 03… so your dashboard makes sense later. Don’t care? Leave it blank. We won’t be offended.">
+                i
+              </span>
+            </span>
+          </div>
           <label class="visually-hidden" for="assignmentName">Assignment name (optional)</label>
           <input type="text" id="assignmentName" placeholder="Assignment name (optional) — e.g., Homework 01" aria-label="Assignment name (optional)" />
           <label style="margin-top: 12px;">
