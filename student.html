@@ -131,6 +131,10 @@
       background: var(--maroon);
       color: #fff;
     }
+    .primary-btn.is-loading {
+      cursor: progress;
+      opacity: 0.95; /* keep readable even while disabled */
+    }
     .detected-meta {
       margin-top: 12px;
       padding: 8px 12px;
@@ -816,11 +820,50 @@
     const targetWordCountInput = document.getElementById("targetWordCount");
 
     let selectedFile = null;
+    let checkBtnLoadingTimer = null;
+    let checkBtnBaseLabel = null;
     let downloadUrl = null;
     let markedBlob = null;
     let currentMarkEvent = null;
     let pendingDetectedMeta = null;
     let currentWordCount = null;
+
+    function startCheckBtnLoading() {
+      if (!checkBtn) return;
+      if (!checkBtnBaseLabel) checkBtnBaseLabel = (checkBtn.textContent || "Check My Essay").trim();
+
+      // visually + accessibility
+      checkBtn.classList.add("is-loading");
+      checkBtn.setAttribute("aria-busy", "true");
+      checkBtn.disabled = true;
+
+      let dots = 0;
+      const tick = () => {
+        dots = (dots + 1) % 4; // 0..3
+        const suffix = ".".repeat(dots);
+        checkBtn.textContent = `Processing${suffix}`;
+      };
+
+      tick();
+      checkBtnLoadingTimer = window.setInterval(tick, 450);
+    }
+
+    function stopCheckBtnLoading() {
+      if (!checkBtn) return;
+
+      if (checkBtnLoadingTimer) {
+        window.clearInterval(checkBtnLoadingTimer);
+        checkBtnLoadingTimer = null;
+      }
+
+      checkBtn.classList.remove("is-loading");
+      checkBtn.removeAttribute("aria-busy");
+
+      if (checkBtnBaseLabel) checkBtn.textContent = checkBtnBaseLabel;
+
+      // Enable only if a file is still selected
+      checkBtn.disabled = !selectedFile;
+    }
 
     // ===== Mode explainer card =====
     const MODE_RULE_DEFAULTS = {
@@ -1061,6 +1104,8 @@
     }
 
     function clearFile() {
+      // Safety: stop any in-progress button loader
+      stopCheckBtnLoading();
       selectedFile = null;
       fileInput.value = "";
       downloadUrl = null;
@@ -1913,11 +1958,11 @@
         formData.append("text_is_minor_work_3", title3IsMinor);
       }
 
-      // Update UI
-      statusArea.textContent = "Uploading…";
+      // Update UI (don’t show Uploading... in Results; show it on the button instead)
+      statusArea.textContent = "";
       statusArea.className = "status-area";
-      checkBtn.disabled = true;
       downloadBtn.style.display = "none";
+      startCheckBtnLoading();
 
       try {
         // Call API
@@ -1991,7 +2036,7 @@
         statusArea.textContent = `Error: ${error.message}`;
         statusArea.className = "status-area error";
       } finally {
-        checkBtn.disabled = false;
+        stopCheckBtnLoading();
       }
     });
 
@@ -2252,7 +2297,7 @@
               titleFont: { size: 16, weight: "700" },
               bodyFont: { size: 14, lineHeight: 1.35 },
               footerFont: { size: 13, weight: "700" },
-              padding: 10,
+              padding: 12,
               bodySpacing: 6,
               titleSpacing: 6,
               footerSpacing: 6,
