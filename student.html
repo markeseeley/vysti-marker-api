@@ -158,6 +158,52 @@
     .issue-select-wrapper {
       margin-bottom: 16px;
     }
+    .issue-buttons-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .issue-buttons-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .issue-section-block {
+      padding-top: 4px;
+    }
+    .issue-section-heading {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 6px 0 8px;
+      letter-spacing: 0.02em;
+    }
+    .issue-button-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .issue-btn {
+      appearance: none;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease;
+    }
+    .issue-btn:hover {
+      border-color: var(--maroon);
+    }
+    .issue-btn:active {
+      transform: translateY(1px);
+    }
+    .issue-btn.active {
+      border-color: var(--maroon);
+      box-shadow: 0 0 0 2px rgba(128, 0, 32, 0.15);
+    }
     .issue-explanation-header {
       font-weight: 700;
       font-size: 12px;
@@ -542,18 +588,22 @@
     <section class="card revision-practice-card" id="revisionPracticeCard" style="display:none;">
       <h2 style="margin-bottom: 12px; font-size: 18px; font-weight: 700;">Fix Your Most Common Issues</h2>
       <div class="issue-select-wrapper">
-        <label>
-          Select a section
-          <select id="sectionSelect">
-            <option value="">All sections</option>
-          </select>
-        </label>
-        <label style="margin-top: 12px;">
-          Select an issue to practice
-          <select id="issueSelect">
-            <option value="">Select an issue...</option>
-          </select>
-        </label>
+        <div class="issue-buttons-title">Select an issue</div>
+
+        <!-- New UI -->
+        <div id="issueButtonsWrap" class="issue-buttons-wrap"></div>
+
+        <!-- Keep old selects for existing JS, but hide them -->
+        <div class="issue-selects-hidden" style="display:none;">
+          <label>
+            Select a section
+            <select id="sectionSelect"></select>
+          </label>
+          <label>
+            Select an issue to practice
+            <select id="issueSelect"></select>
+          </label>
+        </div>
       </div>
       <div id="issueExplanationBlock" style="display:none;">
         <div class="issue-explanation-header">Explanation of the Issue</div>
@@ -599,6 +649,7 @@
     const revisionPracticeCard = document.getElementById("revisionPracticeCard");
     const sectionSelect = document.getElementById("sectionSelect");
     const issueSelect = document.getElementById("issueSelect");
+    const issueButtonsWrap = document.getElementById("issueButtonsWrap");
     const issueExplanationBlock = document.getElementById("issueExplanationBlock");
     const issueExplanation = document.getElementById("issueExplanation");
     const examplesList = document.getElementById("examplesList");
@@ -1883,6 +1934,78 @@
       await loadIssueExamples(selectedLabel);
     });
 
+    let activeIssueBtn = null;
+
+    function renderIssueButtonsFromSectionData(sectionData, sectionOrder) {
+      if (!issueButtonsWrap) return;
+      issueButtonsWrap.innerHTML = "";
+      activeIssueBtn = null;
+
+      if (!sectionData || !sectionData.sectionLabels || !sectionData.labelCounts) {
+        return;
+      }
+
+      const labelCounts = sectionData.labelCounts || {};
+      const sectionLabels = sectionData.sectionLabels || {};
+
+      const order = Array.isArray(sectionOrder) && sectionOrder.length
+        ? sectionOrder
+        : Object.keys(sectionLabels);
+
+      order.forEach((sectionName) => {
+        const labels = (sectionLabels[sectionName] || []).slice();
+        if (!labels.length) return;
+
+        // Sort issues within the section by count desc
+        labels.sort((a, b) => (labelCounts[b] || 0) - (labelCounts[a] || 0));
+
+        const block = document.createElement("div");
+        block.className = "issue-section-block";
+
+        const heading = document.createElement("div");
+        heading.className = "issue-section-heading";
+        heading.textContent = sectionName;
+
+        const row = document.createElement("div");
+        row.className = "issue-button-row";
+
+        labels.forEach((label) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "issue-btn";
+          btn.dataset.issueLabel = label;
+
+          const count = labelCounts[label] || 0;
+          btn.textContent = `${label} (${count})`;
+
+          btn.addEventListener("click", () => {
+            // Active style
+            if (activeIssueBtn) activeIssueBtn.classList.remove("active");
+            activeIssueBtn = btn;
+            activeIssueBtn.classList.add("active");
+
+            // Ensure issueSelect contains ALL labels so any button can work
+            if (sectionSelect) {
+              sectionSelect.value = "";
+              sectionSelect.dispatchEvent(new Event("change"));
+            }
+
+            // Trigger existing issueSelect flow (loads explanation + examples)
+            if (issueSelect) {
+              issueSelect.value = label;
+              issueSelect.dispatchEvent(new Event("change"));
+            }
+          });
+
+          row.appendChild(btn);
+        });
+
+        block.appendChild(heading);
+        block.appendChild(row);
+        issueButtonsWrap.appendChild(block);
+      });
+    }
+
     // Wrap text for tooltip display
     function wrapTooltipText(text, maxLineLen = 70) {
       const words = text.split(/\s+/).filter(Boolean);
@@ -2018,6 +2141,7 @@
           revisionPracticeCard.style.display = "block";
           sectionSelect.innerHTML = '<option value="">All sections</option>';
           issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          renderIssueButtonsFromSectionData(null);
           return;
         }
 
@@ -2025,6 +2149,7 @@
           revisionPracticeCard.style.display = "block";
           sectionSelect.innerHTML = '<option value="">All sections</option>';
           issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+          renderIssueButtonsFromSectionData(null);
           return;
         }
 
@@ -2145,6 +2270,8 @@
           return numA - numB;
         });
         const sectionOrder = ["Title & Intro", ...bodySectionNames, "Conclusion"];
+        window.revisionSectionData.sectionOrder = sectionOrder;
+        renderIssueButtonsFromSectionData(window.revisionSectionData, sectionOrder);
         sectionOrder.forEach(sectionName => {
           if (sectionLabels[sectionName] && sectionLabels[sectionName].length > 0) {
             const option = document.createElement("option");
@@ -2176,6 +2303,7 @@
         revisionPracticeCard.style.display = "block";
         sectionSelect.innerHTML = '<option value="">All sections</option>';
         issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
+        renderIssueButtonsFromSectionData(null);
       }
     }
 
