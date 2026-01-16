@@ -7,6 +7,16 @@
   --muted:rgba(0,0,0,.6);
   --shadow: 0 14px 45px rgba(0,0,0,.08);
   --radius:16px;
+  /* Typography scale (responsive + accessible) */
+  --fs-body: clamp(1rem, calc(0.25vw + 0.95rem), 1.125rem); /* ~16px → 18px */
+  --fs-sm:   clamp(0.9375rem, calc(0.15vw + 0.9rem), 1rem); /* ~15px → 16px */
+  --fs-xs:   clamp(0.875rem, calc(0.10vw + 0.85rem), 0.9375rem); /* ~14px → 15px */
+
+  --fs-h1: clamp(1.5rem, calc(0.55vw + 1.3rem), 2rem);   /* ~24px → 32px */
+  --fs-h2: clamp(1.25rem, calc(0.35vw + 1.15rem), 1.5rem);/* ~20px → 24px */
+  --fs-h3: clamp(1.125rem, calc(0.25vw + 1.05rem), 1.25rem);/* ~18px → 20px */
+
+  --lh-body: 1.55;
 }
 
 *{ box-sizing:border-box; }
@@ -16,6 +26,13 @@ body{
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, select, textarea {
+  font: inherit;
 }
 .dz-icon{
   width: 40px;   /* adjust to the exact Figma W/H if it’s different */
@@ -57,7 +74,7 @@ body{
   color: rgba(255,255,255,.85);
   text-decoration:none;
   font-weight:600;
-  font-size:14px;
+  font-size:var(--fs-sm);
   padding:10px 12px;
   border-radius:10px;
 }
@@ -86,7 +103,7 @@ body{
   background: rgba(255,255,255,.10);
   color:#fff;
   font-weight:700;
-  font-size:13px;
+  font-size:var(--fs-sm);
   cursor:pointer;
 }
 .topbar-btn:hover{ 
@@ -142,9 +159,9 @@ body{
 }
 .form-card h2{
   margin: 0 0 12px;
-  font-size: 16px;
+  font-size: var(--fs-h3);
 }
-label{ display:block; font-size:13px; font-weight:600; margin-top:12px; }
+label{ display:block; font-size:var(--fs-xs); font-weight:600; margin-top:12px; }
 input[type="text"], input[type="email"], select{
   width:100%;
   height:40px;
@@ -258,7 +275,7 @@ input:focus, select:focus{
 .rules-title{
   color: #171A1F;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-size: 18px;     /* Figma */
+  font-size: var(--fs-h3);     /* Figma */
   font-weight: 500;    /* Figma */
   line-height: 24px;   /* Figma */
   margin: 0 0 8px;
@@ -384,7 +401,7 @@ input:focus, select:focus{
   background:#f8f9fa;
   border-radius:6px;
   margin-bottom:6px;
-  font-size:13px;
+  font-size:var(--fs-sm);
 }
 
 /* Student status block */
@@ -455,7 +472,7 @@ input:focus, select:focus{
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,.22);
   color: rgba(0,0,0,.55);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   line-height: 16px;
   cursor: help;
@@ -477,7 +494,7 @@ input:focus, select:focus{
 
   background: #171A1F;
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   line-height: 16px;
   padding: 8px 10px;
   border-radius: 10px;
@@ -505,7 +522,7 @@ input:focus, select:focus{
 
   background: #171A1F;          /* same as Minor/Major */
   color: #fff;
-  font-size: 12px;              /* same as Minor/Major */
+  font-size: var(--fs-xs);              /* same as Minor/Major */
   line-height: 16px;
   padding: 8px 10px;
   border-radius: 10px;
@@ -557,17 +574,17 @@ input:focus, select:focus{
   background: rgba(169,13,34,0.10);
   color: #A90D22;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .mode-tag{
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: rgba(0,0,0,0.55);
   font-weight: 600;
 }
 
 .mode-desc{
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   line-height: 18px;
   color: rgba(0,0,0,0.75);
@@ -580,13 +597,13 @@ input:focus, select:focus{
   padding: 0;
   color: #A90D22;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 
 .mode-details{
   margin-top: 10px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 18px;
   color: rgba(0,0,0,0.75);
 }
@@ -606,7 +623,7 @@ input:focus, select:focus{
   align-items: end;
 
   color: rgba(0,0,0,.55);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .footer-copy{
