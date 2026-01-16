@@ -1121,6 +1121,13 @@
       const title3IsMinorSelect = document.getElementById("title3_is_minor");
       if (title3IsMinorSelect) title3IsMinorSelect.value = "true";
       
+      // Hide + reset Most Common Issues chart
+      if (mostCommonIssuesWrap) mostCommonIssuesWrap.style.display = "none";
+      if (mostCommonIssuesChart) {
+        mostCommonIssuesChart.destroy();
+        mostCommonIssuesChart = null;
+      }
+
       updateFileUI();
     }
 
@@ -2242,6 +2249,13 @@
             legend: { display: false },
             tooltip: {
               displayColors: false,
+              titleFont: { size: 16, weight: "700" },
+              bodyFont: { size: 14, lineHeight: 1.35 },
+              footerFont: { size: 13, weight: "700" },
+              padding: 10,
+              bodySpacing: 6,
+              titleSpacing: 6,
+              footerSpacing: 6,
               callbacks: {
                 title: (items) => {
                   const item = items?.[0];
