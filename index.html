@@ -4,7 +4,1957 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vysti Marker</title>
+  <link rel="preconnect" href="https://fonts.googa<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/marker.css">
+  <style>
+    .marker-grid .full-width {
+      grid-column: 1 / -1;
+    }
+  </style>
+
+  <!-- Supabase JS client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+          <img src="/assets/logo.svg" alt="Vysti" />
+        </div>
+      
+        <nav>
+          <a href="/progress.html">Dashboard</a>
+          <a href="/index.html" class="active">Mark Assignments</a>
+          <a href="/ingest.html">Ingest Marked Essays</a>
+          <a href="/classes.html">Classes</a>
+        </nav>
+      
+        <div class="actions">
+          <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Student Mode</button>
+          <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
+        </div>
+      </header>
+      
+
+  <!-- Simple auth panel -->
+  
+
+  <main class="page">
+      <form id="markForm" class="marker-grid" style="display:none;">
+
+    
+    
+<section class="card form-card">
+    
+    
+    <label>
+        <span class="label-row">
+          Select assignment
+          <span class="type-info tt"
+                tabindex="0"
+                aria-label="Select assignment"
+                data-tip="What kind of writing are we marking? Different modes enable different rules. Pick the mode first, then tweak the behavior below with the toggles.">
+            i
+          </span>
+        </span>
+        <select id="mode">
+          <option value="textual_analysis">Textual analysis</option>
+          <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
+          <option value="peel_paragraph">Mini-essay paragraph</option>
+          <option value="reader_response">Reader response</option>
+          <option value="analytic_frame">Analytic frame</option>
+          <option value="argumentation">Argumentation</option>
+          <option value="foundation_1">First sentence only</option>
+          <option value="foundation_2">First sentence + thesis</option>
+          <option value="foundation_3">Full introduction</option>
+          <option value="foundation_4">Intro + topic sentence</option>
+          <option value="foundation_5">Intro + body</option>
+         </select>
+      </label>
+
+<!-- Mode explainer card (single, dynamic) -->
+<div class="mode-card" id="modeCard">
+  <div class="mode-card-header">
+    <span class="mode-badge" id="modeBadge">Textual analysis</span>
+    <span class="mode-tag" id="modeTag"></span>
+
+  </div>
+
+  <div class="mode-desc" id="modeDesc">
+    Formal and academic. No first person. Closed thesis required.
+  </div>
+
+  <button type="button" class="mode-more" id="modeMoreBtn" aria-expanded="false">
+    Want more details?
+  </button>
+
+  <div class="mode-details" id="modeDetails" hidden>
+    <ul id="modeDetailsList"></ul>
+  </div>
+</div>
+
+      <div style="display: flex; align-items: flex-end; gap: 12px; margin-top: 12px;">
+        <label style="flex: 1; margin: 0;">
+          Class (optional)
+          <select id="classSelect">
+            <option value="">No class</option>
+          </select>
+        </label>
+        <a href="/classes.html" style="font-size: 12px; color: var(--maroon); text-decoration: none; margin-bottom: 12px; white-space: nowrap;">Manage classes</a>
+      </div>
+
+      <label>
+        Student name (optional)a
+        <input type="text" id="studentName" placeholder="e.g., John Smith" />
+      </label>
+
+      <!-- Assignment Builder -->
+      <div class="assignment-builder" style="margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <div style="font-weight: 600; font-size: var(--fs-sm); margin-bottom: 12px; color: #333;">
+          <span class="label-row">
+            Assignment Builder
+            <span class="type-info tt"
+                  tabindex="0"
+                  aria-label="Assignment Builder"
+                  data-tip="Use this if you want progress reports over time (Homework 01, 02, 03…). If you’re just spot-checking, leave it blank — it won’t change marking.">
+              i
+            </span>
+          </span>
+        </div>
+        <label style="display: block; font-size: var(--fs-xs); font-weight: 600; margin-bottom: 4px; color: #666;">Assignment Name</label>
+        <input type="text" id="assignmentName" placeholder="e.g., Homework 01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: var(--fs-sm); margin-bottom: 12px;" />
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="applyToAllFiles" checked style="width: 18px; height: 18px; cursor: pointer;" />
+          <label for="applyToAllFiles" style="font-size: var(--fs-sm); color: #666; cursor: pointer; user-select: none;">Apply to all uploaded files</label>
+        </div>
+      </div>
+
+      
+      
+      <!-- Work 1 -->
+    <fieldset>
+        <legend>Work 1</legend>
+        <label>
+          What is the author's full name?
+          <input type="text" id="author" />
+        </label>
+  
+        <label>
+          What is the title of the text?
+          <input type="text" id="title" />
+        </label>
+  
+        <div class="title-type-block">
+          <div class="title-type-label">Title type</div>
+        
+          <div class="title-type-grid">
+            <label class="type-option tt" data-tip="The title of the text must be in double quotation marks.">
+              <span class="type-head">
+                <input type="radio" name="title1_type" value="true" checked />
+                <span class="type-name">Minor work</span>
+              </span>
+            </label>
+          
+            <label class="type-option tt" data-tip="The title of the text must be in italics.">
+              <span class="type-head">
+                <input type="radio" name="title1_type" value="false" />
+                <span class="type-name">Major work</span>
+              </span>
+            </label>
+          </div>
+          
+            
+            
+          </div>
+        
+          <!-- Keep the existing select for your JS/backend -->
+          <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
+            <option value="true" selected>Minor work — in &quot;double quotes&quot;</option>
+            <option value="false">Major work — italicized</option>
+          </select>
+        </div>
+        
+      </fieldset>
+  
+      <!-- Work 2 (optional) -->
+      <fieldset>
+        <legend>Work 2</legend>
+        <label>
+          Author 2
+          <input type="text" id="author2" />
+        </label>
+  
+        <label>
+          Title 2
+          <input type="text" id="title2" />
+        </label>
+  
+        <div class="title-type-block">
+          <div class="title-type-label">Title type</div>
+        
+          <select id="title2_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1" disabled>
+            <option value="true" selected>Minor work — in "double quotes"</option>
+            <option value="false">Major work — in italics</option>
+          </select>
+        
+          <div class="title-type-grid">
+            <label class="type-option tt" data-tip="The title of the text must be in double quotation marks.">
+              <span class="type-head">
+                <input type="radio" name="title2_type" value="true" checked />
+                <span class="type-name">Minor work</span>
+              </span>
+            </label>
+
+            <label class="type-option tt" data-tip="The title of the text must be in italics.">
+              <span class="type-head">
+                <input type="radio" name="title2_type" value="false" />
+                <span class="type-name">Major work</span>
+              </span>
+            </label>
+            
+          </div>
+        </div>
+        
+      </fieldset>
+  
+      <!-- Work 3 (optional) -->
+      <fieldset>
+        <legend>Work 3</legend>
+        <label>
+          Author 3
+          <input type="text" id="author3" />
+        </label>
+  
+        <label>
+          Title 3
+          <input type="text" id="title3" />
+        </label>
+  
+        <div class="title-type-block">
+          <div class="title-type-label">Title type</div>
+        
+          <select id="title3_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1" disabled>
+            <option value="true" selected>Minor work — in "double quotes"</option>
+            <option value="false">Major work — in italics</option>
+          </select>
+        
+          <div class="title-type-grid">
+            <label class="type-option tt" data-tip="The title of the text must be in double quotation marks.">
+              <span class="type-head">
+                <input type="radio" name="title3_type" value="true" checked />
+                <span class="type-name">Minor work</span>
+              </span>
+            </label>
+            
+        
+            <label class="type-option tt" data-tip="The title of the text must be in italics.">
+              <span class="type-head">
+                <input type="radio" name="title3_type" value="false" />
+                <span class="type-name">Major work</span>
+              </span>
+            </label>
+            
+          </div>
+        </div>
+        
+      </fieldset>
+      <button class="primary-btn" id="markBtn" type="submit">Mark Essay</button>
+
+  </section>
+  
+  
+  <section class="card upload-card">
+      <label>Essays (.docx)</label>
+      
+
+      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx files">
+          <img class="dz-icon" src="/assets/cloud-upload.svg" alt="" aria-hidden="true" />
+          <div class="dz-title">Drag & drop .docx files here</div>
+          <div class="dz-sub">or click to browse</div>
+          
+        <input
+          type="file"
+          id="fileInput"
+          name="file"
+          accept=".docx"
+          multiple
+          required
+          hidden
+        />
+      </div>
+  
+      <ul id="fileList" class="file-list"></ul>
+      <button type="button" id="clearFilesBtn" class="secondary-btn">Clear uploaded files</button>
+
+  </section>
+
+  <!-- Table for multiple files -->
+  <section class="card full-width" id="filesTableSection" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2 style="margin-top: 0; margin-bottom: 0;">Uploaded Files</h2>
+      <button type="button" id="downloadAllBtn" class="secondary-btn" style="display: none;">Download all marked</button>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="ingest-table" id="filesTable" style="width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed;">
+        <colgroup>
+          <col style="width: 50%">
+          <col style="width: 20%">
+          <col style="width: 20%">
+          <col style="width: 10%">
+        </colgroup>
+      <thead>
+        <tr style="background: #f5f5f5;">
+          <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e0e0e0;">File</th>
+          <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e0e0e0;">Student Name</th>
+          <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e0e0e0;">Assignment Name</th>
+          <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e0e0e0;">Status</th>
+        </tr>
+      </thead>
+      <tbody id="filesTableBody">
+        <!-- rows injected by JS -->
+      </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <section class="card rules-card">
+       <div class="rules-cols">
+        
+            <!-- LEFT COLUMN -->
+            <div>
+              <div class="rules-title">Voice &amp; audience</div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_i" />
+                <span class="info tt" data-tip="Allows for the use of personal pronouns like 'I', 'you', 'we', and 'our'." tabindex="0" aria-label="Rule explanation">i</span>
+                <div class="rule-text">Allow personal pronouns</div>
+              
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_audience" />
+                <span class="info tt" data-tip="It is only necessary to refer to the reader or the audience of a text when the reader or audience is known or referred to by the text itself, otherwise, students tend to make weak analysis, claiming an effect on a reader or audience without providing evidence." tabindex="0" aria-label="Rule explanation">i</span>
+                <div class="rule-text">Allow references to the reader or audience</div>
+                
+              </div>
+        
+              <div class="rules-title" style="margin-top:14px;">Argument and evidence</div>
+        
+              <div id="closedThesisRow" class="rule-row">
+                <input type="checkbox" id="enforce_closed_thesis" />
+                <span class="info tt" data-tip="For literary analysis, a closed thesis will contain specified devices or strategies and a clearly stated argument." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Require a closed thesis statement</div>
+               
+              </div>
+        
+              <div id="requireBodyEvidenceRow" class="rule-row">
+                <input type="checkbox" id="require_body_evidence" />
+                <span class="info tt" data-tip="For literary analysis, it is generally expected that the body paragraphs will contain quotations." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Require quotations in body paragraphs</div>
+                
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_intro_quotes" />
+                <span class="info tt" data-tip="Unless there is an analytic frame, generally quotations are avoided in the introduction." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow quotations in the introduction</div>
+                
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_long_quotes" />
+                <span class="info tt" data-tip="The recommended length for a quotation is five words or less." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow long quotations</div>
+                
+              </div>
+            </div>
+        
+            <!-- RIGHT COLUMN -->
+            <div>
+              <div class="rules-title">Style</div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_contractions" />
+                <span class="info tt" data-tip="Contractions such as 'isn't' or 'can't' are not generally accepted in academic writing." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow contractions</div>
+               
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="allow_which" />
+                <span class="info tt" data-tip="Stylistically, the term 'which' leads to convoluted expressions." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow the word “which”</div>
+               
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_fact_rule" />
+                <span class="info tt" data-tip="In literary analysis, it is rare to claim that anything is 'proven' or 'factual'." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow “fact” and “prove”</div>
+                
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_weak_verbs" />
+                <span class="info tt" data-tip="The verbs 'show' and 'use' will be flagged as weak verbs due to their overuse." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Disregard weak verbs</div>
+                
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_human_rule" />
+                <span class="info tt" data-tip="Avoid using the words 'human', 'people', 'everyone', or 'individual'." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow vague references to "people"</div>
+                
+              </div>
+        
+              <div class="rule-row">
+                <input type="checkbox" id="disable_vague_general_rule" />
+                <span class="info tt" data-tip="Avoid overly general words like 'society', 'universe', 'reality', 'life', and 'truth'. If these terms are not made specific, they will be flagged." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Allow vague terms</div>
+                
+              </div>
+        <!--
+              <div class="rules-title" style="margin-top:14px;">Grammar (beta version)</div>
+        
+              <div id="svaRow" class="rule-row">
+                <input type="checkbox" id="enforce_sva_rule" />
+                <span class="info tt" data-tip="Subject-verb agreement errors will be flagged." tabindex="0" aria-label="Rule explanation">i</span>
+                <div class="rule-text">Check for subject-verb agreement</div>        
+              </div>
+        
+              <div id="presentTenseRow" class="rule-row">
+                <input type="checkbox" id="enforce_present_tense_rule" />
+                <span class="info tt" data-tip="(beta) Checks for present tense in literary analysis, but will flag all past tense verbs." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Check for present tense</div>
+              
+              </div>
+        -->
+              <div class="rule-row">
+                <input type="checkbox" id="highlight_devices" />
+                <span class="info tt" data-tip="(beta) Literary and rhetorical devices as well as modes of discourse will be highlighted in green." tabindex="0" aria-label="Rule explanation">i</span>
+
+                <div class="rule-text">Highlight devices and strategies</div>
+                
+              </div>
+            </div>
+        
+          </div>
+        </section>
+        
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+<footer class="marker-footer" aria-label="Site footer">
+  <div class="footer-copy">© 2025 Vysti Research. All rights reserved.</div>
+  <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
+</footer>
+
+</main>
+
+  
+   
+
+
+    
+
+    
+
+   
+
+
+
+  <script>
+    // ===== Supabase auth setup =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";  // your project URL
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock"; // anon / publishable key
+
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const form = document.getElementById("markForm");
+    const fileInput = document.getElementById("fileInput");
+    const markBtn = document.getElementById("markBtn");
+    const clearFilesBtn = document.getElementById("clearFilesBtn");
+
+    function syncMarkBtnState() {
+      if (!markBtn) return;
+      
+      const hasFiles = fileInput.files && fileInput.files.length > 0;
+      if (!hasFiles) {
+        markBtn.disabled = true;
+        statusEl.textContent = "";
+        return;
+      }
+      
+      // Require assignment names for ALL files (single or multiple)
+      const globalAssignmentName = document.getElementById("assignmentName").value.trim();
+      
+      // Check each file has a valid assignment name
+      const missingOrInvalid = fileData.some(fd => {
+        const perFileAssignment = (fd.assignmentName || "").trim();
+        const assignmentToCheck = perFileAssignment || globalAssignmentName;
+        return !assignmentToCheck || !isValidAssignmentName(assignmentToCheck);
+      });
+      
+      if (missingOrInvalid) {
+        markBtn.disabled = true;
+        statusEl.textContent = "⚠️ Assignment names must include a number (e.g., Foundation 01) for progress graphs.";
+        statusEl.style.color = "#dc3545";
+        return;
+      }
+      
+      markBtn.disabled = false;
+      statusEl.textContent = "";
+      statusEl.style.color = "";
+    }
+
+    // Clears the file input + UI list (so the same essay can't be marked again)
+    function clearSelectedFiles({ setStatus = false } = {}) {
+      fileData = [];
+      setFileInputFiles([]);      // uses your existing DataTransfer helper
+      fileInput.value = "";       // clears the native file input
+      renderFileList([]);         // clears UI list
+      renderFilesTable();         // clears table
+      updateDownloadAllButton();  // hide button after clearing
+      syncMarkBtnState();
+      if (setStatus) statusEl.textContent = "Cleared uploaded files.";
+    }
+
+    if (clearFilesBtn) {
+      clearFilesBtn.addEventListener("click", () => clearSelectedFiles({ setStatus: true }));
+    }
+
+    // Helper: Check if batch is done (all files are marked or errored)
+    function isBatchDone() {
+      return fileData.length > 1 && fileData.every(fd => fd.status === "marked" || fd.status === "error");
+    }
+
+    // Helper: Get all successfully marked files
+    function getMarkedFiles() {
+      return fileData.filter(fd => fd.status === "marked" && fd.downloadUrl);
+    }
+
+    // Update download all button visibility and state
+    function updateDownloadAllButton() {
+      const btn = document.getElementById("downloadAllBtn");
+      if (!btn) return;
+
+      const marked = getMarkedFiles();
+      const show = isBatchDone() && marked.length > 0;
+
+      btn.style.display = show ? "block" : "none";
+      btn.disabled = !show;
+      btn.textContent = marked.length ? `Download all marked (${marked.length})` : "Download all marked";
+      btn.title = show ? "Download all marked essays" : "";
+    }
+
+    // Download all marked files button
+    const downloadAllBtn = document.getElementById("downloadAllBtn");
+    if (downloadAllBtn) {
+      downloadAllBtn.addEventListener("click", () => {
+        const markedFiles = getMarkedFiles();
+        if (markedFiles.length === 0) return;
+        
+        // Download each file with a small stagger to avoid browser blocking
+        markedFiles.forEach((fd, index) => {
+          setTimeout(() => {
+            const a = document.createElement("a");
+            a.href = fd.downloadUrl;
+            a.download = fd.file.name.replace(/\.docx$/i, "") + "_marked.docx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }, index * 150); // 150ms stagger between downloads
+        });
+      });
+    }
+
+    // Set role to teacher on page load
+    localStorage.setItem("vysti_role", "teacher");
+
+    const switchModeBtn = document.getElementById("switchModeBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    if (switchModeBtn) {
+      switchModeBtn.addEventListener("click", () => {
+        localStorage.setItem("vysti_role", "student");
+        window.location.href = "/student.html";
+      });
+    }
+
+    logoutBtn.addEventListener("click", async () => {
+      await supa.auth.signOut();
+      localStorage.removeItem("vysti_role");
+      window.location.replace("/signin.html");
+    });
+
+    const statusEl = document.getElementById("status");
+    const classSelect = document.getElementById("classSelect");
+
+    // ===== Load classes =====
+    async function loadClasses() {
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) return;
+      
+      const { data, error } = await supa
+        .from("classes")
+        .select("*")
+        .eq("user_id", sessionData.session.user.id)
+        .eq("archived", false)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error loading classes:", error);
+        return;
+      }
+      
+      classSelect.innerHTML = '<option value="">No class</option>';
+      (data || []).forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls.id;
+        option.textContent = cls.name;
+        classSelect.appendChild(option);
+      });
+    }
+
+    // ===== Multiple files table =====
+    const filesTableSection = document.getElementById("filesTableSection");
+    const filesTableBody = document.getElementById("filesTableBody");
+    let fileData = []; // Array of {file, studentName, assignmentName, status, downloadUrl}
+
+    // ===== Filename parsing (from ingest.html) =====
+    function parseFilename(filename) {
+      // Strip .docx extension and trailing "_marked"
+      let base = filename.replace(/\.docx$/i, "").replace(/_marked$/i, "");
+      
+      // Normalize underscores/hyphens to spaces
+      base = base.replace(/[_-]/g, " ");
+      
+      // Try to extract assignment (e.g., "Homework 1", "HW01", "Foundation HW6", "X 2")
+      // Support both assignment-first and student-first patterns
+      // Handle compound names like "Foundation HW6", "High Level HW11"
+      const assignmentPatterns = [
+        // Pattern 1: "Foundation HW6", "High Level HW11" (prefix + HW + number)
+        /((?:[A-Za-z]+\s+)+)(HW|Homework)\s*(\d+)/i,
+        // Pattern 2: "Foundation 3", "Foundation 03" (prefix + number)
+        /(Foundation|Found)\s*(\d+)/i,
+        // Pattern 3: "HW6", "Homework 1" (just HW/Homework + number)
+        /(HW|Homework)\s*(\d+)/i,
+        // Pattern 4: Generic "X 2", "Essay 3", etc.
+        /([A-Za-z]+)\s*(\d+)/,
+      ];
+      
+      let assignmentName = "";
+      let studentName = "";
+      
+      for (const pattern of assignmentPatterns) {
+        const match = base.match(pattern);
+        if (match) {
+          const num = match[match.length - 1]; // Last capture group is always the number
+          const numPadded = num.padStart(2, "0");
+          
+          // Build assignment name based on pattern
+          if (match.length === 4) {
+            // Pattern 1: prefix + HW/Homework + number
+            const prefix = match[1].trim();
+            const hwPart = match[2];
+            const hwFormatted = hwPart.toUpperCase() === hwPart ? hwPart : 
+              (hwPart.charAt(0).toUpperCase() + hwPart.slice(1).toLowerCase());
+            assignmentName = `${prefix} ${hwFormatted} ${numPadded}`;
+          } else if (match.length === 3) {
+            // Pattern 2, 3, or 4: prefix + number
+            const prefix = match[1];
+            let prefixFormatted;
+            if (prefix.toUpperCase() === prefix) {
+              // Already all uppercase (e.g., "HW")
+              prefixFormatted = prefix;
+            } else {
+              // Capitalize first letter, lowercase rest
+              prefixFormatted = prefix.charAt(0).toUpperCase() + prefix.slice(1).toLowerCase();
+            }
+            assignmentName = prefixFormatted + " " + numPadded;
+          }
+          
+          // Extract student name: remove the matched assignment substring and treat remainder as student
+          // This handles both patterns:
+          // - "Foundation HW6 Wendi Zhou" → assignment: "Foundation HW06", student: "Wendi Zhou"
+          // - "Wendi Zhou - Foundation HW6" → assignment: "Foundation HW06", student: "Wendi Zhou"
+          // - "Homework 2 - Wendi Zhou" → assignment: "Homework 02", student: "Wendi Zhou"
+          
+          // Remove the matched assignment substring from base
+          const beforeMatch = base.substring(0, match.index).trim();
+          const afterMatch = base.substring(match.index + match[0].length).trim();
+          
+          // Combine before and after, removing separators like " - ", " – ", etc.
+          let remaining = (beforeMatch + " " + afterMatch).trim();
+          remaining = remaining.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim(); // Remove leading/trailing dashes
+          remaining = remaining.replace(/\s*[-–—]\s*/g, " "); // Replace internal dashes with space
+          remaining = remaining.replace(/\s+/g, " "); // Normalize multiple spaces
+          
+          // If remaining looks like a name (has capital letters), use it as student name
+          if (remaining && /[A-Z]/.test(remaining)) {
+            studentName = remaining;
+          } else if (beforeMatch && /[A-Z]/.test(beforeMatch)) {
+            // Fallback to before match if it looks like a name
+            studentName = beforeMatch.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim();
+          } else if (afterMatch && /[A-Z]/.test(afterMatch)) {
+            // Fallback to after match if it looks like a name
+            studentName = afterMatch.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim();
+          }
+          
+          break;
+        }
+      }
+      
+      // If no assignment found, try to extract just a number at the end
+      const numMatch = base.match(/(\d+)$/);
+      if (!assignmentName && numMatch) {
+        assignmentName = "Assignment " + numMatch[1].padStart(2, "0");
+        const beforeNum = base.substring(0, numMatch.index).trim();
+        if (beforeNum) {
+          // Remove separators
+          studentName = beforeNum.replace(/^[-–—]\s*|\s*[-–—]$/g, "").trim();
+        }
+      }
+      
+      // Normalize assignment name to canonical format
+      if (assignmentName) {
+        assignmentName = normalizeAssignmentName(assignmentName);
+      }
+      
+      return { studentName, assignmentName };
+    }
+
+    // ===== Assignment name normalization =====
+    function normalizeAssignmentName(name) {
+      if (!name || typeof name !== "string") return name;
+      
+      let normalized = name.trim();
+      if (!normalized) return normalized;
+      
+      // Normalize common patterns to canonical format: "<Series> <NN>"
+      // Examples:
+      //   "Foundation HW08" -> "Foundation 08"
+      //   "Foundation_HW8"  -> "Foundation 08"
+      //   "HW8"             -> "Homework 08"
+      //   "Homework 8"      -> "Homework 08"
+      //   "Found 6"         -> "Foundation 06"
+      
+      // Replace underscores/hyphens with spaces
+      normalized = normalized.replace(/[_-]/g, " ");
+      
+      // Pattern 1: "Foundation HW08" or "Foundation HW 8" -> "Foundation 08"
+      normalized = normalized.replace(/\b(Foundation|Found)\s+(HW|Homework)\s*(\d+)\b/gi, (match, prefix, hw, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "Foundation " + numPadded;
+      });
+      
+      // Pattern 2: "High Level HW08" or "High Level HW 8" -> "High Level 08"
+      normalized = normalized.replace(/\b(High\s+Level)\s+(HW|Homework)\s*(\d+)\b/gi, (match, prefix, hw, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "High Level " + numPadded;
+      });
+      
+      // Pattern 3: "HW8" or "HW 8" -> "Homework 08"
+      normalized = normalized.replace(/\b(HW|Homework)\s*(\d+)\b/gi, (match, hw, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "Homework " + numPadded;
+      });
+      
+      // Pattern 4: "Foundation 8" -> "Foundation 08"
+      normalized = normalized.replace(/\b(Foundation|Found)\s+(\d+)\b/gi, (match, prefix, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "Foundation " + numPadded;
+      });
+      
+      // Pattern 5: "High Level 8" -> "High Level 08"
+      normalized = normalized.replace(/\b(High\s+Level)\s+(\d+)\b/gi, (match, prefix, num) => {
+        const numPadded = num.padStart(2, "0");
+        return "High Level " + numPadded;
+      });
+      
+      // Pattern 6: Generic "X 8" -> "X 08" (if X is a known series)
+      const knownSeries = ["Foundation", "Homework", "High Level"];
+      for (const series of knownSeries) {
+        const regex = new RegExp(`\\b(${series})\\s+(\\d+)\\b`, "gi");
+        normalized = normalized.replace(regex, (match, prefix, num) => {
+          const numPadded = num.padStart(2, "0");
+          return prefix + " " + numPadded;
+        });
+      }
+      
+      // Pattern 7: Any remaining "X 8" -> "X 08" (zero-pad the number)
+      normalized = normalized.replace(/\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+(\d+)\b/g, (match, prefix, num) => {
+        // Check if already has zero-padded number
+        if (num.length >= 2) return match;
+        const numPadded = num.padStart(2, "0");
+        return prefix + " " + numPadded;
+      });
+      
+      return normalized.trim();
+    }
+    
+    // Check if assignment name has a trailing number (for progress tracking)
+    function hasTrailingNumber(s) {
+      return /\d+\s*$/.test((s || "").trim());
+    }
+    
+    // Check if assignment name is valid (has a number)
+    function isValidAssignmentName(name) {
+      if (!name || typeof name !== "string") return false;
+      return hasTrailingNumber(name);
+    }
+    
+    // Show popup modal for assignment numbering validation
+    function showAssignmentNumberPopup() {
+      // Create modal overlay
+      const overlay = document.createElement("div");
+      overlay.style.cssText = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;";
+      
+      const modal = document.createElement("div");
+      modal.style.cssText = "background: white; padding: 24px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);";
+      
+      const message = document.createElement("div");
+      message.textContent = "Number the assignment to track progress";
+      message.style.cssText = "font-size: 16px; font-weight: 600; margin-bottom: 20px; color: #333;";
+      
+      const button = document.createElement("button");
+      button.textContent = "OK";
+      button.style.cssText = "padding: 8px 24px; background: #0066cc; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer;";
+      button.addEventListener("click", () => {
+        document.body.removeChild(overlay);
+      });
+      
+      modal.appendChild(message);
+      modal.appendChild(button);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      
+      // Close on overlay click
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) {
+          document.body.removeChild(overlay);
+        }
+      });
+    }
+
+    // ===== Assignment Builder UI =====
+    const applyToAllFiles = document.getElementById("applyToAllFiles");
+    const globalAssignmentNameInput = document.getElementById("assignmentName");
+    
+    // When assignment name changes AND applyToAllFiles is checked, update all file rows
+    if (globalAssignmentNameInput && applyToAllFiles) {
+      globalAssignmentNameInput.addEventListener("input", () => {
+        if (applyToAllFiles.checked && fileData.length > 0) {
+          // Use raw value (no normalization) - preserve teacher's input
+          const rawValue = globalAssignmentNameInput.value;
+          fileData.forEach(fd => {
+            fd.assignmentName = rawValue;
+          });
+          renderFilesTable();
+          syncMarkBtnState();
+        } else {
+          syncMarkBtnState();
+        }
+      });
+    }
+
+    // ===== Class selection change handler =====
+    classSelect.addEventListener("change", () => {
+      // Update class_id for all queued files when selection changes
+      const selectedClassId = classSelect.value || null;
+      fileData.forEach(fd => {
+        if (fd.status === "queued") {
+          fd.classId = selectedClassId;
+        }
+      });
+      renderFilesTable();
+    });
+
+    // ===== Drag & drop wiring =====
+const dropZone = document.getElementById("dropZone");
+const fileList = document.getElementById("fileList");
+
+function isFileDragEvent(e) {
+  const dt = e.dataTransfer;
+  if (!dt) return false;
+  const types = dt.types ? Array.from(dt.types) : [];
+  if (types.includes("Files")) return true;
+  return !!(dt.files && dt.files.length);
+}
+
+function isInsideDropZone(target) {
+  return dropZone && target instanceof Node && dropZone.contains(target);
+}
+
+function guardFileDnD(e) {
+  if (!isFileDragEvent(e)) return;
+  e.preventDefault();
+  if (!isInsideDropZone(e.target)) {
+    e.stopPropagation();
+    if (e.type === "dragover") {
+      try { e.dataTransfer.dropEffect = "none"; } catch (_) {}
+    }
+  }
+}
+
+["dragenter", "dragover", "drop"].forEach((evt) => {
+  window.addEventListener(evt, guardFileDnD, { capture: true, passive: false });
+});
+
+function renderFileList(files) {
+  fileList.innerHTML = "";
+  if (!files || files.length === 0) {
+    fileData = [];
+    renderFilesTable();
+    return;
+  }
+
+  // Update fileData array
+  const existingFiles = new Map(fileData.map(fd => [fd.file.name + fd.file.size, fd]));
+  fileData = [];
+  
+  for (const f of files) {
+    const key = f.name + f.size;
+    let fd = existingFiles.get(key);
+    
+    if (!fd) {
+      // New file - parse filename
+      const { studentName, assignmentName } = parseFilename(f.name);
+      const globalStudentName = document.getElementById("studentName").value.trim();
+      const globalAssignmentName = document.getElementById("assignmentName").value.trim();
+      const applyToAll = document.getElementById("applyToAllFiles")?.checked ?? false;
+      
+      // If "Apply to all" is checked and global assignment name is non-empty, use it
+      // Otherwise, use parsed filename assignment, then fall back to global
+      let finalAssignmentName = "";
+      if (applyToAll && globalAssignmentName) {
+        finalAssignmentName = globalAssignmentName;
+      } else {
+        finalAssignmentName = assignmentName || globalAssignmentName || "";
+      }
+      
+      fd = {
+        file: f,
+        studentName: studentName || globalStudentName || "",
+        assignmentName: finalAssignmentName,
+        classId: classSelect ? (classSelect.value || null) : null,
+        status: "queued",
+        downloadUrl: null,
+        error: null,
+      };
+    } else {
+      // Update class_id for existing files if selection changed
+      if (classSelect) {
+        fd.classId = classSelect.value || null;
+      }
+    }
+    
+    fileData.push(fd);
+    
+    // Also add to simple list for backward compatibility
+    const li = document.createElement("li");
+    li.textContent = f.name;
+    fileList.appendChild(li);
+  }
+  
+  renderFilesTable();
+  syncMarkBtnState(); // Validate after rendering table
+}
+
+function renderFilesTable() {
+  if (!filesTableSection || !filesTableBody) return;
+  
+  if (fileData.length === 0) {
+    filesTableSection.style.display = "none";
+    updateDownloadAllButton();
+    return;
+  }
+  
+  // Show table if multiple files, hide if single file
+  if (fileData.length > 1) {
+    filesTableSection.style.display = "block";
+    filesTableBody.innerHTML = "";
+    
+    for (let i = 0; i < fileData.length; i++) {
+      const fd = fileData[i];
+      const tr = document.createElement("tr");
+      
+      // File name
+      const fileCell = document.createElement("td");
+      fileCell.style.padding = "12px";
+      fileCell.style.borderBottom = "1px solid #f0f0f0";
+      fileCell.style.fontWeight = "500";
+      fileCell.style.whiteSpace = "nowrap";
+      fileCell.style.overflow = "hidden";
+      fileCell.style.textOverflow = "ellipsis";
+      fileCell.title = fd.file.name; // tooltip always has full name
+      fileCell.textContent = fd.file.name;
+      tr.appendChild(fileCell);
+      
+      // Student name (editable)
+      const studentCell = document.createElement("td");
+      studentCell.style.padding = "12px";
+      studentCell.style.borderBottom = "1px solid #f0f0f0";
+      studentCell.style.minWidth = "180px";
+      const studentInput = document.createElement("input");
+      studentInput.type = "text";
+      studentInput.value = fd.studentName;
+      studentInput.placeholder = "Student name";
+      studentInput.style.width = "100%";
+      studentInput.style.padding = "6px 8px";
+      studentInput.style.border = "1px solid #ddd";
+      studentInput.style.borderRadius = "4px";
+      studentInput.style.fontSize = "14px";
+      studentInput.addEventListener("input", (e) => {
+        fd.studentName = e.target.value;
+        syncMarkBtnState(); // Re-validate when student name changes
+      });
+      studentCell.appendChild(studentInput);
+      tr.appendChild(studentCell);
+      
+      // Assignment name (editable)
+      const assignmentCell = document.createElement("td");
+      assignmentCell.style.padding = "12px";
+      assignmentCell.style.borderBottom = "1px solid #f0f0f0";
+      assignmentCell.style.minWidth = "220px";
+      const assignmentInput = document.createElement("input");
+      assignmentInput.type = "text";
+      assignmentInput.value = fd.assignmentName;
+      assignmentInput.placeholder = "Assignment name";
+      assignmentInput.style.width = "100%";
+      assignmentInput.style.padding = "6px 8px";
+      assignmentInput.style.border = "1px solid #ddd";
+      assignmentInput.style.borderRadius = "4px";
+      assignmentInput.style.fontSize = "14px";
+      assignmentInput.addEventListener("input", (e) => {
+        fd.assignmentName = e.target.value;
+        syncMarkBtnState(); // Re-validate when assignment name changes
+      });
+      assignmentCell.appendChild(assignmentInput);
+      tr.appendChild(assignmentCell);
+      
+      // Status
+      const statusCell = document.createElement("td");
+      statusCell.style.padding = "12px";
+      statusCell.style.borderBottom = "1px solid #f0f0f0";
+      statusCell.style.fontSize = "0.9rem";
+      // Store reference to status cell for updates
+      fd.statusCell = statusCell;
+      updateStatusCell(statusCell, fd);
+      tr.appendChild(statusCell);
+      
+      filesTableBody.appendChild(tr);
+    }
+  } else {
+    filesTableSection.style.display = "none";
+  }
+  
+  // Update download all button visibility after rendering table
+  updateDownloadAllButton();
+}
+
+function updateStatusCell(cell, fd) {
+  cell.innerHTML = "";
+  cell.className = "status-cell";
+  
+  if (fd.status === "marked") {
+    cell.className += " status-success";
+    cell.style.color = "#28a745";
+    const link = document.createElement("a");
+    link.href = fd.downloadUrl;
+    link.download = fd.file.name.replace(/\.docx$/i, "") + "_marked.docx";
+    link.textContent = "✓ Marked — Click to download";
+    link.title = "Click to download the marked .docx";
+    link.className = "tt";
+    link.setAttribute("data-tip", "Click to download the marked .docx");
+    link.style.color = "#28a745";
+    link.style.textDecoration = "none";
+    link.style.cursor = "pointer";
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const a = document.createElement("a");
+      a.href = fd.downloadUrl;
+      a.download = fd.file.name.replace(/\.docx$/i, "") + "_marked.docx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+    cell.appendChild(link);
+  } else if (fd.status === "error") {
+    cell.className += " status-error";
+    cell.style.color = "#dc3545";
+    cell.textContent = `✗ ${fd.error || "Error"}`;
+  } else if (fd.status === "processing") {
+    cell.className += " status-pending";
+    cell.style.color = "#6c757d";
+    cell.textContent = "Processing...";
+  } else {
+    cell.className += " status-pending";
+    cell.style.color = "#6c757d";
+    cell.textContent = "Queued";
+  }
+}
+
+function isDocx(file) {
+  return file && /\.docx$/i.test(file.name || "");
+}
+
+function setFileInputFiles(fileArray) {
+  const dt = new DataTransfer();
+  for (const f of fileArray) dt.items.add(f);
+  fileInput.files = dt.files;
+  renderFileList(fileInput.files);
+  syncMarkBtnState();
+  
+  // Update global inputs with first file's parsed data if single file
+  if (fileArray.length === 1 && fileData.length === 1) {
+    const fd = fileData[0];
+    if (fd.studentName && !document.getElementById("studentName").value.trim()) {
+      document.getElementById("studentName").value = fd.studentName;
+    }
+    if (fd.assignmentName && !document.getElementById("assignmentName").value.trim()) {
+      document.getElementById("assignmentName").value = fd.assignmentName;
+    }
+  }
+}
+
+
+function addFilesToSelection(newFiles) {
+  const existing = Array.from(fileInput.files || []);
+  const incoming = Array.from(newFiles || []);
+
+  const kept = existing.slice();
+
+  const bad = incoming.filter(f => !isDocx(f));
+  const good = incoming.filter(f => isDocx(f));
+
+  if (bad.length) {
+    statusEl.textContent = `Ignored ${bad.length} non-.docx file(s).`;
+  }
+
+  // Append new .docx files (and avoid duplicates by name+size)
+  for (const f of good) {
+    const dupe = kept.some(x => x.name === f.name && x.size === f.size);
+    if (!dupe) kept.push(f);
+  }
+
+  setFileInputFiles(kept);
+}
+
+// Click / keyboard opens file picker
+dropZone.addEventListener("click", () => fileInput.click());
+dropZone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    fileInput.click();
+  }
+});
+
+// Standard selection updates list
+fileInput.addEventListener("change", () => {
+  renderFileList(fileInput.files);
+  syncMarkBtnState();
+});
+syncMarkBtnState();
+
+// Note: Global assignment name input listeners are handled in the Assignment Builder UI section above
+
+// Drag events
+["dragenter", "dragover"].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add("dragover");
+  });
+});
+
+["dragleave", "dragend"].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove("dragover");
+  });
+});
+
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove("dragover");
+
+  if (e.dataTransfer && e.dataTransfer.files) {
+    addFilesToSelection(e.dataTransfer.files);
+  }
+});
+
+    
+    async function refreshAuthUI() {
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+
+      if (!session) {
+        window.location.replace("/signin.html");
+        return;
+      }
+
+      // logged in
+      form.style.display = "grid";
+    }
+
+    
+    // Initial UI state + listener
+    refreshAuthUI();
+    supa.auth.onAuthStateChange((_event, _session) => {
+      refreshAuthUI();
+    });
+    
+    // Load classes when authenticated
+    refreshAuthUI().then(() => {
+      loadClasses();
+    });
+
+    // ===== Marker client code =====
+
+    // Your deployed API endpoint
+    const API_URL = "https://vysti-rules.onrender.com/mark";
+
+    const modeSelect = document.getElementById("mode");
+    const allowICheckbox = document.getElementById("allow_i");
+    const allowAudienceCheckbox = document.getElementById("allow_audience");
+    const enforceClosedThesisCheckbox = document.getElementById("enforce_closed_thesis");
+    const requireBodyEvidenceCheckbox = document.getElementById("require_body_evidence");
+    const allowIntroQuotesCheckbox = document.getElementById("allow_intro_quotes");
+    const allowLongQuotesCheckbox = document.getElementById("allow_long_quotes");
+    const allowContractionsCheckbox = document.getElementById("allow_contractions");
+    const allowWhichCheckbox = document.getElementById("allow_which");
+    const disableWeakVerbsCheckbox = document.getElementById("disable_weak_verbs");
+    const disableFactRuleCheckbox = document.getElementById("disable_fact_rule");
+    const highlightDevicesCheckbox = document.getElementById("highlight_devices");
+    const disableHumanRuleCheckbox = document.getElementById("disable_human_rule");
+    const disableVagueRuleCheckbox = document.getElementById("disable_vague_general_rule");
+    //    const enforceSvaCheckbox = document.getElementById("enforce_sva_rule");
+    //    const enforcePresentTenseCheckbox = document.getElementById("enforce_present_tense_rule");
+  
+
+    const modeHelp = document.getElementById("modeHelp");
+
+    const title2Input = document.getElementById("title2");
+    const title3Input = document.getElementById("title3");
+    const title2Type = document.getElementById("title2_is_minor");
+    const title3Type = document.getElementById("title3_is_minor");
+    const title1Type = document.getElementById("title_is_minor");
+    const title1Radios = Array.from(document.querySelectorAll('input[name="title1_type"]'));
+    const title2Radios = Array.from(document.querySelectorAll('input[name="title2_type"]'));
+    const title3Radios = Array.from(document.querySelectorAll('input[name="title3_type"]'));
+
+    function syncRadioGroupToSelect(radios, selectEl) {
+      if (!selectEl || !radios || radios.length === 0) return;
+
+      // Initialize radios from whatever the select currently says
+      const current = selectEl.value;
+      radios.forEach(r => (r.checked = (r.value === current)));
+
+      // On change, push radio value into the select
+      radios.forEach(r => {
+        r.addEventListener("change", (e) => {
+          if (e.target.checked) selectEl.value = e.target.value;
+        });
+      });
+    }
+
+    syncRadioGroupToSelect(title1Radios, title1Type);
+    syncRadioGroupToSelect(title2Radios, title2Type);
+    syncRadioGroupToSelect(title3Radios, title3Type);
+
+
+// ===== Mode defaults + explainer card =====
+
+// Per-mode defaults for the visible rule toggles
+const MODE_RULE_DEFAULTS = {
+  textual_analysis: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    description: "A formal and academic essay of analysis with all Vysti Rules running.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    
+    ]
+  },
+
+  peel_paragraph: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    description: "One focused analytical paragraph following the Vysti Rules.",
+    details: [
+      "The first sentence should state the author & title of the work.",
+      "The first sentence should include devices and/or strategies like a closed thesis",
+      "No first-person allowed or personal pronouns",
+      "Requires quoted evidence in the body of the paragraph.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+      
+    ]
+  },
+
+  reader_response: {
+    allowI: true,
+    allowAudience: true,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: true,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    description: "More personal voice allowed, but still needs argument + evidence.",
+    details: [
+      "Allows first-person and personal pronouns",
+      "Allows contractions and 'which'",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
+  },
+
+  analytic_frame: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: true,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    description: "Follows the Vysti Rules, but expects a theoretical framework in the introductory summary.",
+    details: [
+      "Allows quotations in the introductory summary.",
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
+  },
+
+  argumentation: {
+    allowI: false,
+    allowAudience: true,
+    enforceClosedThesis: false,
+    requireBodyEvidence: false,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: false,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: false,
+    description: "Argumentation is more open mode beyond textual analysis.",
+    details: [
+      "Allows for past tense.",
+      "Allows first-person and personal pronouns",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+    ]
+  },
+
+  foundation_1: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: false,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Foundation One",
+    description: "The first sentence.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."]
+  },
+
+  foundation_2: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Foundation Two",
+    description: "First sentence + a closed thesis.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
+  },
+
+  foundation_3: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Foundation Three",
+    description: "First sentence + intro summary + closed thesis.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
+  },
+
+  foundation_4: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Foundation Four",
+    description: "Full intro + first body topic sentence.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
+  },
+
+  foundation_5: {
+    allowI: false,
+    allowAudience: false,
+    enforceClosedThesis: true,
+    requireBodyEvidence: true,
+    allowIntroQuotes: false,
+    allowLongQuotes: false,
+    highlightDevices: true,
+    allowContractions: false,
+    allowWhich: false,
+    disableWeakVerbs: false,
+    disableFactRule: false,
+    disableHumanRule: false,
+    disableVagueGeneralRule: false,
+    enforceSva: true,
+    enforcePresentTense: true,
+    tag: "Foundation Five",
+    description: "Full + one body paragraph.",
+    details: [
+      "No first-person allowed or personal pronouns",
+      "First sentence should state the author & title of the work.",
+      "Requires a closed thesis statement.",
+      "Requires quoted evidence in body paragraphs.",
+      "Strict requirements on organization, evidence, and language.",
+      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
+      "Red strikethroughs forbidden terms.",
+      "Green highlights devices and strategies."
+    ]
+  },
+
+};
+
+// Mode explainer elements
+const modeBadge = document.getElementById("modeBadge");
+const modeTagEl = document.getElementById("modeTag");
+const modeDesc = document.getElementById("modeDesc");
+const modeMoreBtn = document.getElementById("modeMoreBtn");
+const modeDetails = document.getElementById("modeDetails");
+const modeDetailsList = document.getElementById("modeDetailsList");
+
+function setModeExplainer(mode) {
+  const cfg = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis;
+  const label = modeSelect.options[modeSelect.selectedIndex]?.textContent || mode;
+
+  if (modeBadge) modeBadge.textContent = label;
+  if (modeTagEl) modeTagEl.textContent = cfg.tag || "";
+  if (modeDesc) modeDesc.textContent = cfg.description || "";
+
+  if (modeDetailsList) {
+    modeDetailsList.innerHTML = "";
+    (cfg.details || []).forEach((item) => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      modeDetailsList.appendChild(li);
+    });
+  }
+
+  const hasDetails = Array.isArray(cfg.details) && cfg.details.length > 0;
+  if (modeMoreBtn) modeMoreBtn.hidden = !hasDetails;
+
+  if (modeMoreBtn && modeDetails) {
+    modeMoreBtn.setAttribute("aria-expanded", "false");
+    modeDetails.hidden = true;
+    modeMoreBtn.textContent = "Want more details?";
+  }
+}
+
+// Expand / collapse once
+if (modeMoreBtn && modeDetails) {
+  modeMoreBtn.addEventListener("click", () => {
+    const expanded = modeMoreBtn.getAttribute("aria-expanded") === "true";
+    modeMoreBtn.setAttribute("aria-expanded", String(!expanded));
+    modeDetails.hidden = expanded;
+    modeMoreBtn.textContent = expanded ? "Want more details?" : "Hide details";
+  });
+}
+
+function applyModeDefaults() {
+  const mode = modeSelect.value;
+  const defaults = MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis;
+
+  allowICheckbox.checked = !!defaults.allowI;
+  allowAudienceCheckbox.checked = !!defaults.allowAudience;
+  enforceClosedThesisCheckbox.checked = !!defaults.enforceClosedThesis;
+  requireBodyEvidenceCheckbox.checked = !!defaults.requireBodyEvidence;
+  allowIntroQuotesCheckbox.checked = !!defaults.allowIntroQuotes;
+  allowLongQuotesCheckbox.checked = !!defaults.allowLongQuotes;
+  allowContractionsCheckbox.checked = !!defaults.allowContractions;
+  allowWhichCheckbox.checked = !!defaults.allowWhich;
+  disableWeakVerbsCheckbox.checked = !!defaults.disableWeakVerbs;
+  disableFactRuleCheckbox.checked = !!defaults.disableFactRule;
+  disableHumanRuleCheckbox.checked = !!defaults.disableHumanRule;
+  disableVagueRuleCheckbox.checked = !!defaults.disableVagueGeneralRule;
+  highlightDevicesCheckbox.checked = !!defaults.highlightDevices;
+
+  // (keep these two blocks — they still exist in the HTML)
+  const hideClosedThesis = (mode === "foundation_1");
+  document.getElementById("closedThesisRow").hidden = hideClosedThesis;
+  if (hideClosedThesis) enforceClosedThesisCheckbox.checked = false;
+
+  const hideEvidence = ["foundation_1","foundation_2","foundation_3","foundation_4"].includes(mode);
+  document.getElementById("requireBodyEvidenceRow").hidden = hideEvidence;
+  if (hideEvidence) requireBodyEvidenceCheckbox.checked = false;
+
+  setModeExplainer(mode);
+
+}
+
+modeSelect.addEventListener("change", applyModeDefaults);
+applyModeDefaults(); // initial state
+
+
+    // Enable/disable Title 2/3 type pickers based on whether Title 2/3 has text
+    function setRadiosDisabled(radios, disabled) {
+  radios.forEach(r => (r.disabled = disabled));
+}
+
+function syncTypePickers() {
+  const hasTitle2 = !!title2Input.value.trim();
+  const hasTitle3 = !!title3Input.value.trim();
+
+  title2Type.disabled = !hasTitle2;
+  title3Type.disabled = !hasTitle3;
+
+  setRadiosDisabled(title2Radios, !hasTitle2);
+  setRadiosDisabled(title3Radios, !hasTitle3);
+}
+
+
+    ["input", "change"].forEach((evt) => {
+      title2Input.addEventListener(evt, syncTypePickers);
+      title3Input.addEventListener(evt, syncTypePickers);
+    });
+    syncTypePickers();
+
+    function bindTitleTypeRadios(radioName, selectId) {
+  const sel = document.getElementById(selectId);
+  const radios = Array.from(document.querySelectorAll(`input[name="${radioName}"]`));
+  if (!sel || radios.length === 0) return;
+
+  // Ensure radio state matches current select value on load
+  radios.forEach(r => r.checked = (r.value === sel.value));
+
+  // When user changes radio, update the select value
+  radios.forEach(r => {
+    r.addEventListener("change", () => {
+      if (r.checked) sel.value = r.value;
+    });
+  });
+}
+
+bindTitleTypeRadios("title1_type", "title_is_minor");
+
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const files = fileInput.files;
+
+      if (!files || files.length === 0) {
+        statusEl.textContent = "Choose at least one .docx file.";
+        return;
+      }
+
+      const mode = modeSelect.value;
+
+      const author = document.getElementById("author").value.trim();
+      const title = document.getElementById("title").value.trim();
+      const titleIsMinor = document.getElementById("title_is_minor").value;
+
+      const author2 = document.getElementById("author2").value.trim();
+      const title2 = title2Input.value.trim();
+      const title2IsMinor = title2Type.value;
+
+      const author3 = document.getElementById("author3").value.trim();
+      const title3 = title3Input.value.trim();
+      const title3IsMinor = title3Type.value;
+
+      const allowI = allowICheckbox.checked;
+      const allowAudience = allowAudienceCheckbox.checked;
+      const enforceClosedThesis = enforceClosedThesisCheckbox.checked;
+      const requireBodyEvidence = requireBodyEvidenceCheckbox.checked;
+      const allowIntroQuotes = allowIntroQuotesCheckbox.checked;
+      const allowLongQuotes = allowLongQuotesCheckbox.checked;
+      const allowContractions = allowContractionsCheckbox.checked;
+      const allowWhich = allowWhichCheckbox.checked;
+      const disableWeakVerbs = disableWeakVerbsCheckbox.checked;
+      const disableFactRule = disableFactRuleCheckbox.checked;
+      const disableHumanRule = disableHumanRuleCheckbox.checked;
+      const disableVagueRule = disableVagueRuleCheckbox.checked;
+      const highlightDevices = highlightDevicesCheckbox.checked;
+     
+      setModeExplainer(mode);
+
+      // Get global student/assignment names for single-file fallback
+      const globalStudentName = document.getElementById("studentName").value.trim();
+      const globalAssignmentName = document.getElementById("assignmentName").value.trim();
+
+      // Validate assignment names before submitting
+      // Single file: check global assignment name
+      // Multiple files: check each file's assignment name (or global if empty)
+      let validationFailed = false;
+      if (files.length === 1) {
+        if (!globalAssignmentName || !isValidAssignmentName(globalAssignmentName)) {
+          validationFailed = true;
+        }
+      } else {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const fd = fileData.find(f => f.file === file);
+          if (fd) {
+            const assignmentToCheck = (fd.assignmentName || "").trim() || globalAssignmentName;
+            if (!assignmentToCheck || !isValidAssignmentName(assignmentToCheck)) {
+              validationFailed = true;
+              break;
+            }
+          } else {
+            // Fallback: check global
+            if (!globalAssignmentName || !isValidAssignmentName(globalAssignmentName)) {
+              validationFailed = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (validationFailed) {
+        showAssignmentNumberPopup();
+        return;
+      }
+
+      statusEl.textContent = `Processing ${files.length} file(s)...`;
+
+      // Get session once
+      const { data } = await supa.auth.getSession();
+      const session = data.session;
+      if (!session) {
+        statusEl.textContent = "You must be logged in to mark essays.";
+        return;
+      }
+
+      // Process each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Find corresponding fileData entry
+        let fd = fileData.find(f => f.file === file);
+        if (!fd) {
+          // Fallback: create entry if not found
+          const { studentName, assignmentName } = parseFilename(file.name);
+          fd = {
+            file,
+            studentName: studentName || globalStudentName || "",
+            assignmentName: assignmentName || globalAssignmentName || "",
+            classId: classSelect.value || null,
+            status: "queued",
+            downloadUrl: null,
+            error: null,
+          };
+          fileData.push(fd);
+        }
+        
+        // Update class_id from current selection (in case it changed)
+        fd.classId = classSelect.value || null;
+        
+        // Update status to processing
+        fd.status = "processing";
+        fd.error = null;
+        if (fd.statusCell) {
+          updateStatusCell(fd.statusCell, fd);
+          updateDownloadAllButton();
+        } else {
+          renderFilesTable();
+        }
+        statusEl.textContent = `Processing ${i + 1} of ${files.length}: ${file.name}`;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("mode", mode);
+
+        // For single file: prioritize global inputs (backward compatibility)
+        // For multiple files: use per-file values from table, fall back to global if empty
+        let studentName, assignmentName;
+        if (files.length === 1) {
+          // Single file: use global inputs as primary source
+          studentName = globalStudentName || fd.studentName;
+          assignmentName = globalAssignmentName || fd.assignmentName;
+        } else {
+          // Multiple files: use per-file values from table, fall back to global
+          studentName = fd.studentName || globalStudentName;
+          assignmentName = fd.assignmentName || globalAssignmentName;
+        }
+        
+        // Only trim assignment name (preserve teacher's input exactly)
+        if (assignmentName) {
+          assignmentName = assignmentName.trim();
+        }
+        
+        if (studentName) formData.append("student_name", studentName);
+        if (assignmentName) formData.append("assignment_name", assignmentName);
+        if (fd.classId) formData.append("class_id", fd.classId);
+
+        if (author) formData.append("author", author);
+        if (title) {
+          formData.append("title", title);
+          formData.append("text_is_minor_work", titleIsMinor);
+        }
+
+        if (author2) formData.append("author2", author2);
+        if (title2) {
+          formData.append("title2", title2);
+          formData.append("text_is_minor_work_2", title2IsMinor);
+        }
+        if (author3) formData.append("author3", author3);
+        if (title3) {
+          formData.append("title3", title3);
+          formData.append("text_is_minor_work_3", title3IsMinor);
+        }
+
+        // Rule settings: always send explicit booleans so backend matches the UI.
+        formData.append("forbid_personal_pronouns", allowI ? "false" : "true");
+        formData.append("forbid_audience_reference", allowAudience ? "false" : "true");
+        formData.append("enforce_closed_thesis", enforceClosedThesis ? "true" : "false");
+        formData.append("require_body_evidence", requireBodyEvidence ? "true" : "false");
+        formData.append("allow_intro_summary_quotes", allowIntroQuotes ? "true" : "false");
+        formData.append("enforce_intro_quote_rule", allowIntroQuotes ? "false" : "true");
+        formData.append("enforce_long_quote_rule", allowLongQuotes ? "false" : "true");
+        formData.append("enforce_contractions_rule", allowContractions ? "false" : "true");
+        formData.append("enforce_which_rule", allowWhich ? "false" : "true");
+        formData.append("enforce_weak_verbs_rule", disableWeakVerbs ? "false" : "true");
+        formData.append("enforce_fact_proof_rule", disableFactRule ? "false" : "true");
+        formData.append("enforce_human_people_rule", disableHumanRule ? "false" : "true");
+        formData.append("enforce_vague_terms_rule", disableVagueRule ? "false" : "true");
+        formData.append("highlight_thesis_devices", highlightDevices ? "true" : "false");
+
+        try {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("Error response:", text);
+            fd.status = "error";
+            fd.error = `HTTP ${response.status}: ${text.substring(0, 50)}`;
+            if (fd.statusCell) {
+              updateStatusCell(fd.statusCell, fd);
+              updateDownloadAllButton();
+            } else {
+              renderFilesTable();
+            }
+            continue;
+          }
+
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          
+          // Update fileData with success
+          fd.status = "marked";
+          fd.downloadUrl = url;
+          if (fd.statusCell) {
+            updateStatusCell(fd.statusCell, fd);
+            updateDownloadAllButton();
+          } else {
+            renderFilesTable();
+          }
+          
+          // Auto-download for single file (backward compatibility)
+          if (files.length === 1) {
+            const baseName = file.name.replace(/\.docx$/i, "");
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${baseName}_marked.docx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            // Don't revoke URL yet - keep it for table download link
+          }
+        } catch (err) {
+          console.error(err);
+          fd.status = "error";
+          fd.error = err.message || "Network error";
+          if (fd.statusCell) {
+            updateStatusCell(fd.statusCell, fd);
+            updateDownloadAllButton();
+          } else {
+            renderFilesTable();
+          }
+        }
+      }
+
+      const successCount = fileData.filter(fd => fd.status === "marked").length;
+      statusEl.textContent = `Finished: ${successCount} of ${files.length} file(s) marked successfully.`;
+      
+      // Update download all button after marking loop completes
+      updateDownloadAllButton();
+    });
+
+  </script>
+</body>
+</html>
+leapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/marker.css">
