@@ -186,23 +186,24 @@
     }
     .issue-btn {
       appearance: none;
-      border: 1px solid #e0e0e0;
-      background: #fff;
+      border: 1px solid var(--issue-border, #e0e0e0);
+      background: var(--issue-bg, #fff);
       border-radius: 999px;
       padding: 8px 12px;
       font-size: 12px;
       cursor: pointer;
-      transition: border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease, background-color 120ms ease;
     }
     .issue-btn:hover {
-      border-color: var(--maroon);
+      border-color: var(--issue-border, #e0e0e0);
+      background: var(--issue-bg-hover, #fff);
     }
     .issue-btn:active {
       transform: translateY(1px);
     }
     .issue-btn.active {
-      border-color: var(--maroon);
-      box-shadow: 0 0 0 2px rgba(128, 0, 32, 0.15);
+      border-color: var(--issue-border, #e0e0e0);
+      box-shadow: 0 0 0 2px var(--issue-ring, rgba(128, 0, 32, 0.15));
     }
     .issue-explanation-header {
       font-weight: 700;
@@ -621,6 +622,136 @@
   </main>
 
   <script>
+    // ===== Bucket definitions =====
+    const LABEL_BUCKETS = [
+      {
+        id: "thesis_org",
+        name: "Thesis & Organization",
+        matchers: [
+          /thesis/i,
+          /topic sentence/i,
+          /organization/i,
+          /transition/i,
+          /boundary statement/i,
+          /introduction/i,
+          /conclusion/i,
+          /paragraph/i,
+          /structure/i
+        ]
+      },
+      {
+        id: "evidence_integration",
+        name: "Evidence & Integration",
+        matchers: [
+          /quote/i,
+          /quotation/i,
+          /evidence/i,
+          /citation/i,
+          /\bcite\b/i,
+          /works cited/i,
+          /power verbs/i,
+          /support/i
+        ]
+      },
+      {
+        id: "voice_audience",
+        name: "Voice & Audience",
+        matchers: [
+          /personal pronoun/i,
+          /\bI\b/i,
+          /\bwe\b/i,
+          /\byou\b/i,
+          /reader/i,
+          /audience/i
+        ]
+      },
+      {
+        id: "style_clarity",
+        name: "Style & Clarity",
+        matchers: [
+          /contraction/i,
+          /\bwhich\b/i,
+          /\bfact\b/i,
+          /\bprove\b/i,
+          /weak verb/i,
+          /vague/i,
+          /people/i,
+          /human/i,
+          /word choice/i,
+          /avoid using the word/i,
+          /more than once in a sentence/i
+        ]
+      },
+      {
+        id: "grammar_mechanics",
+        name: "Grammar & Mechanics",
+        matchers: [
+          /subject[- ]verb/i,
+          /agreement/i,
+          /tense/i,
+          /comma/i,
+          /punctuation/i,
+          /spelling/i,
+          /apostrophe/i
+        ]
+      },
+      {
+        id: "formatting",
+        name: "Formatting & Conventions",
+        matchers: [
+          /MLA/i,
+          /header/i,
+          /format/i,
+          /title/i,
+          /author/i
+        ]
+      },
+      { id: "other", name: "Other", matchers: [] }
+    ];
+
+    const BUCKET_OVERRIDES = {
+      "Avoid quotations in the conclusion": "evidence_integration",
+      "Avoid quotations in the introduction": "evidence_integration",
+      "Clarify pronouns and antecedents": "grammar_mechanics",
+      "Avoid weak verbs": "evidence_integration"
+    };
+
+    // Shared bucket color palette (same order as LABEL_BUCKETS)
+    // Thesis maroon, Evidence blue, Voice green, Style yellow, Grammar purple, Formatting red, Other teal
+    const BUCKET_COLORS = [
+      "rgba(169, 13, 34, 1)",    // maroon - Thesis & Organization
+      "rgba(52, 152, 219, 1)",   // blue - Evidence & Integration
+      "rgba(46, 204, 113, 1)",   // green - Voice & Audience
+      "rgba(241, 196, 15, 1)",   // yellow - Style & Clarity
+      "rgba(155, 89, 182, 1)",   // purple - Grammar & Mechanics
+      "rgba(231, 76, 60, 1)",    // red - Formatting & Conventions
+      "rgba(26, 188, 156, 1)",   // teal - Other
+    ];
+
+    // Helper function to get bucket color by bucketId
+    // Returns color with specified alpha (default 1.0 for full opacity)
+    function getBucketColor(bucketId, alpha = 1.0) {
+      const bucketIndex = LABEL_BUCKETS.findIndex(b => b.id === bucketId);
+      if (bucketIndex === -1) {
+        // Fallback to "other" color if bucket not found
+        const otherIndex = LABEL_BUCKETS.findIndex(b => b.id === "other");
+        const baseColor = BUCKET_COLORS[otherIndex >= 0 ? otherIndex : BUCKET_COLORS.length - 1];
+        return baseColor.replace("1)", `${alpha})`);
+      }
+      const baseColor = BUCKET_COLORS[bucketIndex];
+      return baseColor.replace("1)", `${alpha})`);
+    }
+
+    function getBucketIdForLabel(label) {
+      if (!label) return "other";
+      if (BUCKET_OVERRIDES[label]) return BUCKET_OVERRIDES[label];
+      for (const b of LABEL_BUCKETS) {
+        if (b.id === "other") continue;
+        if (b.matchers.some(rx => rx.test(label))) return b.id;
+      }
+      return "other";
+    }
+
     // ===== Supabase auth setup =====
     const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
@@ -1977,6 +2108,12 @@
 
           const count = labelCounts[label] || 0;
           btn.textContent = `${label} (${count})`;
+          const bucketId = getBucketIdForLabel(label);
+          btn.dataset.bucketId = bucketId;
+          btn.style.setProperty("--issue-border", getBucketColor(bucketId, 1.0));
+          btn.style.setProperty("--issue-bg", getBucketColor(bucketId, 0.12));
+          btn.style.setProperty("--issue-bg-hover", getBucketColor(bucketId, 0.18));
+          btn.style.setProperty("--issue-ring", getBucketColor(bucketId, 0.22));
 
           btn.addEventListener("click", () => {
             // Active style
@@ -2043,6 +2180,9 @@
 
       const labels = entries.map(([label]) => label);
       const values = entries.map(([, count]) => count || 0);
+      const bucketIds = labels.map((lbl) => getBucketIdForLabel(lbl));
+      const barBg = bucketIds.map((id) => getBucketColor(id, 0.60));
+      const barBorder = bucketIds.map((id) => getBucketColor(id, 1.0));
       const issues = currentMarkEvent?.issues || [];
       const explanationByLabel = {};
       issues.forEach((iss) => {
@@ -2068,7 +2208,9 @@
           labels,
           datasets: [{
             data: values,
-            backgroundColor: "#f2b632",
+            backgroundColor: barBg,
+            borderColor: barBorder,
+            borderWidth: 1,
             explanations: explanations
           }]
         },
