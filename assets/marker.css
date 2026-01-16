@@ -8,13 +8,15 @@
   --shadow: 0 14px 45px rgba(0,0,0,.08);
   --radius:16px;
   /* Typography scale (responsive + accessible) */
-  --fs-body: clamp(1rem, calc(0.25vw + 0.95rem), 1.125rem); /* ~16px → 18px */
-  --fs-sm:   clamp(0.9375rem, calc(0.15vw + 0.9rem), 1rem); /* ~15px → 16px */
-  --fs-xs:   clamp(0.875rem, calc(0.10vw + 0.85rem), 0.9375rem); /* ~14px → 15px */
+  --fs-body: clamp(18px, 1.05rem + 0.25vw, 20px);
+  --fs-sm:   clamp(16px, 0.95rem + 0.18vw, 18px);
+  --fs-xs:   clamp(15px, 0.90rem + 0.12vw, 17px);
 
-  --fs-h1: clamp(1.5rem, calc(0.55vw + 1.3rem), 2rem);   /* ~24px → 32px */
-  --fs-h2: clamp(1.25rem, calc(0.35vw + 1.15rem), 1.5rem);/* ~20px → 24px */
-  --fs-h3: clamp(1.125rem, calc(0.25vw + 1.05rem), 1.25rem);/* ~18px → 20px */
+  --fs-h1:   clamp(32px, 1.6rem + 1.8vw, 48px);
+  --fs-h2:   clamp(24px, 1.25rem + 1.1vw, 34px);
+  --fs-h3:   clamp(20px, 1.05rem + 0.7vw, 26px);
+  --fs-btn:  clamp(16px, 0.98rem + 0.18vw, 18px);
+  --fs-nav:  clamp(14px, 0.88rem + 0.12vw, 16px);
 
   --lh-body: 1.55;
 }
@@ -74,7 +76,7 @@ button, input, select, textarea {
   color: rgba(255,255,255,.85);
   text-decoration:none;
   font-weight:600;
-  font-size:var(--fs-sm);
+  font-size:var(--fs-nav);
   padding:10px 12px;
   border-radius:10px;
 }
@@ -103,7 +105,7 @@ button, input, select, textarea {
   background: rgba(255,255,255,.10);
   color:#fff;
   font-weight:700;
-  font-size:var(--fs-sm);
+  font-size:var(--fs-nav);
   cursor:pointer;
 }
 .topbar-btn:hover{ 
@@ -162,6 +164,14 @@ button, input, select, textarea {
   font-size: var(--fs-h3);
 }
 label{ display:block; font-size:var(--fs-xs); font-weight:600; margin-top:12px; }
+.label-row{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.label-row .type-info{
+  margin-left: 0; /* override the default left-margin when used in label-row */
+}
 input[type="text"], input[type="email"], select{
   width:100%;
   height:40px;
@@ -411,7 +421,7 @@ input:focus, select:focus{
   background: #f8f9fa;
   border-radius: 8px;
   min-height: 40px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   color: var(--text);
 }
 .status-area.success{ background:#d4edda; color:#155724; }
@@ -452,7 +462,7 @@ input:focus, select:focus{
   display: block;
   margin-left: 28px; /* pushes help under the label text, not under the radio */
   margin-top: 4px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   color: #6b7280;
   line-height: 20px;
 }
