@@ -12,6 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     .text-details-toggle {
       margin-top: 12px;
@@ -1108,6 +1109,7 @@
       markedPreview.innerHTML = "";
       revisionPracticeCard.style.display = "none";
       issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+      if (issueButtonsWrap) issueButtonsWrap.innerHTML = "";
       if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       examplesList.innerHTML = "";
       downloadRevisionNotesBtn.style.display = "none";
@@ -2375,7 +2377,13 @@
 
         currentMarkEvent = markEvents[0];
         const labelCounts = currentMarkEvent.label_counts || {};
-        renderMostCommonIssues(labelCounts);
+        
+        if (resultsCard) resultsCard.style.display = "block";
+        try {
+          renderMostCommonIssues(labelCounts);
+        } catch (chartError) {
+          console.warn("Most common issues chart failed to render:", chartError);
+        }
         
         // Build section index by querying issue_examples
         let examplesQuery = supa
