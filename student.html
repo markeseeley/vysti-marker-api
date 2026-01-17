@@ -283,6 +283,14 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+    .example-btn.remove-issue-btn {
+      border-color: rgba(128, 0, 32, 0.35);
+      color: #7a1c1c;
+      background: #fff;
+    }
+    .example-btn.remove-issue-btn:hover {
+      background: #fbeaea;
+    }
     .apply-to-preview-btn {
       background: #f8f9fa;
       border-color: rgba(0,0,0,.14);
@@ -294,6 +302,10 @@
     .example-applied {
       opacity: 0.7;
       background: #f0f0f0;
+    }
+    .example-dismissed {
+      background: #f9f2f2;
+      border-color: #e7cfcf;
     }
     .hidden-select {
       position: absolute;
@@ -2787,12 +2799,20 @@
           applyToPreviewBtn.onclick = () => {
             applyRewriteToPreview(ex, li, rewriteStatusDiv, applyToPreviewBtn);
           };
+
+          const removeIssueBtn = document.createElement("button");
+          removeIssueBtn.className = "example-btn example-action remove-issue-btn";
+          removeIssueBtn.textContent = "Remove issue";
+          removeIssueBtn.onclick = () => {
+            removeIssueFromPreview(label, ex, rewriteStatusDiv, removeIssueBtn);
+          };
           
           actionsDiv.appendChild(resetExampleBtn);
           actionsDiv.appendChild(copyRewriteBtn);
           actionsDiv.appendChild(findInPreviewBtn);
           actionsDiv.appendChild(checkRewriteBtn);
           actionsDiv.appendChild(applyToPreviewBtn);
+          actionsDiv.appendChild(removeIssueBtn);
           
           // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
           rewriteTextarea.addEventListener("keydown", async (e) => {
@@ -3375,6 +3395,122 @@
         statusDivOptional.textContent = "Found the paragraph, but couldn't isolate the exact sentence. You can still paste manually.";
       }
       return { ok: true, hits: [], blockEl: blockEl, used: "paragraph" };
+    }
+
+    function removeIssueFromPreview(label, example, statusDiv, removeBtn) {
+      if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+        statusDiv.textContent = "Run Check My Essay to load the preview first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      if (!confirm("Remove this issue label + highlight from the preview?")) {
+        return;
+      }
+
+      const result = highlightAndScrollToExample(example, null);
+      if (!result.ok || !result.hits || result.hits.length === 0) {
+        statusDiv.textContent = "Couldn't isolate the exact sentence in preview. Try Find in preview first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      const blockEl = result.blockEl;
+      const labelText = `→ ${label}`;
+      const normalizeWhitespace = (text) => (text || "").replace(/\s+/g, " ").trim();
+      const arrowCandidates = Array.from(blockEl.querySelectorAll("span, a"))
+        .filter(el => {
+          const text = normalizeWhitespace(el.textContent);
+          return text.startsWith("→") && text.includes(label);
+        });
+
+      if (arrowCandidates.length === 0) {
+        statusDiv.textContent = "Couldn't find the issue label in the preview.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      let selectedLabelEl = arrowCandidates[0];
+      try {
+        const range = document.createRange();
+        range.setStartBefore(result.hits[0]);
+        range.setEndAfter(result.hits[result.hits.length - 1]);
+        const intersecting = arrowCandidates.find(el => range.intersectsNode(el));
+        if (intersecting) {
+          selectedLabelEl = intersecting;
+        } else {
+          const firstHitRect = result.hits[0].getBoundingClientRect();
+          let closest = arrowCandidates[0];
+          let closestDist = Number.POSITIVE_INFINITY;
+          arrowCandidates.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const dist = Math.abs(rect.top - firstHitRect.top);
+            if (dist < closestDist) {
+              closest = el;
+              closestDist = dist;
+            }
+          });
+          selectedLabelEl = closest;
+        }
+      } catch (e) {
+        selectedLabelEl = arrowCandidates[0];
+      }
+
+      let removalTarget = selectedLabelEl;
+      if (selectedLabelEl.parentElement && selectedLabelEl.parentElement.tagName === "SPAN") {
+        const parentText = normalizeWhitespace(selectedLabelEl.parentElement.textContent);
+        const childText = normalizeWhitespace(selectedLabelEl.textContent);
+        if (parentText === childText) {
+          removalTarget = selectedLabelEl.parentElement;
+        }
+      }
+
+      if (normalizeWhitespace(removalTarget.textContent) !== normalizeWhitespace(labelText)) {
+        // Still remove the best label match to avoid leaving the arrow label behind.
+      }
+
+      const hasInlineHighlight = (el) => {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+        if (el.style && (el.style.backgroundColor || el.style.background)) return true;
+        return !!el.querySelector("*[style*='background']");
+      };
+
+      const clearInlineHighlight = (el) => {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) return;
+        if (el.style) {
+          el.style.backgroundColor = "";
+          el.style.background = "";
+        }
+        el.querySelectorAll("*").forEach(child => {
+          if (child.style) {
+            child.style.backgroundColor = "";
+            child.style.background = "";
+          }
+        });
+      };
+
+      let sibling = removalTarget.previousSibling;
+      while (sibling) {
+        if (sibling.nodeType !== Node.ELEMENT_NODE) break;
+        const el = sibling;
+        if (!hasInlineHighlight(el)) break;
+        clearInlineHighlight(el);
+        sibling = sibling.previousSibling;
+      }
+
+      removalTarget.remove();
+
+      clearPreviewHighlights();
+      if (markedPreview) markedPreview.normalize();
+
+      statusDiv.textContent = "Removed from preview. (This may come back after Recheck unless you change the text.)";
+      statusDiv.className = "rewrite-status visible ok";
+      removeBtn.disabled = true;
+
+      const exampleRow = removeBtn.closest(".example-item");
+      if (exampleRow) {
+        exampleRow.classList.add("example-dismissed");
+      }
     }
 
     async function checkRewrite(label, example, textarea, statusDiv) {
