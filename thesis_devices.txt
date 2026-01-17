@@ -131,6 +131,7 @@ capitonym,capitonym
 litotes,litotes
 collocation,collocation
 jargon,jargon
+jargons,jargon
 malapropism,malapropism
 catachresis,catachresis
 aporia,aporia
