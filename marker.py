@@ -4639,7 +4639,7 @@ def analyze_text(
     #   - plural forms (e.g. "evidences")
     #   - or use with "counting" determiners/numbers (many/two/a/an),
     # and we skip anything inside direct quotations.
-    uncountable_lemmas = {"evidence", "imagery", "research", "information", "advice", "diction"}
+    uncountable_lemmas = {"evidence", "imagery", "research", "information", "advice", "diction", "jargon"}
     uncountable_note = "Uncountable noun"
 
     for token in doc:
