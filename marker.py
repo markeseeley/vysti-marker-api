@@ -4991,7 +4991,13 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
     global DOC_EXAMPLES, DOC_EXAMPLE_COUNTS, DOC_EXAMPLE_SENT_HASHES
     
     # Collect example sentences from marks before mutating paragraph
-    if sentences is not None and paragraph_index is not None:
+    sentences_for_examples = sentences
+    if sentences_for_examples is None and paragraph_index is not None:
+        # Title paragraphs pass sentences=None; treat whole paragraph as one sentence
+        if flat_text and len(flat_text) > 0:
+            sentences_for_examples = [(0, len(flat_text))]
+
+    if sentences_for_examples is not None and paragraph_index is not None:
         for mark in marks:
             # Collect examples for ANY mark that has a real, non-empty note string
             note = mark.get("note")
@@ -5002,18 +5008,22 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
             if note == "The title of major works should be italicized":
                 continue
             
+            # If text is empty, don't try to clamp / index
+            if not flat_text:
+                continue
+            
             # Find the sentence containing the mark
             mark_start = mark.get("start", 0)
             # Clamp to valid range
             mark_start = max(0, min(mark_start, len(flat_text) - 1))
             
             # Use get_sentence_index_for_pos to locate sentence span
-            sent_idx = get_sentence_index_for_pos(mark_start, sentences)
+            sent_idx = get_sentence_index_for_pos(mark_start, sentences_for_examples)
             if sent_idx is None:
                 continue
             
             # Extract sentence text
-            s_start, s_end = sentences[sent_idx]
+            s_start, s_end = sentences_for_examples[sent_idx]
             sentence_text = flat_text[s_start:s_end].strip()
             
             # Normalize whitespace: collapse \s+ to single spaces
