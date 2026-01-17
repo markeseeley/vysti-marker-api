@@ -415,12 +415,12 @@
           <div class="work-section" id="work1Section">
             <div id="metaConfirm" class="detected-meta"></div>
             <label>
-              Author
+              Who is the author?
               <input type="text" id="author" placeholder="Author's full name" />
             </label>
 
             <label>
-              Title 
+              What is the title?
               <input type="text" id="title" placeholder="Title of the text" />
             </label>
 
@@ -2552,6 +2552,82 @@
           issueExplanationBlock.style.display = "none";
         }
         const guidance = issueData?.student_guidance || "";
+        const labelText = (issueData?.label || label || "").trim();
+
+        function escapeRegExp(str) {
+          return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        }
+
+        function extractQuotedTerms(text) {
+          const t = String(text || "");
+          const out = [];
+          const patterns = [
+            /'([^']+)'/g,
+            /"([^"]+)"/g,
+            /[‘']([^’']+)[’']/g,
+            /[“"]([^”"]+)[”"]/g
+          ];
+
+          for (const re of patterns) {
+            let m;
+            while ((m = re.exec(t)) !== null) {
+              const term = (m[1] || "").trim();
+              if (term) out.push(term);
+            }
+          }
+          return Array.from(new Set(out));
+        }
+
+        function findFoundTerms(sentence, labelText) {
+          const s = String(sentence || "");
+          const candidates = extractQuotedTerms(labelText);
+
+          const found = [];
+          const seen = new Set();
+
+          for (const term of candidates) {
+            if (!term) continue;
+
+            let matchText = null;
+
+            // If it's a simple word, prefer word-boundary match
+            if (/^[A-Za-z0-9_]+$/.test(term)) {
+              const re = new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
+              const m = re.exec(s);
+              if (m) matchText = m[0];
+            } else {
+              // Otherwise do a case-insensitive substring match
+              const idx = s.toLowerCase().indexOf(term.toLowerCase());
+              if (idx !== -1) matchText = s.slice(idx, idx + term.length);
+            }
+
+            if (matchText) {
+              const key = matchText.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                found.push(matchText);
+              }
+            }
+          }
+
+          return found;
+        }
+
+        function formatFound(foundTerms) {
+          if (!foundTerms || foundTerms.length === 0) return "that word/phrase";
+          const quoted = foundTerms.map(w => `'${w}'`);
+          if (quoted.length === 1) return quoted[0];
+          if (quoted.length === 2) return `${quoted[0]} or ${quoted[1]}`;
+          return `${quoted.slice(0, -1).join(", ")}, or ${quoted[quoted.length - 1]}`;
+        }
+
+        function resolveStudentGuidance(template, sentence, labelText) {
+          const tmpl = String(template || "");
+          if (!tmpl.includes("{FOUND}")) return tmpl;
+          const foundTerms = findFoundTerms(sentence, labelText);
+          const replacement = formatFound(foundTerms);
+          return tmpl.split("{FOUND}").join(replacement);
+        }
 
         // Get examples from issue_examples
         // Fetch 50 rows to allow deduplication while still getting 10 unique examples
@@ -2648,7 +2724,7 @@
           const guidanceDiv = document.createElement("div");
           guidanceDiv.className = "example-guidance";
           if (guidance) {
-            guidanceDiv.textContent = guidance;
+            guidanceDiv.textContent = resolveStudentGuidance(guidance, ex.sentence || "", labelText);
           } else {
             guidanceDiv.style.display = "none";
           }
