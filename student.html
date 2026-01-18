@@ -135,27 +135,6 @@
       cursor: progress;
       opacity: 0.95; /* keep readable even while disabled */
     }
-
-    /* Loading indicator: blinking cursor (optional; controlled in JS) */
-    @keyframes vysti-caret-blink {
-      0%, 49% { opacity: 1; }
-      50%, 100% { opacity: 0; }
-    }
-    button.loading-cursor::after {
-      content: " \258c"; /* U+258C (left half block) */
-      animation: vysti-caret-blink 900ms step-end infinite;
-    }
-
-    /* Preview action area (centered button below preview) */
-    .preview-actions {
-      margin-top: 16px;
-      display: flex;
-      justify-content: center;
-    }
-    .preview-actions .primary-btn {
-      width: min(360px, 100%);
-      margin-top: 0; /* override default .primary-btn margin-top */
-    }
     .detected-meta {
       margin-top: 12px;
       padding: 8px 12px;
@@ -629,10 +608,8 @@
       <h2 style="margin-bottom: 12px; font-size: var(--fs-h3); font-weight: 700;">Preview</h2>
       <div style="font-size: var(--fs-xs); color: var(--muted); margin-bottom: 8px;">Tip: Click into the preview to edit. Changes here are not saved yet.</div>
       <div id="markedPreview" class="marked-preview-container"></div>
-
-      <!-- Recheck moved here: centered under Preview + styled like primary button -->
       <div class="preview-actions">
-        <button type="button" class="primary-btn" id="recheckDocumentBtn" style="display:none;" disabled>Recheck my essay</button>
+        <button type="button" class="primary-btn preview-primary-btn" id="recheckDocumentBtn" style="display:none;" disabled>Recheck my essay</button>
       </div>
     </section>
 
@@ -661,6 +638,7 @@
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
       <ul id="examplesList" class="examples-list"></ul>
+      
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
     </section>
 
@@ -854,9 +832,9 @@
     let currentWordCount = null;
 
     // Loading indicator style for the main "Mark my essay" button.
-    // - true: "Processing |" (blinking cursor)
-    // - false: "Processing..." (animated dots)
+    // true = blinking cursor prompt; false = animated dots.
     const USE_CURSOR_PROMPT_LOADING = true;
+
 
     function startCheckBtnLoading() {
       if (!checkBtn) return;
@@ -864,18 +842,16 @@
 
       // visually + accessibility
       checkBtn.classList.add("is-loading");
-      checkBtn.classList.remove("loading-cursor");
       checkBtn.setAttribute("aria-busy", "true");
       checkBtn.disabled = true;
 
-      // Cursor prompt mode (preferred)
+      // Optional: cursor-style prompt (looks cleaner than animated dots)
       if (USE_CURSOR_PROMPT_LOADING) {
-        // No interval needed; CSS handles the blink.
-        checkBtn.classList.add("loading-cursor");
-        checkBtn.textContent = "Processing";
+        checkBtn.innerHTML = 'Processing<span class="loading-cursor" aria-hidden="true">▍</span>';
         return;
       }
 
+      // Fallback: animated dots
       let dots = 0;
       const tick = () => {
         dots = (dots + 1) % 4; // 0..3
@@ -896,7 +872,6 @@
       }
 
       checkBtn.classList.remove("is-loading");
-      checkBtn.classList.remove("loading-cursor");
       checkBtn.removeAttribute("aria-busy");
 
       if (checkBtnBaseLabel) checkBtn.textContent = checkBtnBaseLabel;
@@ -1819,7 +1794,7 @@
         selectedFile = files[0];
         updateFileUI();
         
-        // Extract metadata and store for later (after marking)
+        // Extract metadata and store for later (after Check My Essay)
         const meta = await extractMetaFromDocx(selectedFile);
         if (meta) {
           pendingDetectedMeta = meta;
@@ -1908,7 +1883,7 @@
           fileInput.files = dt.files;
           updateFileUI();
           
-          // Extract metadata and store for later (after marking)
+          // Extract metadata and store for later (after Check My Essay)
           const meta = await extractMetaFromDocx(selectedFile);
           if (meta) {
             pendingDetectedMeta = meta;
@@ -2092,7 +2067,7 @@
       }
     });
 
-    // ===== Apply detected meta after marking =====
+    // ===== Apply detected meta after Check My Essay =====
     function applyDetectedMetaAfterCheck() {
       if (!pendingDetectedMeta) return;
 
@@ -3553,6 +3528,54 @@
       }
     }
 
+
+
+    function collectTitlesMeta() {
+      // Collect title metadata (matches /mark_text payload)
+      const titles = [];
+
+      // Work 1
+      const author = document.getElementById("author")?.value.trim() || "";
+      const title = document.getElementById("title")?.value.trim() || "";
+      const titleIsMinorSelect = document.getElementById("title_is_minor");
+      const textIsMinorWork = titleIsMinorSelect ? titleIsMinorSelect.value : "true";
+      if (title) {
+        titles.push({
+          author: author,
+          title: title,
+          is_minor: textIsMinorWork === "true",
+        });
+      }
+
+      // Work 2
+      const author2 = document.getElementById("author2")?.value.trim() || "";
+      const title2 = document.getElementById("title2")?.value.trim() || "";
+      const title2IsMinorSelect = document.getElementById("title2_is_minor");
+      const title2IsMinor = title2IsMinorSelect ? title2IsMinorSelect.value : "true";
+      if (title2) {
+        titles.push({
+          author: author2,
+          title: title2,
+          is_minor: title2IsMinor === "true",
+        });
+      }
+
+      // Work 3
+      const author3 = document.getElementById("author3")?.value.trim() || "";
+      const title3 = document.getElementById("title3")?.value.trim() || "";
+      const title3IsMinorSelect = document.getElementById("title3_is_minor");
+      const title3IsMinor = title3IsMinorSelect ? title3IsMinorSelect.value : "true";
+      if (title3) {
+        titles.push({
+          author: author3,
+          title: title3,
+          is_minor: title3IsMinor === "true",
+        });
+      }
+
+      return titles.length > 0 ? titles : null;
+    }
+
     async function checkRewrite(label, example, textarea, statusDiv) {
       const rewrite = textarea.value.trim();
       if (!rewrite) {
@@ -3585,6 +3608,7 @@
             label: label,
             rewrite: rewrite,
             mode: currentMode,
+            titles: collectTitlesMeta(),
           }),
         });
 
