@@ -135,6 +135,27 @@
       cursor: progress;
       opacity: 0.95; /* keep readable even while disabled */
     }
+
+    /* Loading indicator: blinking cursor (optional; controlled in JS) */
+    @keyframes vysti-caret-blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    button.loading-cursor::after {
+      content: " \258c"; /* U+258C (left half block) */
+      animation: vysti-caret-blink 900ms step-end infinite;
+    }
+
+    /* Preview action area (centered button below preview) */
+    .preview-actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+    }
+    .preview-actions .primary-btn {
+      width: min(360px, 100%);
+      margin-top: 0; /* override default .primary-btn margin-top */
+    }
     .detected-meta {
       margin-top: 12px;
       padding: 8px 12px;
@@ -564,7 +585,7 @@
           </div>
         </div>
 
-        <button class="primary-btn" id="checkBtn" type="submit" disabled>Check My Essay</button>
+        <button class="primary-btn" id="checkBtn" type="submit" disabled>Mark my essay</button>
       </section>
 
       <section class="card upload-card">
@@ -608,6 +629,11 @@
       <h2 style="margin-bottom: 12px; font-size: var(--fs-h3); font-weight: 700;">Preview</h2>
       <div style="font-size: var(--fs-xs); color: var(--muted); margin-bottom: 8px;">Tip: Click into the preview to edit. Changes here are not saved yet.</div>
       <div id="markedPreview" class="marked-preview-container"></div>
+
+      <!-- Recheck moved here: centered under Preview + styled like primary button -->
+      <div class="preview-actions">
+        <button type="button" class="primary-btn" id="recheckDocumentBtn" style="display:none;" disabled>Recheck my essay</button>
+      </div>
     </section>
 
     <section class="card revision-practice-card" id="revisionPracticeCard" style="display:none;">
@@ -635,7 +661,6 @@
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
       <ul id="examplesList" class="examples-list"></ul>
-      <button type="button" class="secondary-btn" id="recheckDocumentBtn" style="margin-top: 16px; display:none;" disabled>Recheck my essay</button>
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
     </section>
 
@@ -828,14 +853,28 @@
     let pendingDetectedMeta = null;
     let currentWordCount = null;
 
+    // Loading indicator style for the main "Mark my essay" button.
+    // - true: "Processing |" (blinking cursor)
+    // - false: "Processing..." (animated dots)
+    const USE_CURSOR_PROMPT_LOADING = true;
+
     function startCheckBtnLoading() {
       if (!checkBtn) return;
-      if (!checkBtnBaseLabel) checkBtnBaseLabel = (checkBtn.textContent || "Check My Essay").trim();
+      if (!checkBtnBaseLabel) checkBtnBaseLabel = (checkBtn.textContent || "Mark my essay").trim();
 
       // visually + accessibility
       checkBtn.classList.add("is-loading");
+      checkBtn.classList.remove("loading-cursor");
       checkBtn.setAttribute("aria-busy", "true");
       checkBtn.disabled = true;
+
+      // Cursor prompt mode (preferred)
+      if (USE_CURSOR_PROMPT_LOADING) {
+        // No interval needed; CSS handles the blink.
+        checkBtn.classList.add("loading-cursor");
+        checkBtn.textContent = "Processing";
+        return;
+      }
 
       let dots = 0;
       const tick = () => {
@@ -857,6 +896,7 @@
       }
 
       checkBtn.classList.remove("is-loading");
+      checkBtn.classList.remove("loading-cursor");
       checkBtn.removeAttribute("aria-busy");
 
       if (checkBtnBaseLabel) checkBtn.textContent = checkBtnBaseLabel;
@@ -1779,7 +1819,7 @@
         selectedFile = files[0];
         updateFileUI();
         
-        // Extract metadata and store for later (after Check My Essay)
+        // Extract metadata and store for later (after marking)
         const meta = await extractMetaFromDocx(selectedFile);
         if (meta) {
           pendingDetectedMeta = meta;
@@ -1868,7 +1908,7 @@
           fileInput.files = dt.files;
           updateFileUI();
           
-          // Extract metadata and store for later (after Check My Essay)
+          // Extract metadata and store for later (after marking)
           const meta = await extractMetaFromDocx(selectedFile);
           if (meta) {
             pendingDetectedMeta = meta;
@@ -2052,7 +2092,7 @@
       }
     });
 
-    // ===== Apply detected meta after Check My Essay =====
+    // ===== Apply detected meta after marking =====
     function applyDetectedMetaAfterCheck() {
       if (!pendingDetectedMeta) return;
 
@@ -2777,7 +2817,7 @@
           findInPreviewBtn.textContent = "Find in preview";
           findInPreviewBtn.onclick = () => {
             if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
-              rewriteStatusDiv.textContent = "Run Check My Essay to load the preview first.";
+              rewriteStatusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
               rewriteStatusDiv.className = "rewrite-status visible";
               rewriteStatusDiv.classList.remove("ok", "bad");
               return;
@@ -3399,7 +3439,7 @@
 
     function removeIssueFromPreview(label, example, statusDiv, removeBtn) {
       if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
-        statusDiv.textContent = "Run Check My Essay to load the preview first.";
+        statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
         statusDiv.className = "rewrite-status visible bad";
         return;
       }
@@ -3579,7 +3619,7 @@
     function applyRewriteToPreview(example, exampleRow, statusDiv, applyBtn) {
       // Ensure preview exists
       if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
-        statusDiv.textContent = "Run Check My Essay to load the preview first.";
+        statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
         statusDiv.className = "rewrite-status visible bad";
         return;
       }
