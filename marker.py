@@ -6225,6 +6225,49 @@ def extract_richer_examples(doc: Document) -> list[dict]:
     return list(examples_map.values())
 
 
+def build_techniques_discussed(docx_bytes: bytes, mode: str) -> list[dict]:
+    if mode == "argumentation":
+        return []
+    if not THESIS_ALL_DEVICE_KEYS:
+        return []
+    try:
+        base_doc = Document(BytesIO(docx_bytes))
+        paragraphs = [p.text for p in base_doc.paragraphs if p.text and p.text.strip()]
+        if not paragraphs:
+            return []
+        full_text = "\n".join(paragraphs).strip()
+        if not full_text:
+            return []
+
+        doc_spacy = nlp(full_text)
+        from collections import Counter
+        counts = Counter()
+        for device_key, _, _ in iter_device_spans(doc_spacy):
+            if device_key in THESIS_ALL_DEVICE_KEYS:
+                counts[device_key] += 1
+
+        if not counts:
+            return []
+
+        ordered_keys = []
+        for key in THESIS_TOPIC_ORDER:
+            if key in counts and key not in ordered_keys:
+                ordered_keys.append(key)
+        remaining = sorted(
+            (key for key in counts.keys() if key not in ordered_keys),
+            key=lambda k: (-counts[k], k),
+        )
+        ordered_keys.extend(remaining)
+
+        return [
+            {"name": key.replace("_", " ").title(), "count": counts[key]}
+            for key in ordered_keys
+            if counts[key] > 0
+        ]
+    except Exception:
+        return []
+
+
 def mark_docx_bytes(
     docx_bytes: bytes,
     mode: str = "textual_analysis",
@@ -6280,6 +6323,9 @@ def mark_docx_bytes(
         # 5. Load the marked doc into python-docx to extract the summary metadata
         doc = Document(BytesIO(marked_bytes))
         metadata = extract_summary_metadata(doc)
+        techniques_discussed = build_techniques_discussed(docx_bytes, mode)
+        if isinstance(metadata, dict):
+            metadata["techniques_discussed"] = techniques_discussed
         try:
             guidance_map = load_student_guidance(rules_path)
         except Exception:
