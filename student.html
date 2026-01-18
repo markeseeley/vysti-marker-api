@@ -216,11 +216,13 @@
       font-weight: 700;
       text-align: center;
     }
-    .most-common-meta {
+    .most-common-footer {
       margin-top: 12px;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .most-common-word-count {
       font-size: var(--fs-sm);
@@ -232,6 +234,8 @@
       border-radius: 8px;
       border: 1px solid rgba(0, 0, 0, 0.08);
       background: #fff;
+      text-align: right;
+      margin-left: auto;
     }
     .most-common-techniques-title {
       font-size: var(--fs-xs);
@@ -245,6 +249,9 @@
       font-size: var(--fs-sm);
       color: var(--text);
       line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
     .issue-select-wrapper {
       margin-bottom: 16px;
@@ -695,7 +702,7 @@
           <div style="position: relative; height: 280px;">
             <canvas id="mostCommonIssuesChart"></canvas>
           </div>
-          <div id="mostCommonMeta" class="most-common-meta">
+          <div id="mostCommonMeta" class="most-common-footer">
             <div id="wordCountReadout" class="most-common-word-count"></div>
             <div id="techniquesWrap" class="most-common-techniques" style="display:none;">
               <div class="most-common-techniques-title">Techniques discussed</div>
@@ -945,6 +952,7 @@
     let lastRevisionSectionData = null;
     let pendingDetectedMeta = null;
     let currentWordCount = null;
+    let currentTechniques = [];
     let hasStartedRevising = false;
 
     // Loading indicator style for the main "Mark my essay" button.
@@ -1086,9 +1094,8 @@
       formData.append("file", selectedFile);
       formData.append("mode", mode);
       formData.append("include_summary_table", includeSummaryTable ? "true" : "false");
-      // Enable device/strategy highlighting for non-Argumentation modes
-      const shouldHighlightDevices = mode !== "argumentation";
-      formData.append("highlight_thesis_devices", shouldHighlightDevices ? "true" : "false");
+      // Student mode: never highlight thesis devices/strategies
+      formData.append("highlight_thesis_devices", "false");
 
       if (studentName) {
         formData.append("student_name", studentName);
@@ -1413,48 +1420,6 @@
       wordCountReadout.textContent = `Word count: ${currentWordCount}`;
     }
 
-    function hasGreenHighlightStyle(styleText) {
-      if (!styleText) return false;
-      return /rgb\(\s*0\s*,\s*176\s*,\s*80\s*\)/i.test(styleText) || /#00b050/i.test(styleText);
-    }
-
-    function isGreenHighlightedTextNode(textNode) {
-      if (!textNode || !textNode.parentElement) return false;
-      let el = textNode.parentElement;
-      while (el && el !== markedPreview) {
-        const inlineStyle = el.getAttribute("style");
-        if (hasGreenHighlightStyle(inlineStyle)) return true;
-        el = el.parentElement;
-      }
-      return false;
-    }
-
-    function extractTechniquesFromPreview() {
-      if (!markedPreview) return [];
-      const phrases = [];
-      const walker = document.createTreeWalker(markedPreview, NodeFilter.SHOW_TEXT, null);
-      let current = "";
-      let node = walker.nextNode();
-
-      while (node) {
-        const text = node.textContent || "";
-        const normalized = text.replace(/\s+/g, " ").trim();
-        const isGreen = normalized && isGreenHighlightedTextNode(node);
-
-        if (isGreen) {
-          current = current ? `${current} ${normalized}` : normalized;
-        } else if (current) {
-          phrases.push(current);
-          current = "";
-        }
-
-        node = walker.nextNode();
-      }
-
-      if (current) phrases.push(current);
-      return phrases;
-    }
-
     function updateTechniquesUI() {
       if (!techniquesWrap || !techniquesList) return;
       const mode = modeSelect ? modeSelect.value : "";
@@ -1463,36 +1428,28 @@
         techniquesList.textContent = "";
         return;
       }
-      if (!markedPreview || !markedPreview.innerText.trim()) {
+      if (!Array.isArray(currentTechniques) || currentTechniques.length === 0) {
         techniquesWrap.style.display = "none";
         techniquesList.textContent = "";
         return;
       }
 
-      const phrases = extractTechniquesFromPreview();
-      if (!phrases.length) {
-        techniquesWrap.style.display = "none";
-        techniquesList.textContent = "";
-        return;
-      }
-
-      const counts = new Map();
-      const displayNames = new Map();
-      phrases.forEach((phrase) => {
-        const key = phrase.toLowerCase();
-        displayNames.set(key, displayNames.get(key) || phrase);
-        counts.set(key, (counts.get(key) || 0) + 1);
+      const sorted = currentTechniques.slice().sort((a, b) => {
+        const countDiff = (b?.count || 0) - (a?.count || 0);
+        if (countDiff !== 0) return countDiff;
+        const nameA = String(a?.name || "");
+        const nameB = String(b?.name || "");
+        return nameA.localeCompare(nameB);
       });
 
-      const sorted = Array.from(counts.entries()).sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1];
-        return displayNames.get(a[0]).localeCompare(displayNames.get(b[0]));
+      techniquesList.innerHTML = "";
+      sorted.forEach((item) => {
+        if (!item || !item.name || !item.count) return;
+        const row = document.createElement("div");
+        row.textContent = `${item.name} (${item.count})`;
+        techniquesList.appendChild(row);
       });
-
-      techniquesList.textContent = sorted
-        .map(([key, count]) => `${displayNames.get(key)} (${count})`)
-        .join(" • ");
-      techniquesWrap.style.display = "block";
+      techniquesWrap.style.display = techniquesList.childNodes.length ? "block" : "none";
     }
 
     function setApplyAttention(applyBtn) {
@@ -1543,6 +1500,7 @@
       }
       currentMarkEvent = null;
       currentWordCount = null;
+      currentTechniques = [];
       if (wordCountReadout) wordCountReadout.textContent = "";
       if (techniquesWrap) techniquesWrap.style.display = "none";
       if (techniquesList) techniquesList.textContent = "";
@@ -2364,6 +2322,19 @@
         if (!response.ok) {
           const text = await response.text();
           throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+        }
+
+        const techHeader = response.headers.get("X-Vysti-Techniques");
+        if (techHeader) {
+          try {
+            const parsed = JSON.parse(techHeader);
+            currentTechniques = Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+            console.warn("Failed to parse techniques header:", err);
+            currentTechniques = [];
+          }
+        } else {
+          currentTechniques = [];
         }
 
         const blob = await response.blob();
@@ -4221,12 +4192,26 @@
               text: previewText,
               mode: currentMode,
               titles: titles.length > 0 ? titles : null,
+              highlight_thesis_devices: false,
             }),
           });
 
           if (!response.ok) {
             const text = await response.text();
             throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+          }
+
+          const techHeader = response.headers.get("X-Vysti-Techniques");
+          if (techHeader) {
+            try {
+              const parsed = JSON.parse(techHeader);
+              currentTechniques = Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+              console.warn("Failed to parse techniques header:", err);
+              currentTechniques = [];
+            }
+          } else {
+            currentTechniques = [];
           }
 
           const blob = await response.blob();
@@ -4641,6 +4626,7 @@
       if (mostCommonIssuesWrap && mostCommonIssuesWrap.dataset.hasData === "true") {
         mostCommonIssuesWrap.style.display = "block";
       }
+    }
 
     function formatOrdinal(n) {
       const num = parseInt(n, 10);
@@ -4656,7 +4642,6 @@
 
     function formatBodySectionName(bodyNum) {
       return `${formatOrdinal(bodyNum)} Body Paragraph`;
-    }
     }
 
     function startPostPreviewTour() {
