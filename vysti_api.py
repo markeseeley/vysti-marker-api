@@ -70,16 +70,18 @@ auth_scheme = HTTPBearer(auto_error=False)
 
 
 # ===== Pydantic models =====
-class RevisionCheckRequest(BaseModel):
-    label: str
-    rewrite: str
-    mode: str | None = None
-
-
 class TitleInfo(BaseModel):
     author: str
     title: str
     is_minor: bool = True
+
+
+class RevisionCheckRequest(BaseModel):
+    label: str
+    rewrite: str
+    mode: str | None = None
+    label_trimmed: str | None = None
+    titles: list[TitleInfo] | None = None
 
 
 class MarkTextRequest(BaseModel):
@@ -610,28 +612,50 @@ async def check_revision(
             detail="Rewrite exceeds maximum length of 2000 characters",
         )
     
+    def normalize_label(label: str) -> str:
+        return " ".join(label.split()).strip().lower()
+
+    label_raw = request.label_trimmed or request.label or ""
+    label_trimmed = " ".join(label_raw.split()).strip()
+    label_norm = normalize_label(label_trimmed)
+
+    title_labels = {
+        "essay title format",
+        "capitalize the words in titles",
+    }
+    is_title_label = label_norm in title_labels
+
     # Build minimal .docx in-memory
     doc = Document()
-    title_labels = {
-        "Essay title format",
-        "Capitalize the words in titles",
-    }
-    is_title_label = request.label in title_labels
-    
+
+    # Set default style to Times New Roman 12pt
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "Times New Roman"
+    font.size = Pt(12)
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+
+    def add_mla_header_lines(target_doc):
+        for line in ("Student Name", "Teacher Name", "Class", "Date"):
+            p = target_doc.add_paragraph(line)
+            p.paragraph_format.first_line_indent = Inches(0)
+
     if is_title_label:
+        add_mla_header_lines(doc)
         title_paragraph = doc.add_paragraph(request.rewrite.strip())
         title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        title_paragraph.paragraph_format.first_line_indent = Inches(0)
         doc.add_paragraph("Placeholder introduction sentence.")
         doc.add_paragraph("Placeholder body sentence.")
         doc.add_paragraph("Placeholder conclusion sentence.")
     else:
         # Intro paragraph
         doc.add_paragraph("Placeholder introduction sentence.")
-        
+
         # Body paragraph: rewrite as first sentence
         body_text = f"{request.rewrite.strip()} Placeholder second sentence."
         doc.add_paragraph(body_text)
-        
+
         # Conclusion paragraph
         doc.add_paragraph("Placeholder conclusion sentence.")
     
@@ -642,13 +666,34 @@ async def check_revision(
     docx_bytes = docx_buffer.getvalue()
     docx_buffer.close()
     
+    # Build teacher_config from request.titles
+    teacher_config: dict = {}
+    if request.titles:
+        titles = request.titles[:3]
+        if len(titles) > 0:
+            t1 = titles[0]
+            teacher_config["author_name"] = t1.author
+            teacher_config["text_title"] = t1.title
+            teacher_config["text_is_minor_work"] = t1.is_minor
+        if len(titles) > 1:
+            t2 = titles[1]
+            teacher_config["author_name_2"] = t2.author
+            teacher_config["text_title_2"] = t2.title
+            teacher_config["text_is_minor_work_2"] = t2.is_minor
+        if len(titles) > 2:
+            t3 = titles[2]
+            teacher_config["author_name_3"] = t3.author
+            teacher_config["text_title_3"] = t3.title
+            teacher_config["text_is_minor_work_3"] = t3.is_minor
+    teacher_config["highlight_thesis_devices"] = False
+
     # Call mark_docx_bytes
     mark_docx_bytes, _ = get_engine()
-    mode = request.mode or "no_title"
+    mode = request.mode or "textual_analysis"
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
-        teacher_config=None,
+        teacher_config=teacher_config,
     )
     
     # Read metadata["issues"]
@@ -657,27 +702,47 @@ async def check_revision(
     # Check if target label appears in issues
     matched_issue = None
     for issue in issues:
-        if isinstance(issue, dict) and issue.get("label") == request.label:
+        if not isinstance(issue, dict):
+            continue
+        issue_label = normalize_label(issue.get("label", ""))
+        if issue_label == label_norm:
             matched_issue = issue
             break
+
+    approved = matched_issue is None
+
+    if approved and label_norm == "essay title format":
+        try:
+            from marker import TITLE_PATTERN, TITLE_PATTERN_NO_COLON, topic_segment_is_too_thin
+            title_text = request.rewrite.strip()
+            match = TITLE_PATTERN.match(title_text) or TITLE_PATTERN_NO_COLON.match(title_text)
+            if not match:
+                approved = False
+            else:
+                topic_segment = match.group(2) if match.lastindex and match.lastindex >= 2 else ""
+                if topic_segment_is_too_thin(topic_segment):
+                    approved = False
+        except Exception as e:
+            print("Failed title-format validation:", repr(e))
     
     # Return JSON response
-    if matched_issue is None:
+    if approved:
         # Label not present - revision approved
         return JSONResponse(
             content={
                 "approved": True,
-                "label": request.label,
+                "label": label_trimmed or request.label,
                 "message": "Looks good! Revision approved.",
             }
         )
     else:
         # Label present - still failing
+        message_label = label_trimmed or request.label
         return JSONResponse(
             content={
                 "approved": False,
-                "label": request.label,
-                "message": "Looks like we still have an issue.",
+                "label": message_label,
+                "message": f"Still needs revision: {message_label}.",
                 "triggered": matched_issue,
             }
         )
