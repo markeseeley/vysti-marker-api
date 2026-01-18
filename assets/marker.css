@@ -743,3 +743,104 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
 .preview-editable span[style*="rgb(0,176,80)"] {
   background-color: #00ff00 !important;
 }
+
+/* =========================
+   Student tour (guided)
+   ========================= */
+.tour-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.06);
+  z-index: 60;
+  pointer-events: none;
+}
+
+.tour-popover{
+  position: fixed;
+  top: 0;
+  left: 0;
+  max-width: 360px;
+  width: min(360px, calc(100vw - 24px));
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+  padding: 16px 16px 14px;
+  z-index: 70;
+  color: var(--text);
+}
+
+.tour-arrow{
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  transform: rotate(45deg);
+  box-shadow: -6px -6px 12px rgba(0,0,0,.06);
+}
+.tour-arrow-down{ top: -6px; }
+.tour-arrow-up{ bottom: -6px; }
+
+.tour-title{
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  margin-bottom: 6px;
+}
+.tour-body{
+  font-size: var(--fs-sm);
+  color: rgba(0,0,0,.75);
+}
+.tour-footer{
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+.tour-step{
+  font-size: var(--fs-xs);
+  color: rgba(0,0,0,.6);
+  font-weight: 600;
+}
+.tour-checkbox-row{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: rgba(0,0,0,.7);
+}
+.tour-checkbox-row input{
+  accent-color: var(--maroon);
+}
+.tour-primary-btn{
+  background: var(--maroon);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(169,13,34,.18);
+}
+.tour-primary-btn:hover{ filter: brightness(.96); }
+
+.tour-close{
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: rgba(0,0,0,.6);
+}
+.tour-close:hover{ color: rgba(0,0,0,.9); }
+
+.tour-highlight{
+  outline: 3px solid rgba(169,13,34,.65);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgba(169,13,34,.12);
+  border-radius: 8px;
+}
