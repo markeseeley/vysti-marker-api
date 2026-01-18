@@ -70,16 +70,17 @@ auth_scheme = HTTPBearer(auto_error=False)
 
 
 # ===== Pydantic models =====
-class RevisionCheckRequest(BaseModel):
-    label: str
-    rewrite: str
-    mode: str | None = None
-
-
 class TitleInfo(BaseModel):
     author: str
     title: str
     is_minor: bool = True
+
+
+class RevisionCheckRequest(BaseModel):
+    label: str
+    rewrite: str
+    mode: str | None = None
+    titles: list[TitleInfo] | None = None
 
 
 class MarkTextRequest(BaseModel):
@@ -592,9 +593,12 @@ async def check_revision(
 ):
     """
     Check if a rewritten sentence still triggers a specific issue label.
-    
+
     Creates a minimal .docx document with the rewrite and checks if the
     target label still appears in the issues.
+
+    Note: Some labels (especially title-related ones) only trigger when the
+    rewrite is placed into a title-style paragraph. We special-case those.
     """
     # Validate rewrite: reject empty/whitespace
     if not request.rewrite or not request.rewrite.strip():
@@ -602,53 +606,92 @@ async def check_revision(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Rewrite cannot be empty or whitespace only",
         )
-    
+
     # Cap rewrite length (2000 chars)
     if len(request.rewrite) > 2000:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Rewrite exceeds maximum length of 2000 characters",
         )
-    
+
+    rewrite_text = request.rewrite.strip()
+
     # Build minimal .docx in-memory
     doc = Document()
-    
-    # Intro paragraph
-    doc.add_paragraph("Placeholder introduction sentence.")
-    
-    # Body paragraph: rewrite as first sentence
-    body_text = f"{request.rewrite.strip()} Placeholder second sentence."
-    doc.add_paragraph(body_text)
-    
-    # Conclusion paragraph
-    doc.add_paragraph("Placeholder conclusion sentence.")
-    
+
+    # Labels that should be evaluated as an essay-title paragraph (not a body sentence)
+    TITLE_PARAGRAPH_LABELS = {
+        "Essay title format",
+        "Capitalize the words in titles",
+    }
+
+    if request.label in TITLE_PARAGRAPH_LABELS:
+        # Put the rewrite on its own, centered line so marker title rules run.
+        title_p = doc.add_paragraph(rewrite_text)
+        title_p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        title_p.paragraph_format.first_line_indent = Inches(0)
+
+        # Light scaffolding so the doc resembles a real essay.
+        doc.add_paragraph("Placeholder introduction sentence.")
+        doc.add_paragraph("Placeholder body sentence.")
+        doc.add_paragraph("Placeholder conclusion sentence.")
+    else:
+        # Default: treat rewrite as a sentence inside a body paragraph.
+        doc.add_paragraph("Placeholder introduction sentence.")
+        body_text = f"{rewrite_text} Placeholder second sentence."
+        doc.add_paragraph(body_text)
+        doc.add_paragraph("Placeholder conclusion sentence.")
+
     # Save to BytesIO
     docx_buffer = BytesIO()
     doc.save(docx_buffer)
     docx_buffer.seek(0)
     docx_bytes = docx_buffer.getvalue()
     docx_buffer.close()
-    
+
+    # Build teacher_config from request.titles (optional; matches /mark_text)
+    teacher_config: dict = {}
+    if request.titles:
+        titles = request.titles[:3]
+        if len(titles) > 0:
+            t1 = titles[0]
+            teacher_config["author_name"] = t1.author
+            teacher_config["text_title"] = t1.title
+            teacher_config["text_is_minor_work"] = t1.is_minor
+        if len(titles) > 1:
+            t2 = titles[1]
+            teacher_config["author_name_2"] = t2.author
+            teacher_config["text_title_2"] = t2.title
+            teacher_config["text_is_minor_work_2"] = t2.is_minor
+        if len(titles) > 2:
+            t3 = titles[2]
+            teacher_config["author_name_3"] = t3.author
+            teacher_config["text_title_3"] = t3.title
+            teacher_config["text_is_minor_work_3"] = t3.is_minor
+
+    if teacher_config:
+        teacher_config["highlight_thesis_devices"] = False
+
     # Call mark_docx_bytes
     mark_docx_bytes, _ = get_engine()
-    mode = request.mode or "no_title"
-    marked_bytes, metadata = mark_docx_bytes(
+    mode = request.mode or "textual_analysis"
+    _marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
-        teacher_config=None,
+        teacher_config=teacher_config if teacher_config else None,
+        include_summary_table=False,
     )
-    
+
     # Read metadata["issues"]
     issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
-    
+
     # Check if target label appears in issues
     matched_issue = None
     for issue in issues:
         if isinstance(issue, dict) and issue.get("label") == request.label:
             matched_issue = issue
             break
-    
+
     # Return JSON response
     if matched_issue is None:
         # Label not present - revision approved
