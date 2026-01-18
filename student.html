@@ -377,7 +377,7 @@
     <form id="studentForm" class="marker-grid" style="display:none;">
       <section class="card form-card">
         <label>
-          <span class="label-row">
+          <span class="label-row mode-select-label-row">
             What is the assignment?
             <span class="type-info tt"
                   tabindex="0"
@@ -3887,8 +3887,253 @@
       return paragraphs.join("\n\n");
     }
 
+    // =========================
+    // Student tour controller
+    // =========================
+    const TOUR_HIDE_KEY = "vysti_student_tour_hide";
+    const TOUR_DONE_KEY = "vysti_student_tour_completed";
+
+    const tourSteps = [
+      {
+        anchor: ".mode-select-label-row",
+        title: "What is the assignment?",
+        body: "Choose the assignment type so Vysti applies the right rules.",
+      },
+      {
+        anchor: ".assignment-tracker-block",
+        title: "Assignment Tracker",
+        body: "Name your draft and add a target word count to track progress.",
+      },
+      {
+        anchor: "#dropZone",
+        title: "Essay (.docx)",
+        body: "Upload your .docx essay here to get feedback and highlights.",
+      },
+    ];
+
+    const tourState = {
+      currentStepIndex: 0,
+      active: false,
+    };
+
+    let tourOverlay = null;
+    let tourPopover = null;
+    let tourTitle = null;
+    let tourBody = null;
+    let tourStep = null;
+    let tourNextBtn = null;
+    let tourCloseBtn = null;
+    let tourHideCheckbox = null;
+    let tourArrow = null;
+    let tourPositionHandler = null;
+
+    function shouldStartTour() {
+      return !localStorage.getItem(TOUR_HIDE_KEY) && !localStorage.getItem(TOUR_DONE_KEY);
+    }
+
+    function createTourElements() {
+      if (tourPopover) return;
+
+      tourOverlay = document.createElement("div");
+      tourOverlay.className = "tour-overlay";
+
+      tourPopover = document.createElement("div");
+      tourPopover.className = "tour-popover";
+      tourPopover.setAttribute("role", "dialog");
+      tourPopover.setAttribute("aria-live", "polite");
+
+      tourCloseBtn = document.createElement("button");
+      tourCloseBtn.className = "tour-close";
+      tourCloseBtn.type = "button";
+      tourCloseBtn.setAttribute("aria-label", "Close tour");
+      tourCloseBtn.textContent = "×";
+
+      tourArrow = document.createElement("div");
+      tourArrow.className = "tour-arrow";
+
+      tourTitle = document.createElement("div");
+      tourTitle.className = "tour-title";
+
+      tourBody = document.createElement("div");
+      tourBody.className = "tour-body";
+
+      const footer = document.createElement("div");
+      footer.className = "tour-footer";
+
+      tourStep = document.createElement("div");
+      tourStep.className = "tour-step";
+
+      const checkboxLabel = document.createElement("label");
+      checkboxLabel.className = "tour-checkbox-row";
+      tourHideCheckbox = document.createElement("input");
+      tourHideCheckbox.type = "checkbox";
+      tourHideCheckbox.id = "tourHideCheckbox";
+      checkboxLabel.appendChild(tourHideCheckbox);
+      checkboxLabel.appendChild(document.createTextNode(" Do not show again"));
+
+      tourNextBtn = document.createElement("button");
+      tourNextBtn.className = "tour-primary-btn";
+      tourNextBtn.type = "button";
+      tourNextBtn.textContent = "Got it";
+
+      footer.appendChild(tourStep);
+      footer.appendChild(checkboxLabel);
+      footer.appendChild(tourNextBtn);
+
+      tourPopover.appendChild(tourCloseBtn);
+      tourPopover.appendChild(tourArrow);
+      tourPopover.appendChild(tourTitle);
+      tourPopover.appendChild(tourBody);
+      tourPopover.appendChild(footer);
+
+      document.body.appendChild(tourOverlay);
+      document.body.appendChild(tourPopover);
+
+      tourNextBtn.addEventListener("click", nextStep);
+      tourCloseBtn.addEventListener("click", () => closeTour("dismissed"));
+      tourHideCheckbox.addEventListener("change", () => {
+        if (tourHideCheckbox.checked) {
+          closeTour("hide");
+        }
+      });
+    }
+
+    function getCurrentAnchor() {
+      const step = tourSteps[tourState.currentStepIndex];
+      if (!step) return null;
+      return document.querySelector(step.anchor);
+    }
+
+    function clearTourHighlight() {
+      const highlighted = document.querySelector(".tour-highlight");
+      if (highlighted) highlighted.classList.remove("tour-highlight");
+    }
+
+    function positionTourPopover(anchorEl) {
+      if (!tourPopover || !anchorEl) return;
+
+      const gap = 12;
+      const padding = 12;
+      const rect = anchorEl.getBoundingClientRect();
+
+      tourPopover.style.display = "block";
+      tourPopover.style.visibility = "hidden";
+
+      const popRect = tourPopover.getBoundingClientRect();
+      const fitsBelow = rect.bottom + gap + popRect.height <= window.innerHeight;
+
+      let top = fitsBelow ? rect.bottom + gap : rect.top - popRect.height - gap;
+      top = Math.max(padding, Math.min(top, window.innerHeight - popRect.height - padding));
+
+      let left = rect.left + rect.width / 2 - popRect.width / 2;
+      left = Math.max(padding, Math.min(left, window.innerWidth - popRect.width - padding));
+
+      tourPopover.style.top = `${Math.round(top)}px`;
+      tourPopover.style.left = `${Math.round(left)}px`;
+
+      tourArrow.classList.toggle("tour-arrow-down", fitsBelow);
+      tourArrow.classList.toggle("tour-arrow-up", !fitsBelow);
+
+      const anchorCenter = rect.left + rect.width / 2;
+      const arrowLeft = Math.max(16, Math.min(anchorCenter - left, popRect.width - 16));
+      tourArrow.style.left = `${Math.round(arrowLeft)}px`;
+      tourArrow.style.top = fitsBelow ? "-6px" : "";
+      tourArrow.style.bottom = fitsBelow ? "" : "-6px";
+
+      tourPopover.style.visibility = "visible";
+    }
+
+    function attachTourPositioning() {
+      if (tourPositionHandler) return;
+      tourPositionHandler = () => {
+        if (!tourState.active) return;
+        const anchorEl = getCurrentAnchor();
+        if (anchorEl) positionTourPopover(anchorEl);
+      };
+      window.addEventListener("resize", tourPositionHandler);
+      window.addEventListener("scroll", tourPositionHandler, true);
+    }
+
+    function detachTourPositioning() {
+      if (!tourPositionHandler) return;
+      window.removeEventListener("resize", tourPositionHandler);
+      window.removeEventListener("scroll", tourPositionHandler, true);
+      tourPositionHandler = null;
+    }
+
+    function showStep(index) {
+      if (index < 0 || index >= tourSteps.length) {
+        closeTour("completed");
+        return;
+      }
+
+      tourState.currentStepIndex = index;
+      const step = tourSteps[index];
+      const anchorEl = getCurrentAnchor();
+
+      if (!anchorEl) {
+        closeTour("dismissed");
+        return;
+      }
+
+      clearTourHighlight();
+      anchorEl.classList.add("tour-highlight");
+      anchorEl.scrollIntoView({ block: "center", behavior: "smooth" });
+
+      tourTitle.textContent = step.title;
+      tourBody.textContent = step.body;
+      tourStep.textContent = `${index + 1} of ${tourSteps.length}`;
+
+      tourOverlay.style.display = "block";
+      tourPopover.style.display = "block";
+
+      attachTourPositioning();
+
+      requestAnimationFrame(() => {
+        positionTourPopover(anchorEl);
+        setTimeout(() => positionTourPopover(anchorEl), 350);
+      });
+    }
+
+    function startTour() {
+      if (!shouldStartTour()) return;
+      createTourElements();
+      tourState.active = true;
+      tourState.currentStepIndex = 0;
+      showStep(0);
+    }
+
+    function nextStep() {
+      if (tourHideCheckbox && tourHideCheckbox.checked) {
+        closeTour("hide");
+        return;
+      }
+      const nextIndex = tourState.currentStepIndex + 1;
+      if (nextIndex >= tourSteps.length) {
+        closeTour("completed");
+        return;
+      }
+      showStep(nextIndex);
+    }
+
+    function closeTour(reason) {
+      tourState.active = false;
+      detachTourPositioning();
+      clearTourHighlight();
+
+      if (tourOverlay) tourOverlay.style.display = "none";
+      if (tourPopover) tourPopover.style.display = "none";
+
+      if (reason === "hide") {
+        localStorage.setItem(TOUR_HIDE_KEY, "1");
+      } else if (reason === "completed") {
+        localStorage.setItem(TOUR_DONE_KEY, "1");
+      }
+    }
+
     // Initial state
     updateFileUI();
+    startTour();
   </script>
 </body>
 </html>
