@@ -2,6 +2,7 @@
 import traceback
 import os
 import io
+import json
 from io import BytesIO
 
 import httpx
@@ -89,6 +90,7 @@ class MarkTextRequest(BaseModel):
     text: str
     mode: str = "student"
     titles: list[TitleInfo] | None = None
+    highlight_thesis_devices: bool | None = False
 
 
 
@@ -423,12 +425,16 @@ async def mark_essay(
     # 5. Stream the marked .docx back to the client
     base_name = file.filename.rsplit(".", 1)[0] if file.filename else "essay"
     output_filename = f"{base_name}_marked.docx"
+    techniques = metadata.get("techniques_discussed", []) if isinstance(metadata, dict) else []
 
 
     return StreamingResponse(
         io.BytesIO(marked_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{output_filename}"',
+            "X-Vysti-Techniques": json.dumps(techniques),
+        },
     )
 
 
@@ -882,7 +888,7 @@ async def mark_text(
     mark_docx_bytes, _ = get_engine()
     mode = request.mode or "textual_analysis"
     teacher_config = teacher_config or {}
-    teacher_config["highlight_thesis_devices"] = False
+    teacher_config["highlight_thesis_devices"] = bool(request.highlight_thesis_devices)
     marked_bytes, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
@@ -990,9 +996,13 @@ async def mark_text(
     # 7. Return marked .docx bytes
     base_name = request.file_name.rsplit(".", 1)[0] if request.file_name else "essay"
     output_filename = f"{base_name}_marked.docx"
+    techniques = metadata.get("techniques_discussed", []) if isinstance(metadata, dict) else []
     
     return StreamingResponse(
         io.BytesIO(marked_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{output_filename}"',
+            "X-Vysti-Techniques": json.dumps(techniques),
+        },
     )
