@@ -210,12 +210,44 @@
       margin-top: 24px;
       grid-column: 1 / -1;
     }
+    .revision-practice-title {
+      margin-bottom: 12px;
+      font-size: var(--fs-h3);
+      font-weight: 700;
+      text-align: center;
+    }
+    .most-common-meta {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .most-common-word-count {
+      font-size: var(--fs-sm);
+      font-weight: 600;
+      color: var(--text);
+    }
+    .most-common-techniques {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: #fff;
+    }
+    .most-common-techniques-title {
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: none;
+      letter-spacing: 0.02em;
+    }
+    .most-common-techniques-list {
+      font-size: var(--fs-sm);
+      color: var(--text);
+      line-height: 1.4;
+    }
     .issue-select-wrapper {
       margin-bottom: 16px;
-    }
-    .issue-buttons-title {
-      font-weight: 700;
-      margin-bottom: 8px;
     }
     .issue-buttons-wrap {
       display: flex;
@@ -227,9 +259,9 @@
     }
     .issue-section-heading {
       text-align: center;
-      font-size: var(--fs-xs);
+      font-size: var(--fs-sm);
       font-weight: 700;
-      color: var(--muted);
+      color: rgba(0, 0, 0, 0.7);
       margin: 6px 0 8px;
       letter-spacing: 0.02em;
     }
@@ -262,7 +294,7 @@
     }
     .issue-explanation-header {
       font-weight: 700;
-      font-size: var(--fs-xs);
+      font-size: var(--fs-sm);
       margin-bottom: 6px;
       color: rgba(0, 0, 0, .75);
       text-transform: none;
@@ -288,13 +320,28 @@
       border: 1px solid #e0e0e0;
     }
     .example-guidance {
-      font-size: var(--fs-xs);
-      color: rgba(0, 0, 0, .75);
+      font-size: var(--fs-sm);
+      font-weight: 600;
+      color: #5a0f1c;
       margin-bottom: 8px;
-      padding: 10px 12px;
-      background: #fff;
-      border: 1px solid #e0e0e0;
+      padding: 12px;
+      background: rgba(169, 13, 34, 0.08);
+      border: 1px solid rgba(169, 13, 34, 0.18);
+      border-left: 4px solid rgba(169, 13, 34, 0.65);
       border-radius: 6px;
+    }
+    .example-guidance-label {
+      font-weight: 700;
+      font-size: var(--fs-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: rgba(90, 15, 28, 0.75);
+      margin-bottom: 6px;
+    }
+    .example-guidance-text {
+      font-weight: 600;
+      font-size: var(--fs-sm);
+      color: var(--text);
     }
     .example-student {
       font-size: var(--fs-xs);
@@ -342,6 +389,16 @@
       background: #f8f9fa;
       border-color: rgba(0,0,0,.14);
       color: rgba(0,0,0,.75);
+    }
+    .apply-to-preview-btn.apply-attention {
+      border-color: rgba(169, 13, 34, 0.55);
+      box-shadow: 0 0 0 3px rgba(169, 13, 34, 0.16);
+      animation: applyPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes applyPulse {
+      0% { box-shadow: 0 0 0 0 rgba(169, 13, 34, 0.25); }
+      60% { box-shadow: 0 0 0 6px rgba(169, 13, 34, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(169, 13, 34, 0); }
     }
     .apply-to-preview-btn:not(:disabled):hover {
       background: #e9ecef;
@@ -399,7 +456,7 @@
     </div>
   </header>
 
-  <main class="page">
+  <main class="page student-page">
     <form id="studentForm" class="marker-grid" style="display:none;">
       <section class="card form-card">
         <label>
@@ -623,7 +680,6 @@
         </div>
 
         <ul id="fileList" class="file-list"></ul>
-        <div id="wordCountReadout" style="margin-top: 8px; font-size: var(--fs-sm); color: var(--text);"></div>
         <button type="button" id="clearFileBtn" class="secondary-btn" style="display:none;">Clear file</button>
       </section>
 
@@ -639,15 +695,20 @@
           <div style="position: relative; height: 280px;">
             <canvas id="mostCommonIssuesChart"></canvas>
           </div>
+          <div id="mostCommonMeta" class="most-common-meta">
+            <div id="wordCountReadout" class="most-common-word-count"></div>
+            <div id="techniquesWrap" class="most-common-techniques" style="display:none;">
+              <div class="most-common-techniques-title">Techniques discussed</div>
+              <div id="techniquesList" class="most-common-techniques-list"></div>
+            </div>
+          </div>
         </div>
       </section>
     </form>
 
     <section class="card revision-practice-card" id="revisionPracticeCard" style="display:none;">
-      <h2 style="margin-bottom: 12px; font-size: var(--fs-h3); font-weight: 700;">Fix Your Most Common Issues</h2>
+      <h2 class="revision-practice-title">Fix Your Most Common Issues</h2>
       <div class="issue-select-wrapper">
-        <div class="issue-buttons-title">Select an issue</div>
-
         <!-- New UI -->
         <div id="issueButtonsWrap" class="issue-buttons-wrap"></div>
 
@@ -872,6 +933,8 @@
     let mostCommonIssuesChart = null;
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
+    const techniquesWrap = document.getElementById("techniquesWrap");
+    const techniquesList = document.getElementById("techniquesList");
     const assignmentNameInput = document.getElementById("assignmentName");
 
     let selectedFile = null;
@@ -1023,8 +1086,9 @@
       formData.append("file", selectedFile);
       formData.append("mode", mode);
       formData.append("include_summary_table", includeSummaryTable ? "true" : "false");
-      // Student mode: no green device/strategy highlighting in the returned docx
-      formData.append("highlight_thesis_devices", "false");
+      // Enable device/strategy highlighting for non-Argumentation modes
+      const shouldHighlightDevices = mode !== "argumentation";
+      formData.append("highlight_thesis_devices", shouldHighlightDevices ? "true" : "false");
 
       if (studentName) {
         formData.append("student_name", studentName);
@@ -1161,6 +1225,7 @@
       setModeExplainer(modeSelect.value);
       modeSelect.addEventListener("change", () => {
         setModeExplainer(modeSelect.value);
+        updateTechniquesUI();
       });
     }
 
@@ -1348,6 +1413,107 @@
       wordCountReadout.textContent = `Word count: ${currentWordCount}`;
     }
 
+    function hasGreenHighlightStyle(styleText) {
+      if (!styleText) return false;
+      return /rgb\(\s*0\s*,\s*176\s*,\s*80\s*\)/i.test(styleText) || /#00b050/i.test(styleText);
+    }
+
+    function isGreenHighlightedTextNode(textNode) {
+      if (!textNode || !textNode.parentElement) return false;
+      let el = textNode.parentElement;
+      while (el && el !== markedPreview) {
+        const inlineStyle = el.getAttribute("style");
+        if (hasGreenHighlightStyle(inlineStyle)) return true;
+        el = el.parentElement;
+      }
+      return false;
+    }
+
+    function extractTechniquesFromPreview() {
+      if (!markedPreview) return [];
+      const phrases = [];
+      const walker = document.createTreeWalker(markedPreview, NodeFilter.SHOW_TEXT, null);
+      let current = "";
+      let node = walker.nextNode();
+
+      while (node) {
+        const text = node.textContent || "";
+        const normalized = text.replace(/\s+/g, " ").trim();
+        const isGreen = normalized && isGreenHighlightedTextNode(node);
+
+        if (isGreen) {
+          current = current ? `${current} ${normalized}` : normalized;
+        } else if (current) {
+          phrases.push(current);
+          current = "";
+        }
+
+        node = walker.nextNode();
+      }
+
+      if (current) phrases.push(current);
+      return phrases;
+    }
+
+    function updateTechniquesUI() {
+      if (!techniquesWrap || !techniquesList) return;
+      const mode = modeSelect ? modeSelect.value : "";
+      if (mode === "argumentation") {
+        techniquesWrap.style.display = "none";
+        techniquesList.textContent = "";
+        return;
+      }
+      if (!markedPreview || !markedPreview.innerText.trim()) {
+        techniquesWrap.style.display = "none";
+        techniquesList.textContent = "";
+        return;
+      }
+
+      const phrases = extractTechniquesFromPreview();
+      if (!phrases.length) {
+        techniquesWrap.style.display = "none";
+        techniquesList.textContent = "";
+        return;
+      }
+
+      const counts = new Map();
+      const displayNames = new Map();
+      phrases.forEach((phrase) => {
+        const key = phrase.toLowerCase();
+        displayNames.set(key, displayNames.get(key) || phrase);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+
+      const sorted = Array.from(counts.entries()).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return displayNames.get(a[0]).localeCompare(displayNames.get(b[0]));
+      });
+
+      techniquesList.textContent = sorted
+        .map(([key, count]) => `${displayNames.get(key)} (${count})`)
+        .join(" • ");
+      techniquesWrap.style.display = "block";
+    }
+
+    function setApplyAttention(applyBtn) {
+      if (!applyBtn) return;
+      applyBtn.classList.add("apply-attention");
+      if (applyBtn._attentionTimer) clearTimeout(applyBtn._attentionTimer);
+      applyBtn._attentionTimer = setTimeout(() => {
+        applyBtn.classList.remove("apply-attention");
+        applyBtn._attentionTimer = null;
+      }, 6000);
+    }
+
+    function clearApplyAttention(applyBtn) {
+      if (!applyBtn) return;
+      applyBtn.classList.remove("apply-attention");
+      if (applyBtn._attentionTimer) {
+        clearTimeout(applyBtn._attentionTimer);
+        applyBtn._attentionTimer = null;
+      }
+    }
+
     function clearFile() {
       // Safety: stop any in-progress button loader
       stopButtonLoading(checkBtn, () => !!selectedFile);
@@ -1378,6 +1544,8 @@
       currentMarkEvent = null;
       currentWordCount = null;
       if (wordCountReadout) wordCountReadout.textContent = "";
+      if (techniquesWrap) techniquesWrap.style.display = "none";
+      if (techniquesList) techniquesList.textContent = "";
       hideTextDetails();
       
       // Clear Work 1 inputs
@@ -2272,16 +2440,19 @@
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
+            updateTechniquesUI();
             markedPreviewCard.style.display = "block";
           } else {
             // Fallback: show message if docx-preview not loaded
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             markedPreviewCard.style.display = "block";
+            updateTechniquesUI();
           }
         } catch (previewError) {
           console.error("Error rendering preview:", previewError);
           markedPreview.innerHTML = "<p>Error rendering preview. Please download the file to view.</p>";
           markedPreviewCard.style.display = "block";
+          updateTechniquesUI();
         }
 
         if (recheckDocumentBtn) {
@@ -2714,10 +2885,10 @@
         // Determine section for each label
         const labelToSection = {};
         const sectionLabels = {
-          "Title & Intro": [],
+          "Title and Introduction": [],
           "Conclusion": [],
         };
-        const bodySections = {}; // "Body paragraph N" -> [labels]
+        const bodySections = {}; // "Nth Body Paragraph" -> [labels]
         
         Object.keys(labelCounts).forEach(label => {
           const labelLower = label.toLowerCase();
@@ -2740,24 +2911,24 @@
               labelLower.includes("thesis") || 
               labelLower.includes("first sentence") || 
               labelLower.includes("introduction")) {
-            section = "Title & Intro";
-            sectionLabels["Title & Intro"].push(label);
+            section = "Title and Introduction";
+            sectionLabels["Title and Introduction"].push(label);
           } else if (dominantParaIdx === conclusion_idx_est || 
                      labelLower.includes("conclusion")) {
             section = "Conclusion";
             sectionLabels["Conclusion"].push(label);
           } else if (dominantParaIdx != null) {
             const bodyNum = dominantParaIdx - intro_idx_est;
-            const sectionName = `Body paragraph ${bodyNum}`;
+            const sectionName = formatBodySectionName(bodyNum);
             section = sectionName;
             if (!bodySections[sectionName]) {
               bodySections[sectionName] = [];
             }
             bodySections[sectionName].push(label);
           } else {
-            // Fallback: put in Title & Intro if we can't determine
-            section = "Title & Intro";
-            sectionLabels["Title & Intro"].push(label);
+            // Fallback: put in Title and Introduction if we can't determine
+            section = "Title and Introduction";
+            sectionLabels["Title and Introduction"].push(label);
           }
           
           labelToSection[label] = section;
@@ -2784,7 +2955,7 @@
           const numB = parseInt(b.match(/\d+/)?.[0] || "0", 10);
           return numA - numB;
         });
-        const sectionOrder = ["Title & Intro", ...bodySectionNames, "Conclusion"];
+        const sectionOrder = ["Title and Introduction", ...bodySectionNames, "Conclusion"];
         window.revisionSectionData.sectionOrder = sectionOrder;
         renderIssueButtonsFromSectionData(window.revisionSectionData, sectionOrder);
         sectionOrder.forEach(sectionName => {
@@ -3011,7 +3182,14 @@
           const guidanceDiv = document.createElement("div");
           guidanceDiv.className = "example-guidance";
           if (guidance) {
-            guidanceDiv.textContent = resolveStudentGuidance(guidance, ex.sentence || "", labelText);
+            const guidanceLabel = document.createElement("div");
+            guidanceLabel.className = "example-guidance-label";
+            guidanceLabel.textContent = "Student guidance";
+            const guidanceText = document.createElement("div");
+            guidanceText.className = "example-guidance-text";
+            guidanceText.textContent = resolveStudentGuidance(guidance, ex.sentence || "", labelText);
+            guidanceDiv.appendChild(guidanceLabel);
+            guidanceDiv.appendChild(guidanceText);
           } else {
             guidanceDiv.style.display = "none";
           }
@@ -3883,6 +4061,7 @@
             const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
             if (applyBtn) {
               applyBtn.disabled = false;
+              setApplyAttention(applyBtn);
             }
           }
         }
@@ -3894,6 +4073,7 @@
     }
 
     function applyRewriteToPreview(example, exampleRow, statusDiv, applyBtn) {
+      clearApplyAttention(applyBtn);
       // Ensure preview exists
       if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
         statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
@@ -4062,8 +4242,10 @@
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
+            updateTechniquesUI();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
+            updateTechniquesUI();
           }
 
           // Reload revision practice to refresh issues + examples
@@ -4459,6 +4641,22 @@
       if (mostCommonIssuesWrap && mostCommonIssuesWrap.dataset.hasData === "true") {
         mostCommonIssuesWrap.style.display = "block";
       }
+
+    function formatOrdinal(n) {
+      const num = parseInt(n, 10);
+      if (Number.isNaN(num)) return `${n}`;
+      const mod100 = num % 100;
+      if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+      const mod10 = num % 10;
+      if (mod10 === 1) return `${num}st`;
+      if (mod10 === 2) return `${num}nd`;
+      if (mod10 === 3) return `${num}rd`;
+      return `${num}th`;
+    }
+
+    function formatBodySectionName(bodyNum) {
+      return `${formatOrdinal(bodyNum)} Body Paragraph`;
+    }
     }
 
     function startPostPreviewTour() {
