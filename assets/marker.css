@@ -731,27 +731,6 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   outline: none !important;
 }
 
-/* Force bright green for device highlights in docx preview */
-/* Override dark green highlight colors to bright neon green */
-#markedPreview span[style*="#00B050"],
-#markedPreview span[style*="#00b050"],
-#markedPreview span[style*="rgb(0, 176, 80)"],
-#markedPreview span[style*="rgb(0,176,80)"],
-.docx-wrapper span[style*="#00B050"],
-.docx-wrapper span[style*="#00b050"],
-.docx-wrapper span[style*="rgb(0, 176, 80)"],
-.docx-wrapper span[style*="rgb(0,176,80)"],
-.docx span[style*="#00B050"],
-.docx span[style*="#00b050"],
-.docx span[style*="rgb(0, 176, 80)"],
-.docx span[style*="rgb(0,176,80)"],
-.preview-editable span[style*="#00B050"],
-.preview-editable span[style*="#00b050"],
-.preview-editable span[style*="rgb(0, 176, 80)"],
-.preview-editable span[style*="rgb(0,176,80)"] {
-  background-color: #00ff00 !important;
-}
-
 /* =========================
    Student tour (guided)
    ========================= */
