@@ -157,6 +157,8 @@ prolepsis,prolepsis
 exclamatory,exclamatory
 parenthesis,parenthesis
 parenthetical,parenthetical
+parentheticals,parenthetical
+parentheses,parenthetical
 conditional,conditional
 modal,modal
 cumulative,cumulative
