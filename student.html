@@ -879,6 +879,7 @@
     let downloadUrl = null;
     let markedBlob = null;
     let currentMarkEvent = null;
+    let lastRevisionSectionData = null;
     let pendingDetectedMeta = null;
     let currentWordCount = null;
     let hasStartedRevising = false;
@@ -2396,6 +2397,12 @@
         issueSelect.appendChild(option);
       });
     });
+
+    function scrollToExamples() {
+      const target = document.getElementById("examplesList");
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     
     // Handle issue selection (set up once)
     issueSelect.addEventListener("change", async (e) => {
@@ -2408,6 +2415,7 @@
       }
 
       await loadIssueExamples(selectedLabel);
+      scrollToExamples();
     });
 
     let activeIssueBtn = null;
@@ -2449,6 +2457,8 @@
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "issue-btn";
+          btn.classList.add("tt");
+          btn.setAttribute("data-tip", "Click to see example");
           btn.dataset.issueLabel = label;
 
           const count = labelCounts[label] || 0;
@@ -2622,6 +2632,8 @@
         return;
       }
 
+      lastRevisionSectionData = null;
+
       try {
         // Get latest mark event for this user and file
         const { data: markEvents, error: markError } = await supa
@@ -2762,6 +2774,7 @@
           sectionLabels,
           labelCounts
         };
+        lastRevisionSectionData = window.revisionSectionData;
         
         // Populate sectionSelect (only include sections with at least one label)
         sectionSelect.innerHTML = '<option value="">All sections</option>';
@@ -3101,6 +3114,44 @@
         console.error("Error loading issue examples:", error);
         examplesList.innerHTML = "<li>Error loading examples.</li>";
       }
+    }
+
+    async function loadRandomIssueForTraining() {
+      let candidates = [];
+      if (mostCommonIssuesChart?.data?.labels?.length) {
+        candidates = mostCommonIssuesChart.data.labels.slice();
+      } else if (lastRevisionSectionData?.labelCounts) {
+        candidates = Object.entries(lastRevisionSectionData.labelCounts)
+          .filter(([lbl, ct]) => lbl && (ct || 0) > 0)
+          .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+          .slice(0, 8)
+          .map(([lbl]) => lbl);
+      }
+      if (!candidates.length) return null;
+
+      const label = candidates[Math.floor(Math.random() * candidates.length)];
+
+      if (sectionSelect) {
+        sectionSelect.value = "";
+        sectionSelect.dispatchEvent(new Event("change"));
+      }
+      if (issueSelect) {
+        issueSelect.value = label;
+      }
+
+      await loadIssueExamples(label);
+
+      const btn = issueButtonsWrap?.querySelector(
+        `.issue-btn[data-issue-label="${CSS.escape(label)}"]`
+      );
+      if (btn) {
+        if (activeIssueBtn) activeIssueBtn.classList.remove("active");
+        activeIssueBtn = btn;
+        activeIssueBtn.classList.add("active");
+      }
+
+      scrollToExamples();
+      return label;
     }
 
     // ===== Preview highlighting helpers =====
@@ -4111,12 +4162,12 @@
       {
         anchor: "#mostCommonIssuesWrap",
         title: "Most Common Issues",
-        body: "This chart shows your most frequent issues. The colors match the highlight categories in your Preview.",
+        body: "Rollover an issue to see an explanation. Then revise your essay to get rid of these issues one by one.",
       },
       {
-        anchor: "#revisionPracticeCard",
+        anchor: "#issueButtonsWrap",
         title: "Fix Your Most Common Issues",
-        body: "Select an issue to see an explanation and examples, then draft a rewrite and apply it to the Preview. Recheck after editing to see what improved (and what new issues you may have introduced).",
+        body: "These are color-coded to match the bar chart above. Click on an issue to see what you need to fix.",
       },
       {
         anchor: "#markedPreviewCard",
@@ -4127,6 +4178,11 @@
         anchor: "#recheckDocumentBtn",
         title: "Recheck",
         body: "After editing the Preview, click here to regenerate your feedback. Edits can fix issues — but can also create new ones.",
+      },
+      {
+        anchor: "#examplesList",
+        title: "Practice a revision",
+        body: "Pick an example below, rewrite it, then click ‘Check rewrite’. If it’s approved, click ‘Apply to Preview’ to update your document.",
       },
     ];
 
@@ -4341,7 +4397,7 @@
       startTourAt(0, { force, steps: preUploadTourSteps });
     }
 
-    function nextStep() {
+    async function nextStep() {
       if (tourHideCheckbox && tourHideCheckbox.checked) {
         closeTour("hide");
         return;
@@ -4349,6 +4405,24 @@
       if (activeTourSteps === postUploadTourSteps && tourState.currentStepIndex === 0) {
         metaConfirm.classList.remove("visible");
         metaConfirm.textContent = "";
+      }
+      const currentStep = activeTourSteps[tourState.currentStepIndex];
+      const isPostPreviewRecheck =
+        activeTourSteps === postPreviewTourSteps &&
+        currentStep?.anchor === "#recheckDocumentBtn";
+      if (isPostPreviewRecheck) {
+        if (tourNextBtn) tourNextBtn.disabled = true;
+        try {
+          const label = await loadRandomIssueForTraining();
+          if (!label) {
+            closeTour("completed");
+            return;
+          }
+          showStep(tourState.currentStepIndex + 1);
+        } finally {
+          if (tourNextBtn) tourNextBtn.disabled = false;
+        }
+        return;
       }
       const nextIndex = tourState.currentStepIndex + 1;
       if (nextIndex >= activeTourSteps.length) {
