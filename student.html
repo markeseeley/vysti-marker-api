@@ -378,15 +378,9 @@
       <section class="card form-card">
         <label>
           <span class="label-row mode-select-label-row">
-            What is the assignment?
-            <span class="type-info tt"
-                  tabindex="0"
-                  aria-label="What is the assignment?"
-                  data-tip="Pick what you’re writing so Vysti can use the right rules. Different assignments = different checks. If you’re doing an analytic essay, you’re in the right place — that mode is the most complete. Choose it, upload your .docx, and we’ll start fixing things.">
-              i
-            </span>
+            <span class="visually-hidden">Assignment type</span>
           </span>
-          <select id="mode">
+          <select id="mode" aria-label="Assignment type">
             <option value="textual_analysis">Analytic essay</option>
             <option value="peel_paragraph">Mini-essay paragraph</option>
             <option value="reader_response">Reader response</option>
@@ -433,27 +427,22 @@
           </div>
           <label class="visually-hidden" for="assignmentName">Assignment name (optional)</label>
           <input type="text" id="assignmentName" placeholder="Assignment name (optional) — e.g., Homework 01" aria-label="Assignment name (optional)" />
-          <label style="margin-top: 12px;">
-            Word count (optional)
-            <input type="number" id="targetWordCount" min="0" step="1" placeholder="e.g., 800" />
-          </label>
-          <div id="wordCountReadout" style="margin-top: 8px; font-size: var(--fs-sm); color: var(--text);"></div>
         </div>
 
-        <div class="text-details-toggle" id="textDetailsToggle">
+        <div class="text-details-toggle hidden" id="textDetailsToggle">
           Enter author and text titles ▼
         </div>
 
-        <div class="text-details-section visible" id="textDetailsSection">
+        <div class="text-details-section hidden" id="textDetailsSection">
           <div class="work-section" id="work1Section">
             <div id="metaConfirm" class="detected-meta"></div>
             <label>
-              Who is the author?
+              Author
               <input type="text" id="author" placeholder="Author's full name" />
             </label>
 
             <label>
-              What is the title?
+              Title
               <input type="text" id="title" placeholder="Title of the text" />
             </label>
 
@@ -495,12 +484,12 @@
           <div class="work-section hidden" id="work2Section">
             <div class="work-title">Work 2</div>
             <label>
-              Who is the author?
+              Author
               <input type="text" id="author2" placeholder="Author's full name" />
             </label>
 
             <label>
-              What is the title?
+              Title
               <input type="text" id="title2" placeholder="Title of the text" />
             </label>
 
@@ -542,12 +531,12 @@
           <div class="work-section hidden" id="work3Section">
             <div class="work-title">Work 3</div>
             <label>
-              Who is the author?
+              Author
               <input type="text" id="author3" placeholder="Author's full name" />
             </label>
 
             <label>
-              What is the title?
+              Title
               <input type="text" id="title3" placeholder="Title of the text" />
             </label>
 
@@ -589,7 +578,7 @@
       </section>
 
       <section class="card upload-card">
-        <label>Essay (.docx)</label>
+        <label>Upload</label>
         
         <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload .docx file">
           <img class="dz-icon" src="/assets/cloud-upload.svg" alt="" aria-hidden="true" />
@@ -606,6 +595,7 @@
         </div>
 
         <ul id="fileList" class="file-list"></ul>
+        <div id="wordCountReadout" style="margin-top: 8px; font-size: var(--fs-sm); color: var(--text);"></div>
         <button type="button" id="clearFileBtn" class="secondary-btn" style="display:none;">Clear file</button>
       </section>
 
@@ -842,7 +832,6 @@
     let mostCommonIssuesChart = null;
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
-    const targetWordCountInput = document.getElementById("targetWordCount");
 
     let selectedFile = null;
     const buttonLoadingTimers = new Map();
@@ -1056,18 +1045,18 @@
     }
 
     // ===== Student helpers tour flags =====
-    const DEV_FORCE_STUDENT_HELPERS = true;
+    const FORCE_STUDENT_HELPERS = true;
     const TOUR_HIDE_KEY = "vysti_student_tour_hide";
     const TOUR_DONE_KEY = "vysti_student_tour_completed";
     const STUDENT_HELPERS_DISABLED_KEY = TOUR_HIDE_KEY;
 
-    if (DEV_FORCE_STUDENT_HELPERS) {
+    if (FORCE_STUDENT_HELPERS) {
       localStorage.removeItem(STUDENT_HELPERS_DISABLED_KEY);
       localStorage.removeItem(TOUR_DONE_KEY);
     }
 
     function shouldShowStudentHelpers() {
-      if (DEV_FORCE_STUDENT_HELPERS) return true;
+      if (FORCE_STUDENT_HELPERS) return true;
       return !localStorage.getItem(STUDENT_HELPERS_DISABLED_KEY) && !localStorage.getItem(TOUR_DONE_KEY);
     }
 
@@ -1094,7 +1083,7 @@
         // Make sure layout is ready before positioning the helper window arrows
         requestAnimationFrame(() => {
           setTimeout(() => {
-            startTour({ force: DEV_FORCE_STUDENT_HELPERS });
+            startTour({ force: FORCE_STUDENT_HELPERS });
           }, 50);
         });
       }
@@ -1166,6 +1155,27 @@
       addWork3Btn.classList.add("hidden");
     });
 
+    function showTextDetails({ expand = true } = {}) {
+      if (!textDetailsToggle || !textDetailsSection) return;
+      textDetailsToggle.classList.remove("hidden");
+      textDetailsSection.classList.remove("hidden");
+      if (expand) {
+        textDetailsSection.classList.add("visible");
+        textDetailsToggle.textContent = "Enter author and text titles ▲";
+      } else {
+        textDetailsSection.classList.remove("visible");
+        textDetailsToggle.textContent = "Enter author and text titles ▼";
+      }
+    }
+
+    function hideTextDetails() {
+      if (!textDetailsToggle || !textDetailsSection) return;
+      textDetailsSection.classList.remove("visible");
+      textDetailsToggle.textContent = "Enter author and text titles ▼";
+      textDetailsToggle.classList.add("hidden");
+      textDetailsSection.classList.add("hidden");
+    }
+
     // ===== Text details toggle =====
     textDetailsToggle.addEventListener("click", () => {
       const isVisible = textDetailsSection.classList.contains("visible");
@@ -1202,20 +1212,7 @@
         return;
       }
       
-      const target = targetWordCountInput ? parseInt(targetWordCountInput.value, 10) : null;
-      
-      if (!isNaN(target) && target > 0) {
-        const diff = currentWordCount - target;
-        if (diff === 0) {
-          wordCountReadout.textContent = `Word count: ${currentWordCount} (on target)`;
-        } else if (diff > 0) {
-          wordCountReadout.textContent = `Word count: ${currentWordCount} (target ${target}: ${diff} words over)`;
-        } else {
-          wordCountReadout.textContent = `Word count: ${currentWordCount} (target ${target}: ${Math.abs(diff)} words under)`;
-        }
-      } else {
-        wordCountReadout.textContent = `Word count: ${currentWordCount}`;
-      }
+      wordCountReadout.textContent = `Word count: ${currentWordCount}`;
     }
 
     function clearFile() {
@@ -1247,6 +1244,7 @@
       currentMarkEvent = null;
       currentWordCount = null;
       if (wordCountReadout) wordCountReadout.textContent = "";
+      hideTextDetails();
       
       // Clear Work 1 inputs
       const authorInput = document.getElementById("author");
@@ -1893,6 +1891,7 @@
       if (files && files.length > 0) {
         selectedFile = files[0];
         updateFileUI();
+        showTextDetails({ expand: true });
         
         // Extract metadata and store for later (after marking)
         const meta = await extractMetaFromDocx(selectedFile);
@@ -1904,6 +1903,7 @@
           }
           applyDetectedMetaAfterCheck();
         }
+        startPostUploadTour();
       }
     });
 
@@ -1982,6 +1982,7 @@
           dt.items.add(docxFile);
           fileInput.files = dt.files;
           updateFileUI();
+          showTextDetails({ expand: true });
           
           // Extract metadata and store for later (after marking)
           const meta = await extractMetaFromDocx(selectedFile);
@@ -1993,6 +1994,7 @@
             }
             applyDetectedMetaAfterCheck();
           }
+          startPostUploadTour();
         } else {
           statusArea.textContent = "Please upload a .docx file.";
           statusArea.className = "status-area error";
@@ -2202,8 +2204,7 @@
       metaConfirm.classList.add("visible");
 
       // Ensure the section is open so the student sees it
-      textDetailsSection.classList.add("visible");
-      textDetailsToggle.textContent = "Enter author and text titles ▲";
+      showTextDetails({ expand: true });
     }
 
     // ===== Revision Practice =====
@@ -3794,11 +3795,6 @@
       URL.revokeObjectURL(url);
     }
 
-    // Word count target input listener
-    if (targetWordCountInput) {
-      targetWordCountInput.addEventListener("input", updateWordCountUI);
-    }
-
     // Recheck document button handler
     if (recheckDocumentBtn) {
       recheckDocumentBtn.addEventListener("click", async () => {
@@ -3919,23 +3915,43 @@
     // Student tour controller
     // =========================
 
-    const tourSteps = [
+    const preUploadTourSteps = [
       {
-        anchor: ".mode-select-label-row",
-        title: "What is the assignment?",
+        anchor: "#mode",
+        title: "Assignment type",
         body: "Choose the assignment type so Vysti applies the right rules.",
       },
       {
-        anchor: ".assignment-tracker-block",
+        anchor: "#assignmentName",
         title: "Assignment Tracker",
-        body: "Name your draft and add a target word count to track progress.",
+        body: "Name your draft...to track progress",
       },
       {
         anchor: "#dropZone",
-        title: "Essay (.docx)",
-        body: "Upload your .docx essay here to get feedback and highlights.",
+        title: "Upload",
+        body: "Upload your .docx file here to get feedback and highlights.",
       },
     ];
+
+    const postUploadTourSteps = [
+      {
+        anchor: "#work1Section",
+        title: "Author + Title",
+        body: "Check Author and Title to make sure they are correct.",
+      },
+      {
+        anchor: ".title-type-block",
+        title: "Minor vs Major",
+        body: "Use Minor/Major to choose how the title should appear. Click Add another if you’re writing about more than one text.",
+      },
+      {
+        anchor: "#checkBtn",
+        title: "Mark my essay",
+        body: "Click Mark my essay to upload your draft and generate your marked document + preview.",
+      },
+    ];
+
+    let activeTourSteps = preUploadTourSteps;
 
     const tourState = {
       currentStepIndex: 0,
@@ -4021,7 +4037,7 @@
     }
 
     function getCurrentAnchor() {
-      const step = tourSteps[tourState.currentStepIndex];
+      const step = activeTourSteps[tourState.currentStepIndex];
       if (!step) return null;
       return document.querySelector(step.anchor);
     }
@@ -4084,7 +4100,7 @@
     }
 
     function showStep(index) {
-      if (index < 0 || index >= tourSteps.length) {
+      if (index < 0 || index >= activeTourSteps.length) {
         closeTour("completed");
         return;
       }
@@ -4093,8 +4109,8 @@
       let step = null;
       let resolvedIndex = index;
 
-      for (let i = index; i < tourSteps.length; i += 1) {
-        const candidate = tourSteps[i];
+      for (let i = index; i < activeTourSteps.length; i += 1) {
+        const candidate = activeTourSteps[i];
         const candidateAnchor = document.querySelector(candidate.anchor);
         if (candidateAnchor) {
           resolvedIndex = i;
@@ -4117,7 +4133,7 @@
 
       tourTitle.textContent = step.title;
       tourBody.textContent = step.body;
-      tourStep.textContent = `${resolvedIndex + 1} of ${tourSteps.length}`;
+      tourStep.textContent = `${resolvedIndex + 1} of ${activeTourSteps.length}`;
 
       tourOverlay.style.display = "block";
       tourPopover.style.display = "block";
@@ -4130,15 +4146,20 @@
       });
     }
 
-    function startTour({ force = false } = {}) {
-      if (!shouldShowStudentHelpers()) return;
+    function startTourAt(index, { force = false, steps = preUploadTourSteps } = {}) {
+      if (!force && !shouldShowStudentHelpers()) return;
+      activeTourSteps = steps;
       createTourElements();
       tourState.active = true;
-      tourState.currentStepIndex = 0;
+      tourState.currentStepIndex = index;
       if (force && tourHideCheckbox) {
         tourHideCheckbox.checked = false;
       }
-      showStep(0);
+      showStep(index);
+    }
+
+    function startTour({ force = false } = {}) {
+      startTourAt(0, { force, steps: preUploadTourSteps });
     }
 
     function nextStep() {
@@ -4147,7 +4168,7 @@
         return;
       }
       const nextIndex = tourState.currentStepIndex + 1;
-      if (nextIndex >= tourSteps.length) {
+      if (nextIndex >= activeTourSteps.length) {
         closeTour("completed");
         return;
       }
@@ -4167,6 +4188,10 @@
       } else if (reason === "completed") {
         localStorage.setItem(TOUR_DONE_KEY, "1");
       }
+    }
+
+    function startPostUploadTour() {
+      startTourAt(0, { force: FORCE_STUDENT_HELPERS, steps: postUploadTourSteps });
     }
 
     // Initial state
