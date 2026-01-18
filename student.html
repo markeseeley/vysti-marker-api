@@ -420,13 +420,13 @@
               <span class="type-info tt"
                     tabindex="0"
                     aria-label="Assignment Tracker"
-                    data-tip="Want to track progress? Name drafts like Homework 01, 02, 03… so your dashboard makes sense later. Don’t care? Leave it blank. We won’t be offended.">
+                    data-tip="Want to track progress? Name drafts like Assignment 01, 02, 03… so your dashboard makes sense later. Don’t care? Leave it blank. We won’t be offended.">
                 i
               </span>
             </span>
           </div>
           <label class="visually-hidden" for="assignmentName">Assignment name (optional)</label>
-          <input type="text" id="assignmentName" placeholder="Assignment name (optional) — e.g., Homework 01" aria-label="Assignment name (optional)" />
+          <input type="text" id="assignmentName" placeholder="Assignment 01" aria-label="Assignment name (optional)" />
         </div>
 
         <div class="text-details-toggle hidden" id="textDetailsToggle">
@@ -832,6 +832,7 @@
     let mostCommonIssuesChart = null;
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
+    const assignmentNameInput = document.getElementById("assignmentName");
 
     let selectedFile = null;
     const buttonLoadingTimers = new Map();
@@ -1187,6 +1188,19 @@
         textDetailsToggle.textContent = "Enter author and text titles ▲";
       }
     });
+
+    function handleAssignmentNameFocus() {
+      if (!assignmentNameInput) return;
+      if (!assignmentNameInput.value.trim()) {
+        assignmentNameInput.value = "Assignment 01";
+        requestAnimationFrame(() => assignmentNameInput.select());
+      }
+    }
+
+    if (assignmentNameInput) {
+      assignmentNameInput.addEventListener("focus", handleAssignmentNameFocus);
+      assignmentNameInput.addEventListener("click", handleAssignmentNameFocus);
+    }
 
     // ===== File handling (single file only) =====
     function updateFileUI() {
@@ -1974,7 +1988,13 @@
 
       if (e.dataTransfer && e.dataTransfer.files) {
         const files = Array.from(e.dataTransfer.files);
-        const docxFile = files.find(f => /\.docx$/i.test(f.name));
+        const docxFiles = files.filter(f => /\.docx$/i.test(f.name));
+        if (docxFiles.length > 1) {
+          statusArea.textContent = "Please drop only one .docx file.";
+          statusArea.className = "status-area error";
+          return;
+        }
+        const docxFile = docxFiles[0];
         if (docxFile) {
           selectedFile = docxFile;
           // Update file input programmatically
@@ -3924,12 +3944,12 @@
       {
         anchor: "#assignmentName",
         title: "Assignment Tracker",
-        body: "Name your draft...to track progress",
+        body: "Name and number your draft to track progress.",
       },
       {
         anchor: "#dropZone",
         title: "Upload",
-        body: "Upload your .docx file here to get feedback and highlights.",
+        body: "Upload your .docx file here.",
       },
     ];
 
@@ -3937,17 +3957,17 @@
       {
         anchor: "#work1Section",
         title: "Author + Title",
-        body: "Check Author and Title to make sure they are correct.",
+        body: "Vysti tries to guess Author and Title, so check to ensure they match your document.",
       },
       {
-        anchor: ".title-type-block",
+        anchor: "#addWork2Btn",
         title: "Minor vs Major",
-        body: "Use Minor/Major to choose how the title should appear. Click Add another if you’re writing about more than one text.",
+        body: "Use these buttons to choose how the title should appear in MLA style.",
       },
       {
         anchor: "#checkBtn",
         title: "Mark my essay",
-        body: "Click Mark my essay to upload your draft and generate your marked document + preview.",
+        body: "Click here to generate a preview and revise your work.",
       },
     ];
 
@@ -4167,6 +4187,10 @@
         closeTour("hide");
         return;
       }
+      if (activeTourSteps === postUploadTourSteps && tourState.currentStepIndex === 0) {
+        metaConfirm.classList.remove("visible");
+        metaConfirm.textContent = "";
+      }
       const nextIndex = tourState.currentStepIndex + 1;
       if (nextIndex >= activeTourSteps.length) {
         closeTour("completed");
@@ -4182,6 +4206,8 @@
 
       if (tourOverlay) tourOverlay.style.display = "none";
       if (tourPopover) tourPopover.style.display = "none";
+      metaConfirm.classList.remove("visible");
+      metaConfirm.textContent = "";
 
       if (reason === "hide") {
         localStorage.setItem(TOUR_HIDE_KEY, "1");
@@ -4191,6 +4217,8 @@
     }
 
     function startPostUploadTour() {
+      metaConfirm.textContent = "Did we get the author and title right?";
+      metaConfirm.classList.add("visible");
       startTourAt(0, { force: FORCE_STUDENT_HELPERS, steps: postUploadTourSteps });
     }
 
