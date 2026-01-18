@@ -1055,7 +1055,24 @@
       });
     }
 
+    // ===== Student helpers tour flags =====
+    const DEV_FORCE_STUDENT_HELPERS = true;
+    const TOUR_HIDE_KEY = "vysti_student_tour_hide";
+    const TOUR_DONE_KEY = "vysti_student_tour_completed";
+    const STUDENT_HELPERS_DISABLED_KEY = TOUR_HIDE_KEY;
+
+    if (DEV_FORCE_STUDENT_HELPERS) {
+      localStorage.removeItem(STUDENT_HELPERS_DISABLED_KEY);
+      localStorage.removeItem(TOUR_DONE_KEY);
+    }
+
+    function shouldShowStudentHelpers() {
+      if (DEV_FORCE_STUDENT_HELPERS) return true;
+      return !localStorage.getItem(STUDENT_HELPERS_DISABLED_KEY) && !localStorage.getItem(TOUR_DONE_KEY);
+    }
+
     // ===== Auth + role guard =====
+    let studentHelpersStartedThisLoad = false;
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
       const session = data.session;
@@ -1070,6 +1087,17 @@
 
       // Logged in as student
       form.style.display = "grid";
+
+      if (!studentHelpersStartedThisLoad && shouldShowStudentHelpers()) {
+        studentHelpersStartedThisLoad = true;
+
+        // Make sure layout is ready before positioning the helper window arrows
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            startTour({ force: DEV_FORCE_STUDENT_HELPERS });
+          }, 50);
+        });
+      }
     }
 
     // Initial auth check
@@ -3890,8 +3918,6 @@
     // =========================
     // Student tour controller
     // =========================
-    const TOUR_HIDE_KEY = "vysti_student_tour_hide";
-    const TOUR_DONE_KEY = "vysti_student_tour_completed";
 
     const tourSteps = [
       {
@@ -3926,10 +3952,6 @@
     let tourHideCheckbox = null;
     let tourArrow = null;
     let tourPositionHandler = null;
-
-    function shouldStartTour() {
-      return !localStorage.getItem(TOUR_HIDE_KEY) && !localStorage.getItem(TOUR_DONE_KEY);
-    }
 
     function createTourElements() {
       if (tourPopover) return;
@@ -4067,14 +4089,27 @@
         return;
       }
 
-      tourState.currentStepIndex = index;
-      const step = tourSteps[index];
-      const anchorEl = getCurrentAnchor();
+      let anchorEl = null;
+      let step = null;
+      let resolvedIndex = index;
 
-      if (!anchorEl) {
+      for (let i = index; i < tourSteps.length; i += 1) {
+        const candidate = tourSteps[i];
+        const candidateAnchor = document.querySelector(candidate.anchor);
+        if (candidateAnchor) {
+          resolvedIndex = i;
+          step = candidate;
+          anchorEl = candidateAnchor;
+          break;
+        }
+      }
+
+      if (!anchorEl || !step) {
         closeTour("dismissed");
         return;
       }
+
+      tourState.currentStepIndex = resolvedIndex;
 
       clearTourHighlight();
       anchorEl.classList.add("tour-highlight");
@@ -4082,7 +4117,7 @@
 
       tourTitle.textContent = step.title;
       tourBody.textContent = step.body;
-      tourStep.textContent = `${index + 1} of ${tourSteps.length}`;
+      tourStep.textContent = `${resolvedIndex + 1} of ${tourSteps.length}`;
 
       tourOverlay.style.display = "block";
       tourPopover.style.display = "block";
@@ -4095,11 +4130,14 @@
       });
     }
 
-    function startTour() {
-      if (!shouldStartTour()) return;
+    function startTour({ force = false } = {}) {
+      if (!shouldShowStudentHelpers()) return;
       createTourElements();
       tourState.active = true;
       tourState.currentStepIndex = 0;
+      if (force && tourHideCheckbox) {
+        tourHideCheckbox.checked = false;
+      }
       showStep(0);
     }
 
@@ -4133,7 +4171,6 @@
 
     // Initial state
     updateFileUI();
-    startTour();
   </script>
 </body>
 </html>
