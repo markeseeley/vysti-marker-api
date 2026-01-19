@@ -3401,6 +3401,13 @@
           li.dataset.paragraphIndex = String(ex.paragraph_index ?? "");
           li._exampleData = ex;
           
+          rewriteTextarea.addEventListener("focus", () => {
+            cursorHighlightExampleInPreview(ex);
+          });
+          rewriteTextarea.addEventListener("input", () => {
+            cursorHighlightExampleInPreview(ex);
+          });
+
           const rewriteStatusDiv = document.createElement("div");
           rewriteStatusDiv.className = "rewrite-status";
           
@@ -4087,6 +4094,30 @@
       return { ok: true, hits: [], blockEl: blockEl, used: "paragraph" };
     }
 
+    function cursorHighlightExampleInPreview(example) {
+      if (!markedPreview) return;
+      clearPreviewHighlights();
+
+      const sentence = example?.sentence || "";
+      const paragraphEl = findBestPreviewBlockForExample(example);
+      if (!paragraphEl) return;
+
+      let hits = highlightExactTextInElement(paragraphEl, sentence);
+      if (!hits || hits.length === 0) {
+        hits = highlightAnchoredSentenceInElement(
+          paragraphEl,
+          sentence,
+          buildAnchorCandidates(sentence)
+        );
+      }
+
+      if (hits && hits.length > 0) {
+        hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+      }
+
+      paragraphEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
     function brandedConfirm({ title, body, okText = "Remove", cancelText = "Cancel" } = {}) {
       const overlay = document.getElementById("brandConfirmOverlay");
       const titleEl = document.getElementById("brandConfirmTitle");
@@ -4292,6 +4323,7 @@
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
         const labelTrimmed = label.replace(/\s+/g, " ").trim();
         const titles = buildTitlesFromInputs();
+        const contextText = extractPreviewText();
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
           headers: {
@@ -4304,6 +4336,10 @@
             rewrite: rewrite,
             mode: currentMode,
             titles: titles.length > 0 ? titles : null,
+            highlight_thesis_devices: false,
+            context_text: contextText,
+            paragraph_index: example?.paragraph_index ?? null,
+            original_sentence: example?.sentence ?? null,
           }),
         });
 
@@ -4367,6 +4403,7 @@
       const paragraphIndex = exampleRow?.dataset?.paragraphIndex ?? exampleData?.paragraph_index ?? "";
 
       // Find the sentence in preview
+      clearPreviewHighlights();
       const result = highlightAndScrollToExample(exampleData, null);
       
       if (!result.ok || result.hits.length === 0) {
@@ -4390,6 +4427,8 @@
         rewriteSpan.textContent = rewriteText;
 
         range.insertNode(rewriteSpan);
+        rewriteSpan.classList.add("vysti-flash-highlight");
+        setTimeout(() => rewriteSpan.classList.remove("vysti-flash-highlight"), 1200);
 
         // Move caret after inserted rewrite (nice UX, avoids weird selection states)
         range.setStartAfter(rewriteSpan);
