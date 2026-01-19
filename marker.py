@@ -1281,6 +1281,36 @@ def compute_topic_sentence_span(flat_text: str, quote_spans: list) -> tuple[int,
     return (topic_start, topic_end)
 
 
+CONTENT_POS_TAGS = {"NOUN", "PROPN", "VERB", "ADJ", "ADV"}
+CONTENT_LEMMA_EXCLUSIONS = {"be", "have", "do"}
+
+
+def normalize_paragraph_text_for_context(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def extract_content_lemmas(doc, start: int, end: int) -> set[str]:
+    words: set[str] = set()
+    if start is None or end is None:
+        return words
+    for tok in doc:
+        if tok.idx < start or tok.idx >= end:
+            continue
+        if tok.is_space or tok.is_punct:
+            continue
+        if tok.pos_ not in CONTENT_POS_TAGS:
+            continue
+        lemma = (tok.lemma_ or "").lower().strip()
+        if not lemma:
+            continue
+        if tok.is_stop:
+            continue
+        if lemma in CONTENT_LEMMA_EXCLUSIONS:
+            continue
+        words.add(lemma)
+    return words
+
+
 def get_paragraph_role(paragraph_index, intro_idx, total_paragraphs, config: MarkerConfig | None = None):
     """
     Classify the current paragraph as 'intro', 'body', 'conclusion', or 'other'
@@ -1898,6 +1928,7 @@ def analyze_text(
     labels_used=None,
     intro_idx=0,
     config: MarkerConfig | None = None,
+    prev_paragraph_last_content_words: set[str] | None = None,
 ):
     """
     Phase 1 — Forbidden Words
@@ -2242,6 +2273,15 @@ def analyze_text(
 
     if is_foundation3:
         paragraph_role = "intro"
+
+    last_sentence_content_words: set[str] = set()
+    topic_sentence_content_words: set[str] = set()
+    if sentences:
+        last_start, last_end = sentences[-1]
+        last_sentence_content_words = extract_content_lemmas(doc, last_start, last_end)
+    if paragraph_role == "body" and sentences:
+        topic_start, topic_end = compute_topic_sentence_span(flat_text, spans)
+        topic_sentence_content_words = extract_content_lemmas(doc, topic_start, topic_end)
 
     # Convenience flags: first and last content paragraph indices
     is_first_intro_para = (
@@ -4887,6 +4927,12 @@ def analyze_text(
             match_end = tokens[0][2]
             matched = True
 
+    if paragraph_role != "body":
+        matched = False
+    elif matched and prev_paragraph_last_content_words:
+        if prev_paragraph_last_content_words & topic_sentence_content_words:
+            matched = False
+
     # If a match was found at the start, mark it
     if matched and match_start is not None and match_end is not None:
         # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
@@ -5051,7 +5097,7 @@ def analyze_text(
     if getattr(config, "student_mode", False):
         marks = ensure_student_labels_per_sentence(marks, sentences)
 
-    return marks, flat_text, segments, sentences
+    return marks, flat_text, segments, sentences, last_sentence_content_words, topic_sentence_content_words
 
 
 # Constants for quotation label insertion
