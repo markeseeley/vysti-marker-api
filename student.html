@@ -499,9 +499,9 @@
   
     <div class="actions">
       <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
-      <button class="topbar-btn repeat-tutorial-btn" id="repeatTutorialBtn" type="button">
-        <span class="repeat-tutorial-icon" aria-hidden="true">?</span>
-        <span>Repeat tutorial</span>
+      <button class="topbar-btn" id="repeatTutorialBtn" type="button">
+        <span class="topbar-icon" aria-hidden="true">?</span>
+        Repeat tutorial
       </button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
@@ -1310,11 +1310,14 @@
     const FORCE_STUDENT_HELPERS = false;
     const TOUR_HIDE_KEY = "vysti_student_tour_hide";
     const TOUR_DONE_KEY = "vysti_student_tour_completed";
-    const STUDENT_HELPERS_DISABLED_KEY = TOUR_HIDE_KEY;
+    const STUDENT_HELPERS_DISABLED_KEY = "vysti_student_helpers_disabled";
 
     function shouldShowStudentHelpers() {
       if (FORCE_STUDENT_HELPERS) return true;
-      return !localStorage.getItem(TOUR_HIDE_KEY) && !localStorage.getItem(TOUR_DONE_KEY);
+      const disabled = localStorage.getItem(STUDENT_HELPERS_DISABLED_KEY);
+      const completed = localStorage.getItem(TOUR_DONE_KEY);
+      const legacyHidden = localStorage.getItem(TOUR_HIDE_KEY);
+      return !disabled && !completed && !legacyHidden;
     }
 
     // ===== Auth + role guard =====
@@ -1361,18 +1364,6 @@
       });
     }
 
-    // ===== Repeat tutorial handler =====
-    const repeatTutorialBtn = document.getElementById("repeatTutorialBtn");
-    if (repeatTutorialBtn) {
-      repeatTutorialBtn.addEventListener("click", () => {
-        localStorage.removeItem(TOUR_HIDE_KEY);
-        localStorage.removeItem(TOUR_DONE_KEY);
-        studentHelpersStartedThisLoad = true;
-        closeTour("restart");
-        startTour({ force: true });
-      });
-    }
-
     // ===== Logout handler =====
     const logoutBtn = document.getElementById("logoutBtn");
     logoutBtn.addEventListener("click", async () => {
@@ -1380,6 +1371,17 @@
       localStorage.removeItem("vysti_role");
       window.location.replace("/signin.html");
     });
+
+    const repeatTutorialBtn = document.getElementById("repeatTutorialBtn");
+    if (repeatTutorialBtn) {
+      repeatTutorialBtn.addEventListener("click", () => {
+        clearStudentHelperSuppression();
+        if (tourState.active) {
+          closeTour("dismissed");
+        }
+        startTourForCurrentState({ force: true });
+      });
+    }
 
     // ===== Title type radio sync =====
     titleTypeRadios.forEach(radio => {
@@ -3298,7 +3300,7 @@
           // Try filtered query with mark_event_id
           const { data, error: err } = await supa
             .from("issue_examples")
-          .select("label, sentence, student_name, paragraph_index, context_text, original_sentence, created_at")
+            .select("label, sentence, student_name, paragraph_index, created_at")
             .eq("user_id", sessionData.session.user.id)
             .eq("file_name", selectedFile.name)
             .eq("label", label)
@@ -3311,7 +3313,7 @@
             console.warn("mark_event_id filter failed, falling back to old query:", err);
             const { data: fallbackData, error: fallbackError } = await supa
               .from("issue_examples")
-              .select("label, sentence, student_name, paragraph_index, context_text, original_sentence, created_at")
+              .select("label, sentence, student_name, paragraph_index, created_at")
               .eq("user_id", sessionData.session.user.id)
               .eq("file_name", selectedFile.name)
               .eq("label", label)
@@ -3326,7 +3328,7 @@
           // No mark_event_id available, use old query
           const { data: fallbackData, error: fallbackError } = await supa
             .from("issue_examples")
-            .select("label, sentence, student_name, paragraph_index, context_text, original_sentence, created_at")
+            .select("label, sentence, student_name, paragraph_index, created_at")
             .eq("user_id", sessionData.session.user.id)
             .eq("file_name", selectedFile.name)
             .eq("label", label)
@@ -3360,7 +3362,7 @@
         const uniq = [];
         const seenSent = new Set();
         for (const ex of sortedExamples) {
-          const s = String(ex?.original_sentence || ex?.sentence || "").trim();
+          const s = String(ex?.sentence || "").trim();
           if (!s) continue;
           const paraIndex = ex?.paragraph_index ?? "";
           const key = exampleKey(label, paraIndex, s);
@@ -3388,14 +3390,13 @@
           
           const guidanceDiv = document.createElement("div");
           guidanceDiv.className = "example-guidance";
-          const originalSentence = (ex.original_sentence || ex.sentence || "").trim();
           if (guidance) {
             const guidanceLabel = document.createElement("div");
             guidanceLabel.className = "example-guidance-label";
             guidanceLabel.textContent = "Student guidance";
             const guidanceText = document.createElement("div");
             guidanceText.className = "example-guidance-text";
-            guidanceText.textContent = resolveStudentGuidance(guidance, originalSentence, labelText);
+            guidanceText.textContent = resolveStudentGuidance(guidance, ex.sentence || "", labelText);
             guidanceDiv.appendChild(guidanceLabel);
             guidanceDiv.appendChild(guidanceText);
           } else {
@@ -3406,8 +3407,9 @@
           rewriteTextarea.className = "example-rewrite";
           rewriteTextarea.placeholder = "Edit directly here...";
           rewriteTextarea.setAttribute("data-example-idx", idx);
-          // Prefill with the original sentence
-          rewriteTextarea.value = originalSentence;
+          // Prefill with the example sentence
+          rewriteTextarea.value = ex.sentence || "";
+          const originalSentence = ex.sentence || "";
           li.dataset.originalSentence = originalSentence;
           li.dataset.paragraphIndex = String(ex.paragraph_index ?? "");
           li._exampleData = ex;
@@ -3943,7 +3945,7 @@
       const blocks = getPreviewBlocks();
       if (blocks.length === 0) return null;
 
-      const sentence = (example?.original_sentence || example?.sentence || "").trim();
+      const sentence = (example?.sentence || "").trim();
       const paraIndex = example?.paragraph_index;
 
       // If there's no usable sentence text, fall back deterministically.
@@ -4019,7 +4021,7 @@
     function highlightAndScrollToExample(example, statusDivOptional) {
       clearPreviewHighlights();
       
-      const sentence = example?.original_sentence || example?.sentence || "";
+      const sentence = example?.sentence || "";
       const blockEl = findBestPreviewBlockForExample(example);
       
       if (!blockEl) {
@@ -4092,8 +4094,8 @@
       console.debug("[FindPreview fallback]", {
         label: example?.label,
         paragraph_index: example?.paragraph_index,
-        sentence: example?.original_sentence || example?.sentence,
-        normSentence: normalizeForMatch(example?.original_sentence || example?.sentence || "").slice(0, 200),
+        sentence: example?.sentence,
+        normSentence: normalizeForMatch(example?.sentence || "").slice(0, 200),
         normBlock: normalizeForMatch(blockEl?.innerText || "").slice(0, 200),
       });
       blockEl.classList.add("vysti-preview-hit-block");
@@ -4109,7 +4111,7 @@
       if (!markedPreview) return;
       clearPreviewHighlights();
 
-      const sentence = example?.original_sentence || example?.sentence || "";
+      const sentence = example?.sentence || "";
       const paragraphEl = findBestPreviewBlockForExample(example);
       if (!paragraphEl) return;
 
@@ -4334,8 +4336,7 @@
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
         const labelTrimmed = label.replace(/\s+/g, " ").trim();
         const titles = buildTitlesFromInputs();
-        const contextText = (example?.context_text || example?.sentence || "").trim();
-        const originalSentence = (example?.original_sentence || example?.sentence || "").trim();
+        const contextText = extractPreviewText();
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
           headers: {
@@ -4351,7 +4352,7 @@
             highlight_thesis_devices: false,
             context_text: contextText,
             paragraph_index: example?.paragraph_index ?? null,
-            original_sentence: originalSentence || null,
+            original_sentence: example?.sentence ?? null,
           }),
         });
 
@@ -4503,8 +4504,7 @@
       
       examples.forEach((ex, idx) => {
         content += `Example ${idx + 1}:\n`;
-        const originalSentence = (ex.original_sentence || ex.sentence || "").trim();
-        content += `Original: ${originalSentence}\n`;
+        content += `Original: ${ex.sentence || ""}\n`;
         const rewrite = textareas[idx]?.value || "";
         if (rewrite) {
           content += `Your rewrite: ${rewrite}\n`;
@@ -4933,6 +4933,34 @@
       startTourAt(0, { force, steps: preUploadTourSteps });
     }
 
+    function clearStudentHelperSuppression() {
+      localStorage.removeItem(STUDENT_HELPERS_DISABLED_KEY);
+      localStorage.removeItem(TOUR_DONE_KEY);
+      localStorage.removeItem(TOUR_HIDE_KEY);
+    }
+
+    function getTourStepsForCurrentState() {
+      const hasPreviewCard = markedPreviewCard && markedPreviewCard.style.display !== "none";
+      const hasPreviewText = markedPreview && markedPreview.innerText.trim().length > 0;
+      const hasIssuesData = mostCommonIssuesWrap && mostCommonIssuesWrap.dataset.hasData === "true";
+      const hasExamples = examplesList && examplesList.children.length > 0;
+      if (hasPreviewCard || hasPreviewText || hasIssuesData || hasExamples) {
+        return postPreviewTourSteps;
+      }
+      if (selectedFile) {
+        return postUploadTourSteps;
+      }
+      return preUploadTourSteps;
+    }
+
+    function startTourForCurrentState({ force = false } = {}) {
+      const steps = getTourStepsForCurrentState();
+      if (steps === postPreviewTourSteps) {
+        ensurePostPreviewTourVisibility();
+      }
+      startTourAt(0, { force, steps });
+    }
+
     async function nextStep() {
       if (tourHideCheckbox && tourHideCheckbox.checked) {
         closeTour("hide");
@@ -4979,8 +5007,9 @@
       metaConfirm.textContent = "";
 
       if (reason === "hide") {
-        localStorage.setItem(TOUR_HIDE_KEY, "1");
-      } else if (reason === "completed" || reason === "dismissed") {
+        localStorage.setItem(STUDENT_HELPERS_DISABLED_KEY, "1");
+        localStorage.setItem(TOUR_DONE_KEY, "1");
+      } else if (reason === "completed") {
         localStorage.setItem(TOUR_DONE_KEY, "1");
       }
     }
