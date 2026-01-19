@@ -367,6 +367,24 @@
       font-weight: 700;
       color: rgba(90, 15, 28, 0.75);
     }
+    .examples-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 6px 0 12px;
+      padding: 0 4px;
+    }
+    .examples-nav-text {
+      font-size: var(--fs-xs);
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .next-example-btn {
+      padding: 6px 12px;
+      font-size: var(--fs-xs);
+      white-space: nowrap;
+    }
     .examples-list {
       list-style: none;
       padding: 0;
@@ -802,6 +820,10 @@
         <div class="issue-explanation-header">Explanation of the Issue</div>
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
+      <div id="exampleNavRow" class="examples-nav" style="display:none;">
+        <div id="exampleNavText" class="examples-nav-text">Example 0 of 0</div>
+        <button type="button" class="secondary-btn next-example-btn" id="nextExampleBtn">Next →</button>
+      </div>
       <ul id="examplesList" class="examples-list"></ul>
       <button type="button" class="secondary-btn apply-all-btn apply-to-preview-btn" id="applyAllToPreviewBtn" style="display:none;" disabled>Apply all to Preview</button>
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
@@ -1012,6 +1034,9 @@
     const issueButtonsWrap = document.getElementById("issueButtonsWrap");
     const issueExplanationBlock = document.getElementById("issueExplanationBlock");
     const issueExplanation = document.getElementById("issueExplanation");
+    const exampleNavRow = document.getElementById("exampleNavRow");
+    const exampleNavText = document.getElementById("exampleNavText");
+    const nextExampleBtn = document.getElementById("nextExampleBtn");
     const examplesList = document.getElementById("examplesList");
     const applyAllToPreviewBtn = document.getElementById("applyAllToPreviewBtn");
     const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
@@ -1049,12 +1074,25 @@
 
     const appliedExampleKeys = new Set();
     const approvedExampleKeys = new Set();
+    let currentLabel = null;
+    let currentExamplesAll = [];
+    let currentIndex = 0;
+    let currentGuidance = "";
+    let currentLabelText = "";
+    const draftRewriteByKey = new Map();
+    const approvedRewriteByKey = new Map();
+    const exampleDataByKey = new Map();
 
-    function exampleKey(label, paragraphIndex, sentence) {
-      const safeLabel = String(label || "").trim();
-      const safePara = String(paragraphIndex ?? "");
+    function getExampleKeyFromParts(paragraphIndex, sentence) {
+      const safePara = String(paragraphIndex ?? 0);
       const safeSentence = String(sentence || "").trim();
-      return `${safeLabel}::${safePara}::${safeSentence}`;
+      return `${safePara}::${safeSentence}`;
+    }
+
+    function getExampleKey(ex) {
+      if (!ex) return "";
+      const sentence = ex.original_sentence || ex.sentence || "";
+      return getExampleKeyFromParts(ex.paragraph_index ?? 0, sentence);
     }
 
     // Loading indicator style for the main "Mark my essay" button.
@@ -1590,12 +1628,11 @@
     }
 
     function updateApplyAllVisibility() {
-      if (!applyAllToPreviewBtn || !examplesList) return;
-      const exampleItems = Array.from(examplesList.querySelectorAll(".example-item"));
-      const eligible = exampleItems.filter((item) =>
-        item.dataset.approvedRewrite && item.dataset.applied !== "true"
+      if (!applyAllToPreviewBtn) return;
+      const eligible = Array.from(approvedRewriteByKey.keys()).filter(
+        (key) => key && !appliedExampleKeys.has(key)
       );
-      if (eligible.length >= 2) {
+      if (eligible.length > 0) {
         applyAllToPreviewBtn.style.display = "block";
         applyAllToPreviewBtn.disabled = false;
         applyAllToPreviewBtn.classList.add("apply-attention");
@@ -1613,6 +1650,268 @@
       li.className = "example-empty";
       li.textContent = message;
       examplesList.appendChild(li);
+    }
+
+    function escapeRegExp(str) {
+      return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function extractQuotedTerms(text) {
+      const t = String(text || "");
+      const out = [];
+      const patterns = [
+        /'([^']+)'/g,
+        /"([^"]+)"/g,
+        /[‘']([^’']+)[’']/g,
+        /[“"]([^”"]+)[”"]/g
+      ];
+
+      for (const re of patterns) {
+        let m;
+        while ((m = re.exec(t)) !== null) {
+          const term = (m[1] || "").trim();
+          if (term) out.push(term);
+        }
+      }
+      return Array.from(new Set(out));
+    }
+
+    function findFoundTerms(sentence, labelText) {
+      const s = String(sentence || "");
+      const candidates = extractQuotedTerms(labelText);
+
+      const found = [];
+      const seen = new Set();
+
+      for (const term of candidates) {
+        if (!term) continue;
+
+        let matchText = null;
+
+        // If it's a simple word, prefer word-boundary match
+        if (/^[A-Za-z0-9_]+$/.test(term)) {
+          const re = new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
+          const m = re.exec(s);
+          if (m) matchText = m[0];
+        } else {
+          // Otherwise do a case-insensitive substring match
+          const idx = s.toLowerCase().indexOf(term.toLowerCase());
+          if (idx !== -1) matchText = s.slice(idx, idx + term.length);
+        }
+
+        if (matchText) {
+          const key = matchText.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            found.push(matchText);
+          }
+        }
+      }
+
+      return found;
+    }
+
+    function formatFound(foundTerms) {
+      if (!foundTerms || foundTerms.length === 0) return "that word/phrase";
+      const quoted = foundTerms.map(w => `'${w}'`);
+      if (quoted.length === 1) return quoted[0];
+      if (quoted.length === 2) return `${quoted[0]} or ${quoted[1]}`;
+      return `${quoted.slice(0, -1).join(", ")}, or ${quoted[quoted.length - 1]}`;
+    }
+
+    function resolveStudentGuidance(template, sentence, labelText) {
+      const tmpl = String(template || "");
+      if (!tmpl.includes("{FOUND}")) return tmpl;
+      const foundTerms = findFoundTerms(sentence, labelText);
+      const replacement = formatFound(foundTerms);
+      return tmpl.split("{FOUND}").join(replacement);
+    }
+
+    function getRotationExamples() {
+      return (currentExamplesAll || []).filter((ex) => {
+        const key = getExampleKey(ex);
+        if (!key) return false;
+        if (appliedExampleKeys.has(key)) return false;
+        return !approvedExampleKeys.has(key);
+      });
+    }
+
+    function updateExampleNav(totalCount) {
+      if (!exampleNavRow || !exampleNavText || !nextExampleBtn) return;
+      if (!totalCount || totalCount <= 0) {
+        exampleNavRow.style.display = "none";
+        return;
+      }
+      exampleNavRow.style.display = "flex";
+      exampleNavText.textContent = `Example ${currentIndex + 1} of ${totalCount}`;
+      nextExampleBtn.disabled = totalCount <= 1;
+    }
+
+    function renderCurrentExample() {
+      if (!examplesList) return;
+
+      const rotationExamples = getRotationExamples();
+      if (!rotationExamples.length) {
+        showExamplesEmptyState(
+          "All examples for this issue are approved. Click another bar to revise a different issue."
+        );
+        updateExampleNav(0);
+        updateApplyAllVisibility();
+        return;
+      }
+
+      currentIndex = ((currentIndex % rotationExamples.length) + rotationExamples.length) % rotationExamples.length;
+      const ex = rotationExamples[currentIndex];
+      const exampleKey = getExampleKey(ex);
+
+      examplesList.innerHTML = "";
+
+      const li = document.createElement("li");
+      li.className = "example-item";
+      li.dataset.label = currentLabel || ex?.label || "";
+
+      const guidanceDiv = document.createElement("div");
+      guidanceDiv.className = "example-guidance";
+      if (currentGuidance) {
+        const guidanceLabel = document.createElement("div");
+        guidanceLabel.className = "example-guidance-label";
+        guidanceLabel.textContent = "Student guidance";
+        const guidanceText = document.createElement("div");
+        guidanceText.className = "example-guidance-text";
+        guidanceText.textContent = resolveStudentGuidance(
+          currentGuidance,
+          ex.sentence || "",
+          currentLabelText || currentLabel || ""
+        );
+        guidanceDiv.appendChild(guidanceLabel);
+        guidanceDiv.appendChild(guidanceText);
+      } else {
+        guidanceDiv.style.display = "none";
+      }
+
+      const rewriteTextarea = document.createElement("textarea");
+      rewriteTextarea.className = "example-rewrite";
+      rewriteTextarea.placeholder = "Edit directly here...";
+      const originalSentence = ex.sentence || "";
+      li.dataset.originalSentence = originalSentence;
+      li.dataset.paragraphIndex = String(ex.paragraph_index ?? "");
+      li._exampleData = ex;
+
+      const approvedRewrite = approvedRewriteByKey.get(exampleKey);
+      const draftRewrite = draftRewriteByKey.get(exampleKey);
+      rewriteTextarea.value = approvedRewrite || draftRewrite || originalSentence;
+
+      rewriteTextarea.addEventListener("focus", () => {
+        cursorHighlightExampleInPreview(ex);
+      });
+      rewriteTextarea.addEventListener("input", () => {
+        cursorHighlightExampleInPreview(ex);
+        if (exampleKey) {
+          draftRewriteByKey.set(exampleKey, rewriteTextarea.value);
+        }
+      });
+
+      const rewriteStatusDiv = document.createElement("div");
+      rewriteStatusDiv.className = "rewrite-status";
+
+      const actionsDiv = document.createElement("div");
+      actionsDiv.className = "example-actions";
+
+      const resetExampleBtn = document.createElement("button");
+      resetExampleBtn.className = "example-btn";
+      resetExampleBtn.textContent = "Reset example";
+      resetExampleBtn.onclick = () => {
+        rewriteTextarea.value = originalSentence;
+        if (exampleKey) {
+          draftRewriteByKey.set(exampleKey, originalSentence);
+        }
+      };
+
+      const copyRewriteBtn = document.createElement("button");
+      copyRewriteBtn.className = "example-btn";
+      copyRewriteBtn.textContent = "Copy your rewrite";
+      copyRewriteBtn.onclick = () => {
+        navigator.clipboard.writeText(rewriteTextarea.value).then(() => {
+          copyRewriteBtn.textContent = "Copied!";
+          setTimeout(() => copyRewriteBtn.textContent = "Copy your rewrite", 2000);
+        });
+      };
+
+      const findInPreviewBtn = document.createElement("button");
+      findInPreviewBtn.className = "example-btn";
+      findInPreviewBtn.textContent = "Find in preview";
+      findInPreviewBtn.onclick = () => {
+        if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+          rewriteStatusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
+          rewriteStatusDiv.className = "rewrite-status visible";
+          rewriteStatusDiv.classList.remove("ok", "bad");
+          return;
+        }
+        highlightAndScrollToExample(ex, rewriteStatusDiv);
+      };
+
+      const checkRewriteBtn = document.createElement("button");
+      checkRewriteBtn.className = "example-btn";
+      checkRewriteBtn.textContent = "Check rewrite";
+      checkRewriteBtn.onclick = async () => {
+        await checkRewrite(currentLabel || ex?.label || "", ex, rewriteTextarea, rewriteStatusDiv);
+      };
+
+      const applyToPreviewBtn = document.createElement("button");
+      applyToPreviewBtn.className = "example-btn apply-to-preview-btn";
+      applyToPreviewBtn.textContent = "Apply to Preview";
+      applyToPreviewBtn.disabled = true;
+      applyToPreviewBtn.onclick = () => {
+        const rewriteText = approvedRewriteByKey.get(exampleKey);
+        const applied = applyRewriteToPreviewByKey({
+          exampleKey,
+          rewriteText,
+          exampleData: ex,
+          statusDiv: rewriteStatusDiv,
+          applyBtn: applyToPreviewBtn,
+          exampleRow: li
+        });
+        if (applied) {
+          renderCurrentExample();
+          updateApplyAllVisibility();
+        }
+      };
+
+      const removeIssueBtn = document.createElement("button");
+      removeIssueBtn.className = "example-btn example-action remove-issue-btn";
+      removeIssueBtn.textContent = "Remove issue";
+      removeIssueBtn.onclick = async () => {
+        await removeIssueFromPreview(currentLabel || ex?.label || "", ex, rewriteStatusDiv, removeIssueBtn);
+      };
+
+      actionsDiv.appendChild(resetExampleBtn);
+      actionsDiv.appendChild(copyRewriteBtn);
+      actionsDiv.appendChild(findInPreviewBtn);
+      actionsDiv.appendChild(checkRewriteBtn);
+      actionsDiv.appendChild(applyToPreviewBtn);
+      actionsDiv.appendChild(removeIssueBtn);
+
+      // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
+      rewriteTextarea.addEventListener("keydown", async (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          await checkRewrite(currentLabel || ex?.label || "", ex, rewriteTextarea, rewriteStatusDiv);
+        }
+      });
+
+      if (exampleKey && approvedExampleKeys.has(exampleKey) && approvedRewrite) {
+        applyToPreviewBtn.disabled = false;
+        setApplyAttention(applyToPreviewBtn);
+      }
+
+      li.appendChild(guidanceDiv);
+      li.appendChild(rewriteTextarea);
+      li.appendChild(rewriteStatusDiv);
+      li.appendChild(actionsDiv);
+
+      examplesList.appendChild(li);
+      updateExampleNav(rotationExamples.length);
+      updateApplyAllVisibility();
     }
 
     function refreshIssueCountUI() {
@@ -1662,6 +1961,14 @@
       liveLabelCounts = {};
       appliedExampleKeys.clear();
       approvedExampleKeys.clear();
+      currentLabel = null;
+      currentExamplesAll = [];
+      currentIndex = 0;
+      currentGuidance = "";
+      currentLabelText = "";
+      draftRewriteByKey.clear();
+      approvedRewriteByKey.clear();
+      exampleDataByKey.clear();
       metaConfirm.textContent = "";
       markedPreviewCard.style.display = "none";
       markedPreview.innerHTML = "";
@@ -1669,6 +1976,7 @@
       issueSelect.innerHTML = '<option value="">Select an issue...</option>';
       if (issueButtonsWrap) issueButtonsWrap.innerHTML = "";
       if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
+      if (exampleNavRow) exampleNavRow.style.display = "none";
       examplesList.innerHTML = "";
       downloadRevisionNotesBtn.style.display = "none";
       if (recheckDocumentBtn) {
@@ -2740,6 +3048,12 @@
       if (!selectedLabel) {
         if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
+        if (exampleNavRow) exampleNavRow.style.display = "none";
+        currentLabel = null;
+        currentExamplesAll = [];
+        currentIndex = 0;
+        currentGuidance = "";
+        currentLabelText = "";
         downloadRevisionNotesBtn.style.display = "none";
         updateApplyAllVisibility();
         return;
@@ -2750,24 +3064,30 @@
 
     if (applyAllToPreviewBtn) {
       applyAllToPreviewBtn.addEventListener("click", async () => {
-        const items = Array.from(examplesList.querySelectorAll(".example-item"));
-        const eligibleItems = items.filter(
-          (item) => item.dataset.approvedRewrite && item.dataset.applied !== "true"
+        const eligibleEntries = Array.from(approvedRewriteByKey.entries()).filter(
+          ([key]) => key && !appliedExampleKeys.has(key)
         );
-        if (eligibleItems.length === 0) return;
+        if (eligibleEntries.length === 0) return;
 
-        const snapshot = eligibleItems.map((item) => ({
-          item,
-          statusDiv: item.querySelector(".rewrite-status"),
-          applyBtn: item.querySelector(".apply-to-preview-btn"),
-        }));
-
-        for (const entry of snapshot) {
-          if (!document.body.contains(entry.item)) continue;
-          const exampleData = entry.item._exampleData || null;
-          applyRewriteToPreview(exampleData, entry.item, entry.statusDiv, entry.applyBtn);
+        for (const [exampleKey, rewriteText] of eligibleEntries) {
+          const exampleData = exampleDataByKey.get(exampleKey) || null;
+          applyRewriteToPreviewByKey({
+            exampleKey,
+            rewriteText,
+            exampleData
+          });
         }
+        renderCurrentExample();
         updateApplyAllVisibility();
+      });
+    }
+
+    if (nextExampleBtn) {
+      nextExampleBtn.addEventListener("click", () => {
+        const rotation = getRotationExamples();
+        if (!rotation.length) return;
+        currentIndex = (currentIndex + 1) % rotation.length;
+        renderCurrentExample();
       });
     }
 
@@ -3296,81 +3616,8 @@
         }
         const guidance = issueData?.student_guidance || "";
         const labelText = (issueData?.label || label || "").trim();
-
-        function escapeRegExp(str) {
-          return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        }
-
-        function extractQuotedTerms(text) {
-          const t = String(text || "");
-          const out = [];
-          const patterns = [
-            /'([^']+)'/g,
-            /"([^"]+)"/g,
-            /[‘']([^’']+)[’']/g,
-            /[“"]([^”"]+)[”"]/g
-          ];
-
-          for (const re of patterns) {
-            let m;
-            while ((m = re.exec(t)) !== null) {
-              const term = (m[1] || "").trim();
-              if (term) out.push(term);
-            }
-          }
-          return Array.from(new Set(out));
-        }
-
-        function findFoundTerms(sentence, labelText) {
-          const s = String(sentence || "");
-          const candidates = extractQuotedTerms(labelText);
-
-          const found = [];
-          const seen = new Set();
-
-          for (const term of candidates) {
-            if (!term) continue;
-
-            let matchText = null;
-
-            // If it's a simple word, prefer word-boundary match
-            if (/^[A-Za-z0-9_]+$/.test(term)) {
-              const re = new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
-              const m = re.exec(s);
-              if (m) matchText = m[0];
-            } else {
-              // Otherwise do a case-insensitive substring match
-              const idx = s.toLowerCase().indexOf(term.toLowerCase());
-              if (idx !== -1) matchText = s.slice(idx, idx + term.length);
-            }
-
-            if (matchText) {
-              const key = matchText.toLowerCase();
-              if (!seen.has(key)) {
-                seen.add(key);
-                found.push(matchText);
-              }
-            }
-          }
-
-          return found;
-        }
-
-        function formatFound(foundTerms) {
-          if (!foundTerms || foundTerms.length === 0) return "that word/phrase";
-          const quoted = foundTerms.map(w => `'${w}'`);
-          if (quoted.length === 1) return quoted[0];
-          if (quoted.length === 2) return `${quoted[0]} or ${quoted[1]}`;
-          return `${quoted.slice(0, -1).join(", ")}, or ${quoted[quoted.length - 1]}`;
-        }
-
-        function resolveStudentGuidance(template, sentence, labelText) {
-          const tmpl = String(template || "");
-          if (!tmpl.includes("{FOUND}")) return tmpl;
-          const foundTerms = findFoundTerms(sentence, labelText);
-          const replacement = formatFound(foundTerms);
-          return tmpl.split("{FOUND}").join(replacement);
-        }
+        currentGuidance = guidance;
+        currentLabelText = labelText;
 
         // Get examples from issue_examples
         // Fetch 50 rows to allow deduplication while still getting 10 unique examples
@@ -3423,6 +3670,9 @@
         if (error) {
           console.error("Error loading examples:", error);
           examplesList.innerHTML = "<li>Error loading examples.</li>";
+          if (exampleNavRow) exampleNavRow.style.display = "none";
+          currentExamplesAll = [];
+          currentIndex = 0;
           return;
         }
 
@@ -3447,152 +3697,46 @@
           const s = String(ex?.sentence || "").trim();
           if (!s) continue;
           const paraIndex = ex?.paragraph_index ?? "";
-          const key = exampleKey(label, paraIndex, s);
+          const key = getExampleKeyFromParts(paraIndex ?? 0, s);
           if (appliedExampleKeys.has(key)) continue;
-          const dedupeKey = `${paraIndex}::${s}`;
-          if (seenSent.has(dedupeKey)) continue;
-          seenSent.add(dedupeKey);
+          if (seenSent.has(key)) continue;
+          seenSent.add(key);
           uniq.push(ex);
           if (uniq.length >= 10) break; // Cap at 10 examples
         }
+        const labelChanged = currentLabel !== label;
+        currentLabel = label;
+        currentExamplesAll = uniq;
+        if (labelChanged) currentIndex = 0;
 
-        examplesList.innerHTML = "";
-        
+        currentExamplesAll.forEach((ex) => {
+          const key = getExampleKey(ex);
+          if (key && !exampleDataByKey.has(key)) {
+            exampleDataByKey.set(key, ex);
+          }
+        });
+
         if (!uniq || uniq.length === 0) {
           showExamplesEmptyState("No more examples for this issue. Click another bar to practice a different issue.");
+          if (exampleNavRow) exampleNavRow.style.display = "none";
           downloadRevisionNotesBtn.style.display = "none";
           updateApplyAllVisibility();
           return;
         }
 
-        uniq.forEach((ex, idx) => {
-          const li = document.createElement("li");
-          li.className = "example-item";
-          li.dataset.label = label;
-          
-          const guidanceDiv = document.createElement("div");
-          guidanceDiv.className = "example-guidance";
-          if (guidance) {
-            const guidanceLabel = document.createElement("div");
-            guidanceLabel.className = "example-guidance-label";
-            guidanceLabel.textContent = "Student guidance";
-            const guidanceText = document.createElement("div");
-            guidanceText.className = "example-guidance-text";
-            guidanceText.textContent = resolveStudentGuidance(guidance, ex.sentence || "", labelText);
-            guidanceDiv.appendChild(guidanceLabel);
-            guidanceDiv.appendChild(guidanceText);
-          } else {
-            guidanceDiv.style.display = "none";
-          }
-
-          const rewriteTextarea = document.createElement("textarea");
-          rewriteTextarea.className = "example-rewrite";
-          rewriteTextarea.placeholder = "Edit directly here...";
-          rewriteTextarea.setAttribute("data-example-idx", idx);
-          // Prefill with the example sentence
-          rewriteTextarea.value = ex.sentence || "";
-          const originalSentence = ex.sentence || "";
-          li.dataset.originalSentence = originalSentence;
-          li.dataset.paragraphIndex = String(ex.paragraph_index ?? "");
-          li._exampleData = ex;
-          
-          rewriteTextarea.addEventListener("focus", () => {
-            cursorHighlightExampleInPreview(ex);
-          });
-          rewriteTextarea.addEventListener("input", () => {
-            cursorHighlightExampleInPreview(ex);
-          });
-
-          const rewriteStatusDiv = document.createElement("div");
-          rewriteStatusDiv.className = "rewrite-status";
-          
-          const actionsDiv = document.createElement("div");
-          actionsDiv.className = "example-actions";
-          
-          const resetExampleBtn = document.createElement("button");
-          resetExampleBtn.className = "example-btn";
-          resetExampleBtn.textContent = "Reset example";
-          resetExampleBtn.onclick = () => {
-            rewriteTextarea.value = originalSentence;
-          };
-          
-          const copyRewriteBtn = document.createElement("button");
-          copyRewriteBtn.className = "example-btn";
-          copyRewriteBtn.textContent = "Copy your rewrite";
-          copyRewriteBtn.onclick = () => {
-            navigator.clipboard.writeText(rewriteTextarea.value).then(() => {
-              copyRewriteBtn.textContent = "Copied!";
-              setTimeout(() => copyRewriteBtn.textContent = "Copy your rewrite", 2000);
-            });
-          };
-          
-          const findInPreviewBtn = document.createElement("button");
-          findInPreviewBtn.className = "example-btn";
-          findInPreviewBtn.textContent = "Find in preview";
-          findInPreviewBtn.onclick = () => {
-            if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
-              rewriteStatusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
-              rewriteStatusDiv.className = "rewrite-status visible";
-              rewriteStatusDiv.classList.remove("ok", "bad");
-              return;
-            }
-            highlightAndScrollToExample(ex, rewriteStatusDiv);
-          };
-          
-          const checkRewriteBtn = document.createElement("button");
-          checkRewriteBtn.className = "example-btn";
-          checkRewriteBtn.textContent = "Check rewrite";
-          checkRewriteBtn.onclick = async () => {
-            await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
-          };
-          
-          const applyToPreviewBtn = document.createElement("button");
-          applyToPreviewBtn.className = "example-btn apply-to-preview-btn";
-          applyToPreviewBtn.textContent = "Apply to Preview";
-          applyToPreviewBtn.disabled = true;
-          applyToPreviewBtn.onclick = () => {
-            applyRewriteToPreview(ex, li, rewriteStatusDiv, applyToPreviewBtn);
-          };
-
-          const removeIssueBtn = document.createElement("button");
-          removeIssueBtn.className = "example-btn example-action remove-issue-btn";
-          removeIssueBtn.textContent = "Remove issue";
-          removeIssueBtn.onclick = async () => {
-            await removeIssueFromPreview(label, ex, rewriteStatusDiv, removeIssueBtn);
-          };
-          
-          actionsDiv.appendChild(resetExampleBtn);
-          actionsDiv.appendChild(copyRewriteBtn);
-          actionsDiv.appendChild(findInPreviewBtn);
-          actionsDiv.appendChild(checkRewriteBtn);
-          actionsDiv.appendChild(applyToPreviewBtn);
-          actionsDiv.appendChild(removeIssueBtn);
-          
-          // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
-          rewriteTextarea.addEventListener("keydown", async (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-              e.preventDefault();
-              await checkRewrite(label, ex, rewriteTextarea, rewriteStatusDiv);
-            }
-          });
-          
-          li.appendChild(guidanceDiv);
-          li.appendChild(rewriteTextarea);
-          li.appendChild(rewriteStatusDiv);
-          li.appendChild(actionsDiv);
-          
-          examplesList.appendChild(li);
-        });
+        renderCurrentExample();
 
         downloadRevisionNotesBtn.style.display = "block";
         downloadRevisionNotesBtn.onclick = () => {
-          downloadRevisionNotes(label, uniq);
+          downloadRevisionNotes(label, currentExamplesAll);
         };
-        updateApplyAllVisibility();
 
       } catch (error) {
         console.error("Error loading issue examples:", error);
         examplesList.innerHTML = "<li>Error loading examples.</li>";
+        if (exampleNavRow) exampleNavRow.style.display = "none";
+        currentExamplesAll = [];
+        currentIndex = 0;
       }
     }
 
@@ -4479,21 +4623,24 @@
         // Store approved rewrite and enable Apply button
         if (ok) {
           const exampleRow = statusDiv.closest(".example-item");
+          const exampleKey = getExampleKey(example);
+          if (exampleKey) {
+            approvedRewriteByKey.set(exampleKey, rewrite);
+            approvedExampleKeys.add(exampleKey);
+            draftRewriteByKey.set(exampleKey, rewrite);
+            if (!exampleDataByKey.has(exampleKey)) {
+              exampleDataByKey.set(exampleKey, example);
+            }
+          }
           if (exampleRow) {
-            exampleRow.dataset.approvedRewrite = rewrite;
-            const key = exampleKey(
-              label,
-              exampleRow.dataset.paragraphIndex,
-              exampleRow.dataset.originalSentence
-            );
-            if (key) approvedExampleKeys.add(key);
             const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
             if (applyBtn) {
               applyBtn.disabled = false;
               setApplyAttention(applyBtn);
             }
-            updateApplyAllVisibility();
           }
+          updateApplyAllVisibility();
+          renderCurrentExample();
         }
       } catch (error) {
         console.error("Error checking rewrite:", error);
@@ -4502,37 +4649,57 @@
       }
     }
 
-    function applyRewriteToPreview(example, exampleRow, statusDiv, applyBtn) {
-      clearApplyAttention(applyBtn);
+    function applyRewriteToPreviewByKey({
+      exampleKey,
+      rewriteText,
+      exampleData,
+      statusDiv,
+      applyBtn,
+      exampleRow
+    }) {
+      if (applyBtn) clearApplyAttention(applyBtn);
       // Ensure preview exists
       if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
-        statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
-        statusDiv.className = "rewrite-status visible bad";
-        return;
+        if (statusDiv) {
+          statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return false;
       }
       hasStartedRevising = true;
 
-      // Get approved rewrite from dataset
-      const rewriteText = exampleRow.dataset.approvedRewrite;
-      if (!rewriteText) {
-        statusDiv.textContent = "Please check and approve your rewrite first.";
-        statusDiv.className = "rewrite-status visible bad";
-        return;
+      const resolvedExampleData = exampleData || exampleRow?._exampleData || exampleDataByKey.get(exampleKey);
+      const resolvedKey = exampleKey || getExampleKey(resolvedExampleData);
+      const resolvedRewrite = rewriteText || approvedRewriteByKey.get(resolvedKey);
+
+      if (!resolvedRewrite) {
+        if (statusDiv) {
+          statusDiv.textContent = "Please check and approve your rewrite first.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return false;
       }
 
-      const exampleData = exampleRow?._exampleData || example;
-      const label = exampleRow?.dataset?.label || exampleData?.label || "";
-      const originalSentence = exampleRow?.dataset?.originalSentence || exampleData?.sentence || "";
-      const paragraphIndex = exampleRow?.dataset?.paragraphIndex ?? exampleData?.paragraph_index ?? "";
+      if (!resolvedExampleData) {
+        if (statusDiv) {
+          statusDiv.textContent = "Unable to locate the original example for preview replacement.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return false;
+      }
+
+      const label = exampleRow?.dataset?.label || resolvedExampleData?.label || currentLabel || "";
 
       // Find the sentence in preview
       clearPreviewHighlights();
-      const result = highlightAndScrollToExample(exampleData, null);
+      const result = highlightAndScrollToExample(resolvedExampleData, null);
       
       if (!result.ok || result.hits.length === 0) {
-        statusDiv.textContent = "Couldn't isolate the exact sentence in preview — please paste manually.";
-        statusDiv.className = "rewrite-status visible bad";
-        return;
+        if (statusDiv) {
+          statusDiv.textContent = "Couldn't isolate the exact sentence in preview — please paste manually.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return false;
       }
 
       // Replace the matched range with the approved rewrite
@@ -4547,7 +4714,7 @@
         // Insert rewrite as a styled span so it doesn't inherit UI fonts
         const rewriteSpan = document.createElement("span");
         rewriteSpan.className = "vysti-applied-rewrite";
-        rewriteSpan.textContent = rewriteText;
+        rewriteSpan.textContent = resolvedRewrite;
 
         range.insertNode(rewriteSpan);
         rewriteSpan.classList.add("vysti-flash-highlight");
@@ -4567,16 +4734,19 @@
         clearPreviewHighlights();
         
         // Update UI
-        statusDiv.textContent = "✅ Applied to preview.";
-        statusDiv.className = "rewrite-status visible ok";
-        applyBtn.disabled = true;
+        if (statusDiv) {
+          statusDiv.textContent = "✅ Applied to preview.";
+          statusDiv.className = "rewrite-status visible ok";
+        }
+        if (applyBtn) applyBtn.disabled = true;
         
         // Mark example as applied
-        exampleRow.classList.add("example-applied");
-        exampleRow.dataset.applied = "true";
+        if (exampleRow) {
+          exampleRow.classList.add("example-applied");
+          exampleRow.dataset.applied = "true";
+        }
 
-        const key = exampleKey(label, paragraphIndex, originalSentence);
-        if (key) appliedExampleKeys.add(key);
+        if (resolvedKey) appliedExampleKeys.add(resolvedKey);
         if (label) {
           liveLabelCounts[label] = Math.max(0, (liveLabelCounts[label] || 0) - 1);
           if (!liveLabelCounts[label]) {
@@ -4585,15 +4755,6 @@
         }
         renderMostCommonIssues(liveLabelCounts);
         refreshIssueCountUI();
-
-        if (exampleRow && exampleRow.parentNode) {
-          exampleRow.remove();
-        }
-        const remaining = examplesList?.querySelectorAll(".example-item")?.length || 0;
-        if (remaining === 0) {
-          showExamplesEmptyState("No more examples for this issue. Click another bar to practice a different issue.");
-          if (downloadRevisionNotesBtn) downloadRevisionNotesBtn.style.display = "none";
-        }
         updateApplyAllVisibility();
         
         // Show recheck button if hidden
@@ -4601,21 +4762,25 @@
         if (recheckBtn) {
           recheckBtn.style.display = "block";
         }
+        return true;
       } catch (error) {
         console.error("Error applying rewrite:", error);
-        statusDiv.textContent = "Error applying rewrite. Please paste manually.";
-        statusDiv.className = "rewrite-status visible bad";
+        if (statusDiv) {
+          statusDiv.textContent = "Error applying rewrite. Please paste manually.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return false;
       }
     }
 
     function downloadRevisionNotes(label, examples) {
-      const textareas = document.querySelectorAll(".example-rewrite");
       let content = `Revision Notes: ${label}\n\n`;
       
       examples.forEach((ex, idx) => {
         content += `Example ${idx + 1}:\n`;
         content += `Original: ${ex.sentence || ""}\n`;
-        const rewrite = textareas[idx]?.value || "";
+        const key = getExampleKey(ex);
+        const rewrite = approvedRewriteByKey.get(key) || draftRewriteByKey.get(key) || "";
         if (rewrite) {
           content += `Your rewrite: ${rewrite}\n`;
         }
