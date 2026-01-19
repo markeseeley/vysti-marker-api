@@ -224,7 +224,8 @@
       gap: 12px;
       flex-wrap: wrap;
     }
-    .most-common-word-count {
+    .most-common-word-count,
+    .most-common-total-issues {
       font-size: var(--fs-sm);
       font-weight: 600;
       color: var(--text);
@@ -316,8 +317,40 @@
       color: var(--text);
     }
     .mci-tooltip {
-      pointer-events: none;
+      pointer-events: auto;
       z-index: 80;
+      width: min(380px, calc(100vw - 24px));
+      max-width: min(380px, calc(100vw - 24px));
+    }
+    .mci-tooltip.is-wide {
+      width: min(640px, calc(100vw - 24px));
+      max-width: min(640px, calc(100vw - 24px));
+    }
+    .mci-tooltip .mci-tooltip-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .mci-tooltip .mci-tooltip-toggle {
+      border: 1px solid rgba(169, 13, 34, 0.35);
+      background: rgba(169, 13, 34, 0.08);
+      color: var(--maroon);
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .mci-tooltip .mci-tooltip-toggle:hover {
+      background: rgba(169, 13, 34, 0.14);
+    }
+    .mci-tooltip .mci-body {
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 2px;
     }
     .mci-tooltip .mci-count {
       font-weight: 600;
@@ -542,11 +575,6 @@
           </div>
         </div>
 
-        <label>
-          Your name (optional)
-          <input type="text" id="studentName" placeholder="e.g., John Smith" />
-        </label>
-
         <div class="assignment-tracker-block">
           <div class="assignment-tracker-title">
             <span class="label-row">
@@ -742,6 +770,7 @@
           </div>
           <div id="mostCommonMeta" class="most-common-footer">
             <div id="wordCountReadout" class="most-common-word-count"></div>
+            <div id="totalIssuesReadout" class="most-common-total-issues"></div>
             <div id="techniquesWrap" class="most-common-techniques" style="display:none;">
               <div class="most-common-techniques-title">Range of Techniques</div>
               <div id="techniquesList" class="most-common-techniques-list"></div>
@@ -997,8 +1026,11 @@
     }
 
     let mostCommonIssuesChart = null;
+    let mostCommonTooltipWide = false;
+    let lastMostCommonTooltipContext = null;
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
+    const totalIssuesReadout = document.getElementById("totalIssuesReadout");
     const techniquesWrap = document.getElementById("techniquesWrap");
     const techniquesList = document.getElementById("techniquesList");
     const assignmentNameInput = document.getElementById("assignmentName");
@@ -1144,7 +1176,6 @@
       if (!selectedFile) return null;
 
       const mode = document.getElementById("mode").value;
-      const studentName = document.getElementById("studentName").value.trim();
       const assignmentName = document.getElementById("assignmentName").value.trim();
       const author = document.getElementById("author").value.trim();
       const title = document.getElementById("title").value.trim();
@@ -1167,9 +1198,6 @@
       // Student mode: never highlight thesis devices/strategies
       formData.append("highlight_thesis_devices", "false");
 
-      if (studentName) {
-        formData.append("student_name", studentName);
-      }
       if (assignmentName) {
         formData.append("assignment_name", assignmentName);
       }
@@ -1488,15 +1516,26 @@
       }
     }
 
-    function updateWordCountUI() {
-      if (!wordCountReadout) return;
-      
-      if (currentWordCount === null || currentWordCount === undefined) {
-        wordCountReadout.textContent = "";
-        return;
+    function updateMostCommonMeta(labelCounts) {
+      if (wordCountReadout) {
+        if (currentWordCount === null || currentWordCount === undefined) {
+          wordCountReadout.textContent = "";
+        } else {
+          wordCountReadout.textContent = `Word count: ${currentWordCount}`;
+        }
       }
-      
-      wordCountReadout.textContent = `Word count: ${currentWordCount}`;
+
+      if (totalIssuesReadout) {
+        const counts = labelCounts && typeof labelCounts === "object" ? labelCounts : {};
+        const hasCounts = Object.keys(counts).length > 0;
+        const totalIssues = Object.values(counts)
+          .reduce((sum, value) => sum + (Number(value) || 0), 0);
+        totalIssuesReadout.textContent = hasCounts ? `Total Issues: ${totalIssues}` : "";
+      }
+    }
+
+    function updateWordCountUI() {
+      updateMostCommonMeta(liveLabelCounts);
     }
 
     function updateTechniquesUI() {
@@ -1640,6 +1679,7 @@
       currentWordCount = null;
       currentTechniques = [];
       if (wordCountReadout) wordCountReadout.textContent = "";
+      if (totalIssuesReadout) totalIssuesReadout.textContent = "";
       if (techniquesWrap) techniquesWrap.style.display = "none";
       if (techniquesList) techniquesList.textContent = "";
       hideTextDetails();
@@ -2830,6 +2870,37 @@
       return lines;
     }
 
+    function applyMostCommonTooltipWidth(tooltipEl) {
+      if (!tooltipEl) return;
+      tooltipEl.classList.toggle("is-wide", mostCommonTooltipWide);
+      const toggleBtn = tooltipEl.querySelector(".mci-tooltip-toggle");
+      if (toggleBtn) {
+        toggleBtn.setAttribute("aria-pressed", mostCommonTooltipWide ? "true" : "false");
+        toggleBtn.textContent = mostCommonTooltipWide ? "Narrow" : "Widen";
+      }
+    }
+
+    function positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl) {
+      const rect = chart.canvas.getBoundingClientRect();
+      const offset = 12;
+      const padding = 8;
+      let left = rect.left + tooltip.caretX + offset;
+      let top = rect.top + tooltip.caretY - offset - tooltipEl.offsetHeight;
+
+      const maxLeft = window.innerWidth - tooltipEl.offsetWidth - padding;
+      if (left > maxLeft) left = maxLeft;
+      if (left < padding) left = padding;
+
+      if (top < padding) {
+        top = rect.top + tooltip.caretY + offset;
+      }
+      const maxTop = window.innerHeight - tooltipEl.offsetHeight - padding;
+      if (top > maxTop) top = maxTop;
+
+      tooltipEl.style.left = `${left}px`;
+      tooltipEl.style.top = `${top}px`;
+    }
+
     function getMostCommonIssuesTooltipEl() {
       let tooltipEl = document.getElementById("mostCommonIssuesTooltip");
       if (tooltipEl) return tooltipEl;
@@ -2839,16 +2910,40 @@
       tooltipEl.className = "mci-tooltip tour-popover";
       tooltipEl.style.opacity = "0";
       tooltipEl.style.position = "fixed";
-      tooltipEl.style.pointerEvents = "none";
+      tooltipEl.style.pointerEvents = "auto";
 
       tooltipEl.innerHTML = `
-        <div class="tour-title"></div>
-        <div class="tour-body">
+        <div class="mci-tooltip-header">
+          <div class="tour-title"></div>
+          <button type="button" class="mci-tooltip-toggle" aria-pressed="false">Widen</button>
+        </div>
+        <div class="tour-body mci-body">
           <div class="mci-count"></div>
           <div class="mci-explanation"></div>
         </div>
         <div class="mci-hint">Click the bar chart to revise</div>
       `;
+
+      const toggleBtn = tooltipEl.querySelector(".mci-tooltip-toggle");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          mostCommonTooltipWide = !mostCommonTooltipWide;
+          applyMostCommonTooltipWidth(tooltipEl);
+          if (lastMostCommonTooltipContext) {
+            positionMostCommonIssuesTooltip(
+              lastMostCommonTooltipContext.chart,
+              lastMostCommonTooltipContext.tooltip,
+              tooltipEl
+            );
+          }
+        });
+      }
+
+      tooltipEl.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
 
       document.body.appendChild(tooltipEl);
       return tooltipEl;
@@ -2860,6 +2955,7 @@
 
       if (!tooltip || tooltip.opacity === 0) {
         tooltipEl.style.opacity = "0";
+        lastMostCommonTooltipContext = null;
         return;
       }
 
@@ -2884,30 +2980,16 @@
         explanationEl.style.display = explanation ? "block" : "none";
       }
 
+      applyMostCommonTooltipWidth(tooltipEl);
       tooltipEl.style.opacity = "1";
-
-      const rect = chart.canvas.getBoundingClientRect();
-      const offset = 12;
-      const padding = 8;
-      let left = rect.left + tooltip.caretX + offset;
-      let top = rect.top + tooltip.caretY - offset - tooltipEl.offsetHeight;
-
-      const maxLeft = window.innerWidth - tooltipEl.offsetWidth - padding;
-      if (left > maxLeft) left = maxLeft;
-      if (left < padding) left = padding;
-
-      if (top < padding) {
-        top = rect.top + tooltip.caretY + offset;
-      }
-      const maxTop = window.innerHeight - tooltipEl.offsetHeight - padding;
-      if (top > maxTop) top = maxTop;
-
-      tooltipEl.style.left = `${left}px`;
-      tooltipEl.style.top = `${top}px`;
+      lastMostCommonTooltipContext = { chart, tooltip };
+      positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl);
     }
 
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
+
+      updateMostCommonMeta(labelCounts);
 
       const entries = Object.entries(labelCounts || {})
         .filter(([label, count]) => label && (count || 0) > 0)
@@ -3300,7 +3382,7 @@
           // Try filtered query with mark_event_id
           const { data, error: err } = await supa
             .from("issue_examples")
-            .select("label, sentence, student_name, paragraph_index, created_at")
+            .select("label, sentence, paragraph_index, created_at")
             .eq("user_id", sessionData.session.user.id)
             .eq("file_name", selectedFile.name)
             .eq("label", label)
@@ -3313,7 +3395,7 @@
             console.warn("mark_event_id filter failed, falling back to old query:", err);
             const { data: fallbackData, error: fallbackError } = await supa
               .from("issue_examples")
-              .select("label, sentence, student_name, paragraph_index, created_at")
+              .select("label, sentence, paragraph_index, created_at")
               .eq("user_id", sessionData.session.user.id)
               .eq("file_name", selectedFile.name)
               .eq("label", label)
@@ -3328,7 +3410,7 @@
           // No mark_event_id available, use old query
           const { data: fallbackData, error: fallbackError } = await supa
             .from("issue_examples")
-            .select("label, sentence, student_name, paragraph_index, created_at")
+            .select("label, sentence, paragraph_index, created_at")
             .eq("user_id", sessionData.session.user.id)
             .eq("file_name", selectedFile.name)
             .eq("label", label)
@@ -4312,12 +4394,43 @@
       }
     }
 
+    function normalizeWhitespaceAndQuotes(value) {
+      if (!value) return "";
+      const straightened = value
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, "\"");
+      return straightened.replace(/\s+/g, " ").trim();
+    }
+
+    function normalizeLabelForPayload(value) {
+      if (!value) return "";
+      return value.replace(/\s+/g, " ").trim();
+    }
+
     async function checkRewrite(label, example, textarea, statusDiv) {
       const rewrite = textarea.value.trim();
       if (!rewrite) {
         statusDiv.textContent = "Please enter a rewrite first.";
         statusDiv.className = "rewrite-status visible bad";
         return;
+      }
+
+      const contextText = extractPreviewText();
+      if (!contextText || !contextText.trim()) {
+        statusDiv.textContent = "Load the Preview first (click 'Mark my essay') before checking rewrites.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      const originalSentence = example?.sentence || "";
+      if (originalSentence) {
+        const normalizedRewrite = normalizeWhitespaceAndQuotes(rewrite);
+        const normalizedOriginal = normalizeWhitespaceAndQuotes(originalSentence);
+        if (normalizedRewrite && normalizedRewrite === normalizedOriginal) {
+          statusDiv.textContent = "No changes detected — edit the example before checking.";
+          statusDiv.className = "rewrite-status visible bad";
+          return;
+        }
       }
 
       const { data: sessionData } = await supa.auth.getSession();
@@ -4334,12 +4447,9 @@
       try {
         const API_BASE = "https://vysti-rules.onrender.com";
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
-        const contextText = extractPreviewText();
-        if (!contextText || !contextText.trim()) {
-          statusDiv.textContent = "Load the Preview first so Vysti can check your rewrite in context.";
-          statusDiv.className = "rewrite-status visible bad";
-          return;
-        }
+      const titles = typeof buildTitlesFromInputs === "function"
+        ? buildTitlesFromInputs()
+        : null;
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
           headers: {
@@ -4348,11 +4458,13 @@
           },
           body: JSON.stringify({
             label: label,
+          label_trimmed: normalizeLabelForPayload(label),
             rewrite: rewrite,
             mode: currentMode,
             context_text: contextText,
-            original_sentence: example?.sentence ?? null,
+          original_sentence: originalSentence || null,
             paragraph_index: example?.paragraph_index ?? null,
+          titles: titles && titles.length > 0 ? titles : null,
           }),
         });
 
