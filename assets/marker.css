@@ -114,6 +114,24 @@ button, input, select, textarea {
 .topbar-btn:active{ 
   transform: translateY(0.5px); 
 }
+.topbar-btn.repeat-tutorial-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 10px;
+}
+.repeat-tutorial-btn .repeat-tutorial-icon{
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: var(--fs-nav);
+  line-height: 1;
+}
 .avatar{
   width:34px;
   height:34px;
