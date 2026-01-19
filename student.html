@@ -317,40 +317,15 @@
       color: var(--text);
     }
     .mci-tooltip {
-      pointer-events: auto;
+      pointer-events: none;
       z-index: 80;
       width: min(380px, calc(100vw - 24px));
       max-width: min(380px, calc(100vw - 24px));
     }
-    .mci-tooltip.is-wide {
-      width: min(640px, calc(100vw - 24px));
-      max-width: min(640px, calc(100vw - 24px));
-    }
     .mci-tooltip .mci-tooltip-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
       margin-bottom: 8px;
-    }
-    .mci-tooltip .mci-tooltip-toggle {
-      border: 1px solid rgba(169, 13, 34, 0.35);
-      background: rgba(169, 13, 34, 0.08);
-      color: var(--maroon);
-      font-size: var(--fs-xs);
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .mci-tooltip .mci-tooltip-toggle:hover {
-      background: rgba(169, 13, 34, 0.14);
-    }
-    .mci-tooltip .mci-body {
-      max-height: 220px;
-      overflow: auto;
-      padding-right: 2px;
     }
     .mci-tooltip .mci-count {
       font-weight: 600;
@@ -1051,8 +1026,6 @@
     }
 
     let mostCommonIssuesChart = null;
-    let mostCommonTooltipWide = false;
-    let lastMostCommonTooltipContext = null;
     const modeSelect = document.getElementById("mode");
     const wordCountReadout = document.getElementById("wordCountReadout");
     const totalIssuesReadout = document.getElementById("totalIssuesReadout");
@@ -3190,14 +3163,12 @@
       return lines;
     }
 
-    function applyMostCommonTooltipWidth(tooltipEl) {
-      if (!tooltipEl) return;
-      tooltipEl.classList.toggle("is-wide", mostCommonTooltipWide);
-      const toggleBtn = tooltipEl.querySelector(".mci-tooltip-toggle");
-      if (toggleBtn) {
-        toggleBtn.setAttribute("aria-pressed", mostCommonTooltipWide ? "true" : "false");
-        toggleBtn.textContent = mostCommonTooltipWide ? "Narrow" : "Widen";
-      }
+    function firstSentence(text) {
+      const t = String(text || "").replace(/\s+/g, " ").trim();
+      if (!t) return "";
+      const m = t.match(/^(.+?[.!?])(\s|$)/);
+      if (m) return m[1].trim();
+      return t.length > 180 ? t.slice(0, 177).trim() + "..." : t;
     }
 
     function positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl) {
@@ -3230,12 +3201,11 @@
       tooltipEl.className = "mci-tooltip tour-popover";
       tooltipEl.style.opacity = "0";
       tooltipEl.style.position = "fixed";
-      tooltipEl.style.pointerEvents = "auto";
+      tooltipEl.style.pointerEvents = "none";
 
       tooltipEl.innerHTML = `
         <div class="mci-tooltip-header">
           <div class="tour-title"></div>
-          <button type="button" class="mci-tooltip-toggle" aria-pressed="false">Widen</button>
         </div>
         <div class="tour-body mci-body">
           <div class="mci-count"></div>
@@ -3243,27 +3213,6 @@
         </div>
         <div class="mci-hint">Click the bar chart to revise</div>
       `;
-
-      const toggleBtn = tooltipEl.querySelector(".mci-tooltip-toggle");
-      if (toggleBtn) {
-        toggleBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          mostCommonTooltipWide = !mostCommonTooltipWide;
-          applyMostCommonTooltipWidth(tooltipEl);
-          if (lastMostCommonTooltipContext) {
-            positionMostCommonIssuesTooltip(
-              lastMostCommonTooltipContext.chart,
-              lastMostCommonTooltipContext.tooltip,
-              tooltipEl
-            );
-          }
-        });
-      }
-
-      tooltipEl.addEventListener("pointerdown", (event) => {
-        event.stopPropagation();
-      });
 
       document.body.appendChild(tooltipEl);
       return tooltipEl;
@@ -3275,7 +3224,6 @@
 
       if (!tooltip || tooltip.opacity === 0) {
         tooltipEl.style.opacity = "0";
-        lastMostCommonTooltipContext = null;
         return;
       }
 
@@ -3300,9 +3248,7 @@
         explanationEl.style.display = explanation ? "block" : "none";
       }
 
-      applyMostCommonTooltipWidth(tooltipEl);
       tooltipEl.style.opacity = "1";
-      lastMostCommonTooltipContext = { chart, tooltip };
       positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl);
     }
 
@@ -3334,15 +3280,18 @@
       const barBg = bucketIds.map((id) => getBucketColor(id, 0.60));
       const barBorder = bucketIds.map((id) => getBucketColor(id, 1.0));
       const issues = currentMarkEvent?.issues || [];
-      const explanationByLabel = {};
+      const shortExplanationByLabel = {};
       issues.forEach((iss) => {
         const lbl = String(iss?.label || "").trim();
         if (!lbl) return;
-        if (iss?.explanation && !explanationByLabel[lbl]) {
-          explanationByLabel[lbl] = String(iss.explanation);
+        const shortText = iss?.short_explanation
+          ? String(iss.short_explanation)
+          : firstSentence(iss?.explanation);
+        if (shortText && !shortExplanationByLabel[lbl]) {
+          shortExplanationByLabel[lbl] = shortText;
         }
       });
-      const explanations = labels.map((lbl) => explanationByLabel[lbl] || "");
+      const explanations = labels.map((lbl) => shortExplanationByLabel[lbl] || "");
 
       mostCommonIssuesWrap.style.display = "block";
       mostCommonIssuesWrap.dataset.hasData = "true";
