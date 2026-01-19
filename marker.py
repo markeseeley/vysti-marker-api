@@ -3678,7 +3678,7 @@ def analyze_text(
         marks.extend(title_marks)
 
     # -----------------------
-    # CLARIFY PRONOUNS (He/She at sentence start)
+    # CLARIFY PRONOUNS (He/She/They/It/This at sentence start)
     # -----------------------
     rule_note_pronoun_antecedent = "Clarify pronouns and antecedents"
 
@@ -3711,8 +3711,8 @@ def analyze_text(
         if pos_in_spans(tok_start, spans) or pos_in_spans(tok_end - 1, spans):
             continue
 
-        if lower in ("he", "she"):
-            # He/She at sentence start → Clarify pronouns and antecedents (TURQUOISE + label)
+        if lower in ("he", "she", "they", "it", "this"):
+            # Pronoun at sentence start → Clarify pronouns and antecedents (TURQUOISE + label)
             if rule_note_pronoun_antecedent not in labels_used:
                 marks.append({
                     "start": tok_start,
