@@ -61,6 +61,88 @@ def get_engine():
     )
 
 
+def _normalize_text_for_docx(text: str) -> str:
+    # Normalize newlines to \n
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Safety net: Remove rewrite-practice tag if it appears in the text
+    # Match the exact phrase from marker.py: " * Rewrite this paragraph for practice  *"
+    rewrite_pattern = r'\s*\*\s*Rewrite this paragraph for practice\s*\*\s*'
+    text = re.sub(rewrite_pattern, '', text, flags=re.IGNORECASE)
+    return text
+
+
+def extract_paragraphs_from_text(text: str) -> list[str]:
+    text = _normalize_text_for_docx(text)
+    # Split paragraphs on 2+ newlines
+    para_chunks = re.split(r"\n{2,}", text)
+    paragraphs: list[str] = []
+    for para_chunk in para_chunks:
+        # Collapse single newlines within paragraph to spaces
+        para_text = re.sub(r"\n+", " ", para_chunk).strip()
+        if para_text:
+            paragraphs.append(para_text)
+    return paragraphs
+
+
+def build_docx_bytes_from_text(text: str) -> bytes:
+    paragraphs = extract_paragraphs_from_text(text)
+    doc = Document()
+
+    # Set default style to Times New Roman 12pt
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "Times New Roman"
+    font.size = Pt(12)
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+
+    def is_header_line(text_line: str) -> bool:
+        """Detect if a line is likely a header (teacher name, date, course, etc.)"""
+        text_lower = text_line.lower().strip()
+        if re.match(r'^(mr|ms|mrs|dr|prof)\.?\s+', text_lower):
+            return True
+        if re.search(r'\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+', text_lower):
+            return True
+        if re.search(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', text_line):
+            return True
+        if 'course' in text_lower or 'class' in text_lower:
+            return True
+        words = text_line.split()
+        if len(words) <= 3 and not re.search(r'[.!?]$', text_line):
+            return True
+        return False
+
+    def is_sentence(text_line: str) -> bool:
+        return bool(re.search(r'[.!?]$', text_line.strip()))
+
+    title_found = False
+    for para_text in paragraphs:
+        para = doc.add_paragraph(para_text)
+
+        is_header = is_header_line(para_text)
+        is_sent = is_sentence(para_text)
+
+        if is_header:
+            para.paragraph_format.first_line_indent = Inches(0)
+        elif not title_found and not is_header and not is_sent and len(para_text.split()) <= 10:
+            para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            para.paragraph_format.first_line_indent = Inches(0)
+            title_found = True
+        else:
+            para.paragraph_format.first_line_indent = Inches(0.5)
+
+    if len(doc.paragraphs) == 0:
+        fallback = _normalize_text_for_docx(text).strip() or "Empty document"
+        para = doc.add_paragraph(fallback)
+        para.paragraph_format.first_line_indent = Inches(0.5)
+
+    docx_buffer = BytesIO()
+    doc.save(docx_buffer)
+    docx_buffer.seek(0)
+    docx_bytes = docx_buffer.getvalue()
+    docx_buffer.close()
+    return docx_bytes
+
+
 # ===== Supabase config (from environment variables) =====
 # ===== Supabase config (from environment variables) =====
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -83,6 +165,9 @@ class RevisionCheckRequest(BaseModel):
     mode: str | None = None
     label_trimmed: str | None = None
     titles: list[TitleInfo] | None = None
+    context_text: str | None = None
+    paragraph_index: int | None = None
+    original_sentence: str | None = None
 
 
 class MarkTextRequest(BaseModel):
@@ -621,6 +706,42 @@ async def check_revision(
     def normalize_label(label: str) -> str:
         return " ".join(label.split()).strip().lower()
 
+    def normalize_example_text(text: str) -> str:
+        return " ".join(text.split()).strip().lower()
+
+    def coerce_issue_count(count_value) -> int:
+        try:
+            cnt_i = int(count_value) if count_value is not None else 1
+        except Exception:
+            cnt_i = 1
+        return cnt_i if cnt_i > 0 else 1
+
+    def count_label_issues(issues_list, label_norm_value: str) -> int:
+        total = 0
+        for issue in issues_list:
+            if not isinstance(issue, dict):
+                continue
+            issue_label = normalize_label(issue.get("label", ""))
+            if issue_label != label_norm_value:
+                continue
+            total += coerce_issue_count(issue.get("count"))
+        return total
+
+    def find_first_matching_issue(issues_list, label_norm_value: str):
+        for issue in issues_list:
+            if not isinstance(issue, dict):
+                continue
+            issue_label = normalize_label(issue.get("label", ""))
+            if issue_label == label_norm_value:
+                return issue
+        return None
+
+    def coerce_int(value):
+        try:
+            return int(value)
+        except Exception:
+            return None
+
     label_raw = request.label_trimmed or request.label or ""
     label_trimmed = " ".join(label_raw.split()).strip()
     label_norm = normalize_label(label_trimmed)
@@ -631,47 +752,6 @@ async def check_revision(
     }
     is_title_label = label_norm in title_labels
 
-    # Build minimal .docx in-memory
-    doc = Document()
-
-    # Set default style to Times New Roman 12pt
-    style = doc.styles["Normal"]
-    font = style.font
-    font.name = "Times New Roman"
-    font.size = Pt(12)
-    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
-
-    def add_mla_header_lines(target_doc):
-        for line in ("Student Name", "Teacher Name", "Class", "Date"):
-            p = target_doc.add_paragraph(line)
-            p.paragraph_format.first_line_indent = Inches(0)
-
-    if is_title_label:
-        add_mla_header_lines(doc)
-        title_paragraph = doc.add_paragraph(request.rewrite.strip())
-        title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        title_paragraph.paragraph_format.first_line_indent = Inches(0)
-        doc.add_paragraph("Placeholder introduction sentence.")
-        doc.add_paragraph("Placeholder body sentence.")
-        doc.add_paragraph("Placeholder conclusion sentence.")
-    else:
-        # Intro paragraph
-        doc.add_paragraph("Placeholder introduction sentence.")
-
-        # Body paragraph: rewrite as first sentence
-        body_text = f"{request.rewrite.strip()} Placeholder second sentence."
-        doc.add_paragraph(body_text)
-
-        # Conclusion paragraph
-        doc.add_paragraph("Placeholder conclusion sentence.")
-    
-    # Save to BytesIO
-    docx_buffer = BytesIO()
-    doc.save(docx_buffer)
-    docx_buffer.seek(0)
-    docx_bytes = docx_buffer.getvalue()
-    docx_buffer.close()
-    
     # Build teacher_config from request.titles
     teacher_config: dict = {}
     if request.titles:
@@ -693,29 +773,157 @@ async def check_revision(
             teacher_config["text_is_minor_work_3"] = t3.is_minor
     teacher_config["highlight_thesis_devices"] = False
 
-    # Call mark_docx_bytes
     mark_docx_bytes, _ = get_engine()
     mode = request.mode or "textual_analysis"
-    marked_bytes, metadata = mark_docx_bytes(
+    context_text = (request.context_text or "").strip()
+    original_sentence = (request.original_sentence or "").strip()
+    rewrite_text = request.rewrite.strip()
+
+    if context_text and original_sentence:
+        # Mark before
+        context_docx_bytes = build_docx_bytes_from_text(context_text)
+        _, metadata_before = mark_docx_bytes(
+            context_docx_bytes,
+            mode=mode,
+            teacher_config=teacher_config,
+        )
+
+        # Apply rewrite into the context text
+        paragraphs = extract_paragraphs_from_text(context_text)
+        target_idx = None
+        if request.paragraph_index is not None and paragraphs:
+            idx = coerce_int(request.paragraph_index)
+            if idx is not None and 0 <= idx < len(paragraphs):
+                target_idx = idx
+        if target_idx is None:
+            for i, para_text in enumerate(paragraphs):
+                if original_sentence in para_text:
+                    target_idx = i
+                    break
+        if target_idx is None and paragraphs:
+            target_idx = 0
+        if target_idx is not None and paragraphs:
+            paragraphs[target_idx] = paragraphs[target_idx].replace(original_sentence, rewrite_text, 1)
+        context_text_after = "\n\n".join(paragraphs) if paragraphs else context_text
+
+        # Mark after
+        context_docx_after = build_docx_bytes_from_text(context_text_after)
+        _, metadata_after = mark_docx_bytes(
+            context_docx_after,
+            mode=mode,
+            teacher_config=teacher_config,
+        )
+
+        issues_before = metadata_before.get("issues", []) if isinstance(metadata_before, dict) else []
+        issues_after = metadata_after.get("issues", []) if isinstance(metadata_after, dict) else []
+        before_count = count_label_issues(issues_before, label_norm)
+        after_count = count_label_issues(issues_after, label_norm)
+        matched_issue = find_first_matching_issue(issues_after, label_norm)
+
+        if before_count == 0:
+            approved = (after_count == 0)
+        else:
+            approved = (after_count < before_count)
+
+        if approved and request.paragraph_index is not None:
+            examples_after = metadata_after.get("examples", []) if isinstance(metadata_after, dict) else []
+            target_para = coerce_int(request.paragraph_index)
+            if target_para is not None:
+                norm_rewrite = normalize_example_text(rewrite_text)
+                for ex in examples_after:
+                    if not isinstance(ex, dict):
+                        continue
+                    if normalize_label(ex.get("label", "")) != label_norm:
+                        continue
+                    if coerce_int(ex.get("paragraph_index")) != target_para:
+                        continue
+                    if normalize_example_text(ex.get("sentence", "")) == norm_rewrite:
+                        approved = False
+                        break
+
+        if approved and label_norm == "essay title format":
+            try:
+                from marker import TITLE_PATTERN, TITLE_PATTERN_NO_COLON, topic_segment_is_too_thin
+                title_text = request.rewrite.strip()
+                match = TITLE_PATTERN.match(title_text) or TITLE_PATTERN_NO_COLON.match(title_text)
+                if not match:
+                    approved = False
+                else:
+                    topic_segment = match.group(2) if match.lastindex and match.lastindex >= 2 else ""
+                    if topic_segment_is_too_thin(topic_segment):
+                        approved = False
+            except Exception as e:
+                print("Failed title-format validation:", repr(e))
+
+        message_label = label_trimmed or request.label
+        delta = before_count - after_count
+        if approved:
+            return JSONResponse(
+                content={
+                    "approved": True,
+                    "label": message_label,
+                    "message": "Looks good! Revision approved.",
+                    "before_count": before_count,
+                    "after_count": after_count,
+                    "delta": delta,
+                }
+            )
+        return JSONResponse(
+            content={
+                "approved": False,
+                "label": message_label,
+                "message": f"Still needs revision: {message_label}.",
+                "before_count": before_count,
+                "after_count": after_count,
+                "delta": delta,
+                "triggered": matched_issue,
+            }
+        )
+
+    # Fallback: minimal context with interior rewrite sentence
+    doc = Document()
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "Times New Roman"
+    font.size = Pt(12)
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+
+    def add_mla_header_lines(target_doc):
+        for line in ("Student Name", "Teacher Name", "Class", "Date"):
+            p = target_doc.add_paragraph(line)
+            p.paragraph_format.first_line_indent = Inches(0)
+
+    if is_title_label:
+        add_mla_header_lines(doc)
+        title_paragraph = doc.add_paragraph(rewrite_text)
+        title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        title_paragraph.paragraph_format.first_line_indent = Inches(0)
+        doc.add_paragraph("Placeholder introduction sentence.")
+        doc.add_paragraph("Placeholder body sentence.")
+        doc.add_paragraph("Placeholder conclusion sentence.")
+    else:
+        doc.add_paragraph("Placeholder introduction sentence.")
+        body_text = f"Placeholder topic sentence. {rewrite_text} Placeholder final sentence."
+        doc.add_paragraph(body_text)
+        doc.add_paragraph("Placeholder conclusion sentence.")
+
+    docx_buffer = BytesIO()
+    doc.save(docx_buffer)
+    docx_buffer.seek(0)
+    docx_bytes = docx_buffer.getvalue()
+    docx_buffer.close()
+
+    _, metadata = mark_docx_bytes(
         docx_bytes,
         mode=mode,
         teacher_config=teacher_config,
     )
-    
-    # Read metadata["issues"]
-    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
-    
-    # Check if target label appears in issues
-    matched_issue = None
-    for issue in issues:
-        if not isinstance(issue, dict):
-            continue
-        issue_label = normalize_label(issue.get("label", ""))
-        if issue_label == label_norm:
-            matched_issue = issue
-            break
 
-    approved = matched_issue is None
+    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    after_count = count_label_issues(issues, label_norm)
+    before_count = after_count
+    matched_issue = find_first_matching_issue(issues, label_norm)
+    approved = (after_count == 0)
 
     if approved and label_norm == "essay title format":
         try:
@@ -730,28 +938,32 @@ async def check_revision(
                     approved = False
         except Exception as e:
             print("Failed title-format validation:", repr(e))
-    
-    # Return JSON response
+
+    message_label = label_trimmed or request.label
+    delta = before_count - after_count
     if approved:
-        # Label not present - revision approved
         return JSONResponse(
             content={
                 "approved": True,
-                "label": label_trimmed or request.label,
-                "message": "Looks good! Revision approved.",
-            }
-        )
-    else:
-        # Label present - still failing
-        message_label = label_trimmed or request.label
-        return JSONResponse(
-            content={
-                "approved": False,
                 "label": message_label,
-                "message": f"Still needs revision: {message_label}.",
-                "triggered": matched_issue,
+                "message": "Looks good! Revision approved.",
+                "before_count": before_count,
+                "after_count": after_count,
+                "delta": delta,
             }
         )
+
+    return JSONResponse(
+        content={
+            "approved": False,
+            "label": message_label,
+            "message": f"Still needs revision: {message_label}.",
+            "before_count": before_count,
+            "after_count": after_count,
+            "delta": delta,
+            "triggered": matched_issue,
+        }
+    )
 
 
 @app.post("/mark_text")
@@ -772,96 +984,7 @@ async def mark_text(
     Returns the marked .docx bytes (same as /mark).
     """
     # 1. Create .docx from text
-    # Normalize newlines to \n
-    text = request.text.replace("\r\n", "\n").replace("\r", "\n")
-    
-    # Safety net: Remove rewrite-practice tag if it appears in the text
-    # This is a conservative cleanup - the real fix is in the frontend DOM extraction
-    # Match the exact phrase from marker.py: " * Rewrite this paragraph for practice  *"
-    # Use regex to handle variations in whitespace
-    rewrite_pattern = r'\s*\*\s*Rewrite this paragraph for practice\s*\*\s*'
-    text = re.sub(rewrite_pattern, '', text, flags=re.IGNORECASE)
-    
-    # Split paragraphs on 2+ newlines
-    para_chunks = re.split(r"\n{2,}", text)
-    
-    # Create document
-    doc = Document()
-    
-    # Set default style to Times New Roman 12pt
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = "Times New Roman"
-    font.size = Pt(12)
-    # Set eastAsia font too
-    style.element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
-    
-    # Helper function to detect header-like lines
-    def is_header_line(text):
-        """Detect if a line is likely a header (teacher name, date, course, etc.)"""
-        text_lower = text.lower().strip()
-        # Check for teacher titles
-        if re.match(r'^(mr|ms|mrs|dr|prof)\.?\s+', text_lower):
-            return True
-        # Check for date patterns (e.g., "January 1, 2024" or "1/1/2024")
-        if re.search(r'\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+', text_lower):
-            return True
-        if re.search(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', text):
-            return True
-        # Check for course/class keywords
-        if 'course' in text_lower or 'class' in text_lower:
-            return True
-        # Short name-like lines (2-3 words, no sentence-ending punctuation)
-        words = text.split()
-        if len(words) <= 3 and not re.search(r'[.!?]$', text):
-            return True
-        return False
-    
-    # Helper function to check if text is a sentence (ends with .?!)
-    def is_sentence(text):
-        """Check if text appears to be a sentence"""
-        return bool(re.search(r'[.!?]$', text.strip()))
-    
-    # Track if we've found the essay title (first non-header short non-sentence line)
-    title_found = False
-    
-    # Add paragraphs (collapsing single newlines within paragraphs to spaces)
-    for para_chunk in para_chunks:
-        # Collapse single newlines within paragraph to spaces
-        para_text = re.sub(r"\n+", " ", para_chunk).strip()
-        if not para_text:  # Skip empty paragraphs
-            continue
-        
-        para = doc.add_paragraph(para_text)
-        
-        # Check if this is a header line
-        is_header = is_header_line(para_text)
-        is_sent = is_sentence(para_text)
-        
-        # Apply formatting based on paragraph type
-        if is_header:
-            # Header lines: no indentation, left-aligned
-            para.paragraph_format.first_line_indent = Inches(0)
-        elif not title_found and not is_header and not is_sent and len(para_text.split()) <= 10:
-            # First non-header short non-sentence line: likely essay title - center it
-            para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-            para.paragraph_format.first_line_indent = Inches(0)
-            title_found = True
-        else:
-            # Prose paragraphs: apply MLA first-line indent (0.5")
-            para.paragraph_format.first_line_indent = Inches(0.5)
-    
-    # If no paragraphs were created, add at least one
-    if len(doc.paragraphs) == 0:
-        para = doc.add_paragraph(request.text.strip() or "Empty document")
-        para.paragraph_format.first_line_indent = Inches(0.5)
-    
-    # Save to BytesIO
-    docx_buffer = BytesIO()
-    doc.save(docx_buffer)
-    docx_buffer.seek(0)
-    docx_bytes = docx_buffer.getvalue()
-    docx_buffer.close()
+    docx_bytes = build_docx_bytes_from_text(request.text)
     
     # 2. Build teacher_config from request.titles
     teacher_config: dict = {}
