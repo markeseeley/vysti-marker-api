@@ -841,6 +841,9 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   justify-content: center;
   pointer-events: auto;
 }
+.brand-confirm-overlay[hidden]{
+  display: none !important;
+}
 
 .brand-confirm-popover{
   width: min(420px, calc(100vw - 32px));
