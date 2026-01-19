@@ -220,7 +220,7 @@
       margin-top: 12px;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       gap: 12px;
       flex-wrap: wrap;
     }
@@ -417,15 +417,35 @@
       border-color: rgba(0,0,0,.14);
       color: rgba(0,0,0,.75);
     }
-    .apply-to-preview-btn.apply-attention {
-      border-color: rgba(169, 13, 34, 0.55);
-      box-shadow: 0 0 0 3px rgba(169, 13, 34, 0.16);
-      animation: applyPulse 1.6s ease-in-out infinite;
+    .apply-to-preview-btn.apply-attention,
+    #applyAllToPreviewBtn.apply-attention {
+      border-color: rgba(128, 0, 32, 0.75);
+      outline: 2px solid rgba(128, 0, 32, 0.55);
+      box-shadow:
+        0 0 0 4px rgba(128, 0, 32, 0.18),
+        0 0 14px rgba(128, 0, 32, 0.32);
+      animation: applyPulse 1.4s ease-in-out infinite;
     }
     @keyframes applyPulse {
-      0% { box-shadow: 0 0 0 0 rgba(169, 13, 34, 0.25); }
-      60% { box-shadow: 0 0 0 6px rgba(169, 13, 34, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(169, 13, 34, 0); }
+      0% {
+        box-shadow:
+          0 0 0 0 rgba(128, 0, 32, 0.22),
+          0 0 10px rgba(128, 0, 32, 0.28);
+      }
+      60% {
+        box-shadow:
+          0 0 0 8px rgba(128, 0, 32, 0),
+          0 0 16px rgba(128, 0, 32, 0.18);
+      }
+      100% {
+        box-shadow:
+          0 0 0 0 rgba(128, 0, 32, 0),
+          0 0 12px rgba(128, 0, 32, 0.24);
+      }
+    }
+    .apply-all-btn {
+      margin-top: 12px;
+      width: 100%;
     }
     .apply-to-preview-btn:not(:disabled):hover {
       background: #e9ecef;
@@ -719,7 +739,7 @@
           <div id="mostCommonMeta" class="most-common-footer">
             <div id="wordCountReadout" class="most-common-word-count"></div>
             <div id="techniquesWrap" class="most-common-techniques" style="display:none;">
-              <div class="most-common-techniques-title">Techniques discussed</div>
+              <div class="most-common-techniques-title">Range of Techniques</div>
               <div id="techniquesList" class="most-common-techniques-list"></div>
             </div>
           </div>
@@ -750,6 +770,7 @@
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
       <ul id="examplesList" class="examples-list"></ul>
+      <button type="button" class="secondary-btn apply-all-btn apply-to-preview-btn" id="applyAllToPreviewBtn" style="display:none;" disabled>Apply all to Preview</button>
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
     </section>
 
@@ -846,6 +867,7 @@
           /\bfact\b/i,
           /\bprove\b/i,
           /weak verb/i,
+          /article/i,
           /vague/i,
           /people/i,
           /human/i,
@@ -958,6 +980,7 @@
     const issueExplanationBlock = document.getElementById("issueExplanationBlock");
     const issueExplanation = document.getElementById("issueExplanation");
     const examplesList = document.getElementById("examplesList");
+    const applyAllToPreviewBtn = document.getElementById("applyAllToPreviewBtn");
     const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
     const mostCommonIssuesWrap = document.getElementById("mostCommonIssuesWrap");
@@ -986,6 +1009,17 @@
     let currentWordCount = null;
     let currentTechniques = [];
     let hasStartedRevising = false;
+    let liveLabelCounts = {};
+
+    const appliedExampleKeys = new Set();
+    const approvedExampleKeys = new Set();
+
+    function exampleKey(label, paragraphIndex, sentence) {
+      const safeLabel = String(label || "").trim();
+      const safePara = String(paragraphIndex ?? "");
+      const safeSentence = String(sentence || "").trim();
+      return `${safeLabel}::${safePara}::${safeSentence}`;
+    }
 
     // Loading indicator style for the main "Mark my essay" button.
     // - true: "Processing |" (blinking cursor)
@@ -1503,6 +1537,62 @@
       }
     }
 
+    function updateApplyAllVisibility() {
+      if (!applyAllToPreviewBtn || !examplesList) return;
+      const exampleItems = Array.from(examplesList.querySelectorAll(".example-item"));
+      const eligible = exampleItems.filter((item) =>
+        item.dataset.approvedRewrite && item.dataset.applied !== "true"
+      );
+      if (eligible.length >= 2) {
+        applyAllToPreviewBtn.style.display = "block";
+        applyAllToPreviewBtn.disabled = false;
+        applyAllToPreviewBtn.classList.add("apply-attention");
+      } else {
+        applyAllToPreviewBtn.style.display = "none";
+        applyAllToPreviewBtn.disabled = true;
+        applyAllToPreviewBtn.classList.remove("apply-attention");
+      }
+    }
+
+    function showExamplesEmptyState(message) {
+      if (!examplesList) return;
+      examplesList.innerHTML = "";
+      const li = document.createElement("li");
+      li.className = "example-empty";
+      li.textContent = message;
+      examplesList.appendChild(li);
+    }
+
+    function refreshIssueCountUI() {
+      if (!lastRevisionSectionData || !issueSelect) return;
+
+      lastRevisionSectionData.labelCounts = { ...liveLabelCounts };
+      renderIssueButtonsFromSectionData(
+        lastRevisionSectionData,
+        lastRevisionSectionData.sectionOrder
+      );
+
+      const currentLabel = issueSelect.value || "";
+      const sortedLabels = Object.entries(liveLabelCounts)
+        .filter(([, count]) => (count || 0) > 0)
+        .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+        .map(([label]) => String(label || "").trim())
+        .filter(Boolean);
+
+      issueSelect.innerHTML = '<option value="">Select an issue...</option>';
+      sortedLabels.forEach((label) => {
+        const option = document.createElement("option");
+        option.value = label;
+        const count = liveLabelCounts[label] || 0;
+        option.textContent = `${label} (${count})`;
+        issueSelect.appendChild(option);
+      });
+
+      if (currentLabel && liveLabelCounts[currentLabel]) {
+        issueSelect.value = currentLabel;
+      }
+    }
+
     function clearFile() {
       // Safety: stop any in-progress button loader
       stopButtonLoading(checkBtn, () => !!selectedFile);
@@ -1517,6 +1607,9 @@
       statusArea.className = "status-area";
       pendingDetectedMeta = null;
       metaConfirm.classList.remove("visible");
+      liveLabelCounts = {};
+      appliedExampleKeys.clear();
+      approvedExampleKeys.clear();
       metaConfirm.textContent = "";
       markedPreviewCard.style.display = "none";
       markedPreview.innerHTML = "";
@@ -2595,11 +2688,35 @@
         if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
         downloadRevisionNotesBtn.style.display = "none";
+        updateApplyAllVisibility();
         return;
       }
 
       await openRevisionExampleFromLabel(selectedLabel);
     });
+
+    if (applyAllToPreviewBtn) {
+      applyAllToPreviewBtn.addEventListener("click", async () => {
+        const items = Array.from(examplesList.querySelectorAll(".example-item"));
+        const eligibleItems = items.filter(
+          (item) => item.dataset.approvedRewrite && item.dataset.applied !== "true"
+        );
+        if (eligibleItems.length === 0) return;
+
+        const snapshot = eligibleItems.map((item) => ({
+          item,
+          statusDiv: item.querySelector(".rewrite-status"),
+          applyBtn: item.querySelector(".apply-to-preview-btn"),
+        }));
+
+        for (const entry of snapshot) {
+          if (!document.body.contains(entry.item)) continue;
+          const exampleData = entry.item._exampleData || null;
+          applyRewriteToPreview(exampleData, entry.item, entry.statusDiv, entry.applyBtn);
+        }
+        updateApplyAllVisibility();
+      });
+    }
 
     let activeIssueBtn = null;
 
@@ -2637,6 +2754,8 @@
         row.className = "issue-button-row";
 
         labels.forEach((label) => {
+          const count = labelCounts[label] || 0;
+          if (count <= 0) return;
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "issue-btn";
@@ -2644,7 +2763,6 @@
           btn.setAttribute("data-tip", "Click to see example");
           btn.dataset.issueLabel = label;
 
-          const count = labelCounts[label] || 0;
           btn.textContent = `${label} (${count})`;
           const bucketId = getBucketIdForLabel(label);
           btn.dataset.bucketId = bucketId;
@@ -2907,11 +3025,12 @@
         }
 
         currentMarkEvent = markEvents[0];
-        const labelCounts = currentMarkEvent.label_counts || {};
+        liveLabelCounts = { ...(currentMarkEvent.label_counts || {}) };
+        const labelCounts = liveLabelCounts;
         
         if (resultsCard) resultsCard.style.display = "block";
         try {
-          renderMostCommonIssues(labelCounts);
+          renderMostCommonIssues(liveLabelCounts);
         } catch (chartError) {
           console.warn("Most common issues chart failed to render:", chartError);
         }
@@ -3226,14 +3345,18 @@
           return paraA - paraB;
         });
 
-        // Deduplicate examples by sentence text (trimmed)
+        // Deduplicate examples by paragraph + sentence, and skip applied examples
         const uniq = [];
         const seenSent = new Set();
         for (const ex of sortedExamples) {
           const s = String(ex?.sentence || "").trim();
           if (!s) continue;
-          if (seenSent.has(s)) continue;
-          seenSent.add(s);
+          const paraIndex = ex?.paragraph_index ?? "";
+          const key = exampleKey(label, paraIndex, s);
+          if (appliedExampleKeys.has(key)) continue;
+          const dedupeKey = `${paraIndex}::${s}`;
+          if (seenSent.has(dedupeKey)) continue;
+          seenSent.add(dedupeKey);
           uniq.push(ex);
           if (uniq.length >= 10) break; // Cap at 10 examples
         }
@@ -3241,14 +3364,16 @@
         examplesList.innerHTML = "";
         
         if (!uniq || uniq.length === 0) {
-          examplesList.innerHTML = "<li>No examples available for this issue. Try fixing similar issues from other assignments.</li>";
+          showExamplesEmptyState("No more examples for this issue. Click another bar to practice a different issue.");
           downloadRevisionNotesBtn.style.display = "none";
+          updateApplyAllVisibility();
           return;
         }
 
         uniq.forEach((ex, idx) => {
           const li = document.createElement("li");
           li.className = "example-item";
+          li.dataset.label = label;
           
           const guidanceDiv = document.createElement("div");
           guidanceDiv.className = "example-guidance";
@@ -3272,6 +3397,9 @@
           // Prefill with the example sentence
           rewriteTextarea.value = ex.sentence || "";
           const originalSentence = ex.sentence || "";
+          li.dataset.originalSentence = originalSentence;
+          li.dataset.paragraphIndex = String(ex.paragraph_index ?? "");
+          li._exampleData = ex;
           
           const rewriteStatusDiv = document.createElement("div");
           rewriteStatusDiv.className = "rewrite-status";
@@ -3358,6 +3486,7 @@
         downloadRevisionNotesBtn.onclick = () => {
           downloadRevisionNotes(label, uniq);
         };
+        updateApplyAllVisibility();
 
       } catch (error) {
         console.error("Error loading issue examples:", error);
@@ -4193,11 +4322,18 @@
           const exampleRow = statusDiv.closest(".example-item");
           if (exampleRow) {
             exampleRow.dataset.approvedRewrite = rewrite;
+            const key = exampleKey(
+              label,
+              exampleRow.dataset.paragraphIndex,
+              exampleRow.dataset.originalSentence
+            );
+            if (key) approvedExampleKeys.add(key);
             const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
             if (applyBtn) {
               applyBtn.disabled = false;
               setApplyAttention(applyBtn);
             }
+            updateApplyAllVisibility();
           }
         }
       } catch (error) {
@@ -4225,8 +4361,13 @@
         return;
       }
 
+      const exampleData = exampleRow?._exampleData || example;
+      const label = exampleRow?.dataset?.label || exampleData?.label || "";
+      const originalSentence = exampleRow?.dataset?.originalSentence || exampleData?.sentence || "";
+      const paragraphIndex = exampleRow?.dataset?.paragraphIndex ?? exampleData?.paragraph_index ?? "";
+
       // Find the sentence in preview
-      const result = highlightAndScrollToExample(example, null);
+      const result = highlightAndScrollToExample(exampleData, null);
       
       if (!result.ok || result.hits.length === 0) {
         statusDiv.textContent = "Couldn't isolate the exact sentence in preview — please paste manually.";
@@ -4270,6 +4411,28 @@
         
         // Mark example as applied
         exampleRow.classList.add("example-applied");
+        exampleRow.dataset.applied = "true";
+
+        const key = exampleKey(label, paragraphIndex, originalSentence);
+        if (key) appliedExampleKeys.add(key);
+        if (label) {
+          liveLabelCounts[label] = Math.max(0, (liveLabelCounts[label] || 0) - 1);
+          if (!liveLabelCounts[label]) {
+            delete liveLabelCounts[label];
+          }
+        }
+        renderMostCommonIssues(liveLabelCounts);
+        refreshIssueCountUI();
+
+        if (exampleRow && exampleRow.parentNode) {
+          exampleRow.remove();
+        }
+        const remaining = examplesList?.querySelectorAll(".example-item")?.length || 0;
+        if (remaining === 0) {
+          showExamplesEmptyState("No more examples for this issue. Click another bar to practice a different issue.");
+          if (downloadRevisionNotesBtn) downloadRevisionNotesBtn.style.display = "none";
+        }
+        updateApplyAllVisibility();
         
         // Show recheck button if hidden
         const recheckBtn = document.getElementById("recheckDocumentBtn");
