@@ -962,6 +962,12 @@
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
     const mostCommonIssuesWrap = document.getElementById("mostCommonIssuesWrap");
     const mostCommonIssuesChartEl = document.getElementById("mostCommonIssuesChart");
+    const brandConfirmOverlay = document.getElementById("brandConfirmOverlay");
+
+    if (brandConfirmOverlay) {
+      brandConfirmOverlay.hidden = true;
+      brandConfirmOverlay.setAttribute("hidden", "");
+    }
 
     let mostCommonIssuesChart = null;
     const modeSelect = document.getElementById("mode");
