@@ -4334,9 +4334,12 @@
       try {
         const API_BASE = "https://vysti-rules.onrender.com";
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
-        const labelTrimmed = label.replace(/\s+/g, " ").trim();
-        const titles = buildTitlesFromInputs();
         const contextText = extractPreviewText();
+        if (!contextText || !contextText.trim()) {
+          statusDiv.textContent = "Load the Preview first so Vysti can check your rewrite in context.";
+          statusDiv.className = "rewrite-status visible bad";
+          return;
+        }
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
           headers: {
@@ -4345,14 +4348,11 @@
           },
           body: JSON.stringify({
             label: label,
-            label_trimmed: labelTrimmed,
             rewrite: rewrite,
             mode: currentMode,
-            titles: titles.length > 0 ? titles : null,
-            highlight_thesis_devices: false,
             context_text: contextText,
-            paragraph_index: example?.paragraph_index ?? null,
             original_sentence: example?.sentence ?? null,
+            paragraph_index: example?.paragraph_index ?? null,
           }),
         });
 
