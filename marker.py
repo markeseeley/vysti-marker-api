@@ -1391,6 +1391,32 @@ def load_student_guidance(excel_path) -> dict[str, str]:
     return dict(zip(df[0], df[2]))
 
 
+def load_short_explanations(excel_path) -> dict[str, str]:
+    df = pd.read_excel(excel_path, header=None)
+    if df.shape[1] < 4:
+        return {}
+    df = df.dropna(subset=[0, 3])
+    if df.empty:
+        return {}
+    df[0] = df[0].astype(str).str.strip()
+    df[3] = df[3].astype(str).str.strip()
+    df = df[(df[0] != "") & (df[3] != "")]
+    df = df[~df[0].str.lower().isin(["issue", "label"])]
+    return dict(zip(df[0], df[3]))
+
+
+def first_sentence(text: str, *, max_len: int = 180) -> str:
+    clean = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not clean:
+        return ""
+    match = re.match(r"^(.+?[.!?])(\s|$)", clean)
+    if match:
+        return match.group(1).strip()
+    if max_len and len(clean) > max_len:
+        return clean[: max_len - 3].rstrip() + "..."
+    return clean
+
+
 def is_intro_paragraph(idx, intro_idx):
     return idx == intro_idx
 
@@ -6454,11 +6480,20 @@ def mark_docx_bytes(
             guidance_map = load_student_guidance(rules_path)
         except Exception:
             guidance_map = {}
+        try:
+            short_map = load_short_explanations(rules_path)
+        except Exception:
+            short_map = {}
         if ARTICLE_ERROR_LABEL not in guidance_map:
             guidance_map[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_GUIDANCE
         for issue in metadata.get("issues", []):
             if isinstance(issue, dict):
                 issue["student_guidance"] = guidance_map.get(issue.get("label"), "")
+                label = issue.get("label")
+                short_text = short_map.get(label) if label else None
+                if not short_text:
+                    short_text = first_sentence(issue.get("explanation", ""))
+                issue["short_explanation"] = short_text
         
         # 6. Always use DOC_EXAMPLES (the multi-example list collected during marking)
         # DO NOT overwrite with extract_richer_examples() which can only capture
