@@ -24,6 +24,7 @@ from docx.shared import Pt, Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 import re
+import difflib
 
 
 app = FastAPI(title="Vysti Marker API")
@@ -71,11 +72,13 @@ auth_scheme = HTTPBearer(auto_error=False)
 # ===== Pydantic models =====
 class RevisionCheckRequest(BaseModel):
     label: str
+    label_trimmed: str | None = None
     rewrite: str
     mode: str | None = None
     context_text: str | None = None
     original_sentence: str | None = None
     paragraph_index: int | None = None
+    titles: list["TitleInfo"] | None = None
 
 
 class TitleInfo(BaseModel):
@@ -587,7 +590,63 @@ async def ingest_marked_essay(
     )
 
 
-def build_docx_from_text(text: str) -> bytes:
+def normalize_label(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", value).strip().lower()
+
+
+def normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = (
+        normalized.replace("\u2018", "'")
+        .replace("\u2019", "'")
+        .replace("\u201C", "\"")
+        .replace("\u201D", "\"")
+    )
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def split_into_paragraphs(text: str) -> list[str]:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    rewrite_pattern = r"\s*\*\s*Rewrite this paragraph for practice\s*\*\s*"
+    normalized = re.sub(rewrite_pattern, "", normalized, flags=re.IGNORECASE)
+    para_chunks = re.split(r"\n{2,}", normalized)
+    paragraphs: list[str] = []
+    for chunk in para_chunks:
+        para_text = re.sub(r"\n+", " ", chunk).strip()
+        if para_text:
+            paragraphs.append(para_text)
+    return paragraphs
+
+
+def apply_rewrite_to_paragraph(
+    paragraphs: list[str],
+    paragraph_index: int | None,
+    original_sentence: str,
+    rewrite: str,
+) -> tuple[list[str], bool, int | None]:
+    if not paragraphs or not original_sentence:
+        return paragraphs, False, paragraph_index
+
+    if paragraph_index is not None and 0 <= paragraph_index < len(paragraphs):
+        para_text = paragraphs[paragraph_index]
+        if original_sentence in para_text:
+            paragraphs[paragraph_index] = para_text.replace(original_sentence, rewrite, 1)
+            return paragraphs, True, paragraph_index
+
+    for idx, para_text in enumerate(paragraphs):
+        if original_sentence in para_text:
+            paragraphs[idx] = para_text.replace(original_sentence, rewrite, 1)
+            return paragraphs, True, idx
+
+    return paragraphs, False, paragraph_index
+
+
+def build_doc_from_text(text: str) -> bytes:
     # Normalize newlines to \n
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
@@ -678,6 +737,75 @@ def build_docx_from_text(text: str) -> bytes:
     return docx_bytes
 
 
+def build_teacher_config_from_titles(titles: list[TitleInfo] | None) -> dict | None:
+    if not titles:
+        return {"highlight_thesis_devices": False}
+
+    teacher_config: dict = {"highlight_thesis_devices": False}
+    trimmed = titles[:3]
+    if len(trimmed) > 0:
+        t1 = trimmed[0]
+        teacher_config["author_name"] = t1.author
+        teacher_config["text_title"] = t1.title
+        teacher_config["text_is_minor_work"] = t1.is_minor
+    if len(trimmed) > 1:
+        t2 = trimmed[1]
+        teacher_config["author_name_2"] = t2.author
+        teacher_config["text_title_2"] = t2.title
+        teacher_config["text_is_minor_work_2"] = t2.is_minor
+    if len(trimmed) > 2:
+        t3 = trimmed[2]
+        teacher_config["author_name_3"] = t3.author
+        teacher_config["text_title_3"] = t3.title
+        teacher_config["text_is_minor_work_3"] = t3.is_minor
+    return teacher_config
+
+
+def find_matching_examples(
+    examples: list,
+    label_value: str,
+    paragraph_index: int | None,
+    original_sentence: str | None,
+) -> tuple[list[dict], int | None]:
+    normalized_label = normalize_label(label_value)
+    label_matches = [
+        ex
+        for ex in examples
+        if isinstance(ex, dict)
+        and normalize_label(ex.get("label")) == normalized_label
+    ]
+
+    if paragraph_index is not None:
+        matches = [ex for ex in label_matches if ex.get("paragraph_index") == paragraph_index]
+        return matches, paragraph_index
+
+    if not original_sentence:
+        return [], None
+
+    normalized_original = normalize_text(original_sentence)
+    best_ratio = 0.0
+    best_example = None
+    for ex in label_matches:
+        sentence = ex.get("sentence") or ""
+        ratio = difflib.SequenceMatcher(
+            None,
+            normalize_text(sentence),
+            normalized_original,
+        ).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_example = ex
+
+    if best_example and best_ratio >= 0.7:
+        target_index = best_example.get("paragraph_index")
+        if target_index is None:
+            return [best_example], None
+        matches = [ex for ex in label_matches if ex.get("paragraph_index") == target_index]
+        return matches, target_index
+
+    return [], None
+
+
 @app.post("/revision/check")
 async def check_revision(
     request: RevisionCheckRequest,
@@ -685,9 +813,6 @@ async def check_revision(
 ):
     """
     Check if a rewritten sentence still triggers a specific issue label.
-    
-    Creates a minimal .docx document with the rewrite and checks if the
-    target label still appears in the issues.
     """
     # Validate rewrite: reject empty/whitespace
     if not request.rewrite or not request.rewrite.strip():
@@ -702,123 +827,108 @@ async def check_revision(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Rewrite exceeds maximum length of 2000 characters",
         )
-    
-    use_context = bool(
-        request.context_text
-        and request.original_sentence
-        and request.paragraph_index is not None
-    )
 
-    if use_context:
-        normalized_context = request.context_text.replace("\r\n", "\n").replace("\r", "\n")
-        para_chunks = re.split(r"\n{2,}", normalized_context)
-        replaced = False
-
-        if 0 <= request.paragraph_index < len(para_chunks):
-            para_text = para_chunks[request.paragraph_index]
-            if request.original_sentence in para_text:
-                para_chunks[request.paragraph_index] = para_text.replace(
-                    request.original_sentence,
-                    request.rewrite.strip(),
-                    1,
-                )
-                replaced = True
-
-        if replaced:
-            updated_text = "\n\n".join(para_chunks)
-        else:
-            updated_text = normalized_context.replace(
-                request.original_sentence,
-                request.rewrite.strip(),
-                1,
-            )
-
-        docx_bytes = build_docx_from_text(updated_text)
-    else:
-        # Build minimal .docx in-memory (fallback behavior)
-        doc = Document()
-
-        # Intro paragraph
-        doc.add_paragraph("Placeholder introduction sentence.")
-
-        # Body paragraph: rewrite as first sentence
-        body_text = f"{request.rewrite.strip()} Placeholder second sentence."
-        doc.add_paragraph(body_text)
-
-        # Conclusion paragraph
-        doc.add_paragraph("Placeholder conclusion sentence.")
-
-        # Save to BytesIO
-        docx_buffer = BytesIO()
-        doc.save(docx_buffer)
-        docx_buffer.seek(0)
-        docx_bytes = docx_buffer.getvalue()
-        docx_buffer.close()
-    
-    # Call mark_docx_bytes
-    mark_docx_bytes, _ = get_engine()
-    mode = request.mode or "no_title"
-    marked_bytes, metadata = mark_docx_bytes(
-        docx_bytes,
-        mode=mode,
-        teacher_config=None,
-    )
-    
-    if use_context:
-        examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
-
-        matched_example = None
-        for ex in examples:
-            if (
-                isinstance(ex, dict)
-                and ex.get("label") == request.label
-                and ex.get("paragraph_index") == request.paragraph_index
-            ):
-                matched_example = ex
-                break
-
-        if matched_example is None:
-            return JSONResponse(
-                content={
-                    "approved": True,
-                    "label": request.label,
-                    "message": "Looks good! Revision approved.",
-                }
-            )
+    if not request.context_text or not request.original_sentence:
         return JSONResponse(
             content={
                 "approved": False,
-                "label": request.label,
-                "message": "Looks like we still have an issue.",
-                "triggered": matched_example,
+                "message": "Unable to verify rewrite without Preview context. Load the Preview and try again.",
             }
         )
 
-    # Read metadata["issues"] (fallback behavior)
-    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    if normalize_text(request.rewrite) == normalize_text(request.original_sentence):
+        return JSONResponse(
+            content={
+                "approved": False,
+                "message": "No changes detected — edit the example before checking.",
+            }
+        )
 
-    # Check if target label appears in issues
-    matched_issue = None
-    for issue in issues:
-        if isinstance(issue, dict) and issue.get("label") == request.label:
-            matched_issue = issue
-            break
+    label_value = request.label_trimmed or request.label
+    mode = request.mode or "textual_analysis"
+    teacher_config = build_teacher_config_from_titles(request.titles)
 
-    # Return JSON response
-    if matched_issue is None:
+    mark_docx_bytes, _ = get_engine()
+    doc_before = build_doc_from_text(request.context_text)
+    _, metadata_before = mark_docx_bytes(
+        doc_before,
+        mode=mode,
+        teacher_config=teacher_config if teacher_config else None,
+    )
+
+    examples_before = metadata_before.get("examples", []) if isinstance(metadata_before, dict) else []
+    matches_before, target_paragraph_index = find_matching_examples(
+        examples_before,
+        label_value,
+        request.paragraph_index,
+        request.original_sentence,
+    )
+
+    if not matches_before:
+        return JSONResponse(
+            content={
+                "approved": False,
+                "message": "Could not locate this issue in the current Preview context. Click 'Recheck my essay' and try again.",
+            }
+        )
+
+    before_local_count = len(matches_before)
+
+    paragraphs = split_into_paragraphs(request.context_text)
+    updated_paragraphs, replaced, used_paragraph_index = apply_rewrite_to_paragraph(
+        paragraphs,
+        request.paragraph_index,
+        request.original_sentence,
+        request.rewrite.strip(),
+    )
+
+    if not replaced:
+        return JSONResponse(
+            content={
+                "approved": False,
+                "message": "Could not apply rewrite to the current Preview text. Try 'Find in preview' and verify the sentence exists.",
+            }
+        )
+
+    updated_text = "\n\n".join(updated_paragraphs)
+    doc_after = build_doc_from_text(updated_text)
+    _, metadata_after = mark_docx_bytes(
+        doc_after,
+        mode=mode,
+        teacher_config=teacher_config if teacher_config else None,
+    )
+
+    examples_after = metadata_after.get("examples", []) if isinstance(metadata_after, dict) else []
+    effective_paragraph_index = (
+        used_paragraph_index
+        if used_paragraph_index is not None
+        else target_paragraph_index
+    )
+
+    matches_after, _ = find_matching_examples(
+        examples_after,
+        label_value,
+        effective_paragraph_index,
+        request.original_sentence,
+    )
+    after_local_count = len(matches_after)
+
+    if after_local_count < before_local_count:
         return JSONResponse(
             content={
                 "approved": True,
-                "label": request.label,
                 "message": "Looks good! Revision approved.",
+                "before_local_count": before_local_count,
+                "after_local_count": after_local_count,
             }
         )
+
     return JSONResponse(
         content={
             "approved": False,
-            "label": request.label,
-            "message": "Looks like we still have an issue.",
-            "triggered": matched_issue,
+            "message": "Still needs revision — the issue is still triggering here.",
+            "before_local_count": before_local_count,
+            "after_local_count": after_local_count,
         }
     )
 
@@ -841,28 +951,10 @@ async def mark_text(
     Returns the marked .docx bytes (same as /mark).
     """
     # 1. Create .docx from text
-    docx_bytes = build_docx_from_text(request.text)
+    docx_bytes = build_doc_from_text(request.text)
     
     # 2. Build teacher_config from request.titles
-    teacher_config: dict = {}
-    if request.titles:
-        # Take first 3 entries to match current marker schema
-        titles = request.titles[:3]
-        if len(titles) > 0:
-            t1 = titles[0]
-            teacher_config["author_name"] = t1.author
-            teacher_config["text_title"] = t1.title
-            teacher_config["text_is_minor_work"] = t1.is_minor
-        if len(titles) > 1:
-            t2 = titles[1]
-            teacher_config["author_name_2"] = t2.author
-            teacher_config["text_title_2"] = t2.title
-            teacher_config["text_is_minor_work_2"] = t2.is_minor
-        if len(titles) > 2:
-            t3 = titles[2]
-            teacher_config["author_name_3"] = t3.author
-            teacher_config["text_title_3"] = t3.title
-            teacher_config["text_is_minor_work_3"] = t3.is_minor
+    teacher_config = build_teacher_config_from_titles(request.titles)
     
     # 3. Call mark_docx_bytes (same pipeline as /mark)
     mark_docx_bytes, _ = get_engine()
