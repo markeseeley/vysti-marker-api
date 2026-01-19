@@ -4209,8 +4209,6 @@
       if (hits && hits.length > 0) {
         hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
       }
-
-      paragraphEl.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     function brandedConfirm({ title, body, okText = "Remove", cancelText = "Cancel" } = {}) {
