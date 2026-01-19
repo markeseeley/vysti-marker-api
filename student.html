@@ -254,10 +254,10 @@
       gap: 4px;
     }
     .issue-select-wrapper {
-      margin-bottom: 16px;
+      display: none;
     }
     .issue-buttons-wrap {
-      display: flex;
+      display: none;
       flex-direction: column;
       gap: 14px;
     }
@@ -303,6 +303,7 @@
       font-weight: 700;
       font-size: var(--fs-sm);
       margin-bottom: 6px;
+      padding: 0 12px;
       color: rgba(0, 0, 0, .75);
       text-transform: none;
     }
@@ -313,6 +314,25 @@
       border-radius: 6px;
       font-size: var(--fs-sm);
       color: var(--text);
+    }
+    .mci-tooltip {
+      pointer-events: none;
+      z-index: 80;
+    }
+    .mci-tooltip .mci-count {
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .mci-tooltip .mci-explanation {
+      font-size: var(--fs-sm);
+      color: rgba(0, 0, 0, .75);
+      line-height: 1.45;
+    }
+    .mci-tooltip .mci-hint {
+      margin-top: 10px;
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      color: rgba(90, 15, 28, 0.75);
     }
     .examples-list {
       list-style: none;
@@ -714,7 +734,7 @@
     </form>
 
     <section class="card revision-practice-card" id="revisionPracticeCard" style="display:none;">
-      <h2 class="revision-practice-title">Fix Your Most Common Issues</h2>
+      <h2 class="revision-practice-title">Revision examples</h2>
       <div class="issue-select-wrapper">
         <!-- New UI -->
         <div id="issueButtonsWrap" class="issue-buttons-wrap"></div>
@@ -2545,6 +2565,16 @@
       if (!target) return;
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+
+    async function openRevisionExampleFromLabel(label) {
+      if (!label) return;
+      if (revisionPracticeCard) revisionPracticeCard.style.display = "block";
+      if (issueSelect && issueSelect.value !== label) {
+        issueSelect.value = label;
+      }
+      await loadIssueExamples(label);
+      scrollToExamples();
+    }
     
     // Handle issue selection (set up once)
     issueSelect.addEventListener("change", async (e) => {
@@ -2556,8 +2586,7 @@
         return;
       }
 
-      await loadIssueExamples(selectedLabel);
-      scrollToExamples();
+      await openRevisionExampleFromLabel(selectedLabel);
     });
 
     let activeIssueBtn = null;
@@ -2658,6 +2687,82 @@
       return lines;
     }
 
+    function getMostCommonIssuesTooltipEl() {
+      let tooltipEl = document.getElementById("mostCommonIssuesTooltip");
+      if (tooltipEl) return tooltipEl;
+
+      tooltipEl = document.createElement("div");
+      tooltipEl.id = "mostCommonIssuesTooltip";
+      tooltipEl.className = "mci-tooltip tour-popover";
+      tooltipEl.style.opacity = "0";
+      tooltipEl.style.position = "fixed";
+      tooltipEl.style.pointerEvents = "none";
+
+      tooltipEl.innerHTML = `
+        <div class="tour-title"></div>
+        <div class="tour-body">
+          <div class="mci-count"></div>
+          <div class="mci-explanation"></div>
+        </div>
+        <div class="mci-hint">Click for example</div>
+      `;
+
+      document.body.appendChild(tooltipEl);
+      return tooltipEl;
+    }
+
+    function externalMostCommonIssuesTooltip(context) {
+      const { chart, tooltip } = context;
+      const tooltipEl = getMostCommonIssuesTooltipEl();
+
+      if (!tooltip || tooltip.opacity === 0) {
+        tooltipEl.style.opacity = "0";
+        return;
+      }
+
+      const dataPoint = tooltip.dataPoints?.[0];
+      if (!dataPoint) {
+        tooltipEl.style.opacity = "0";
+        return;
+      }
+
+      const titleEl = tooltipEl.querySelector(".tour-title");
+      const countEl = tooltipEl.querySelector(".mci-count");
+      const explanationEl = tooltipEl.querySelector(".mci-explanation");
+
+      const label = dataPoint.label || "";
+      const count = dataPoint.formattedValue || "0";
+      const explanation = dataPoint.dataset?.explanations?.[dataPoint.dataIndex] || "";
+
+      if (titleEl) titleEl.textContent = label;
+      if (countEl) countEl.textContent = `Count: ${count}`;
+      if (explanationEl) {
+        explanationEl.textContent = explanation;
+        explanationEl.style.display = explanation ? "block" : "none";
+      }
+
+      tooltipEl.style.opacity = "1";
+
+      const rect = chart.canvas.getBoundingClientRect();
+      const offset = 12;
+      const padding = 8;
+      let left = rect.left + tooltip.caretX + offset;
+      let top = rect.top + tooltip.caretY - offset - tooltipEl.offsetHeight;
+
+      const maxLeft = window.innerWidth - tooltipEl.offsetWidth - padding;
+      if (left > maxLeft) left = maxLeft;
+      if (left < padding) left = padding;
+
+      if (top < padding) {
+        top = rect.top + tooltip.caretY + offset;
+      }
+      const maxTop = window.innerHeight - tooltipEl.offsetHeight - padding;
+      if (top > maxTop) top = maxTop;
+
+      tooltipEl.style.left = `${left}px`;
+      tooltipEl.style.top = `${top}px`;
+    }
+
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
 
@@ -2669,6 +2774,8 @@
       if (entries.length === 0) {
         mostCommonIssuesWrap.style.display = "none";
         mostCommonIssuesWrap.dataset.hasData = "false";
+        const tooltipEl = document.getElementById("mostCommonIssuesTooltip");
+        if (tooltipEl) tooltipEl.style.opacity = "0";
         if (mostCommonIssuesChart) {
           mostCommonIssuesChart.destroy();
           mostCommonIssuesChart = null;
@@ -2719,41 +2826,27 @@
           plugins: {
             legend: { display: false },
             tooltip: {
-              displayColors: false,
-              titleFont: { size: 16, weight: "700" },
-              bodyFont: { size: 14, lineHeight: 1.35 },
-              footerFont: { size: 13, weight: "700" },
-              padding: 12,
-              bodySpacing: 6,
-              titleSpacing: 6,
-              footerSpacing: 6,
-              callbacks: {
-                title: (items) => {
-                  const item = items?.[0];
-                  return item?.label || "";
-                },
-                label: (item) => {
-                  return `Count: ${item.formattedValue}`;
-                },
-                afterBody: (items) => {
-                  const item = items?.[0];
-                  if (!item) return [];
-                  const idx = item.dataIndex;
-                  const expl = item.dataset?.explanations?.[idx];
-                  if (!expl) return [];
-
-                  const lines = wrapTooltipText(String(expl).trim(), 70);
-                  const maxLines = 10;
-                  const clipped = lines.slice(0, maxLines);
-
-                  // If we clipped, add ellipsis to last line
-                  if (lines.length > maxLines && clipped.length) {
-                    clipped[clipped.length - 1] = clipped[clipped.length - 1].replace(/[.…]?$/, "…");
-                  }
-                  return clipped;
-                }
-              }
+              enabled: false,
+              external: externalMostCommonIssuesTooltip
             }
+          },
+          onHover: (event, elements, chart) => {
+            const targetChart = chart || mostCommonIssuesChart;
+            if (!targetChart?.canvas) return;
+            targetChart.canvas.style.cursor = elements?.length ? "pointer" : "default";
+          },
+          onClick: (event, elements, chart) => {
+            const targetChart = chart || mostCommonIssuesChart;
+            if (!targetChart) return;
+            const hits = targetChart.getElementsAtEventForMode(
+              event,
+              "nearest",
+              { intersect: true },
+              true
+            );
+            if (!hits.length) return;
+            const label = targetChart.data.labels?.[hits[0].index];
+            void openRevisionExampleFromLabel(label);
           },
           scales: {
             y: {
@@ -2788,7 +2881,6 @@
 
         if (markError) {
           console.error("Error loading mark events:", markError);
-          revisionPracticeCard.style.display = "block";
           sectionSelect.innerHTML = '<option value="">All sections</option>';
           issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
           renderIssueButtonsFromSectionData(null);
@@ -2796,7 +2888,6 @@
         }
 
         if (!markEvents || markEvents.length === 0) {
-          revisionPracticeCard.style.display = "block";
           sectionSelect.innerHTML = '<option value="">All sections</option>';
           issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
           renderIssueButtonsFromSectionData(null);
@@ -2953,11 +3044,8 @@
           issueSelect.appendChild(option);
         });
 
-        revisionPracticeCard.style.display = "block";
-
       } catch (error) {
         console.error("Error loading revision practice:", error);
-        revisionPracticeCard.style.display = "block";
         sectionSelect.innerHTML = '<option value="">All sections</option>';
         issueSelect.innerHTML = '<option value="">Examples will appear here after marking.</option>';
         renderIssueButtonsFromSectionData(null);
@@ -3288,7 +3376,7 @@
         issueSelect.value = label;
       }
 
-      await loadIssueExamples(label);
+      await openRevisionExampleFromLabel(label);
 
       const btn = issueButtonsWrap?.querySelector(
         `.issue-btn[data-issue-label="${CSS.escape(label)}"]`
@@ -3299,7 +3387,6 @@
         activeIssueBtn.classList.add("active");
       }
 
-      scrollToExamples();
       return label;
     }
 
@@ -4324,12 +4411,7 @@
       {
         anchor: "#mostCommonIssuesWrap",
         title: "Most Common Issues",
-        body: "Rollover an issue to see an explanation. Then revise your essay to get rid of these issues one by one.",
-      },
-      {
-        anchor: "#issueButtonsWrap",
-        title: "Fix Your Most Common Issues",
-        body: "These are color-coded to match the bar chart above. Click on an issue to see what you need to fix.",
+        body: "Hover to see an explanation. Click a bar to jump to an example.",
       },
       {
         anchor: "#markedPreviewCard",
@@ -4621,7 +4703,6 @@
       if (resultsCard) resultsCard.style.display = "block";
       if (downloadBtn) downloadBtn.style.display = "block";
       if (markedPreviewCard) markedPreviewCard.style.display = "block";
-      if (revisionPracticeCard) revisionPracticeCard.style.display = "block";
       if (recheckDocumentBtn) recheckDocumentBtn.style.display = "block";
       if (mostCommonIssuesWrap && mostCommonIssuesWrap.dataset.hasData === "true") {
         mostCommonIssuesWrap.style.display = "block";
