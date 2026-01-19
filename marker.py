@@ -1281,36 +1281,6 @@ def compute_topic_sentence_span(flat_text: str, quote_spans: list) -> tuple[int,
     return (topic_start, topic_end)
 
 
-CONTENT_POS_TAGS = {"NOUN", "PROPN", "VERB", "ADJ", "ADV"}
-CONTENT_LEMMA_EXCLUSIONS = {"be", "have", "do"}
-
-
-def normalize_paragraph_text_for_context(text: str) -> str:
-    return re.sub(r"\s+", " ", text or "").strip()
-
-
-def extract_content_lemmas(doc, start: int, end: int) -> set[str]:
-    words: set[str] = set()
-    if start is None or end is None:
-        return words
-    for tok in doc:
-        if tok.idx < start or tok.idx >= end:
-            continue
-        if tok.is_space or tok.is_punct:
-            continue
-        if tok.pos_ not in CONTENT_POS_TAGS:
-            continue
-        lemma = (tok.lemma_ or "").lower().strip()
-        if not lemma:
-            continue
-        if tok.is_stop:
-            continue
-        if lemma in CONTENT_LEMMA_EXCLUSIONS:
-            continue
-        words.add(lemma)
-    return words
-
-
 def get_paragraph_role(paragraph_index, intro_idx, total_paragraphs, config: MarkerConfig | None = None):
     """
     Classify the current paragraph as 'intro', 'body', 'conclusion', or 'other'
@@ -1614,6 +1584,86 @@ def spacy_parse(text):
             sentences.append((cur_start, s_end))
 
     return doc, tokens, sentences
+
+
+WEAK_TRANSITIONS_MULTI = [
+    "to begin",
+    "to start",
+    "in addition",
+    "on the other hand",
+    "in summary",
+    "to summarize",
+    "in conclusion",
+    "to conclude",
+    "in fact",
+    "in contrast",
+    "by contrast",
+    "even so",
+]
+
+WEAK_TRANSITIONS_SINGLE = [
+    "first",
+    "second",
+    "third",
+    "next",
+    "then",
+    "afterward",
+    "subsequently",
+    "later",
+    "moreover",
+    "furthermore",
+    "additionally",
+    "also",
+    "besides",
+    "overall",
+    "finally",
+    "ultimately",
+    "however",
+    "but",
+    "yet",
+    "nevertheless",
+    "nonetheless",
+    "still",
+    "indeed",
+]
+
+
+def _build_weak_transition_lemmas() -> set[str]:
+    lemmas: set[str] = set()
+    for phrase in WEAK_TRANSITIONS_MULTI + WEAK_TRANSITIONS_SINGLE:
+        for tok in nlp(phrase):
+            if tok.is_space or tok.is_punct:
+                continue
+            lemma = tok.lemma_.lower().strip()
+            if lemma:
+                lemmas.add(lemma)
+    return lemmas
+
+
+WEAK_TRANSITION_LEMMAS = _build_weak_transition_lemmas()
+CONTENT_POS = {"NOUN", "PROPN", "VERB", "ADJ", "ADV"}
+
+
+def extract_content_lemmas(doc, start_char, end_char, extra_exclude=None) -> set[str]:
+    exclude = {"be", "have", "do"} | WEAK_TRANSITION_LEMMAS
+    if extra_exclude:
+        exclude |= {lemma for lemma in extra_exclude if lemma}
+
+    lemmas: set[str] = set()
+    for tok in doc:
+        if tok.idx < start_char:
+            continue
+        if tok.idx >= end_char:
+            break
+        if tok.is_stop or tok.is_punct or tok.is_space:
+            continue
+        if tok.pos_ not in CONTENT_POS:
+            continue
+        lemma = tok.lemma_.lower().strip()
+        if not lemma or lemma in exclude:
+            continue
+        lemmas.add(lemma)
+    return lemmas
 
 
 
@@ -1928,7 +1978,7 @@ def analyze_text(
     labels_used=None,
     intro_idx=0,
     config: MarkerConfig | None = None,
-    prev_paragraph_last_content_words: set[str] | None = None,
+    prev_body_last_sentence_content_words: set[str] | None = None,
 ):
     """
     Phase 1 — Forbidden Words
@@ -1968,6 +2018,10 @@ def analyze_text(
     # SPACY PROCESSING
     # -----------------------
     doc, tokens, sentences = spacy_parse(flat_text)
+    last_sentence_content_words: set[str] = set()
+    if sentences:
+        last_start, last_end = sentences[-1]
+        last_sentence_content_words = extract_content_lemmas(doc, last_start, last_end)
 
     # -----------------------
     # Always compute spans fresh from the updated flat_text
@@ -2273,15 +2327,6 @@ def analyze_text(
 
     if is_foundation3:
         paragraph_role = "intro"
-
-    last_sentence_content_words: set[str] = set()
-    topic_sentence_content_words: set[str] = set()
-    if sentences:
-        last_start, last_end = sentences[-1]
-        last_sentence_content_words = extract_content_lemmas(doc, last_start, last_end)
-    if paragraph_role == "body" and sentences:
-        topic_start, topic_end = compute_topic_sentence_span(flat_text, spans)
-        topic_sentence_content_words = extract_content_lemmas(doc, topic_start, topic_end)
 
     # Convenience flags: first and last content paragraph indices
     is_first_intro_para = (
@@ -4854,107 +4899,95 @@ def analyze_text(
     # -----------------------
     # PHASE 8 — WEAK TRANSITION DETECTION
     # -----------------------
-    weak_transitions_multi = [
-        "to begin",
-        "to start",
-        "in addition",
-        "on the other hand",
-        "in summary",
-        "to summarize",
-        "in conclusion",
-        "to conclude",
-        "in fact",
-        "in contrast",
-        "by contrast",
-        "even so"
-    ]
-
-    weak_transitions_single = [
-        "first",
-        "second",
-        "third",
-        "next",
-        "then",
-        "afterward",
-        "subsequently",
-        "later",
-        "moreover",
-        "furthermore",
-        "additionally",
-        "also",
-        "besides",
-        "overall",
-        "finally",
-        "ultimately",
-        "however",
-        "but",
-        "yet",
-        "nevertheless",
-        "nonetheless",
-        "still",
-        "indeed"
-    ]
-
     rule_note_weak_transition = "Use a boundary statement when transitioning between paragraphs"
 
-    # Check multi-word transitions first (longer phrases first to avoid partial matches)
-    weak_transitions_multi_sorted = sorted(weak_transitions_multi, key=len, reverse=True)
+    if paragraph_role == "body" and sentences:
+        # Check multi-word transitions first (longer phrases first to avoid partial matches)
+        weak_transitions_multi_sorted = sorted(WEAK_TRANSITIONS_MULTI, key=len, reverse=True)
 
-    matched = False
-    match_start = None
-    match_end = None
-    
-    # Check if paragraph starts with any multi-word transition
-    trimmed_text = flat_text.lstrip()
-    leading_whitespace_len = len(flat_text) - len(trimmed_text)
+        matched = False
+        match_start = None
+        match_end = None
+        matched_phrase = None
 
-    for transition in weak_transitions_multi_sorted:
-        transition_lower = transition.lower()
-        if trimmed_text.lower().startswith(transition_lower):
-            transition_len = len(transition)
-            if (transition_len >= len(trimmed_text) or 
-                not trimmed_text[transition_len].isalnum()):
-                match_start = leading_whitespace_len
-                match_end = leading_whitespace_len + transition_len
-                matched = True
+        # Check if topic sentence starts with any multi-word transition
+        topic_start, topic_end = sentences[0]
+        topic_text = flat_text[topic_start:topic_end]
+        trimmed_text = topic_text.lstrip()
+        leading_whitespace_len = len(topic_text) - len(trimmed_text)
+
+        for transition in weak_transitions_multi_sorted:
+            transition_lower = transition.lower()
+            if trimmed_text.lower().startswith(transition_lower):
+                transition_len = len(transition)
+                if transition_len >= len(trimmed_text) or not trimmed_text[transition_len].isalnum():
+                    match_start = topic_start + leading_whitespace_len
+                    match_end = match_start + transition_len
+                    matched = True
+                    matched_phrase = transition
+                    break
+
+        # If no multi-word match, check single-word transitions against first token
+        if not matched and tokens:
+            first_token = None
+            for tok_text, tok_start, tok_end in tokens:
+                if tok_start < topic_start:
+                    continue
+                if tok_start >= topic_end:
+                    break
+                first_token = (tok_text, tok_start, tok_end)
                 break
 
-    # If no multi-word match, check single-word transitions against first token
-    if not matched and tokens:
-        first_token = tokens[0][0].lower()
-        if first_token in weak_transitions_single:
-            match_start = tokens[0][1]
-            match_end = tokens[0][2]
-            matched = True
+            if first_token:
+                first_text = first_token[0].lower()
+                if first_text in WEAK_TRANSITIONS_SINGLE:
+                    match_start = first_token[1]
+                    match_end = first_token[2]
+                    matched = True
+                    matched_phrase = first_token[0]
 
-    if paragraph_role != "body":
-        matched = False
-    elif matched and prev_paragraph_last_content_words:
-        if prev_paragraph_last_content_words & topic_sentence_content_words:
-            matched = False
-
-    # If a match was found at the start, mark it
-    if matched and match_start is not None and match_end is not None:
-        # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
-        if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
-            pass  # Skip marking
-        else:
-            if rule_note_weak_transition not in labels_used:
-                marks.append({
-                "start": match_start,
-                "end": match_end,
-                "note": rule_note_weak_transition,
-                "color": WD_COLOR_INDEX.GRAY_25,
-                "label": True
-            })
-                labels_used.append(rule_note_weak_transition)
+        # If a match was found at the start, mark it (unless boundary overlap exists)
+        if matched and match_start is not None and match_end is not None:
+            # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
+            if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
+                pass  # Skip marking
             else:
-                marks.append({
-                "start": match_start,
-                "end": match_end,
-                "note": rule_note_weak_transition,
-                "color": WD_COLOR_INDEX.GRAY_25
-            })
+                weak_transition_lemmas = set()
+                if matched_phrase:
+                    for tok in nlp(matched_phrase):
+                        if tok.is_space or tok.is_punct:
+                            continue
+                        lemma = tok.lemma_.lower().strip()
+                        if lemma:
+                            weak_transition_lemmas.add(lemma)
+
+                topic_content = extract_content_lemmas(
+                    doc,
+                    topic_start,
+                    topic_end,
+                    extra_exclude=weak_transition_lemmas,
+                )
+                has_overlap = False
+                if prev_body_last_sentence_content_words:
+                    has_overlap = bool(prev_body_last_sentence_content_words & topic_content)
+
+                if not has_overlap:
+                    if rule_note_weak_transition not in labels_used:
+                        marks.append({
+                            "start": match_start,
+                            "end": match_end,
+                            "note": rule_note_weak_transition,
+                            "color": WD_COLOR_INDEX.GRAY_25,
+                            "label": True,
+                        })
+                        labels_used.append(rule_note_weak_transition)
+                    else:
+                        marks.append({
+                            "start": match_start,
+                            "end": match_end,
+                            "note": rule_note_weak_transition,
+                            "color": WD_COLOR_INDEX.GRAY_25,
+                        })
 
     # =====================================================================
     # FOUNDATION ASSIGNMENT 1 — FILTER MARKS IN EXTRA SENTENCES
@@ -5097,7 +5130,7 @@ def analyze_text(
     if getattr(config, "student_mode", False):
         marks = ensure_student_labels_per_sentence(marks, sentences)
 
-    return marks, flat_text, segments, sentences, last_sentence_content_words, topic_sentence_content_words
+    return marks, flat_text, segments, sentences, last_sentence_content_words
 
 
 # Constants for quotation label insertion
@@ -6774,6 +6807,7 @@ def run_marker(
     
     # Foundation 4: Track whether student wrote a first body paragraph
     saw_body_para = False
+    prev_body_last_sentence_content_words: set[str] | None = None
     
     for new_idx, (old_idx, p) in enumerate(real_paragraphs):
         # Skip MLA-style header lines entirely (name, teacher, class, date, etc.)
@@ -6993,6 +7027,8 @@ def run_marker(
 
         # Determine paragraph role for praise logic
         paragraph_role = get_paragraph_role(new_idx, intro_idx, total_real_paras, config=config)
+        if paragraph_role != "body":
+            prev_body_last_sentence_content_words = None
         
         # Foundation 4: Track if we see a body paragraph
         if config.mode == "foundation_4" and paragraph_role == "body":
@@ -7018,6 +7054,7 @@ def run_marker(
         # (body, conclusion, and any other content after the intro).
         # =====================================================================
         if config.mode == "foundation_1" and paragraph_role != "intro":
+            prev_body_last_sentence_content_words = None
             # Get the flat text for this extra paragraph
             flat_text, seg = flatten_paragraph(p, skip_vysti=False)
             
@@ -7055,18 +7092,24 @@ def run_marker(
         # Any later body / conclusion paragraphs should be left completely unmarked by the
         # automated rules so the focus stays on intro skills.
         if config.mode == "foundation_2" and paragraph_role != "intro":
-                continue
+            prev_body_last_sentence_content_words = None
+            continue
 
         # All structural quotation rules now live inside analyze_text,
         # using paragraph_index, total_paragraphs, and intro_idx.
-        marks, flat_text, seg, sentences = analyze_text(
+        marks, flat_text, seg, sentences, last_sentence_content_words = analyze_text(
             p,
             paragraph_index=new_idx,
             total_paragraphs=total_real_paras,
             labels_used=labels_used,
             intro_idx=intro_idx,
             config=config,
+            prev_body_last_sentence_content_words=(
+                prev_body_last_sentence_content_words if paragraph_role == "body" else None
+            ),
         )
+        if paragraph_role == "body":
+            prev_body_last_sentence_content_words = last_sentence_content_words
 
         seen = set()
         for mm in marks:
