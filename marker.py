@@ -336,6 +336,10 @@ BOOKMARK_PREFIX = "vysti_issue_"
 
 BOOKMARK_MAX_LEN = 40  # Word's limit for bookmark names
 
+ARTICLE_ERROR_LABEL = "Article error"
+ARTICLE_ERROR_EXPLANATION = "Use a before consonants and an before vowels."
+ARTICLE_ERROR_GUIDANCE = "Swap the article so it matches the next word (a + consonant, an + vowel)."
+
 # Global counter so bookmark IDs are unique in the document
 BOOKMARK_ID_COUNTER = 1
 
@@ -4363,6 +4367,47 @@ def analyze_text(
                 })
 
     # -----------------------
+    # PHASE 2.1 — Article errors (a/an)
+    # -----------------------
+    article_regex = re.compile(r"\b(a|an)\s+([A-Za-z])", re.IGNORECASE)
+    for match in article_regex.finditer(flat_text):
+        article = match.group(1) or ""
+        next_letter = match.group(2) or ""
+        if not article or not next_letter:
+            continue
+
+        article_lower = article.lower()
+        next_lower = next_letter.lower()
+        should_be_an = next_lower in {"a", "e", "i", "o", "u"}
+        is_error = (article_lower == "a" and should_be_an) or (article_lower == "an" and not should_be_an)
+        if not is_error:
+            continue
+
+        start = match.start(1)
+        end = match.end(1)
+
+        # Ignore article mistakes inside direct quotations
+        if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
+            continue
+
+        if ARTICLE_ERROR_LABEL not in labels_used:
+            marks.append({
+                "start": start,
+                "end": end,
+                "note": ARTICLE_ERROR_LABEL,
+                "color": WD_COLOR_INDEX.GRAY_25,
+                "label": True,
+            })
+            labels_used.append(ARTICLE_ERROR_LABEL)
+        else:
+            marks.append({
+                "start": start,
+                "end": end,
+                "note": ARTICLE_ERROR_LABEL,
+                "color": WD_COLOR_INDEX.GRAY_25,
+            })
+
+    # -----------------------
     # PHASE 5A — Delete-phrases
     # -----------------------
     delete_phrases = [
@@ -6330,6 +6375,8 @@ def mark_docx_bytes(
             guidance_map = load_student_guidance(rules_path)
         except Exception:
             guidance_map = {}
+        if ARTICLE_ERROR_LABEL not in guidance_map:
+            guidance_map[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_GUIDANCE
         for issue in metadata.get("issues", []):
             if isinstance(issue, dict):
                 issue["student_guidance"] = guidance_map.get(issue.get("label"), "")
@@ -6401,6 +6448,8 @@ def run_marker(
         config = get_preset_config("textual_analysis")
     
     rules = load_rules(rules_path)
+    if ARTICLE_ERROR_LABEL not in rules:
+        rules[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_EXPLANATION
     doc = Document(essay_path)
     labels_used = []
 
