@@ -527,12 +527,6 @@
           <div class="assignment-tracker-title">
             <span class="label-row">
               Assignment Tracker
-              <span class="type-info tt"
-                    tabindex="0"
-                    aria-label="Assignment Tracker"
-                    data-tip="Want to track progress? Name drafts like Assignment 01, 02, 03… so your dashboard makes sense later. Don’t care? Leave it blank. We won’t be offended.">
-                i
-              </span>
             </span>
           </div>
           <label class="visually-hidden" for="assignmentName">Assignment name (optional)</label>
@@ -767,10 +761,10 @@
           <select id="previewZoom">
             <option value="0.8">80%</option>
             <option value="0.9">90%</option>
-            <option value="1" selected>100%</option>
+            <option value="1">100%</option>
             <option value="1.1">110%</option>
             <option value="1.25">125%</option>
-            <option value="1.5">150%</option>
+            <option value="1.5" selected>150%</option>
           </select>
         </label>
       </div>
@@ -786,6 +780,18 @@
       <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
     </footer>
   </main>
+
+  <div id="brandConfirmOverlay" class="brand-confirm-overlay" hidden>
+    <div class="brand-confirm-popover" role="dialog" aria-modal="true" aria-labelledby="brandConfirmTitle">
+      <button class="brand-confirm-close" type="button" aria-label="Close dialog">×</button>
+      <div id="brandConfirmTitle" class="brand-confirm-title">Confirm</div>
+      <div id="brandConfirmBody" class="brand-confirm-body"></div>
+      <div class="brand-confirm-actions">
+        <button id="brandConfirmCancel" class="brand-confirm-cancel" type="button">Cancel</button>
+        <button id="brandConfirmOk" class="brand-confirm-ok" type="button">Remove</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ===== Bucket definitions =====
@@ -3315,8 +3321,8 @@
           const removeIssueBtn = document.createElement("button");
           removeIssueBtn.className = "example-btn example-action remove-issue-btn";
           removeIssueBtn.textContent = "Remove issue";
-          removeIssueBtn.onclick = () => {
-            removeIssueFromPreview(label, ex, rewriteStatusDiv, removeIssueBtn);
+          removeIssueBtn.onclick = async () => {
+            await removeIssueFromPreview(label, ex, rewriteStatusDiv, removeIssueBtn);
           };
           
           actionsDiv.appendChild(resetExampleBtn);
@@ -3946,14 +3952,79 @@
       return { ok: true, hits: [], blockEl: blockEl, used: "paragraph" };
     }
 
-    function removeIssueFromPreview(label, example, statusDiv, removeBtn) {
+    function brandedConfirm({ title, body, okText = "Remove", cancelText = "Cancel" } = {}) {
+      const overlay = document.getElementById("brandConfirmOverlay");
+      const titleEl = document.getElementById("brandConfirmTitle");
+      const bodyEl = document.getElementById("brandConfirmBody");
+      const okBtn = document.getElementById("brandConfirmOk");
+      const cancelBtn = document.getElementById("brandConfirmCancel");
+      const closeBtn = overlay?.querySelector(".brand-confirm-close");
+
+      if (!overlay || !titleEl || !bodyEl || !okBtn || !cancelBtn || !closeBtn) {
+        return Promise.resolve(window.confirm(body || "Are you sure?"));
+      }
+
+      return new Promise((resolve) => {
+        let resolved = false;
+
+        const cleanup = () => {
+          overlay.hidden = true;
+          document.removeEventListener("keydown", onKeyDown);
+          overlay.removeEventListener("click", onOverlayClick);
+          okBtn.removeEventListener("click", onOk);
+          cancelBtn.removeEventListener("click", onCancel);
+          closeBtn.removeEventListener("click", onCancel);
+        };
+
+        const finish = (result) => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          resolve(result);
+        };
+
+        const onOk = () => finish(true);
+        const onCancel = () => finish(false);
+        const onOverlayClick = (event) => {
+          if (event.target === overlay) {
+            finish(false);
+          }
+        };
+        const onKeyDown = (event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(false);
+          }
+        };
+
+        titleEl.textContent = title || "Confirm";
+        bodyEl.textContent = body || "";
+        okBtn.textContent = okText || "Remove";
+        cancelBtn.textContent = cancelText || "Cancel";
+
+        overlay.hidden = false;
+        okBtn.focus();
+
+        document.addEventListener("keydown", onKeyDown);
+        overlay.addEventListener("click", onOverlayClick);
+        okBtn.addEventListener("click", onOk);
+        cancelBtn.addEventListener("click", onCancel);
+        closeBtn.addEventListener("click", onCancel);
+      });
+    }
+
+    async function removeIssueFromPreview(label, example, statusDiv, removeBtn) {
       if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
         statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
         statusDiv.className = "rewrite-status visible bad";
         return;
       }
 
-      if (!confirm("Remove this issue label + highlight from the preview?")) {
+      const ok = await brandedConfirm({
+        title: "Remove from preview?",
+        body: "Remove this issue label + highlight from the preview?"
+      });
+      if (!ok) {
         return;
       }
 
@@ -4393,7 +4464,7 @@
       {
         anchor: "#work1Section",
         title: "Author + Title",
-        body: "Vysti tries to guess Author and Title, so check to ensure they match your document. Use Minor/Major to choose how the titles should appear in MLA style (minor = quotation marks, major = italics). Click Add another to add additional authors and texts if necessary.",
+        body: "Vysti tries to guess Author and Title, so check to ensure they match your document. Use Minor or Major to choose how the titles should appear in MLA style. Click Add another to add additional authors and texts if necessary.",
       },
       {
         anchor: "#checkBtn",
@@ -4426,7 +4497,7 @@
       {
         anchor: "#examplesList",
         title: "Practice a revision",
-        body: "Pick an example below, rewrite it, then click ‘Check rewrite’. If it’s approved, click ‘Apply to Preview’ to update your document.",
+        body: "Follow Vysti's guidance to repair your work, then click 'Check rewrite'. If it's approved , click ‘Apply to Preview’ to update your document.",
       },
     ];
 
