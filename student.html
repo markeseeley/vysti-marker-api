@@ -14,59 +14,6 @@
   <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
-    .text-details-toggle {
-      margin-top: 12px;
-      padding: 8px 0;
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      color: var(--maroon);
-      cursor: pointer;
-      user-select: none;
-    }
-    .text-details-toggle:hover {
-      text-decoration: underline;
-    }
-    .text-details-section {
-      margin-top: 8px;
-      padding: 0;
-      background: transparent;
-      border: 0;
-      border-radius: 0;
-      display: none;
-    }
-    .text-details-section.visible {
-      display: block;
-    }
-    .title-type-block {
-      margin-top: 12px;
-    }
-    .title-type-label {
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .title-type-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .type-option {
-      cursor: pointer;
-    }
-    .type-head {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .type-name {
-      font-weight: 600;
-      font-size: var(--fs-sm);
-    }
-    .title-type-block input[type="radio"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--maroon);
-    }
     .assignment-tracker-block {
       margin-bottom: 18px;
       padding: 16px;
@@ -96,41 +43,6 @@
       color: var(--muted);
       margin-bottom: 12px;
     }
-    .work-section {
-      margin-top: 12px;
-      padding: 16px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-    }
-    /* Don’t double-space the first work box under the toggle */
-    #work1Section {
-      margin-top: 0;
-    }
-    .work-section.hidden {
-      display: none;
-    }
-    .work-title {
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 12px;
-    }
-    .add-work-btn {
-      margin-top: 12px;
-      padding: 8px 16px;
-      background: transparent;
-      border: 1px solid var(--maroon);
-      border-radius: 6px;
-      color: var(--maroon);
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .add-work-btn:hover {
-      background: var(--maroon);
-      color: #fff;
-    }
     .primary-btn.is-loading {
       cursor: progress;
       opacity: 0.95; /* keep readable even while disabled */
@@ -155,18 +67,6 @@
     .preview-actions .primary-btn {
       width: min(360px, 100%);
       margin-top: 0; /* override default .primary-btn margin-top */
-    }
-    .detected-meta {
-      margin-top: 12px;
-      padding: 8px 12px;
-      background: #e7f3ff;
-      border-radius: 6px;
-      font-size: var(--fs-xs);
-      color: #000;
-      display: none;
-    }
-    .detected-meta.visible {
-      display: block;
     }
     .marked-preview-card {
       margin-top: 24px;
@@ -656,153 +556,6 @@
           <input type="text" id="assignmentName" placeholder="Assignment 01" aria-label="Assignment name (optional)" />
         </div>
 
-        <div class="text-details-toggle hidden" id="textDetailsToggle">
-          Enter author and text titles ▼
-        </div>
-
-        <div class="text-details-section hidden" id="textDetailsSection">
-          <div class="work-section" id="work1Section">
-            <div id="metaConfirm" class="detected-meta"></div>
-            <label>
-              Author
-              <input type="text" id="author" placeholder="Author's full name" />
-            </label>
-
-            <label>
-              Title
-              <input type="text" id="title" placeholder="Title of the text" />
-            </label>
-
-            <div id="titleTypeAndAddWrap">
-              <div class="title-type-block">
-                <div class="title-type-label">Title type</div>
-                <div class="title-type-grid">
-                  <label class="type-option">
-                    <span class="type-head">
-                      <input type="radio" name="title_type" value="true" checked />
-                      <span class="type-name">Minor work</span>
-                      <span
-                        class="type-info tt"
-                        tabindex="0"
-                        data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
-                      >i</span>
-                    </span>
-                  </label>
-                  <label class="type-option">
-                    <span class="type-head">
-                      <input type="radio" name="title_type" value="false" />
-                      <span class="type-name">Major work</span>
-                      <span
-                        class="type-info tt"
-                        tabindex="0"
-                        data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
-                      >i</span>
-                    </span>
-                  </label>
-                </div>
-                <select id="title_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
-                  <option value="true" selected>Minor work</option>
-                  <option value="false">Major work</option>
-                </select>
-              </div>
-
-              <button type="button" class="add-work-btn" id="addWork2Btn">Add another</button>
-            </div>
-          </div>
-
-          <div class="work-section hidden" id="work2Section">
-            <div class="work-title">Work 2</div>
-            <label>
-              Author
-              <input type="text" id="author2" placeholder="Author's full name" />
-            </label>
-
-            <label>
-              Title
-              <input type="text" id="title2" placeholder="Title of the text" />
-            </label>
-
-            <div class="title-type-block">
-              <div class="title-type-label">Title type</div>
-              <div class="title-type-grid">
-                <label class="type-option">
-                  <span class="type-head">
-                    <input type="radio" name="title2_type" value="true" checked />
-                    <span class="type-name">Minor work</span>
-                    <span
-                      class="type-info tt"
-                      tabindex="0"
-                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
-                    >i</span>
-                  </span>
-                </label>
-                <label class="type-option">
-                  <span class="type-head">
-                    <input type="radio" name="title2_type" value="false" />
-                    <span class="type-name">Major work</span>
-                    <span
-                      class="type-info tt"
-                      tabindex="0"
-                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
-                    >i</span>
-                  </span>
-                </label>
-              </div>
-              <select id="title2_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
-                <option value="true" selected>Minor work</option>
-                <option value="false">Major work</option>
-              </select>
-            </div>
-          </div>
-
-          <button type="button" class="add-work-btn hidden" id="addWork3Btn">Add another</button>
-
-          <div class="work-section hidden" id="work3Section">
-            <div class="work-title">Work 3</div>
-            <label>
-              Author
-              <input type="text" id="author3" placeholder="Author's full name" />
-            </label>
-
-            <label>
-              Title
-              <input type="text" id="title3" placeholder="Title of the text" />
-            </label>
-
-            <div class="title-type-block">
-              <div class="title-type-label">Title type</div>
-              <div class="title-type-grid">
-                <label class="type-option">
-                  <span class="type-head">
-                    <input type="radio" name="title3_type" value="true" checked />
-                    <span class="type-name">Minor work</span>
-                    <span
-                      class="type-info tt"
-                      tabindex="0"
-                      data-tip="Minor work = shorter pieces in quotation marks (poems, short stories, articles, songs, chapters, speeches, episodes)."
-                    >i</span>
-                  </span>
-                </label>
-                <label class="type-option">
-                  <span class="type-head">
-                    <input type="radio" name="title3_type" value="false" />
-                    <span class="type-name">Major work</span>
-                    <span
-                      class="type-info tt"
-                      tabindex="0"
-                      data-tip="Major work = longer works in italics (novels, plays, films, TV series, newspapers, journals, musical albums)."
-                    >i</span>
-                  </span>
-                </label>
-              </div>
-              <select id="title3_is_minor" class="hidden-select" aria-hidden="true" tabindex="-1">
-                <option value="true" selected>Minor work</option>
-                <option value="false">Major work</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <button class="primary-btn" id="checkBtn" type="submit" disabled>Mark my essay</button>
       </section>
 
@@ -1094,15 +847,6 @@
     const downloadBtn = document.getElementById("downloadBtn");
     const fileList = document.getElementById("fileList");
     const dropZone = document.getElementById("dropZone");
-    const textDetailsToggle = document.getElementById("textDetailsToggle");
-    const textDetailsSection = document.getElementById("textDetailsSection");
-    const titleTypeRadios = Array.from(document.querySelectorAll('input[name="title_type"]'));
-    const titleIsMinorSelect = document.getElementById("title_is_minor");
-    const addWork2Btn = document.getElementById("addWork2Btn");
-    const addWork3Btn = document.getElementById("addWork3Btn");
-    const work2Section = document.getElementById("work2Section");
-    const work3Section = document.getElementById("work3Section");
-    const metaConfirm = document.getElementById("metaConfirm");
     const markedPreviewCard = document.getElementById("markedPreviewCard");
     const markedPreview = document.getElementById("markedPreview");
     const previewZoom = document.getElementById("previewZoom");
@@ -1154,7 +898,6 @@
     let markedBlob = null;
     let currentMarkEvent = null;
     let lastRevisionSectionData = null;
-    let pendingDetectedMeta = null;
     let currentWordCount = null;
     let currentTechniques = [];
     let hasStartedRevising = false;
@@ -1353,65 +1096,11 @@
       }, true);
     }
 
-    function buildTitlesFromInputs() {
-      const author = document.getElementById("author")?.value.trim() || "";
-      const title = document.getElementById("title")?.value.trim() || "";
-      const titleIsMinorSelect = document.getElementById("title_is_minor");
-      const textIsMinorWork = titleIsMinorSelect ? titleIsMinorSelect.value : "true";
-
-      const author2 = document.getElementById("author2")?.value.trim() || "";
-      const title2 = document.getElementById("title2")?.value.trim() || "";
-      const title2IsMinorSelect = document.getElementById("title2_is_minor");
-      const title2IsMinor = title2IsMinorSelect ? title2IsMinorSelect.value : "true";
-
-      const author3 = document.getElementById("author3")?.value.trim() || "";
-      const title3 = document.getElementById("title3")?.value.trim() || "";
-      const title3IsMinorSelect = document.getElementById("title3_is_minor");
-      const title3IsMinor = title3IsMinorSelect ? title3IsMinorSelect.value : "true";
-
-      const titles = [];
-      if (title) {
-        titles.push({
-          author: author,
-          title: title,
-          is_minor: textIsMinorWork === "true",
-        });
-      }
-      if (title2) {
-        titles.push({
-          author: author2,
-          title: title2,
-          is_minor: title2IsMinor === "true",
-        });
-      }
-      if (title3) {
-        titles.push({
-          author: author3,
-          title: title3,
-          is_minor: title3IsMinor === "true",
-        });
-      }
-      return titles;
-    }
-
     function buildMarkFormData({ includeSummaryTable = false } = {}) {
       if (!selectedFile) return null;
 
       const mode = document.getElementById("mode").value;
       const assignmentName = document.getElementById("assignmentName").value.trim();
-      const author = document.getElementById("author").value.trim();
-      const title = document.getElementById("title").value.trim();
-      const textIsMinorWork = titleIsMinorSelect ? titleIsMinorSelect.value : "true";
-
-      // Work 2
-      const author2 = document.getElementById("author2").value.trim();
-      const title2 = document.getElementById("title2").value.trim();
-      const title2IsMinor = document.getElementById("title2_is_minor").value;
-
-      // Work 3
-      const author3 = document.getElementById("author3").value.trim();
-      const title3 = document.getElementById("title3").value.trim();
-      const title3IsMinor = document.getElementById("title3_is_minor").value;
 
       const formData = new FormData();
       formData.append("file", selectedFile);
@@ -1424,31 +1113,6 @@
       if (assignmentName) {
         formData.append("assignment_name", assignmentName);
       }
-      if (author) {
-        formData.append("author", author);
-      }
-      if (title) {
-        formData.append("title", title);
-        formData.append("text_is_minor_work", textIsMinorWork);
-      }
-
-      // Work 2
-      if (author2) {
-        formData.append("author2", author2);
-      }
-      if (title2) {
-        formData.append("title2", title2);
-        formData.append("text_is_minor_work_2", title2IsMinor);
-      }
-
-      // Work 3
-      if (author3) {
-        formData.append("author3", author3);
-      }
-      if (title3) {
-        formData.append("title3", title3);
-        formData.append("text_is_minor_work_3", title3IsMinor);
-      }
 
       return formData;
     }
@@ -1459,7 +1123,7 @@
         description: "A formal and academic essay of analysis with all Vysti Rules running.",
         details: [
           "No first-person allowed or personal pronouns",
-          "First sentence should state the author & title of the work.",
+          "First sentence should state the author, genre, title, and summary.",
           "Requires a closed thesis statement.",
           "Requires quoted evidence in body paragraphs.",
           "Strict requirements on organization, evidence, and language.",
@@ -1470,7 +1134,7 @@
       peel_paragraph: {
         description: "One focused analytical paragraph following the Vysti Rules.",
         details: [
-          "The first sentence should state the author & title of the work.",
+          "The first sentence should state the author, genre, title, and summary.",
           "The first sentence should include devices and/or strategies like a closed thesis",
           "No first-person allowed or personal pronouns",
           "Requires quoted evidence in the body of the paragraph.",
@@ -1484,7 +1148,7 @@
         details: [
           "Allows first-person and personal pronouns",
           "Allows contractions and 'which'",
-          "First sentence should state the author & title of the work.",
+          "First sentence should state the author, genre, title, and summary.",
           "Requires a closed thesis statement.",
           "Requires quoted evidence in body paragraphs.",
           "Strict requirements on organization, evidence, and language.",
@@ -1633,82 +1297,6 @@
         startTourForCurrentState({ force: true });
       });
     }
-
-    // ===== Title type radio sync =====
-    titleTypeRadios.forEach(radio => {
-      radio.addEventListener("change", (e) => {
-        if (e.target.checked) {
-          titleIsMinorSelect.value = e.target.value;
-        }
-      });
-    });
-
-    // Sync Work 2 radio
-    const title2TypeRadios = Array.from(document.querySelectorAll('input[name="title2_type"]'));
-    const title2IsMinorSelect = document.getElementById("title2_is_minor");
-    title2TypeRadios.forEach(radio => {
-      radio.addEventListener("change", (e) => {
-        if (e.target.checked) {
-          title2IsMinorSelect.value = e.target.value;
-        }
-      });
-    });
-
-    // Sync Work 3 radio
-    const title3TypeRadios = Array.from(document.querySelectorAll('input[name="title3_type"]'));
-    const title3IsMinorSelect = document.getElementById("title3_is_minor");
-    title3TypeRadios.forEach(radio => {
-      radio.addEventListener("change", (e) => {
-        if (e.target.checked) {
-          title3IsMinorSelect.value = e.target.value;
-        }
-      });
-    });
-
-    // ===== Progressive disclosure for Work 2/3 =====
-    addWork2Btn.addEventListener("click", () => {
-      work2Section.classList.remove("hidden");
-      addWork2Btn.classList.add("hidden");
-      addWork3Btn.classList.remove("hidden");
-    });
-
-    addWork3Btn.addEventListener("click", () => {
-      work3Section.classList.remove("hidden");
-      addWork3Btn.classList.add("hidden");
-    });
-
-    function showTextDetails({ expand = true } = {}) {
-      if (!textDetailsToggle || !textDetailsSection) return;
-      textDetailsToggle.classList.remove("hidden");
-      textDetailsSection.classList.remove("hidden");
-      if (expand) {
-        textDetailsSection.classList.add("visible");
-        textDetailsToggle.textContent = "Enter author and text titles ▲";
-      } else {
-        textDetailsSection.classList.remove("visible");
-        textDetailsToggle.textContent = "Enter author and text titles ▼";
-      }
-    }
-
-    function hideTextDetails() {
-      if (!textDetailsToggle || !textDetailsSection) return;
-      textDetailsSection.classList.remove("visible");
-      textDetailsToggle.textContent = "Enter author and text titles ▼";
-      textDetailsToggle.classList.add("hidden");
-      textDetailsSection.classList.add("hidden");
-    }
-
-    // ===== Text details toggle =====
-    textDetailsToggle.addEventListener("click", () => {
-      const isVisible = textDetailsSection.classList.contains("visible");
-      if (isVisible) {
-        textDetailsSection.classList.remove("visible");
-        textDetailsToggle.textContent = "Enter author and text titles ▼";
-      } else {
-        textDetailsSection.classList.add("visible");
-        textDetailsToggle.textContent = "Enter author and text titles ▲";
-      }
-    });
 
     function handleAssignmentNameFocus() {
       if (!assignmentNameInput) return;
@@ -2290,8 +1878,6 @@
       downloadBtn.style.display = "none";
       statusArea.textContent = "";
       statusArea.className = "status-area";
-      pendingDetectedMeta = null;
-      metaConfirm.classList.remove("visible");
       liveLabelCounts = {};
       appliedExampleKeys.clear();
       approvedExampleKeys.clear();
@@ -2304,7 +1890,6 @@
       approvedRewriteByKey.clear();
       exampleDataByKey.clear();
       approvedRewrites.length = 0;
-      metaConfirm.textContent = "";
       markedPreviewCard.style.display = "none";
       markedPreview.innerHTML = "";
       resetRevisionPracticeUI();
@@ -2318,43 +1903,6 @@
       if (totalIssuesReadout) totalIssuesReadout.textContent = "";
       if (techniquesWrap) techniquesWrap.style.display = "none";
       if (techniquesList) techniquesList.textContent = "";
-      hideTextDetails();
-      
-      // Clear Work 1 inputs
-      const authorInput = document.getElementById("author");
-      const titleInput = document.getElementById("title");
-      if (authorInput) authorInput.value = "";
-      if (titleInput) titleInput.value = "";
-      
-      // Reset Work 1 title type to Minor
-      const minorRadio1 = document.querySelector('input[name="title_type"][value="true"]');
-      if (minorRadio1) minorRadio1.checked = true;
-      if (titleIsMinorSelect) titleIsMinorSelect.value = "true";
-      
-      // Clear Work 2 inputs
-      const author2Input = document.getElementById("author2");
-      const title2Input = document.getElementById("title2");
-      if (author2Input) author2Input.value = "";
-      if (title2Input) title2Input.value = "";
-      
-      // Reset Work 2 title type to Minor
-      const minorRadio2 = document.querySelector('input[name="title2_type"][value="true"]');
-      if (minorRadio2) minorRadio2.checked = true;
-      const title2IsMinorSelect = document.getElementById("title2_is_minor");
-      if (title2IsMinorSelect) title2IsMinorSelect.value = "true";
-      
-      // Clear Work 3 inputs
-      const author3Input = document.getElementById("author3");
-      const title3Input = document.getElementById("title3");
-      if (author3Input) author3Input.value = "";
-      if (title3Input) title3Input.value = "";
-      
-      // Reset Work 3 title type to Minor
-      const minorRadio3 = document.querySelector('input[name="title3_type"][value="true"]');
-      if (minorRadio3) minorRadio3.checked = true;
-      const title3IsMinorSelect = document.getElementById("title3_is_minor");
-      if (title3IsMinorSelect) title3IsMinorSelect.value = "true";
-      
       // Hide + reset Most Common Issues chart
       if (mostCommonIssuesWrap) mostCommonIssuesWrap.style.display = "none";
       if (mostCommonIssuesChart) {
@@ -2967,17 +2515,11 @@
         loadDismissedIssuesFromStorage();
         updateFileUI();
         showMarkButtonHideRecheck();
-        showTextDetails({ expand: true });
-        
-        // Extract metadata and store for later (after marking)
+
         const meta = await extractMetaFromDocx(selectedFile);
-        if (meta) {
-          pendingDetectedMeta = meta;
-          if (meta.wordCount !== undefined) {
-            currentWordCount = meta.wordCount;
-            updateWordCountUI();
-          }
-          applyDetectedMetaAfterCheck();
+        if (meta && meta.wordCount !== undefined) {
+          currentWordCount = meta.wordCount;
+          updateWordCountUI();
         }
         startPostUploadTour();
       }
@@ -3066,17 +2608,11 @@
           fileInput.files = dt.files;
           updateFileUI();
           showMarkButtonHideRecheck();
-          showTextDetails({ expand: true });
-          
-          // Extract metadata and store for later (after marking)
+
           const meta = await extractMetaFromDocx(selectedFile);
-          if (meta) {
-            pendingDetectedMeta = meta;
-            if (meta.wordCount !== undefined) {
-              currentWordCount = meta.wordCount;
-              updateWordCountUI();
-            }
-            applyDetectedMetaAfterCheck();
+          if (meta && meta.wordCount !== undefined) {
+            currentWordCount = meta.wordCount;
+            updateWordCountUI();
           }
           startPostUploadTour();
         } else {
@@ -3179,7 +2715,6 @@
               throw new Error("You must be logged in.");
             }
 
-            const titles = buildTitlesFromInputs();
             const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
             const API_BASE = "https://vysti-rules.onrender.com";
             const response = await fetch(`${API_BASE}/mark_text`, {
@@ -3192,7 +2727,6 @@
                 file_name: selectedFile.name,
                 text: previewText,
                 mode: currentMode,
-                titles: titles.length > 0 ? titles : null,
                 highlight_thesis_devices: false,
                 include_summary_table: true,
                 student_mode: true,
@@ -3262,9 +2796,6 @@
         downloadBtn.style.display = "block";
         if (resultsCard) resultsCard.style.display = "block";
         
-        // Apply detected meta after successful marking
-        applyDetectedMetaAfterCheck();
-        
         // Load revision practice data
         await loadRevisionPractice();
 
@@ -3290,44 +2821,6 @@
         stopButtonLoading(checkBtn, () => !!selectedFile);
       }
     });
-
-    // ===== Apply detected meta after marking =====
-    function applyDetectedMetaAfterCheck() {
-      if (!pendingDetectedMeta) return;
-
-      const meta = pendingDetectedMeta;
-      const titleInput = document.getElementById("title");
-      const authorInput = document.getElementById("author");
-
-      // Apply only if empty (don't overwrite student edits)
-      const titleWasEmpty = titleInput && !titleInput.value.trim();
-      if (meta.author && authorInput && !authorInput.value.trim()) {
-        authorInput.value = meta.author;
-      }
-      if (meta.title && titleInput && titleWasEmpty) {
-        titleInput.value = meta.title;
-      }
-
-      // Apply type toggle only if we filled the title field (it was empty before)
-      if (meta.title && titleWasEmpty) {
-        if (meta.isMinor) {
-          const minorRadio = document.querySelector('input[name="title_type"][value="true"]');
-          if (minorRadio) minorRadio.checked = true;
-          titleIsMinorSelect.value = "true";
-        } else {
-          const majorRadio = document.querySelector('input[name="title_type"][value="false"]');
-          if (majorRadio) majorRadio.checked = true;
-          titleIsMinorSelect.value = "false";
-        }
-      }
-
-      // Show confirmation banner above the inputs
-      metaConfirm.textContent = "Did we get the author and title right?";
-      metaConfirm.classList.add("visible");
-
-      // Ensure the section is open so the student sees it
-      showTextDetails({ expand: true });
-    }
 
     // ===== Revision Practice =====
     // Handle section selection (set up once)
@@ -5361,9 +4854,6 @@
       try {
         const API_BASE = "https://vysti-rules.onrender.com";
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
-      const titles = typeof buildTitlesFromInputs === "function"
-        ? buildTitlesFromInputs()
-        : null;
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
           headers: {
@@ -5376,9 +4866,8 @@
             rewrite: rewrite,
             mode: currentMode,
             context_text: contextText,
-          original_sentence: originalSentence || null,
+            original_sentence: originalSentence || null,
             paragraph_index: example?.paragraph_index ?? null,
-          titles: titles && titles.length > 0 ? titles : null,
           }),
         });
 
@@ -5639,9 +5128,6 @@
         startButtonLoading(recheckDocumentBtn, "Recheck my essay");
 
         try {
-          // Collect title metadata (same as initial /mark flow)
-          const titles = buildTitlesFromInputs();
-          
           const API_BASE = "https://vysti-rules.onrender.com";
           const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
           const response = await fetch(`${API_BASE}/mark_text`, {
@@ -5654,7 +5140,6 @@
               file_name: selectedFile.name,
               text: previewText,
               mode: currentMode,
-              titles: titles.length > 0 ? titles : null,
               highlight_thesis_devices: false,
               student_mode: true,
             }),
@@ -5787,11 +5272,6 @@
     ];
 
     const postUploadTourSteps = [
-      {
-        anchor: "#work1Section",
-        title: "Author + Title",
-        body: "Vysti tries to guess Author and Title, so check to ensure they match your document. Use Minor or Major to choose how the titles should appear in MLA style. Click Add another to add additional authors and texts if necessary.",
-      },
       {
         anchor: "#checkBtn",
         title: "Mark my essay",
@@ -6071,10 +5551,6 @@
         closeTour("hide");
         return;
       }
-      if (activeTourSteps === postUploadTourSteps && tourState.currentStepIndex === 0) {
-        metaConfirm.classList.remove("visible");
-        metaConfirm.textContent = "";
-      }
       const currentStep = activeTourSteps[tourState.currentStepIndex];
       const isPostPreviewRecheck =
         activeTourSteps === postPreviewTourSteps &&
@@ -6108,9 +5584,6 @@
 
       if (tourOverlay) tourOverlay.style.display = "none";
       if (tourPopover) tourPopover.style.display = "none";
-      metaConfirm.classList.remove("visible");
-      metaConfirm.textContent = "";
-
       if (reason === "hide") {
         localStorage.setItem(STUDENT_HELPERS_DISABLED_KEY, "1");
         localStorage.setItem(TOUR_DONE_KEY, "1");
@@ -6120,8 +5593,6 @@
     }
 
     function startPostUploadTour() {
-      metaConfirm.textContent = "Did we get the author and title right?";
-      metaConfirm.classList.add("visible");
       startTourAt(0, { force: FORCE_STUDENT_HELPERS, steps: postUploadTourSteps });
     }
 
