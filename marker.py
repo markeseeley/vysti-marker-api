@@ -303,6 +303,50 @@ def author_full_name_present(author_name: str, first_sentence_text: str) -> bool
     return False
 
 
+def has_author_full_name_signal(tokens) -> bool:
+    if not tokens:
+        return False
+
+    proper_run = 0
+    for tok in tokens:
+        if tok.pos_ == "PROPN":
+            proper_run += 1
+            if proper_run >= 2:
+                return True
+        else:
+            proper_run = 0
+
+    for i, tok in enumerate(tokens[:-1]):
+        if re.match(r"^[A-Z]\.?$", tok.text) and tokens[i + 1].pos_ == "PROPN":
+            return True
+
+    return False
+
+
+def has_summary_verb_signal(tokens) -> bool:
+    for tok in tokens:
+        lemma = (tok.lemma_ or tok.text or "").lower()
+        if lemma in SUMMARY_VERB_LEMMAS:
+            return True
+    return False
+
+
+def missing_intro_first_sentence_signals(doc, sentences, flat_text: str) -> bool:
+    if not sentences:
+        return False
+
+    first_start, first_end = sentences[0]
+    first_sentence_text = flat_text[first_start:first_end]
+    sentence_tokens = [t for t in doc if first_start <= t.idx < first_end]
+
+    has_author = has_author_full_name_signal(sentence_tokens)
+    has_title = bool(TITLE_QUOTE_PATTERN.search(first_sentence_text))
+    has_genre = bool(GENRE_PATTERN.search(first_sentence_text))
+    has_summary = has_summary_verb_signal(sentence_tokens)
+
+    return not (has_author and has_title and has_genre and has_summary)
+
+
 def find_title_span_in_first_sentence(flat_text: str, sentences, config) -> tuple[tuple[int, int] | None, bool]:
     """
     Try to locate the teacher-supplied title inside the FIRST sentence of the
@@ -1185,6 +1229,27 @@ THESIS_VERB_LEMMAS = {
     "convey", "conveys", "conveying",
     "portray",  # e.g. "Bradbury successfully portrays..."
 }
+
+INTRO_FIRST_SENTENCE_LABEL = (
+    "The first sentence should state the author's full name, genre and title of the text, "
+    "and present a concrete and general summary"
+)
+
+SUMMARY_VERB_LEMMAS = THESIS_VERB_LEMMAS | {
+    "describe", "describes", "describing",
+    "depict", "depicts", "depicting",
+    "examine", "examines", "examining",
+    "analyze", "analyzes", "analyzing",
+    "focus", "focuses", "focusing",
+    "discuss", "discusses", "discussing",
+}
+
+GENRE_PATTERN = re.compile(
+    r"\b(?:essay|novel|play|poem|speech|article|short story|memoir|letter|address|editorial|chapter)\b",
+    re.IGNORECASE,
+)
+
+TITLE_QUOTE_PATTERN = re.compile(r'[\"“”][^\"“”]+[\"“”]')
 
 # Ordered device/strategy lemmas extracted from the thesis sentence
 THESIS_DEVICE_SEQUENCE = []
@@ -2238,10 +2303,7 @@ def analyze_text(
 
             # ---------- First Sentence of analysis: author + genre + title + summary ----------
             if config.text_title:
-                title_presence_note = (
-                    "The first sentence must state the author's full name, genre and title of the text, "
-                    "and present a concrete and general summary"
-                )
+                title_presence_note = INTRO_FIRST_SENTENCE_LABEL
 
                 # Re-use the same fuzzy title finder we use in intros
                 title_span, title_is_exact = find_title_span_in_first_sentence(flat_text, sentences, config)
@@ -2362,6 +2424,26 @@ def analyze_text(
                         "color": None,
                         "label": True,
                     })
+            else:
+                if missing_intro_first_sentence_signals(doc, sentences, flat_text):
+                    first_start, first_end = sentences[0]
+                    anchor_pos = first_end
+                    if INTRO_FIRST_SENTENCE_LABEL not in labels_used:
+                        marks.append({
+                            "start": anchor_pos,
+                            "end": anchor_pos,
+                            "note": INTRO_FIRST_SENTENCE_LABEL,
+                            "color": None,
+                            "label": True,
+                        })
+                        labels_used.append(INTRO_FIRST_SENTENCE_LABEL)
+                    else:
+                        marks.append({
+                            "start": anchor_pos,
+                            "end": anchor_pos,
+                            "note": INTRO_FIRST_SENTENCE_LABEL,
+                            "color": None,
+                        })
 
             # ---------- Simple "closed thesis" behavior for the Point sentence ----------
             # For PEEL, your Point sentence shouldn't be a question.
@@ -2654,10 +2736,7 @@ def analyze_text(
             and sentences
             and (not is_foundation3 or is_first_intro_para)
         ):
-            title_presence_note = (
-                "The first sentence must state the author's full name, genre and title of the text, "
-                "and present a concrete and general summary"
-            )
+            title_presence_note = INTRO_FIRST_SENTENCE_LABEL
             title_span, title_is_exact = find_title_span_in_first_sentence(flat_text, sentences, config)
 
             # ---------- Check author full name whenever the teacher supplied one ----------
@@ -2810,6 +2889,31 @@ def analyze_text(
                     "color": None,   # label only
                     "label": True,
                 })
+
+        if (
+            sentences
+            and (not is_foundation3 or is_first_intro_para)
+            and not getattr(config, "text_title", None)
+        ):
+            if missing_intro_first_sentence_signals(doc, sentences, flat_text):
+                first_start, first_end = sentences[0]
+                anchor_pos = first_end
+                if INTRO_FIRST_SENTENCE_LABEL not in labels_used:
+                    marks.append({
+                        "start": anchor_pos,
+                        "end": anchor_pos,
+                        "note": INTRO_FIRST_SENTENCE_LABEL,
+                        "color": None,
+                        "label": True,
+                    })
+                    labels_used.append(INTRO_FIRST_SENTENCE_LABEL)
+                else:
+                    marks.append({
+                        "start": anchor_pos,
+                        "end": anchor_pos,
+                        "note": INTRO_FIRST_SENTENCE_LABEL,
+                        "color": None,
+                    })
 
         # ---------------------------------------------
         # Existing Rule 1: Avoid quotations in the introduction
