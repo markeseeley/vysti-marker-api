@@ -49,15 +49,7 @@
     
     
     <label>
-        <span class="label-row">
-          Select assignment
-          <span class="type-info tt"
-                tabindex="0"
-                aria-label="Select assignment"
-                data-tip="What kind of writing are we marking? Different modes enable different rules. Pick the mode first, then tweak the behavior below with the toggles.">
-            i
-          </span>
-        </span>
+        Select assignment
         <select id="mode">
           <option value="textual_analysis">Textual analysis</option>
           <!-- Intertextual analysis removed; multiple works are supported via the fields below -->
@@ -105,28 +97,19 @@
       </div>
 
       <label>
-        Student name (optional)a
+        Student name (optional)
         <input type="text" id="studentName" placeholder="e.g., John Smith" />
       </label>
 
       <!-- Assignment Builder -->
       <div class="assignment-builder" style="margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
-        <div style="font-weight: 600; font-size: var(--fs-sm); margin-bottom: 12px; color: #333;">
-          <span class="label-row">
-            Assignment Builder
-            <span class="type-info tt"
-                  tabindex="0"
-                  aria-label="Assignment Builder"
-                  data-tip="Use this if you want progress reports over time (Homework 01, 02, 03…). If you’re just spot-checking, leave it blank — it won’t change marking.">
-              i
-            </span>
-          </span>
-        </div>
-        <label style="display: block; font-size: var(--fs-xs); font-weight: 600; margin-bottom: 4px; color: #666;">Assignment Name</label>
-        <input type="text" id="assignmentName" placeholder="e.g., Homework 01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: var(--fs-sm); margin-bottom: 12px;" />
+        <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #333;">Assignment Builder</div>
+        <div style="font-size: 13px; color: #666; margin-bottom: 12px;">Name the assignment for future progress reports.</div>
+        <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #666;">Assignment Name</label>
+        <input type="text" id="assignmentName" placeholder="e.g., Homework 01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 12px;" />
         <div style="display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="applyToAllFiles" checked style="width: 18px; height: 18px; cursor: pointer;" />
-          <label for="applyToAllFiles" style="font-size: var(--fs-sm); color: #666; cursor: pointer; user-select: none;">Apply to all uploaded files</label>
+          <label for="applyToAllFiles" style="font-size: 13px; color: #666; cursor: pointer; user-select: none;">Apply to all uploaded files</label>
         </div>
       </div>
 
@@ -1299,7 +1282,7 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    description: "A formal and academic essay of analysis with all Vysti Rules running.",
+    description: "A formal and academic essay of analysis with all of Vysti's rules running.",
     details: [
       "No first-person allowed or personal pronouns",
       "First sentence should state the author & title of the work.",
@@ -1329,7 +1312,7 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    description: "One focused analytical paragraph following the Vysti Rules.",
+    description: "One focused analytical paragraph following Vysti's rules.",
     details: [
       "The first sentence should state the author & title of the work.",
       "The first sentence should include devices and/or strategies like a closed thesis",
@@ -1389,7 +1372,7 @@ const MODE_RULE_DEFAULTS = {
     disableVagueGeneralRule: false,
     enforceSva: true,
     enforcePresentTense: true,
-    description: "Follows the Vysti Rules, but expects a theoretical framework in the introductory summary.",
+    description: "Follows Vysti's rules, but expects a theoretical framework in the introductory summary.",
     details: [
       "Allows quotations in the introductory summary.",
       "No first-person allowed or personal pronouns",
