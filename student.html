@@ -442,6 +442,28 @@
       flex-direction: column;
       gap: 12px;
     }
+    .approved-rewrite-card {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #a8d5a8;
+      background: #f1fbf1;
+    }
+    .approved-rewrite-label {
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      color: #2d5a2d;
+      margin-bottom: 6px;
+    }
+    .approved-rewrite-text {
+      font-size: var(--fs-sm);
+      color: var(--text);
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+    }
+    .approved-rewrite-actions {
+      display: flex;
+      gap: 8px;
+    }
     .example-btn {
       padding: 7px 12px;
       border: 1px solid #e0e0e0;
@@ -541,6 +563,22 @@
       background: #ffe7e7;
       color: #5a2d2d;
       border: 1px solid #d5a8a8;
+    }
+    .rewrite-status.checking {
+      background: #eef3f8;
+      color: #1f3b5b;
+      border: 1px solid #c6d7ea;
+    }
+    .rewrite-status.checking::after {
+      content: "...";
+      display: inline-block;
+      width: 0;
+      overflow: hidden;
+      vertical-align: bottom;
+      animation: rewriteDots 1s steps(4, end) infinite;
+    }
+    @keyframes rewriteDots {
+      to { width: 1.25em; }
     }
   </style>
 </head>
@@ -1092,6 +1130,7 @@
     const draftRewriteByKey = new Map();
     const approvedRewriteByKey = new Map();
     const exampleDataByKey = new Map();
+    const approvedRewrites = [];
 
     function getExampleKeyFromParts(paragraphIndex, sentence) {
       const safePara = String(paragraphIndex ?? 0);
@@ -1245,6 +1284,7 @@
       formData.append("include_summary_table", includeSummaryTable ? "true" : "false");
       // Student mode: never highlight thesis devices/strategies
       formData.append("highlight_thesis_devices", "false");
+      formData.append("student_mode", "true");
 
       if (assignmentName) {
         formData.append("assignment_name", assignmentName);
@@ -1637,20 +1677,88 @@
       }
     }
 
+    function upsertApprovedRewrite(entry) {
+      if (!entry || !entry.exampleKey) return;
+      const existingIndex = approvedRewrites.findIndex(
+        (item) => item.exampleKey === entry.exampleKey
+      );
+      if (existingIndex >= 0) {
+        approvedRewrites[existingIndex] = { ...approvedRewrites[existingIndex], ...entry };
+      } else {
+        approvedRewrites.push(entry);
+      }
+    }
+
+    function removeApprovedRewriteByKey(exampleKey) {
+      if (!exampleKey) return;
+      const idx = approvedRewrites.findIndex((item) => item.exampleKey === exampleKey);
+      if (idx >= 0) {
+        approvedRewrites.splice(idx, 1);
+      }
+    }
+
+    function renderApprovedRewritesList() {
+      if (!approvedRewritesList || !approvedRewritesWrap) return;
+      approvedRewritesList.innerHTML = "";
+      approvedRewrites.forEach((entry) => {
+        const li = document.createElement("li");
+        li.className = "approved-rewrite-card";
+        li.dataset.exampleKey = entry.exampleKey;
+        li.dataset.approvedRewrite = entry.rewriteText || "";
+        li.dataset.label = entry.label || "";
+        li._exampleData = entry.examplePayload || null;
+
+        const labelDiv = document.createElement("div");
+        labelDiv.className = "approved-rewrite-label";
+        labelDiv.textContent = entry.label || "Issue";
+
+        const textDiv = document.createElement("div");
+        textDiv.className = "approved-rewrite-text";
+        textDiv.textContent = entry.rewriteText || "";
+
+        const statusDiv = document.createElement("div");
+        statusDiv.className = "rewrite-status";
+
+        const actionsDiv = document.createElement("div");
+        actionsDiv.className = "approved-rewrite-actions";
+
+        const applyBtn = document.createElement("button");
+        applyBtn.className = "example-btn apply-to-preview-btn";
+        applyBtn.textContent = "Apply to Preview";
+        applyBtn.onclick = () => {
+          const applied = applyRewriteToPreviewByKey({
+            exampleKey: entry.exampleKey,
+            rewriteText: entry.rewriteText,
+            exampleData: entry.examplePayload,
+            statusDiv,
+            applyBtn,
+            exampleRow: li
+          });
+          if (applied) {
+            renderCurrentExample();
+            updateApplyAllUI();
+          }
+        };
+
+        actionsDiv.appendChild(applyBtn);
+        li.appendChild(labelDiv);
+        li.appendChild(textDiv);
+        li.appendChild(statusDiv);
+        li.appendChild(actionsDiv);
+        approvedRewritesList.appendChild(li);
+      });
+      updateApplyAllUI();
+    }
+
     function updateApplyAllUI() {
       if (!applyAllToPreviewBtn || !approvedRewritesWrap || !approvedRewritesList) return;
-      const approvedItems = Array.from(
-        approvedRewritesList.querySelectorAll(".example-item")
-      );
-      const notAppliedCount = approvedItems.filter((item) => {
-        return item.dataset.approvedRewrite && !item.classList.contains("example-applied");
-      }).length;
-      if (approvedItems.length > 0) {
+      const approvedCount = approvedRewrites.length;
+      if (approvedCount > 0) {
         approvedRewritesWrap.style.display = "block";
       } else {
         approvedRewritesWrap.style.display = "none";
       }
-      if (notAppliedCount >= 2) {
+      if (approvedCount >= 2) {
         applyAllToPreviewBtn.style.display = "block";
         applyAllToPreviewBtn.disabled = false;
         applyAllToPreviewBtn.classList.add("apply-attention");
@@ -1667,6 +1775,7 @@
       if (examplesList) examplesList.innerHTML = "";
       if (approvedRewritesList) approvedRewritesList.innerHTML = "";
       if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
+      approvedRewrites.length = 0;
       approvedRewriteByKey.clear();
       approvedExampleKeys.clear();
       draftRewriteByKey.clear();
@@ -1685,6 +1794,8 @@
       if (!exampleKey) return;
       approvedRewriteByKey.delete(exampleKey);
       approvedExampleKeys.delete(exampleKey);
+      removeApprovedRewriteByKey(exampleKey);
+      renderApprovedRewritesList();
       if (exampleRow) {
         exampleRow.classList.remove("example-approved", "example-applied");
         delete exampleRow.dataset.applied;
@@ -1931,7 +2042,7 @@
       checkRewriteBtn.className = "example-btn";
       checkRewriteBtn.textContent = "Check rewrite";
       checkRewriteBtn.onclick = async () => {
-        await checkRewrite(currentLabel || ex?.label || "", ex, rewriteTextarea, rewriteStatusDiv);
+        await checkRewrite(currentLabel || ex?.label || "", ex, rewriteTextarea, rewriteStatusDiv, checkRewriteBtn);
       };
 
       const applyToPreviewBtn = document.createElement("button");
@@ -1972,7 +2083,7 @@
       rewriteTextarea.addEventListener("keydown", async (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
           e.preventDefault();
-          await checkRewrite(currentLabel || ex?.label || "", ex, rewriteTextarea, rewriteStatusDiv);
+          await checkRewrite(currentLabel || ex?.label || "", ex, rewriteTextarea, rewriteStatusDiv, checkRewriteBtn);
         }
       });
 
@@ -2047,6 +2158,7 @@
       draftRewriteByKey.clear();
       approvedRewriteByKey.clear();
       exampleDataByKey.clear();
+      approvedRewrites.length = 0;
       metaConfirm.textContent = "";
       markedPreviewCard.style.display = "none";
       markedPreview.innerHTML = "";
@@ -2967,6 +3079,7 @@
           const buf = await blob.arrayBuffer();
           if (typeof docx !== "undefined" && docx.renderAsync) {
             await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            removeRewritePracticeTagsFromPreview(markedPreview);
             // Make preview editable
             markedPreview.contentEditable = "true";
             markedPreview.spellcheck = true;
@@ -3134,6 +3247,7 @@
         examplesList.innerHTML = "";
         if (approvedRewritesList) approvedRewritesList.innerHTML = "";
         if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
+        approvedRewrites.length = 0;
         if (applyAllToPreviewBtn) {
           applyAllToPreviewBtn.style.display = "none";
           applyAllToPreviewBtn.disabled = true;
@@ -3157,27 +3271,19 @@
 
     if (applyAllToPreviewBtn) {
       applyAllToPreviewBtn.addEventListener("click", async () => {
-        if (!approvedRewritesList) return;
-        const approvedItems = Array.from(
-          approvedRewritesList.querySelectorAll(".example-item")
-        ).filter((item) => {
-          return item.dataset.approvedRewrite && !item.classList.contains("example-applied");
-        });
-        if (approvedItems.length === 0) return;
-
+        if (!approvedRewrites.length) return;
+        const approvedItems = approvedRewrites.slice();
         for (const item of approvedItems) {
-          const exampleKey = item.dataset.exampleKey || "";
-          const rewriteText = item.dataset.approvedRewrite || "";
-          const exampleData = item._exampleData || exampleDataByKey.get(exampleKey) || null;
-          const statusDiv = item.querySelector(".rewrite-status");
-          const applyBtn = item.querySelector(".apply-to-preview-btn");
+          const exampleKey = item.exampleKey || "";
+          const rewriteText = item.rewriteText || "";
+          const exampleData = item.examplePayload || exampleDataByKey.get(exampleKey) || null;
           applyRewriteToPreviewByKey({
             exampleKey,
             rewriteText,
             exampleData,
-            statusDiv,
-            applyBtn,
-            exampleRow: item,
+            statusDiv: null,
+            applyBtn: null,
+            exampleRow: null,
             scroll: false
           });
         }
@@ -3383,6 +3489,31 @@
       positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl);
     }
 
+    function wrapChartLabel(label, maxChars = 18) {
+      const raw = String(label || "").trim();
+      if (!raw) return "";
+      const words = raw.split(/\s+/);
+      const lines = [];
+      let line = "";
+      words.forEach((word) => {
+        const next = line ? `${line} ${word}` : word;
+        if (next.length > maxChars && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = next;
+        }
+      });
+      if (line) lines.push(line);
+      if (lines.length <= 1) return lines[0] || raw;
+      const spaced = [];
+      lines.forEach((ln, idx) => {
+        spaced.push(ln);
+        if (idx < lines.length - 1) spaced.push("");
+      });
+      return spaced;
+    }
+
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
 
@@ -3479,7 +3610,19 @@
               ticks: { precision: 0 }
             },
             x: {
-              ticks: { autoSkip: false }
+              ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                minRotation: 0,
+                font: {
+                  size: 14,
+                  weight: "600"
+                },
+                callback: function(value) {
+                  const label = this.getLabelForValue(value);
+                  return wrapChartLabel(label, 18);
+                }
+              }
             }
           }
         }
@@ -3688,6 +3831,7 @@
         if (examplesList) examplesList.innerHTML = "";
         if (approvedRewritesList) approvedRewritesList.innerHTML = "";
         if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
+        approvedRewrites.length = 0;
         if (applyAllToPreviewBtn) {
           applyAllToPreviewBtn.style.display = "none";
           applyAllToPreviewBtn.disabled = true;
@@ -3982,6 +4126,38 @@
       }
       
       return false;
+    }
+
+    function removeRewritePracticeTagsFromPreview(rootEl) {
+      if (!rootEl) return;
+      const rewritePattern = /\s*\*\s*Rewrite this paragraph for practice\s*\*\s*/i;
+      const replacePattern = new RegExp(rewritePattern.source, "gi");
+      const walker = document.createTreeWalker(
+        rootEl,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      const matchedNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        if (rewritePattern.test(node.textContent || "")) {
+          matchedNodes.push(node);
+        }
+      }
+      matchedNodes.forEach((textNode) => {
+        const original = textNode.textContent || "";
+        const cleaned = original.replace(replacePattern, "").trim();
+        if (cleaned) {
+          textNode.textContent = cleaned;
+        } else {
+          const parent = textNode.parentNode;
+          textNode.remove();
+          if (parent && parent.childNodes.length === 0) {
+            parent.remove();
+          }
+        }
+      });
+      rootEl.normalize();
     }
 
     // Helper: Extract clean text from an element, excluding Vysti artifacts
@@ -4642,7 +4818,7 @@
       return value.replace(/\s+/g, " ").trim();
     }
 
-    async function checkRewrite(label, example, textarea, statusDiv) {
+    async function checkRewrite(label, example, textarea, statusDiv, checkBtn) {
       const rewrite = textarea.value.trim();
       if (!rewrite) {
         statusDiv.textContent = "Please enter a rewrite first.";
@@ -4675,9 +4851,12 @@
         return;
       }
 
-      statusDiv.textContent = "Checking...";
-      statusDiv.className = "rewrite-status visible";
+      statusDiv.textContent = "Checking";
+      statusDiv.className = "rewrite-status visible checking";
       statusDiv.classList.remove("ok", "bad");
+      if (checkBtn) {
+        checkBtn.disabled = true;
+      }
 
       try {
         const API_BASE = "https://vysti-rules.onrender.com";
@@ -4724,6 +4903,13 @@
             if (!exampleDataByKey.has(exampleKey)) {
               exampleDataByKey.set(exampleKey, example);
             }
+            upsertApprovedRewrite({
+              label: label || example?.label || "",
+              exampleKey,
+              originalSentence: example?.sentence || "",
+              rewriteText: rewrite,
+              examplePayload: example
+            });
           }
           if (exampleRow) {
             exampleRow.classList.add("example-approved");
@@ -4734,11 +4920,8 @@
               applyBtn.disabled = false;
               setApplyAttention(applyBtn);
             }
-            if (approvedRewritesList) {
-              approvedRewritesList.appendChild(exampleRow);
-            }
           }
-          updateApplyAllUI();
+          renderApprovedRewritesList();
           renderCurrentExample();
         } else if (exampleKey && exampleRow && approvedExampleKeys.has(exampleKey)) {
           const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
@@ -4753,6 +4936,11 @@
         console.error("Error checking rewrite:", error);
         statusDiv.textContent = `Error: ${error.message}`;
         statusDiv.className = "rewrite-status visible bad";
+      } finally {
+        statusDiv.classList.remove("checking");
+        if (checkBtn) {
+          checkBtn.disabled = false;
+        }
       }
     }
 
@@ -4855,6 +5043,10 @@
         }
 
         if (resolvedKey) appliedExampleKeys.add(resolvedKey);
+        if (resolvedKey) {
+          removeApprovedRewriteByKey(resolvedKey);
+          renderApprovedRewritesList();
+        }
         if (label) {
           liveLabelCounts[label] = Math.max(0, (liveLabelCounts[label] || 0) - 1);
           if (!liveLabelCounts[label]) {
@@ -4956,6 +5148,7 @@
               mode: currentMode,
               titles: titles.length > 0 ? titles : null,
               highlight_thesis_devices: false,
+              student_mode: true,
             }),
           });
 
@@ -4986,6 +5179,7 @@
           const buf = await blob.arrayBuffer();
           if (typeof docx !== "undefined" && docx.renderAsync) {
             await docx.renderAsync(buf, markedPreview, null, { inWrapper: true });
+            removeRewritePracticeTagsFromPreview(markedPreview);
             markedPreview.contentEditable = "true";
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
