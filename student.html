@@ -316,6 +316,15 @@
       font-size: var(--fs-sm);
       color: var(--text);
     }
+    .examples-empty-state {
+      margin: 0 0 16px;
+      padding: 12px;
+      background: #f8f9fa;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 8px;
+      font-size: var(--fs-sm);
+      color: rgba(0, 0, 0, 0.75);
+    }
     .mci-tooltip {
       pointer-events: none;
       z-index: 80;
@@ -864,6 +873,7 @@
         <div class="issue-explanation-header">Explanation of the Issue</div>
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
+      <div id="examplesEmptyState" class="examples-empty-state" style="display:none;"></div>
       <div id="exampleNavRow" class="examples-nav" style="display:none;">
         <div id="exampleNavText" class="examples-nav-text">Issue 0 of 0</div>
         <button type="button" class="secondary-btn next-example-btn" id="nextExampleBtn">Next →</button>
@@ -1086,6 +1096,7 @@
     const exampleNavText = document.getElementById("exampleNavText");
     const nextExampleBtn = document.getElementById("nextExampleBtn");
     const examplesList = document.getElementById("examplesList");
+    const examplesEmptyState = document.getElementById("examplesEmptyState");
     const applyAllToPreviewBtn = document.getElementById("applyAllToPreviewBtn");
     const approvedRewritesWrap = document.getElementById("approvedRewritesWrap");
     const approvedRewritesList = document.getElementById("approvedRewritesList");
@@ -1773,6 +1784,7 @@
       if (revisionPracticeCard) revisionPracticeCard.style.display = "none";
       if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       if (examplesList) examplesList.innerHTML = "";
+      if (examplesEmptyState) examplesEmptyState.style.display = "none";
       if (approvedRewritesList) approvedRewritesList.innerHTML = "";
       if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
       approvedRewrites.length = 0;
@@ -1816,13 +1828,15 @@
       updateApplyAllUI();
     }
 
+    function hideExamplesEmptyState() {
+      if (examplesEmptyState) examplesEmptyState.style.display = "none";
+    }
+
     function showExamplesEmptyState(message) {
-      if (!examplesList) return;
-      examplesList.innerHTML = "";
-      const li = document.createElement("li");
-      li.className = "example-empty";
-      li.textContent = message;
-      examplesList.appendChild(li);
+      if (examplesList) examplesList.innerHTML = "";
+      if (!examplesEmptyState) return;
+      examplesEmptyState.textContent = message;
+      examplesEmptyState.style.display = "block";
     }
 
     function escapeRegExp(str) {
@@ -1927,13 +1941,14 @@
       const rotationExamples = getRotationExamples();
       if (!rotationExamples.length) {
         showExamplesEmptyState(
-          "All examples for this issue are approved. Click another bar to revise a different issue."
+          "All examples for this issue are approved. Apply them to the Preview to update your progress, then click another bar to revise a different issue."
         );
         updateExampleNav(0);
         updateApplyAllUI();
         return;
       }
 
+      hideExamplesEmptyState();
       currentIndex = ((currentIndex % rotationExamples.length) + rotationExamples.length) % rotationExamples.length;
       const ex = rotationExamples[currentIndex];
       const exampleKey = getExampleKey(ex);
@@ -3879,6 +3894,7 @@
 
         if (error) {
           console.error("Error loading examples:", error);
+          hideExamplesEmptyState();
           examplesList.innerHTML = "<li>Error loading examples.</li>";
           if (exampleNavRow) exampleNavRow.style.display = "none";
           currentExamplesAll = [];
@@ -3934,6 +3950,7 @@
           return;
         }
 
+        hideExamplesEmptyState();
         renderCurrentExample();
 
         downloadRevisionNotesBtn.style.display = "block";
@@ -3943,6 +3960,7 @@
 
       } catch (error) {
         console.error("Error loading issue examples:", error);
+        hideExamplesEmptyState();
         examplesList.innerHTML = "<li>Error loading examples.</li>";
         if (exampleNavRow) exampleNavRow.style.display = "none";
         currentExamplesAll = [];
@@ -4864,41 +4882,52 @@
 
         const result = await response.json();
         const ok = !!result.approved;
-        statusDiv.textContent = result.message || (ok ? "Revision approved." : "Looks like we still have an issue.");
-        statusDiv.className = `rewrite-status visible ${ok ? "ok" : "bad"}`;
-        
-        // Store approved rewrite and enable Apply button
         const exampleRow = statusDiv.closest(".example-item");
         const exampleKey = getExampleKey(example);
+
         if (ok) {
-          if (exampleKey) {
-            approvedRewriteByKey.set(exampleKey, rewrite);
-            approvedExampleKeys.add(exampleKey);
-            draftRewriteByKey.set(exampleKey, rewrite);
-            if (!exampleDataByKey.has(exampleKey)) {
-              exampleDataByKey.set(exampleKey, example);
+          if (exampleRow && exampleRow.dataset.movingApproved === "1") return;
+          if (exampleRow) exampleRow.dataset.movingApproved = "1";
+          statusDiv.className = "rewrite-status visible ok";
+          statusDiv.textContent = "Approved!";
+
+          setTimeout(() => {
+            if (exampleKey) {
+              approvedRewriteByKey.set(exampleKey, rewrite);
+              approvedExampleKeys.add(exampleKey);
+              draftRewriteByKey.set(exampleKey, rewrite);
+              if (!exampleDataByKey.has(exampleKey)) {
+                exampleDataByKey.set(exampleKey, example);
+              }
+              upsertApprovedRewrite({
+                label: label || example?.label || "",
+                exampleKey,
+                originalSentence: example?.sentence || "",
+                rewriteText: rewrite,
+                examplePayload: example
+              });
             }
-            upsertApprovedRewrite({
-              label: label || example?.label || "",
-              exampleKey,
-              originalSentence: example?.sentence || "",
-              rewriteText: rewrite,
-              examplePayload: example
-            });
-          }
-          if (exampleRow) {
-            exampleRow.classList.add("example-approved");
-            exampleRow.dataset.approvedRewrite = rewrite;
-            if (exampleKey) exampleRow.dataset.exampleKey = exampleKey;
-            const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
-            if (applyBtn) {
-              applyBtn.disabled = false;
-              setApplyAttention(applyBtn);
+            if (exampleRow) {
+              exampleRow.classList.add("example-approved");
+              exampleRow.dataset.approvedRewrite = rewrite;
+              if (exampleKey) exampleRow.dataset.exampleKey = exampleKey;
+              const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
+              if (applyBtn) {
+                applyBtn.disabled = false;
+                setApplyAttention(applyBtn);
+              }
             }
-          }
-          renderApprovedRewritesList();
-          renderCurrentExample();
-        } else if (exampleKey && exampleRow && approvedExampleKeys.has(exampleKey)) {
+            renderApprovedRewritesList();
+            renderCurrentExample();
+            if (exampleRow) delete exampleRow.dataset.movingApproved;
+          }, 600);
+          return;
+        }
+
+        statusDiv.textContent = result.message || "Looks like we still have an issue.";
+        statusDiv.className = "rewrite-status visible bad";
+
+        if (exampleKey && exampleRow && approvedExampleKeys.has(exampleKey)) {
           const applyBtn = exampleRow.querySelector(".apply-to-preview-btn");
           revokeApprovedRewrite({
             exampleKey,
