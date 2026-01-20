@@ -3973,22 +3973,6 @@ def analyze_text(
                 labels_used.append(rule_note_quotation_start)
 
     # -----------------------
-    # HIGHLIGHT ALL "this"/"This" OUTSIDE DIRECT QUOTATIONS
-    # -----------------------
-    for tok_text, tok_start, tok_end in tokens:
-        if tok_text.lower() == "this":
-            # Skip any 'this' that appears inside direct quotations
-            if pos_in_spans(tok_start, spans) or pos_in_spans(tok_end - 1, spans):
-                continue
-
-            # Turquoise highlight only, no label or summary entry
-            marks.append({
-                "start": tok_start,
-                "end": tok_end,
-                "color": WD_COLOR_INDEX.TURQUOISE,
-            })
-
-    # -----------------------
     # REPEATED "AND" IN A SENTENCE
     # -----------------------
     rule_note_and = "Avoid using the word 'and' more than once in a sentence"
