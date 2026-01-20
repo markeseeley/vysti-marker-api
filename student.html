@@ -915,6 +915,26 @@
     </footer>
   </main>
 
+  <div id="dismissIssueOverlay" class="modal-overlay hidden">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dismissIssueTitle">
+      <div id="dismissIssueTitle" class="modal-title">Dismiss issue</div>
+      <div class="modal-body">
+        <div class="modal-question">Why are you dismissing this issue?</div>
+        <label><input type="radio" name="dismissReason" value="no_issue"> There is no issue</label>
+        <label><input type="radio" name="dismissReason" value="unable_to_repair"> Unable to repair issue</label>
+        <label><input type="radio" name="dismissReason" value="unclear_guidance"> Unclear student guidance for issue</label>
+        <label><input type="radio" name="dismissReason" value="other"> Other</label>
+        <textarea id="dismissOtherText" maxlength="280" class="hidden" placeholder="Briefly explain..."></textarea>
+        <div id="dismissCharCount" class="hidden">0/280</div>
+        <div id="dismissError" class="modal-error hidden"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="dismissCancelBtn" class="secondary-btn">Cancel</button>
+        <button id="dismissConfirmBtn" class="primary-btn">Dismiss issue</button>
+      </div>
+    </div>
+  </div>
+
   <div id="brandConfirmOverlay" class="brand-confirm-overlay" hidden>
     <div class="brand-confirm-popover" role="dialog" aria-modal="true" aria-labelledby="brandConfirmTitle">
       <button class="brand-confirm-close" type="button" aria-label="Close dialog">×</button>
@@ -1105,10 +1125,19 @@
     const mostCommonIssuesWrap = document.getElementById("mostCommonIssuesWrap");
     const mostCommonIssuesChartEl = document.getElementById("mostCommonIssuesChart");
     const brandConfirmOverlay = document.getElementById("brandConfirmOverlay");
+    const dismissIssueOverlay = document.getElementById("dismissIssueOverlay");
+    const dismissOtherText = document.getElementById("dismissOtherText");
+    const dismissCharCount = document.getElementById("dismissCharCount");
+    const dismissError = document.getElementById("dismissError");
+    const dismissCancelBtn = document.getElementById("dismissCancelBtn");
+    const dismissConfirmBtn = document.getElementById("dismissConfirmBtn");
 
     if (brandConfirmOverlay) {
       brandConfirmOverlay.hidden = true;
       brandConfirmOverlay.setAttribute("hidden", "");
+    }
+    if (dismissIssueOverlay) {
+      dismissIssueOverlay.classList.add("hidden");
     }
 
     let mostCommonIssuesChart = null;
@@ -1130,6 +1159,7 @@
     let currentTechniques = [];
     let hasStartedRevising = false;
     let liveLabelCounts = {};
+    let dismissedIssues = [];
 
     const appliedExampleKeys = new Set();
     const approvedExampleKeys = new Set();
@@ -1164,6 +1194,54 @@
       }
       return fallbackMessage;
     }
+
+    function currentDismissStorageKey() {
+      return `vysti_dismissed_${(selectedFile?.name || "nofile")}`;
+    }
+
+    function loadDismissedIssuesFromStorage() {
+      const key = currentDismissStorageKey();
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) {
+          dismissedIssues = [];
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        dismissedIssues = Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        console.warn("Failed to load dismissed issues:", error);
+        dismissedIssues = [];
+      }
+    }
+
+    function saveDismissedIssuesToStorage() {
+      const key = currentDismissStorageKey();
+      try {
+        localStorage.setItem(key, JSON.stringify(dismissedIssues || []));
+      } catch (error) {
+        console.warn("Failed to save dismissed issues:", error);
+      }
+    }
+
+    function normalizeLabelForMatch(label) {
+      return normalizeForMatch(String(label || "")).toLowerCase();
+    }
+
+    function isDismissedIssueInstance(label, sentence) {
+      if (!label || !sentence || !selectedFile) return false;
+      const labelMatch = normalizeLabelForMatch(label);
+      const sentenceMatch = normalizeForMatch(sentence);
+      return dismissedIssues.some((record) => {
+        if (record?.file_name !== selectedFile.name) return false;
+        return (
+          normalizeLabelForMatch(record?.label) === labelMatch &&
+          normalizeForMatch(record?.sentence) === sentenceMatch
+        );
+      });
+    }
+
+    loadDismissedIssuesFromStorage();
 
     function updateIssueMetadataForLabel(label) {
       const issues = currentMarkEvent?.issues || [];
@@ -1959,6 +2037,7 @@
         const key = getExampleKey(ex);
         if (!key) return false;
         if (appliedExampleKeys.has(key)) return false;
+        if (isDismissedIssueInstance(ex?.label || currentLabel || "", ex?.sentence || "")) return false;
         return !approvedExampleKeys.has(key);
       });
     }
@@ -2120,11 +2199,11 @@
         }
       };
 
-      const removeIssueBtn = document.createElement("button");
-      removeIssueBtn.className = "example-btn example-action remove-issue-btn";
-      removeIssueBtn.textContent = "Remove issue";
-      removeIssueBtn.onclick = async () => {
-        await removeIssueFromPreview(currentLabel || ex?.label || "", ex, rewriteStatusDiv, removeIssueBtn);
+      const dismissIssueBtn = document.createElement("button");
+      dismissIssueBtn.className = "example-btn example-action remove-issue-btn";
+      dismissIssueBtn.textContent = "Dismiss issue";
+      dismissIssueBtn.onclick = async () => {
+        await dismissIssue(currentLabel || ex?.label || "", ex, rewriteStatusDiv, dismissIssueBtn);
       };
 
       actionsDiv.appendChild(resetExampleBtn);
@@ -2132,7 +2211,7 @@
       actionsDiv.appendChild(findInPreviewBtn);
       actionsDiv.appendChild(checkRewriteBtn);
       actionsDiv.appendChild(applyToPreviewBtn);
-      actionsDiv.appendChild(removeIssueBtn);
+      actionsDiv.appendChild(dismissIssueBtn);
 
       // Keyboard shortcut: Ctrl+Enter (Windows) / Cmd+Enter (Mac)
       rewriteTextarea.addEventListener("keydown", async (e) => {
@@ -2877,6 +2956,7 @@
       const files = e.target.files;
       if (files && files.length > 0) {
         selectedFile = files[0];
+        loadDismissedIssuesFromStorage();
         updateFileUI();
         showTextDetails({ expand: true });
         
@@ -2970,6 +3050,7 @@
         const docxFile = docxFiles[0];
         if (docxFile) {
           selectedFile = docxFile;
+          loadDismissedIssuesFromStorage();
           // Update file input programmatically
           const dt = new DataTransfer();
           dt.items.add(docxFile);
@@ -3145,6 +3226,7 @@
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
             updateTechniquesUI();
+            applyDismissalsToPreviewDOM();
             markedPreviewCard.style.display = "block";
           } else {
             // Fallback: show message if docx-preview not loaded
@@ -3627,6 +3709,33 @@
       positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl);
     }
 
+    function applyDismissalsToLabelCounts(labelCounts) {
+      const out = { ...(labelCounts || {}) };
+      if (!selectedFile) return out;
+      const countsToSubtract = {};
+      dismissedIssues
+        .filter((record) => record?.file_name === selectedFile.name)
+        .forEach((record) => {
+          const label = String(record?.label || "").trim();
+          if (!label) return;
+          countsToSubtract[label] = (countsToSubtract[label] || 0) + 1;
+        });
+
+      Object.entries(countsToSubtract).forEach(([label, sub]) => {
+        const cur = Number(out[label] || 0);
+        const next = Math.max(0, cur - sub);
+        if (next === 0) delete out[label];
+        else out[label] = next;
+      });
+      return out;
+    }
+
+    function filterDismissedExamples(label, examples) {
+      return (examples || []).filter((ex) => {
+        return !isDismissedIssueInstance(label || ex?.label || "", ex?.sentence || "");
+      });
+    }
+
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
 
@@ -3772,7 +3881,9 @@
         }
 
         currentMarkEvent = markEvents[0];
-        liveLabelCounts = { ...(currentMarkEvent.label_counts || {}) };
+        const rawLabelCounts = { ...(currentMarkEvent.label_counts || {}) };
+        const filteredLabelCounts = applyDismissalsToLabelCounts(rawLabelCounts);
+        liveLabelCounts = { ...filteredLabelCounts };
         const labelCounts = liveLabelCounts;
         
         if (resultsCard) resultsCard.style.display = "block";
@@ -4039,9 +4150,10 @@
           uniq.push(ex);
           if (uniq.length >= 10) break; // Cap at 10 examples
         }
+        const filteredUniq = filterDismissedExamples(label, uniq);
         const labelChanged = currentLabel !== label;
         currentLabel = label;
-        currentExamplesAll = uniq;
+        currentExamplesAll = filteredUniq;
         if (labelChanged) currentIndex = 0;
 
         currentExamplesAll.forEach((ex) => {
@@ -4051,13 +4163,15 @@
           }
         });
 
-        if (!uniq || uniq.length === 0) {
-          showExamplesEmptyState(
-            getPreviewOnlyMessage(
-              label,
-              "No more examples for this issue. Click another bar to practice a different issue."
-            )
-          );
+        if (!filteredUniq || filteredUniq.length === 0) {
+          const hadDismissals = uniq && uniq.length > 0;
+          const emptyMessage = hadDismissals
+            ? "All examples for this issue have been dismissed. Click another bar to revise a different issue."
+            : getPreviewOnlyMessage(
+                label,
+                "No more examples for this issue. Click another bar to practice a different issue."
+              );
+          showExamplesEmptyState(emptyMessage);
           if (exampleNavRow) exampleNavRow.style.display = "none";
           downloadRevisionNotesBtn.style.display = "none";
           updateApplyAllUI();
@@ -4792,26 +4906,38 @@
       });
     }
 
-    async function removeIssueFromPreview(label, example, statusDiv, removeBtn) {
+    function removeIssueLabelAndHighlight(label, example, options = {}) {
+      const {
+        statusDiv = null,
+        actionBtn = null,
+        scroll = true,
+        allowParagraphFallback = false,
+        silent = false
+      } = options;
+
       if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
-        statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
-        statusDiv.className = "rewrite-status visible bad";
-        return;
+        if (!silent && statusDiv) {
+          statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return { ok: false };
       }
 
-      const ok = await brandedConfirm({
-        title: "Remove from preview?",
-        body: "Remove this issue label + highlight from the preview?"
-      });
-      if (!ok) {
-        return;
+      const result = highlightAndScrollToExample(example, null, { scroll });
+      if (!result.ok || !result.blockEl) {
+        if (!silent && statusDiv) {
+          statusDiv.textContent = "Couldn't locate the sentence in the preview.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return { ok: false };
       }
 
-      const result = highlightAndScrollToExample(example, null);
-      if (!result.ok || !result.hits || result.hits.length === 0) {
-        statusDiv.textContent = "Couldn't isolate the exact sentence in preview. Try Find in preview first.";
-        statusDiv.className = "rewrite-status visible bad";
-        return;
+      if (!allowParagraphFallback && (!result.hits || result.hits.length === 0)) {
+        if (!silent && statusDiv) {
+          statusDiv.textContent = "Couldn't isolate the exact sentence in preview. Try Find in preview first.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return { ok: false };
       }
 
       const blockEl = result.blockEl;
@@ -4824,35 +4950,39 @@
         });
 
       if (arrowCandidates.length === 0) {
-        statusDiv.textContent = "Couldn't find the issue label in the preview.";
-        statusDiv.className = "rewrite-status visible bad";
-        return;
+        if (!silent && statusDiv) {
+          statusDiv.textContent = "Couldn't find the issue label in the preview.";
+          statusDiv.className = "rewrite-status visible bad";
+        }
+        return { ok: false };
       }
 
       let selectedLabelEl = arrowCandidates[0];
-      try {
-        const range = document.createRange();
-        range.setStartBefore(result.hits[0]);
-        range.setEndAfter(result.hits[result.hits.length - 1]);
-        const intersecting = arrowCandidates.find(el => range.intersectsNode(el));
-        if (intersecting) {
-          selectedLabelEl = intersecting;
-        } else {
-          const firstHitRect = result.hits[0].getBoundingClientRect();
-          let closest = arrowCandidates[0];
-          let closestDist = Number.POSITIVE_INFINITY;
-          arrowCandidates.forEach(el => {
-            const rect = el.getBoundingClientRect();
-            const dist = Math.abs(rect.top - firstHitRect.top);
-            if (dist < closestDist) {
-              closest = el;
-              closestDist = dist;
-            }
-          });
-          selectedLabelEl = closest;
+      if (result.hits && result.hits.length > 0) {
+        try {
+          const range = document.createRange();
+          range.setStartBefore(result.hits[0]);
+          range.setEndAfter(result.hits[result.hits.length - 1]);
+          const intersecting = arrowCandidates.find(el => range.intersectsNode(el));
+          if (intersecting) {
+            selectedLabelEl = intersecting;
+          } else {
+            const firstHitRect = result.hits[0].getBoundingClientRect();
+            let closest = arrowCandidates[0];
+            let closestDist = Number.POSITIVE_INFINITY;
+            arrowCandidates.forEach(el => {
+              const rect = el.getBoundingClientRect();
+              const dist = Math.abs(rect.top - firstHitRect.top);
+              if (dist < closestDist) {
+                closest = el;
+                closestDist = dist;
+              }
+            });
+            selectedLabelEl = closest;
+          }
+        } catch (e) {
+          selectedLabelEl = arrowCandidates[0];
         }
-      } catch (e) {
-        selectedLabelEl = arrowCandidates[0];
       }
 
       let removalTarget = selectedLabelEl;
@@ -4902,14 +5032,267 @@
       clearPreviewHighlights();
       if (markedPreview) markedPreview.normalize();
 
-      statusDiv.textContent = "Removed from preview. (This may come back after Recheck unless you change the text.)";
-      statusDiv.className = "rewrite-status visible ok";
-      removeBtn.disabled = true;
+      if (!silent && statusDiv) {
+        statusDiv.textContent = "Dismissed from preview. (This will stay dismissed after Recheck.)";
+        statusDiv.className = "rewrite-status visible ok";
+      }
+      if (actionBtn) actionBtn.disabled = true;
 
-      const exampleRow = removeBtn.closest(".example-item");
+      const exampleRow = actionBtn?.closest(".example-item");
       if (exampleRow) {
         exampleRow.classList.add("example-dismissed");
       }
+
+      return { ok: true, blockEl: result.blockEl };
+    }
+
+    async function removeIssueFromPreview(label, example, statusDiv, removeBtn) {
+      if (markedPreviewCard.style.display === "none" || !markedPreview || !markedPreview.innerText.trim()) {
+        statusDiv.textContent = "Click \"Mark my essay\" to load the preview first.";
+        statusDiv.className = "rewrite-status visible bad";
+        return;
+      }
+
+      const ok = await brandedConfirm({
+        title: "Remove from preview?",
+        body: "Remove this issue label + highlight from the preview?"
+      });
+      if (!ok) {
+        return;
+      }
+      removeIssueLabelAndHighlight(label, example, {
+        statusDiv,
+        actionBtn: removeBtn,
+        scroll: true,
+        allowParagraphFallback: false,
+        silent: false
+      });
+    }
+
+    function applyDismissalsToPreviewDOM() {
+      if (!selectedFile || !markedPreview || !markedPreview.innerText.trim()) return;
+      const records = dismissedIssues.filter((record) => record?.file_name === selectedFile.name);
+      if (!records.length) return;
+      records.forEach((record) => {
+        removeIssueLabelAndHighlight(record?.label || "", {
+          label: record?.label || "",
+          sentence: record?.sentence || "",
+          paragraph_index: record?.paragraph_index ?? null
+        }, {
+          scroll: false,
+          allowParagraphFallback: true,
+          silent: true
+        });
+      });
+    }
+
+    async function openDismissIssueModal() {
+      if (!dismissIssueOverlay || !dismissConfirmBtn || !dismissCancelBtn) {
+        return { confirmed: false, reason: null, other_text: null };
+      }
+
+      const reasonInputs = Array.from(
+        dismissIssueOverlay.querySelectorAll('input[name="dismissReason"]')
+      );
+
+      return new Promise((resolve) => {
+        let resolved = false;
+
+        const cleanup = () => {
+          dismissIssueOverlay.classList.add("hidden");
+          document.removeEventListener("keydown", onKeyDown);
+          dismissIssueOverlay.removeEventListener("click", onOverlayClick);
+          dismissCancelBtn.removeEventListener("click", onCancel);
+          dismissConfirmBtn.removeEventListener("click", onConfirm);
+          reasonInputs.forEach((input) => input.removeEventListener("change", onReasonChange));
+          if (dismissOtherText) {
+            dismissOtherText.removeEventListener("input", onOtherInput);
+          }
+        };
+
+        const finish = (confirmed, reason = null, otherText = null) => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          resolve({ confirmed, reason, other_text: otherText });
+        };
+
+        const getSelectedReason = () => {
+          const checked = reasonInputs.find((input) => input.checked);
+          return checked ? checked.value : "";
+        };
+
+        const setError = (message) => {
+          if (!dismissError) return;
+          if (!message) {
+            dismissError.textContent = "";
+            dismissError.classList.add("hidden");
+            return;
+          }
+          dismissError.textContent = message;
+          dismissError.classList.remove("hidden");
+        };
+
+        const updateOtherUI = (reason) => {
+          const isOther = reason === "other";
+          if (dismissOtherText) {
+            dismissOtherText.classList.toggle("hidden", !isOther);
+            if (isOther) dismissOtherText.focus();
+          }
+          if (dismissCharCount) {
+            dismissCharCount.classList.toggle("hidden", !isOther);
+          }
+        };
+
+        const updateCharCount = () => {
+          if (!dismissOtherText || !dismissCharCount) return;
+          const len = (dismissOtherText.value || "").length;
+          dismissCharCount.textContent = `${len}/280`;
+        };
+
+        const updateConfirmState = () => {
+          const reason = getSelectedReason();
+          const isOther = reason === "other";
+          const otherText = dismissOtherText ? dismissOtherText.value.trim() : "";
+          const valid = reason && (!isOther || otherText.length > 0);
+          dismissConfirmBtn.disabled = !valid;
+        };
+
+        const onReasonChange = () => {
+          const reason = getSelectedReason();
+          updateOtherUI(reason);
+          updateCharCount();
+          setError("");
+          updateConfirmState();
+        };
+
+        const onOtherInput = () => {
+          updateCharCount();
+          updateConfirmState();
+        };
+
+        const onCancel = () => finish(false, null, null);
+
+        const onConfirm = () => {
+          const reason = getSelectedReason();
+          if (!reason) {
+            setError("Please select a reason to continue.");
+            return;
+          }
+          const isOther = reason === "other";
+          const otherText = dismissOtherText ? dismissOtherText.value.trim() : "";
+          if (isOther && !otherText) {
+            setError("Please add a brief explanation for “Other.”");
+            return;
+          }
+          setError("");
+          finish(true, reason, isOther ? otherText : null);
+        };
+
+        const onOverlayClick = (event) => {
+          if (event.target === dismissIssueOverlay) {
+            finish(false, null, null);
+          }
+        };
+
+        const onKeyDown = (event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(false, null, null);
+          }
+        };
+
+        // Reset state
+        reasonInputs.forEach((input) => (input.checked = false));
+        if (dismissOtherText) dismissOtherText.value = "";
+        updateOtherUI("");
+        updateCharCount();
+        setError("");
+        dismissConfirmBtn.disabled = true;
+
+        dismissIssueOverlay.classList.remove("hidden");
+        dismissCancelBtn.focus();
+
+        document.addEventListener("keydown", onKeyDown);
+        dismissIssueOverlay.addEventListener("click", onOverlayClick);
+        dismissCancelBtn.addEventListener("click", onCancel);
+        dismissConfirmBtn.addEventListener("click", onConfirm);
+        reasonInputs.forEach((input) => input.addEventListener("change", onReasonChange));
+        if (dismissOtherText) {
+          dismissOtherText.addEventListener("input", onOtherInput);
+        }
+      });
+    }
+
+    async function dismissIssue(label, example, statusDiv, btn) {
+      const modalResult = await openDismissIssueModal();
+      if (!modalResult.confirmed) return;
+
+      const fileName = selectedFile?.name || "nofile";
+      const record = {
+        label: label || "",
+        sentence: example?.sentence || "",
+        paragraph_index: example?.paragraph_index ?? null,
+        file_name: fileName,
+        created_at: new Date().toISOString(),
+        reason: modalResult.reason,
+        other_text: modalResult.other_text || null
+      };
+
+      dismissedIssues.push(record);
+      saveDismissedIssuesToStorage();
+
+      try {
+        const { data: sessionData } = await supa.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+        if (userId) {
+          const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+          const { error } = await supa
+            .from("dismissed_issue_feedback")
+            .insert({
+              user_id: userId,
+              file_name: fileName,
+              mark_event_id: currentMarkEvent?.id || null,
+              mode: currentMode,
+              issue_label: label || "",
+              paragraph_index: record.paragraph_index,
+              sentence: record.sentence,
+              reason: modalResult.reason,
+              other_text: modalResult.other_text || null
+            });
+          if (error) {
+            console.warn("Dismissed issue feedback insert failed:", error);
+          }
+        }
+      } catch (error) {
+        console.warn("Dismissed issue feedback insert failed:", error);
+      }
+
+      removeIssueLabelAndHighlight(label, example, {
+        statusDiv,
+        actionBtn: btn,
+        scroll: true,
+        allowParagraphFallback: true,
+        silent: false
+      });
+
+      const rawCounts = currentMarkEvent?.label_counts || liveLabelCounts || {};
+      liveLabelCounts = { ...applyDismissalsToLabelCounts(rawCounts) };
+      refreshIssueCountUI();
+      renderMostCommonIssues(liveLabelCounts);
+
+      currentExamplesAll = filterDismissedExamples(currentLabel || label, currentExamplesAll);
+      if (!currentExamplesAll.length) {
+        showExamplesEmptyState(
+          "All examples for this issue have been dismissed. Click another bar to revise a different issue."
+        );
+        if (exampleNavRow) exampleNavRow.style.display = "none";
+        downloadRevisionNotesBtn.style.display = "none";
+        updateApplyAllUI();
+        return;
+      }
+
+      renderCurrentExample();
     }
 
     function normalizeWhitespaceAndQuotes(value) {
@@ -5303,6 +5686,7 @@
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
             updateTechniquesUI();
+            applyDismissalsToPreviewDOM();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             updateTechniquesUI();
