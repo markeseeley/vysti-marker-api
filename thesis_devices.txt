@@ -282,7 +282,6 @@ parenthetical phrase,parenthesis
 parenthetically,parenthesis
 conditional clause,conditional
 modal verb,modal
-rhythmic,rhythm
 rhythm,rhythm
 meter,meter
 metrical,meter
