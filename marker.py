@@ -1233,6 +1233,30 @@ def pos_in_spans(pos, spans):
     return any(start <= pos <= end for start, end in spans)
 
 
+def is_a_before_yoo_exception(next_word_lower: str) -> bool:
+    # Common /juː/ ("yoo") starts where "a" is correct.
+    if not next_word_lower:
+        return False
+    # "uni" + consonant (united, unique, uniform, university...)
+    if re.match(r"^uni[bcdfghjklmnpqrstvwxz]", next_word_lower):
+        return True
+    # use/user/usual/util... (useful, user, usual, utility)
+    if next_word_lower.startswith(("use", "user", "usual", "util")):
+        return True
+    # eu- words often start with "yoo/yu" (European, euphemism, eulogy, euphoria...)
+    if next_word_lower.startswith("eu"):
+        return True
+    # optional: uk- (Ukraine often "yoo-krain"; pronunciation varies)
+    if next_word_lower.startswith("uk"):
+        return True
+    return False
+
+
+def is_an_before_silent_h_exception(next_word_lower: str) -> bool:
+    # "an honest", "an hour", "an heir", etc.
+    return next_word_lower.startswith(("honest", "hour", "heir", "honor", "herb"))
+
+
 def compute_topic_sentence_span(flat_text: str, quote_spans: list) -> tuple[int, int]:
     """
     Compute the topic sentence span for a body paragraph using character offsets.
@@ -4593,18 +4617,22 @@ def analyze_text(
     # -----------------------
     # PHASE 2.1 — Article errors (a/an)
     # -----------------------
-    article_regex = re.compile(r"\b(a|an)\s+([A-Za-z])", re.IGNORECASE)
+    article_regex = re.compile(r"\b(a|an)\s+([A-Za-z]+)", re.IGNORECASE)
     for match in article_regex.finditer(flat_text):
         article = match.group(1) or ""
-        next_letter = match.group(2) or ""
-        if not article or not next_letter:
+        next_word = match.group(2) or ""
+        if not article or not next_word:
             continue
 
         article_lower = article.lower()
-        next_lower = next_letter.lower()
-        should_be_an = next_lower in {"a", "e", "i", "o", "u"}
+        next_word_lower = next_word.lower()
+        should_be_an = next_word_lower[0] in {"a", "e", "i", "o", "u"}
         is_error = (article_lower == "a" and should_be_an) or (article_lower == "an" and not should_be_an)
         if not is_error:
+            continue
+        if article_lower == "a" and should_be_an and is_a_before_yoo_exception(next_word_lower):
+            continue
+        if article_lower == "an" and not should_be_an and is_an_before_silent_h_exception(next_word_lower):
             continue
 
         start = match.start(1)
