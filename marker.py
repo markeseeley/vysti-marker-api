@@ -149,6 +149,74 @@ def normalize_title_for_exact_match(s: str) -> str:
     return out.strip()
 
 
+def normalize_label(label: str) -> str:
+    """
+    Normalize an issue label for stable instance IDs:
+      - lowercase
+      - collapse whitespace
+      - strip trailing punctuation (e.g., periods)
+    """
+    if not label:
+        return ""
+    out = " ".join(label.split()).strip().lower()
+    # Strip trailing punctuation like "." or ":" but keep inner punctuation
+    out = re.sub(r"[^\w\s]+$", "", out).strip()
+    return out
+
+
+def normalize_anchor_text(text: str) -> str:
+    """
+    Normalize an anchor excerpt so instance IDs stay stable across typography.
+    """
+    if not text:
+        return ""
+    out = text.replace("\u00A0", " ")
+    quote_map = {
+        "\u201C": '"',
+        "\u201D": '"',
+        "\u201E": '"',
+        "\u201F": '"',
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201A": "'",
+        "\u201B": "'",
+        "\u00AB": '"',
+        "\u00BB": '"',
+        "\u2039": "'",
+        "\u203A": "'",
+    }
+    for bad, good in quote_map.items():
+        out = out.replace(bad, good)
+    out = " ".join(out.split()).strip()
+    return out
+
+
+def compute_issue_instance_id(
+    essay_fingerprint: str,
+    label: str,
+    paragraph_index: int,
+    sentence_index: int | None,
+    span_start: int | None,
+    span_end: int | None,
+    anchor_text: str,
+) -> str:
+    """
+    Compute a stable, compact issue instance ID for a single occurrence.
+    Format: sha256(canonical)[:24] where canonical joins fields with "||".
+    """
+    parts = [
+        essay_fingerprint or "unknown",
+        normalize_label(label),
+        str(paragraph_index),
+        "null" if sentence_index is None else str(sentence_index),
+        "null" if span_start is None else str(span_start),
+        "null" if span_end is None else str(span_end),
+        normalize_anchor_text(anchor_text),
+    ]
+    canonical = "||".join(parts)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+
+
 def normalize_author_key(s: str) -> str:
     """
     Normalize an author name so we can match the teacher-supplied author_name
@@ -546,6 +614,9 @@ class MarkerConfig:
 
     require_body_evidence: bool = True  # "Every paragraph needs evidence"
 # Controls whether the generic contractions rule is enforced
+
+    # Optional: stable fingerprint for issue instance IDs (set by API)
+    essay_fingerprint: str | None = None
 
     enforce_contractions_rule: bool = True
     enforce_long_quote_rule: bool = True
