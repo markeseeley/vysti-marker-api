@@ -93,6 +93,7 @@ class MarkTextRequest(BaseModel):
     mode: str = "student"
     titles: list[TitleInfo] | None = None
     student_mode: bool = True
+    include_summary_table: bool | None = False
 
 
 
@@ -968,6 +969,7 @@ async def mark_text(
         docx_bytes,
         mode=mode,
         teacher_config=teacher_config if teacher_config else None,
+        include_summary_table=bool(request.include_summary_table),
     )
     
     # 4. Extract examples and issues from metadata
