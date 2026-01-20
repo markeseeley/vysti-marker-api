@@ -1142,6 +1142,42 @@
     const approvedRewriteByKey = new Map();
     const exampleDataByKey = new Map();
     const approvedRewrites = [];
+    const PREVIEW_ONLY_LABELS = new Set([
+      "No quotations in topic sentence"
+    ]);
+
+    function normLabel(s) {
+      return String(s || "").trim().toLowerCase();
+    }
+
+    function isPreviewOnlyLabel(label) {
+      const target = normLabel(label);
+      for (const lbl of PREVIEW_ONLY_LABELS) {
+        if (normLabel(lbl) === target) return true;
+      }
+      return false;
+    }
+
+    function getPreviewOnlyMessage(label, fallbackMessage) {
+      if (isPreviewOnlyLabel(label)) {
+        return "Looks like you need to revise your topic sentence. Repair this issue in the Preview";
+      }
+      return fallbackMessage;
+    }
+
+    function updateIssueMetadataForLabel(label) {
+      const issues = currentMarkEvent?.issues || [];
+      const issueData = issues.find((iss) => normLabel(iss?.label) === normLabel(label));
+      if (issueData && issueData.explanation) {
+        issueExplanation.textContent = issueData.explanation;
+        if (issueExplanationBlock) issueExplanationBlock.style.display = "block";
+      } else if (issueExplanationBlock) {
+        issueExplanationBlock.style.display = "none";
+      }
+      currentGuidance = issueData?.student_guidance || "";
+      currentLabelText = (issueData?.label || label || "").trim();
+      return issueData || null;
+    }
 
     function getExampleKeyFromParts(paragraphIndex, sentence) {
       const safePara = String(paragraphIndex ?? 0);
@@ -3248,12 +3284,81 @@
       window.scrollTo({ top: y, behavior: "smooth" });
     }
 
+    function scrollToPreviewHeader() {
+      const header = document.querySelector("#markedPreviewCard .preview-header");
+      if (!header) return;
+      const topbar = document.querySelector(".topbar");
+      const offset = (topbar ? topbar.getBoundingClientRect().height : 0) + 12;
+      const y = header.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
+
+    async function jumpToPreviewForTopicSentenceIssue() {
+      if (!markedPreviewCard || markedPreviewCard.style.display === "none") return;
+      if (!markedPreview || !markedPreview.innerText.trim()) return;
+
+      const paras = Array.from(markedPreview.querySelectorAll("p"));
+      const targetPara = paras.find((p) => (p.textContent || "").includes('"')) || paras[0];
+      if (!targetPara) return;
+
+      const txt = (targetPara.textContent || "").trim();
+      if (!txt) return;
+      const firstSentence = txt.match(/^(.+?[.!?])\s/)?.[1] || txt;
+
+      clearPreviewHighlights();
+      const spans =
+        highlightExactTextInElement(targetPara, firstSentence) ||
+        highlightAnchoredSentenceInElement(
+          targetPara,
+          firstSentence,
+          buildAnchorCandidates(firstSentence)
+        );
+
+      if (Array.isArray(spans)) {
+        spans.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+      }
+
+      scrollToPreviewHeader();
+    }
+
     async function openRevisionExampleFromLabel(label) {
       if (!label) return;
       if (revisionPracticeCard) revisionPracticeCard.style.display = "block";
       if (issueSelect && issueSelect.value !== label) {
         issueSelect.value = label;
       }
+      updateIssueMetadataForLabel(label);
+      if (isPreviewOnlyLabel(label)) {
+        currentLabel = label;
+        currentExamplesAll = [];
+        currentIndex = 0;
+        if (examplesList) {
+          examplesList.innerHTML = "";
+          examplesList.style.display = "none";
+        }
+        if (examplesEmptyState) {
+          examplesEmptyState.style.display = "block";
+          examplesEmptyState.textContent = getPreviewOnlyMessage(label, "");
+        }
+        if (approvedRewritesList) approvedRewritesList.innerHTML = "";
+        if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
+        if (downloadRevisionNotesBtn) downloadRevisionNotesBtn.style.display = "none";
+        if (exampleNavRow) exampleNavRow.style.display = "none";
+        if (applyAllToPreviewBtn) {
+          applyAllToPreviewBtn.style.display = "none";
+          applyAllToPreviewBtn.disabled = true;
+          applyAllToPreviewBtn.classList.remove("apply-attention");
+        }
+        approvedRewrites.length = 0;
+        approvedRewriteByKey.clear();
+        approvedExampleKeys.clear();
+        updateApplyAllUI();
+        requestAnimationFrame(() => {
+          void jumpToPreviewForTopicSentenceIssue();
+        });
+        return;
+      }
+      if (examplesList) examplesList.style.display = "";
       await loadIssueExamples(label);
       requestAnimationFrame(() => scrollToExamples());
     }
@@ -3819,6 +3924,7 @@
 
       try {
         if (examplesList) examplesList.innerHTML = "";
+        if (examplesList) examplesList.style.display = "";
         if (approvedRewritesList) approvedRewritesList.innerHTML = "";
         if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
         approvedRewrites.length = 0;
@@ -3831,18 +3937,7 @@
         approvedExampleKeys.clear();
 
         // Get explanation from issues array
-        const issues = currentMarkEvent?.issues || [];
-        const issueData = issues.find(iss => iss.label === label);
-        if (issueData && issueData.explanation) {
-          issueExplanation.textContent = issueData.explanation;
-          if (issueExplanationBlock) issueExplanationBlock.style.display = "block";
-        } else if (issueExplanationBlock) {
-          issueExplanationBlock.style.display = "none";
-        }
-        const guidance = issueData?.student_guidance || "";
-        const labelText = (issueData?.label || label || "").trim();
-        currentGuidance = guidance;
-        currentLabelText = labelText;
+        const issueData = updateIssueMetadataForLabel(label);
 
         // Get examples from issue_examples
         // Fetch 50 rows to allow deduplication while still getting 10 unique examples
@@ -3943,7 +4038,12 @@
         });
 
         if (!uniq || uniq.length === 0) {
-          showExamplesEmptyState("No more examples for this issue. Click another bar to practice a different issue.");
+          showExamplesEmptyState(
+            getPreviewOnlyMessage(
+              label,
+              "No more examples for this issue. Click another bar to practice a different issue."
+            )
+          );
           if (exampleNavRow) exampleNavRow.style.display = "none";
           downloadRevisionNotesBtn.style.display = "none";
           updateApplyAllUI();
