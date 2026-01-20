@@ -1176,6 +1176,16 @@
       "No quotations in topic sentence"
     ]);
 
+    function hideMarkButtonShowRecheck() {
+      if (checkBtn) checkBtn.style.display = "none";
+      if (recheckDocumentBtn) recheckDocumentBtn.style.display = "block";
+    }
+
+    function showMarkButtonHideRecheck() {
+      if (checkBtn) checkBtn.style.display = "block";
+      if (recheckDocumentBtn) recheckDocumentBtn.style.display = "none";
+    }
+
     function normLabel(s) {
       return String(s || "").trim().toLowerCase();
     }
@@ -2270,6 +2280,7 @@
     function clearFile() {
       // Safety: stop any in-progress button loader
       stopButtonLoading(checkBtn, () => !!selectedFile);
+      showMarkButtonHideRecheck();
       if (resultsCard) resultsCard.style.display = "none";
       selectedFile = null;
       hasStartedRevising = false;
@@ -2299,10 +2310,7 @@
       resetRevisionPracticeUI();
       issueSelect.innerHTML = '<option value="">Select an issue...</option>';
       if (issueButtonsWrap) issueButtonsWrap.innerHTML = "";
-      if (recheckDocumentBtn) {
-        recheckDocumentBtn.style.display = "none";
-        recheckDocumentBtn.disabled = true;
-      }
+      if (recheckDocumentBtn) recheckDocumentBtn.disabled = true;
       currentMarkEvent = null;
       currentWordCount = null;
       currentTechniques = [];
@@ -2958,6 +2966,7 @@
         selectedFile = files[0];
         loadDismissedIssuesFromStorage();
         updateFileUI();
+        showMarkButtonHideRecheck();
         showTextDetails({ expand: true });
         
         // Extract metadata and store for later (after marking)
@@ -3056,6 +3065,7 @@
           dt.items.add(docxFile);
           fileInput.files = dt.files;
           updateFileUI();
+          showMarkButtonHideRecheck();
           showTextDetails({ expand: true });
           
           // Extract metadata and store for later (after marking)
@@ -3242,9 +3252,9 @@
         }
 
         if (recheckDocumentBtn) {
-          recheckDocumentBtn.style.display = "block";
           recheckDocumentBtn.disabled = false;
         }
+        hideMarkButtonShowRecheck();
 
         hasStartedRevising = false;
         statusArea.textContent = "";
@@ -5559,10 +5569,7 @@
         updateApplyAllUI();
         
         // Show recheck button if hidden
-        const recheckBtn = document.getElementById("recheckDocumentBtn");
-        if (recheckBtn) {
-          recheckBtn.style.display = "block";
-        }
+        hideMarkButtonShowRecheck();
         return true;
       } catch (error) {
         console.error("Error applying rewrite:", error);
@@ -6122,7 +6129,7 @@
       if (resultsCard) resultsCard.style.display = "block";
       if (downloadBtn) downloadBtn.style.display = "block";
       if (markedPreviewCard) markedPreviewCard.style.display = "block";
-      if (recheckDocumentBtn) recheckDocumentBtn.style.display = "block";
+      hideMarkButtonShowRecheck();
       if (mostCommonIssuesWrap && mostCommonIssuesWrap.dataset.hasData === "true") {
         mostCommonIssuesWrap.style.display = "block";
       }
@@ -6149,6 +6156,7 @@
     }
 
     // Initial state
+    showMarkButtonHideRecheck();
     updateFileUI();
   </script>
 </body>
