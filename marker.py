@@ -1612,6 +1612,75 @@ def spacy_parse(text):
     return doc, tokens, sentences
 
 
+def should_flag_sentence_initial_this(doc, s_start, s_end, tok_start) -> bool:
+    """
+    Return True when sentence-initial "This" behaves like a vague pronoun.
+    If a NOUN/PROPN appears before the first VERB/AUX (or before ,/;), do not flag.
+    """
+    sent_tokens = [t for t in doc if s_start <= t.idx < s_end]
+    this_index = None
+    for i, t in enumerate(sent_tokens):
+        if t.idx == tok_start:
+            this_index = i
+            break
+
+    if this_index is None:
+        return True
+
+    seen_noun = False
+    for t in sent_tokens[this_index + 1:]:
+        if t.pos_ in ("NOUN", "PROPN"):
+            seen_noun = True
+            continue
+        if t.pos_ in ("VERB", "AUX"):
+            return not seen_noun
+        if t.is_punct and t.text in {",", ";"}:
+            return not seen_noun
+
+    return not seen_noun
+
+
+PRONOUN_ANTECEDENT_THIS_SANITY_CASES = [
+    ("This anaphoric structure reinforces ...", False),
+    ("This clear pattern of repetition reveals ...", False),
+    ("This idea of freedom matters ...", False),
+    ("This demonstrates the author's intent ...", True),
+    ("This shows that ...", True),
+    ("This is important because ...", True),
+    ("This reinforces the theme ...", True),
+]
+
+
+def _run_pronoun_antecedent_this_sanity():
+    for text, expected in PRONOUN_ANTECEDENT_THIS_SANITY_CASES:
+        doc, tokens, sentences = spacy_parse(text)
+        if not sentences:
+            raise AssertionError(f"No sentence found for: {text}")
+        s_start, s_end = sentences[0]
+
+        first_token = None
+        for tok_text, tok_start, tok_end in tokens:
+            if tok_start < s_start:
+                continue
+            if tok_start >= s_end:
+                break
+            if not any(ch.isalpha() for ch in tok_text):
+                continue
+            first_token = (tok_text, tok_start, tok_end)
+            break
+
+        if not first_token:
+            raise AssertionError(f"No meaningful token found for: {text}")
+
+        tok_text, tok_start, _ = first_token
+        if tok_text.lower() != "this":
+            raise AssertionError(f"Expected sentence-initial 'This' in: {text}")
+
+        actual = should_flag_sentence_initial_this(doc, s_start, s_end, tok_start)
+        if actual != expected:
+            raise AssertionError(f"Mismatch for '{text}': expected {expected}, got {actual}")
+
+
 WEAK_TRANSITIONS_MULTI = [
     "to begin",
     "to start",
@@ -3738,23 +3807,29 @@ def analyze_text(
             continue
 
         if lower in ("he", "she", "they", "it", "this"):
-            # Pronoun at sentence start → Clarify pronouns and antecedents (TURQUOISE + label)
-            if rule_note_pronoun_antecedent not in labels_used:
-                marks.append({
-                    "start": tok_start,
-                    "end": tok_end,
-                    "note": rule_note_pronoun_antecedent,
-                    "color": WD_COLOR_INDEX.TURQUOISE,
-                    "label": True,
-                })
-                labels_used.append(rule_note_pronoun_antecedent)
-            else:
-                marks.append({
-                    "start": tok_start,
-                    "end": tok_end,
-                    "note": rule_note_pronoun_antecedent,
-                    "color": WD_COLOR_INDEX.TURQUOISE,
-                })
+            should_flag = True
+
+            if lower == "this":
+                should_flag = should_flag_sentence_initial_this(doc, s_start, s_end, tok_start)
+
+            if should_flag:
+                # Pronoun at sentence start → Clarify pronouns and antecedents (TURQUOISE + label)
+                if rule_note_pronoun_antecedent not in labels_used:
+                    marks.append({
+                        "start": tok_start,
+                        "end": tok_end,
+                        "note": rule_note_pronoun_antecedent,
+                        "color": WD_COLOR_INDEX.TURQUOISE,
+                        "label": True,
+                    })
+                    labels_used.append(rule_note_pronoun_antecedent)
+                else:
+                    marks.append({
+                        "start": tok_start,
+                        "end": tok_end,
+                        "note": rule_note_pronoun_antecedent,
+                        "color": WD_COLOR_INDEX.TURQUOISE,
+                    })
 
     # -----------------------
     # AVOID BEGINNING A SENTENCE WITH A QUOTATION
