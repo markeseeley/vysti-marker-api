@@ -1651,6 +1651,11 @@
       }
     }
 
+    function totalIssuesFromLabelCounts(labelCounts) {
+      if (!labelCounts || typeof labelCounts !== "object") return 0;
+      return Object.values(labelCounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    }
+
     function updateMostCommonMeta(labelCounts) {
       if (wordCountReadout) {
         if (currentWordCount === null || currentWordCount === undefined) {
@@ -1663,8 +1668,7 @@
       if (totalIssuesReadout) {
         const counts = labelCounts && typeof labelCounts === "object" ? labelCounts : {};
         const hasCounts = Object.keys(counts).length > 0;
-        const totalIssues = Object.values(counts)
-          .reduce((sum, value) => sum + (Number(value) || 0), 0);
+        const totalIssues = totalIssuesFromLabelCounts(counts);
         totalIssuesReadout.textContent = hasCounts ? `Total Issues: ${totalIssues}` : "";
       }
     }
@@ -3171,6 +3175,16 @@
         
         // Load revision practice data
         await loadRevisionPractice();
+
+        const totalIssues = totalIssuesFromLabelCounts(liveLabelCounts);
+        if (totalIssues === 0) {
+          statusArea.textContent = "Document appears to pass all of Vysti's rules. Ready to download.";
+          if (mostCommonIssuesWrap) {
+            mostCommonIssuesWrap.style.display = "none";
+            mostCommonIssuesWrap.dataset.hasData = "false";
+          }
+          if (revisionPracticeCard) revisionPracticeCard.style.display = "none";
+        }
 
         ensurePostPreviewTourVisibility();
         startPostPreviewTour();
@@ -5297,7 +5311,17 @@
           // Reload revision practice to refresh issues + examples
           await loadRevisionPractice();
 
-          statusArea.textContent = "Document rechecked. Preview updated.";
+          const totalIssues = totalIssuesFromLabelCounts(liveLabelCounts);
+          if (totalIssues === 0) {
+            statusArea.textContent = "Document appears to pass all of Vysti's rules. Ready to download.";
+            if (mostCommonIssuesWrap) {
+              mostCommonIssuesWrap.style.display = "none";
+              mostCommonIssuesWrap.dataset.hasData = "false";
+            }
+            if (revisionPracticeCard) revisionPracticeCard.style.display = "none";
+          } else {
+            statusArea.textContent = "Document rechecked. Preview updated.";
+          }
           statusArea.className = "status-area success";
           ensurePostPreviewTourVisibility();
           startPostPreviewTour();
