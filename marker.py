@@ -3544,6 +3544,34 @@ def analyze_text(
         # ---------------------------------------------
         rule_note_evidence = "Follow the process for inserting evidence"
         rule_note_repeat_quote = "Only cite a quotation once"
+        transition_openers = {
+            "moreover",
+            "however",
+            "furthermore",
+            "therefore",
+            "thus",
+            "instead",
+            "additionally",
+            "also",
+            "nevertheless",
+            "nonetheless",
+            "consequently",
+            "meanwhile",
+            "first",
+            "second",
+            "third",
+            "finally",
+        }
+        context_starters = {
+            "when",
+            "while",
+            "after",
+            "before",
+            "although",
+            "because",
+            "since",
+            "as",
+        }
 
         # Track which evidence quotations have already been introduced
         # earlier in this paragraph.
@@ -3659,17 +3687,43 @@ def analyze_text(
             if opening_word_count == 0 or opening_word_count > 5:
                 continue
 
+            # NEW: Allow short transitional openers that are immediately
+            # followed by a context clause after the comma.
+            if opening_word_count <= 3 and all(
+                tok.text.lower() in transition_openers for tok in opening_tokens
+            ):
+                post_comma_tokens = []
+                for tok in doc:
+                    if tok.idx <= first_comma_pos or tok.idx >= q_start:
+                        continue
+                    if not any(ch.isalpha() for ch in tok.text):
+                        continue
+                    tok_start = tok.idx
+                    tok_end = tok.idx + len(tok.text)
+                    if pos_in_spans(tok_start, spans) or pos_in_spans(tok_end - 1, spans):
+                        continue
+                    post_comma_tokens.append(tok)
+
+                if (
+                    post_comma_tokens
+                    and post_comma_tokens[0].text.lower() in context_starters
+                ):
+                    continue
+
             # NEW: treat temporal clauses like "When interviewing Arab women,"
             # as sufficient context before a quotation. If the short opening
             # phrase begins with "When" followed by a gerund (VBG), do not
             # attach the "Follow the process for inserting evidence" label.
-            if (
+            if opening_tokens and opening_tokens[0].text.lower() == "when" and len(
                 opening_tokens
-                and opening_tokens[0].text.lower() == "when"
-                and len(opening_tokens) >= 2
-                and opening_tokens[1].tag_ == "VBG"
-            ):
-                continue
+            ) >= 2:
+                if opening_tokens[1].tag_ == "VBG" or opening_tokens[1].pos_ in {
+                    "PRON",
+                    "PROPN",
+                    "NOUN",
+                    "DET",
+                }:
+                    continue
 
             # Check the region between the comma and the quotation for
             # richer context. If there are already several content words
