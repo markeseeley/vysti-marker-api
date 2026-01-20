@@ -92,6 +92,7 @@ class MarkTextRequest(BaseModel):
     text: str
     mode: str = "student"
     titles: list[TitleInfo] | None = None
+    student_mode: bool = True
 
 
 
@@ -148,6 +149,7 @@ async def mark_essay(
     mode: str = Form("textual_analysis"),
     user: dict = Depends(get_current_user),  # <-- require Supabase auth
     include_summary_table: bool = Form(True),
+    student_mode: bool | None = Form(None),
 
     # Primary work
     author: str | None = Form(None),
@@ -301,6 +303,8 @@ async def mark_essay(
         teacher_config["enforce_present_tense_rule"] = enforce_present_tense_rule
     if highlight_thesis_devices is not None:
         teacher_config["highlight_thesis_devices"] = highlight_thesis_devices
+    if student_mode is True:
+        teacher_config["student_mode"] = True
 
     # 5. Call your engine
     mark_docx_bytes, _ = get_engine()
@@ -954,7 +958,8 @@ async def mark_text(
     docx_bytes = build_doc_from_text(request.text)
     
     # 2. Build teacher_config from request.titles
-    teacher_config = build_teacher_config_from_titles(request.titles)
+    teacher_config = build_teacher_config_from_titles(request.titles) or {}
+    teacher_config["student_mode"] = request.student_mode
     
     # 3. Call mark_docx_bytes (same pipeline as /mark)
     mark_docx_bytes, _ = get_engine()
