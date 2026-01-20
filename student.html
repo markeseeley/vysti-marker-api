@@ -865,7 +865,7 @@
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
       <div id="exampleNavRow" class="examples-nav" style="display:none;">
-        <div id="exampleNavText" class="examples-nav-text">Example 0 of 0</div>
+        <div id="exampleNavText" class="examples-nav-text">Issue 0 of 0</div>
         <button type="button" class="secondary-btn next-example-btn" id="nextExampleBtn">Next →</button>
       </div>
       <ul id="examplesList" class="examples-list"></ul>
@@ -1966,7 +1966,7 @@
 
       const exampleMetaDiv = document.createElement("div");
       exampleMetaDiv.className = "example-meta";
-      exampleMetaDiv.textContent = `Example ${currentIndex + 1} of ${rotationExamples.length}`;
+      exampleMetaDiv.textContent = `Issue ${currentIndex + 1} of ${rotationExamples.length}`;
 
       const rewriteTextarea = document.createElement("textarea");
       rewriteTextarea.className = "example-rewrite";
@@ -3016,61 +3016,65 @@
         
         const baseName = selectedFile.name.replace(/\.docx$/i, "");
         downloadBtn.onclick = async () => {
-          if (!selectedFile) return;
+          if (!selectedFile || !markedPreview) return;
 
-          if (!hasStartedRevising) {
-            startButtonLoading(downloadBtn, "Download marked essay");
-            try {
-              const { data: sessionData } = await supa.auth.getSession();
-              if (!sessionData || !sessionData.session) {
-                throw new Error("You must be logged in.");
-              }
-
-              const downloadFormData = buildMarkFormData({ includeSummaryTable: true });
-              if (!downloadFormData) {
-                throw new Error("Please select a .docx file.");
-              }
-
-              const API_URL = "https://vysti-rules.onrender.com/mark";
-              const downloadResponse = await fetch(API_URL, {
-                method: "POST",
-                headers: {
-                  "Authorization": `Bearer ${sessionData.session.access_token}`,
-                },
-                body: downloadFormData,
-              });
-
-              if (!downloadResponse.ok) {
-                const text = await downloadResponse.text();
-                throw new Error(`HTTP ${downloadResponse.status}: ${text.substring(0, 100)}`);
-              }
-
-              const downloadBlob = await downloadResponse.blob();
-              const tempUrl = URL.createObjectURL(downloadBlob);
-              const a = document.createElement("a");
-              a.href = tempUrl;
-              a.download = `${baseName}_marked.docx`;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              setTimeout(() => URL.revokeObjectURL(tempUrl), 0);
-            } catch (error) {
-              console.error("Error generating download:", error);
-              statusArea.textContent = `Error: ${error.message}`;
-              statusArea.className = "status-area error";
-              if (resultsCard) resultsCard.style.display = "block";
-            } finally {
-              stopButtonLoading(downloadBtn, () => true);
-            }
+          const previewText = extractPreviewText();
+          if (!previewText) {
+            statusArea.textContent = "Could not extract text from preview.";
+            statusArea.className = "status-area error";
+            if (resultsCard) resultsCard.style.display = "block";
             return;
           }
 
-          const a = document.createElement("a");
-          a.href = downloadUrl;
-          a.download = `${baseName}_marked.docx`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+          startButtonLoading(downloadBtn, "Download marked essay");
+          try {
+            const { data: sessionData } = await supa.auth.getSession();
+            if (!sessionData || !sessionData.session) {
+              throw new Error("You must be logged in.");
+            }
+
+            const titles = buildTitlesFromInputs();
+            const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+            const API_BASE = "https://vysti-rules.onrender.com";
+            const response = await fetch(`${API_BASE}/mark_text`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionData.session.access_token}`,
+              },
+              body: JSON.stringify({
+                file_name: selectedFile.name,
+                text: previewText,
+                mode: currentMode,
+                titles: titles.length > 0 ? titles : null,
+                highlight_thesis_devices: false,
+                include_summary_table: true,
+                student_mode: true,
+              }),
+            });
+
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+            }
+
+            const downloadBlob = await response.blob();
+            const tempUrl = URL.createObjectURL(downloadBlob);
+            const a = document.createElement("a");
+            a.href = tempUrl;
+            a.download = `${baseName}_marked.docx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(tempUrl), 0);
+          } catch (error) {
+            console.error("Error generating download:", error);
+            statusArea.textContent = `Error: ${error.message}`;
+            statusArea.className = "status-area error";
+            if (resultsCard) resultsCard.style.display = "block";
+          } finally {
+            stopButtonLoading(downloadBtn, () => true);
+          }
         };
 
         // Render marked essay preview
@@ -5189,11 +5193,19 @@
       const elements = markedPreview.querySelectorAll("p, li");
       
       for (const el of elements) {
+        if (el.closest("table") || el.closest(".docx-table")) continue;
         // Use clean extraction that excludes Vysti artifacts
         const text = extractCleanTextFromElement(el);
-        if (text) {
-          paragraphs.push(text);
+        if (!text) continue;
+        const trimmed = text.trim();
+        if (
+          trimmed === "Issue" ||
+          trimmed === "Explanation" ||
+          trimmed === "Issue Explanation"
+        ) {
+          continue;
         }
+        paragraphs.push(text);
       }
       
       // If no paragraphs found, try getting all text (also clean)
