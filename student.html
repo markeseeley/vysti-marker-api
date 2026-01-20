@@ -3489,31 +3489,6 @@
       positionMostCommonIssuesTooltip(chart, tooltip, tooltipEl);
     }
 
-    function wrapChartLabel(label, maxChars = 18) {
-      const raw = String(label || "").trim();
-      if (!raw) return "";
-      const words = raw.split(/\s+/);
-      const lines = [];
-      let line = "";
-      words.forEach((word) => {
-        const next = line ? `${line} ${word}` : word;
-        if (next.length > maxChars && line) {
-          lines.push(line);
-          line = word;
-        } else {
-          line = next;
-        }
-      });
-      if (line) lines.push(line);
-      if (lines.length <= 1) return lines[0] || raw;
-      const spaced = [];
-      lines.forEach((ln, idx) => {
-        spaced.push(ln);
-        if (idx < lines.length - 1) spaced.push("");
-      });
-      return spaced;
-    }
-
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
 
@@ -3611,16 +3586,12 @@
             },
             x: {
               ticks: {
-                autoSkip: false,
-                maxRotation: 0,
+                autoSkip: true,
+                maxRotation: 45,
                 minRotation: 0,
                 font: {
                   size: 14,
                   weight: "600"
-                },
-                callback: function(value) {
-                  const label = this.getLabelForValue(value);
-                  return wrapChartLabel(label, 18);
                 }
               }
             }
