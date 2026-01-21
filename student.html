@@ -670,8 +670,10 @@
 
         <div id="mostCommonIssuesWrap" style="margin-top: 20px; display:none;">
           <div class="rules-title">Most Common Issues</div>
-          <div style="position: relative; height: 280px;">
-            <canvas id="mostCommonIssuesChart"></canvas>
+          <div id="mciScrollViewport" class="mci-scroll-viewport">
+            <div id="mciScrollInner" class="mci-scroll-inner">
+              <canvas id="mostCommonIssuesChart"></canvas>
+            </div>
           </div>
         </div>
       </section>
@@ -780,6 +782,8 @@
   </div>
 
   <script>
+    const DEBUG_METRICS = false;
+
     // ===== Bucket definitions =====
     const LABEL_BUCKETS = [
       {
@@ -946,6 +950,8 @@
     const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
     const mostCommonIssuesWrap = document.getElementById("mostCommonIssuesWrap");
+    const mciScrollViewport = document.getElementById("mciScrollViewport");
+    const mciScrollInner = document.getElementById("mciScrollInner");
     const mostCommonIssuesChartEl = document.getElementById("mostCommonIssuesChart");
     const brandConfirmOverlay = document.getElementById("brandConfirmOverlay");
     const dismissIssueOverlay = document.getElementById("dismissIssueOverlay");
@@ -1595,6 +1601,24 @@
       "meanwhile"
     ];
 
+    const COHESION_STOP_WORDS = new Set([
+      "the","a","an","and","or","but","if","then","so","because","since","as",
+      "while","when","after","before","though","although","however","therefore",
+      "thus","moreover","furthermore","additionally","also","from","into","onto",
+      "with","within","without","of","to","in","on","at","by","for","about",
+      "over","under","between","through","during","is","are","was","were","be",
+      "been","being","am","have","has","had","do","does","did","doing","that",
+      "this","these","those","it","its","their","they","them","he","she","his",
+      "her","we","our","us","you","your","i","me","my","mine","yours","ours",
+      "theirs","not","no","yes","can","could","would","should","may","might",
+      "must","will","just","very","really","more","most","less","least","such",
+      "than","too","each","every","some","any","all","both","either","neither",
+      "nor","own","same","other","another","there","here","then","now","who",
+      "whom","which","what","where","why","how","up","down","out","off","again",
+      "further","once","ever","never","across","around","behind","beyond","near",
+      "among","amongst","via"
+    ]);
+
     const SUBJECTIVE_TERMS = [
       "successfully",
       "successful",
@@ -1650,14 +1674,40 @@
       return tokens[idx] || tokens[0] || "";
     }
 
-    function detectTransitionStart(paragraph) {
-      const trimmed = String(paragraph || "").trim().toLowerCase().replace(/^[^a-z]+/g, "");
-      if (!trimmed) return "";
+    function normalizeCohesionToken(token) {
+      let t = String(token || "").toLowerCase();
+      if (t.endsWith("ing") && t.length > 5) t = t.slice(0, -3);
+      else if (t.endsWith("ed") && t.length > 4) t = t.slice(0, -2);
+      else if (t.endsWith("s") && t.length > 4) t = t.slice(0, -1);
+      return t;
+    }
+
+    function getCohesionKeyTokens(sentence) {
+      return (tokenizeWords(sentence) || [])
+        .map(normalizeCohesionToken)
+        .filter((tok) => tok.length >= 3 && !COHESION_STOP_WORDS.has(tok));
+    }
+
+    function detectTransitionStart(sentence) {
+      const tokens = tokenizeWords(sentence || "");
+      if (tokens.length === 0) return "";
+      let idx = 0;
+      while (idx < tokens.length && SENTENCE_STARTER_SKIPS.has(tokens[idx])) {
+        idx += 1;
+      }
+      const windowTokens = tokens.slice(idx, idx + 4);
+      if (windowTokens.length === 0) return "";
       for (const phrase of TRANSITIONS) {
-        const pattern = new RegExp(`^${phrase.replace(/\s+/g, "\\s+")}\\b`);
-        if (pattern.test(trimmed)) {
-          return phrase;
+        const phraseTokens = phrase.split(" ");
+        if (phraseTokens.length > windowTokens.length) continue;
+        let matches = true;
+        for (let i = 0; i < phraseTokens.length; i += 1) {
+          if (windowTokens[i] !== phraseTokens[i]) {
+            matches = false;
+            break;
+          }
         }
+        if (matches) return phrase;
       }
       return "";
     }
@@ -1697,23 +1747,45 @@
       const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
 
       const paragraphs = splitParagraphsSimple(clean);
-      const possibleTransitions = Math.max(0, paragraphs.length - 1);
-      let transitionCount = 0;
-      const transitionUseCounts = {};
-      for (let i = 1; i < paragraphs.length; i += 1) {
-        const transition = detectTransitionStart(paragraphs[i]);
+      const sentenceCount = sentences.length;
+      let transitionStarts = 0;
+      const transitionSet = new Set();
+      for (const sentence of sentences) {
+        const transition = detectTransitionStart(sentence);
         if (transition) {
-          transitionCount += 1;
-          transitionUseCounts[transition] = (transitionUseCounts[transition] || 0) + 1;
+          transitionStarts += 1;
+          transitionSet.add(transition);
         }
       }
-      const transitionRate = possibleTransitions ? transitionCount / possibleTransitions : 0;
-      let cohesionScore = clamp(Math.round(transitionRate * 100), 0, 100);
-      let cohesionPenalty = 0;
-      Object.values(transitionUseCounts).forEach((count) => {
-        if (count > 2) cohesionPenalty += (count - 2) * 10;
-      });
-      cohesionScore = clamp(cohesionScore - cohesionPenalty, 0, 100);
+      const uniqueTransitions = transitionSet.size;
+      const transitionRate = sentenceCount ? transitionStarts / sentenceCount : 0;
+      const transitionScoreRaw = 1 - Math.abs(transitionRate - 0.08) / 0.08;
+      let transitionScore = clamp(transitionScoreRaw, 0, 1) * 40;
+      const spamPenalty = Math.max(0, transitionStarts - uniqueTransitions * 2) * 3;
+      transitionScore = Math.max(0, transitionScore - spamPenalty);
+
+      const keyTokenSets = sentences.map((sentence) => new Set(getCohesionKeyTokens(sentence)));
+      let boundaryHits = 0;
+      for (let i = 0; i < keyTokenSets.length - 1; i += 1) {
+        const currentSet = keyTokenSets[i];
+        const nextSet = keyTokenSets[i + 1];
+        let hit = false;
+        for (const tok of currentSet) {
+          if (nextSet.has(tok)) {
+            hit = true;
+            break;
+          }
+        }
+        if (hit) boundaryHits += 1;
+      }
+      const boundaryRate = sentenceCount > 1 ? boundaryHits / (sentenceCount - 1) : 0;
+      const boundaryScore = 60 * boundaryRate;
+      let cohesionScore = clamp(Math.round(boundaryScore + transitionScore), 0, 100);
+      const cohesionSub = `Transitions: ${transitionStarts} • Boundary links: ${boundaryHits}/${Math.max(0, sentenceCount - 1)}`;
+
+      if (DEBUG_METRICS) {
+        console.log({ sentenceCount, transitionStarts, uniqueTransitions, boundaryHits, cohesionScore });
+      }
 
       const andCount = countRegexMatches(cleanLower, /\band\b/g);
       const whichCount = countRegexMatches(cleanLower, /\bwhich\b/g);
@@ -1770,7 +1842,7 @@
         },
         cohesion: {
           score: cohesionScore,
-          sub: `Transitions: ${transitionCount}/${possibleTransitions}`
+          sub: cohesionSub
         },
         precision: {
           score: precisionScore,
@@ -1778,6 +1850,7 @@
         },
         meta: {
           paragraphs: paragraphs.length,
+          sentences: sentenceCount,
           mode: mode || ""
         }
       };
@@ -1805,18 +1878,20 @@
       renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
       renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
 
-      const paragraphCount = metrics?.meta?.paragraphs || 0;
-      if (!metrics) {
+      const sentenceCount = metrics?.meta?.sentences || 0;
+      const mode = metrics?.meta?.mode || "";
+      const hideCohesion = mode === "peel_paragraph";
+      if (metricCohesionCard) metricCohesionCard.style.display = hideCohesion ? "none" : "block";
+
+      if (!metrics || hideCohesion) {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, null);
-      } else if (paragraphCount <= 1) {
+      } else if (sentenceCount < 2) {
         cohesionScoreText.textContent = "—";
         cohesionMeterFill.style.width = "0%";
-        cohesionSubText.textContent = "Add paragraph links (transitions/boundaries)";
+        cohesionSubText.textContent = "Add sentence links (transitions/boundaries)";
       } else {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
       }
-
-      if (metricCohesionCard) metricCohesionCard.style.display = "block";
       if (metricPrecisionCard) metricPrecisionCard.style.display = "block";
     }
 
@@ -3876,10 +3951,11 @@
 
       updateStatsPanel(labelCounts);
 
+      const TOP_N = 30;
       const entries = Object.entries(labelCounts || {})
         .filter(([label, count]) => label && (count || 0) > 0)
         .sort((a, b) => (b[1] || 0) - (a[1] || 0))
-        .slice(0, 8);
+        .slice(0, TOP_N);
 
       if (entries.length === 0) {
         mostCommonIssuesWrap.style.display = "none";
@@ -3918,6 +3994,31 @@
       if (mostCommonIssuesChart) {
         mostCommonIssuesChart.destroy();
         mostCommonIssuesChart = null;
+      }
+
+      const viewport = mciScrollViewport;
+      const inner = mciScrollInner;
+      if (viewport && currentMarkEvent?.id != null) {
+        const markId = String(currentMarkEvent.id);
+        if (viewport.dataset.markEventId !== markId) {
+          delete viewport.dataset.hasScrolled;
+          viewport.dataset.markEventId = markId;
+        }
+      }
+      const viewportWidth = viewport ? viewport.clientWidth : mostCommonIssuesWrap.clientWidth;
+      const pxPerBar = 80;
+      const canvasWidth = Math.max(viewportWidth, entries.length * pxPerBar);
+      mostCommonIssuesChartEl.width = canvasWidth;
+      mostCommonIssuesChartEl.style.width = `${canvasWidth}px`;
+      mostCommonIssuesChartEl.style.height = "280px";
+      if (inner) inner.style.width = `${canvasWidth}px`;
+
+      const shouldResetScroll = viewport && !viewport.dataset.hasScrolled;
+      if (viewport && shouldResetScroll) viewport.scrollLeft = 0;
+      if (viewport) {
+        viewport.addEventListener("scroll", () => {
+          viewport.dataset.hasScrolled = "1";
+        }, { once: true });
       }
 
       const ctx = mostCommonIssuesChartEl.getContext("2d");
@@ -3974,6 +4075,10 @@
                 font: {
                   size: 14,
                   weight: "600"
+                },
+                callback: (value, idx) => {
+                  const lbl = labels[idx] || "";
+                  return lbl.length > 26 ? `${lbl.slice(0, 25)}…` : lbl;
                 }
               }
             }
