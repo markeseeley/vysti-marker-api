@@ -114,31 +114,45 @@ def is_probable_title_quote(interior: str, surrounding_sentence: str) -> bool:
         "speech",
         "article",
         "short story",
+        "story",
         "play",
         "memoir",
         "address",
         "chapter",
+        "excerpt",
     ]
 
     def has_work_cue_before_quote() -> bool:
         if not surrounding_sentence:
             return False
-        s_lower = surrounding_sentence.lower()
-        idx = s_lower.find(interior.lower())
+        s = surrounding_sentence
+        s_lower = s.lower()
+        interior_lower = interior.lower()
+        quoted = f"\"{interior}\""
+        idx = s_lower.find(quoted.lower())
+        if idx == -1:
+            idx = s_lower.find(interior_lower)
         if idx == -1:
             return False
-        left = s_lower[:idx].rstrip()
-        if not left:
+        quote_chars = {"\"", "'", "“", "”", "‘", "’"}
+        quote_idx = idx
+        for i in range(idx - 1, max(-1, idx - 20), -1):
+            if s[i] in quote_chars:
+                quote_idx = i
+                break
+        left_start = max(0, quote_idx - 40)
+        left = s_lower[left_start:quote_idx]
+        if not left.strip():
             return False
         for cue in work_cues:
-            pattern = r"\b" + re.escape(cue) + r"\b[^A-Za-z]*$"
+            pattern = r"\b" + re.escape(cue) + r"\b"
             if re.search(pattern, left):
                 return True
         return False
 
     # Reject short evidence-like quotes unless a work cue immediately precedes it
-    if len(words) < 3 and not has_work_cue_before_quote():
-        return False
+    if len(words) < 3:
+        return has_work_cue_before_quote()
 
     # Title-case heuristic
     if not is_title_case_like(interior):
