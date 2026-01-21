@@ -1024,3 +1024,14 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   box-shadow: 0 0 0 6px rgba(169,13,34,.12);
   border-radius: 8px;
 }
+
+.vysti-clickable-label{
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.vysti-clickable-label:hover{
+  text-decoration-style: solid;
+}
