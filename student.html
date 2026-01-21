@@ -576,6 +576,50 @@
             <div id="topIssueStat" class="student-stat-text"></div>
           </div>
 
+          <div class="student-metrics-grid" id="metricsGrid">
+            <div class="metric-card" id="metricPower">
+              <div class="metric-head">
+                <div class="metric-title">
+                  Power
+                  <span class="metric-info tt" tabindex="0" data-tip="Power measures how specific your verbs are.<br>Tips to improve:<br>- Replace show/use/make with precise verbs<br>- Use argue/illustrate/highlight<br>- Avoid repeating the same verb">i</span>
+                </div>
+                <div class="metric-score" id="powerScoreText">—</div>
+              </div>
+              <div class="metric-meter">
+                <div class="metric-meter-fill" id="powerMeterFill"></div>
+              </div>
+              <div class="metric-sub" id="powerSubText"></div>
+            </div>
+
+            <div class="metric-card" id="metricVariety">
+              <div class="metric-head">
+                <div class="metric-title">
+                  Variety
+                  <span class="metric-info tt" tabindex="0" data-tip="Variety measures how repetitive your sentence openings are.<br>Tips to improve:<br>- Start some sentences with a clause (Although/While...)<br>- Use prepositional starters (In/Across...)<br>- Avoid too many This/It/They starts">i</span>
+                </div>
+                <div class="metric-score" id="varietyScoreText">—</div>
+              </div>
+              <div class="metric-meter">
+                <div class="metric-meter-fill" id="varietyMeterFill"></div>
+              </div>
+              <div class="metric-sub" id="varietySubText"></div>
+            </div>
+
+            <div class="metric-card" id="metricCohesion">
+              <div class="metric-head">
+                <div class="metric-title">
+                  Cohesion
+                  <span class="metric-info tt" tabindex="0" data-tip="Cohesion measures how clearly you connect paragraphs.<br>Tips to improve:<br>- Use transitions sparingly and vary them<br>- Repeat a key word from the prior paragraph (boundary statement)<br>- Avoid stacking Moreover/Furthermore repeatedly">i</span>
+                </div>
+                <div class="metric-score" id="cohesionScoreText">—</div>
+              </div>
+              <div class="metric-meter">
+                <div class="metric-meter-fill" id="cohesionMeterFill"></div>
+              </div>
+              <div class="metric-sub" id="cohesionSubText"></div>
+            </div>
+          </div>
+
           <div id="techniquesStatWrap" class="student-techniques" style="display:none;">
             <div class="student-stat-label">Range of techniques</div>
             <div id="techniquesStatList" class="student-techniques-list"></div>
@@ -912,6 +956,19 @@
     const topIssueStat = document.getElementById("topIssueStat");
     const techniquesStatWrap = document.getElementById("techniquesStatWrap");
     const techniquesStatList = document.getElementById("techniquesStatList");
+    const metricsGrid = document.getElementById("metricsGrid");
+    const metricPowerCard = document.getElementById("metricPower");
+    const metricVarietyCard = document.getElementById("metricVariety");
+    const metricCohesionCard = document.getElementById("metricCohesion");
+    const powerScoreText = document.getElementById("powerScoreText");
+    const powerMeterFill = document.getElementById("powerMeterFill");
+    const powerSubText = document.getElementById("powerSubText");
+    const varietyScoreText = document.getElementById("varietyScoreText");
+    const varietyMeterFill = document.getElementById("varietyMeterFill");
+    const varietySubText = document.getElementById("varietySubText");
+    const cohesionScoreText = document.getElementById("cohesionScoreText");
+    const cohesionMeterFill = document.getElementById("cohesionMeterFill");
+    const cohesionSubText = document.getElementById("cohesionSubText");
 
     let selectedFile = null;
     const buttonLoadingTimers = new Map();
@@ -925,6 +982,7 @@
     let hasStartedRevising = false;
     let liveLabelCounts = {};
     let dismissedIssues = [];
+    let lastStudentMetrics = null;
 
     const appliedExampleKeys = new Set();
     const approvedExampleKeys = new Set();
@@ -1246,6 +1304,9 @@
       modeSelect.addEventListener("change", () => {
         setModeExplainer(modeSelect.value);
         updateStatsPanel(liveLabelCounts);
+        if (lastStudentMetrics) {
+          renderMetrics(lastStudentMetrics);
+        }
       });
     }
 
@@ -1438,6 +1499,215 @@
         techniquesStatList.appendChild(moreRow);
       }
       techniquesStatWrap.style.display = "block";
+    }
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function stripQuotedText(s) {
+      return String(s || "").replace(/"[^"]*"/g, " ");
+    }
+
+    function tokenizeWords(s) {
+      return String(s || "").toLowerCase().match(/[a-z']+/g) || [];
+    }
+
+    function splitSentencesSimple(s) {
+      return String(s || "")
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+    }
+
+    function splitParagraphsSimple(s) {
+      return String(s || "")
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+    }
+
+    const WEAK_VERBS = new Set([
+      "show","shows","showed","showing",
+      "use","uses","used","using",
+      "make","makes","made","making",
+      "get","gets","got","getting",
+      "have","has","had","having",
+      "do","does","did","doing",
+      "is","are","was","were","be","being","been"
+    ]);
+
+    const PRONOUN_STARTERS = new Set([
+      "this","it","they","he","she","we","i","you"
+    ]);
+
+    const SENTENCE_STARTER_SKIPS = new Set([
+      "however","moreover","furthermore","additionally","therefore","thus",
+      "consequently","nevertheless","nonetheless","meanwhile"
+    ]);
+
+    const TRANSITIONS = [
+      "on the other hand",
+      "for example",
+      "for instance",
+      "in addition",
+      "as a result",
+      "however",
+      "moreover",
+      "furthermore",
+      "additionally",
+      "therefore",
+      "thus",
+      "consequently",
+      "nevertheless",
+      "nonetheless",
+      "meanwhile"
+    ];
+
+    function getSentenceStarterWord(sentence) {
+      const tokens = tokenizeWords(sentence);
+      if (tokens.length === 0) return "";
+      let idx = 0;
+      while (idx < tokens.length && SENTENCE_STARTER_SKIPS.has(tokens[idx])) {
+        idx += 1;
+      }
+      return tokens[idx] || tokens[0] || "";
+    }
+
+    function detectTransitionStart(paragraph) {
+      const trimmed = String(paragraph || "").trim().toLowerCase().replace(/^[^a-z]+/g, "");
+      if (!trimmed) return "";
+      for (const phrase of TRANSITIONS) {
+        const pattern = new RegExp(`^${phrase.replace(/\s+/g, "\\s+")}\\b`);
+        if (pattern.test(trimmed)) {
+          return phrase;
+        }
+      }
+      return "";
+    }
+
+    function computeMetricsFromText(text, mode) {
+      const clean = stripQuotedText(normalizeTypography(text || ""));
+      const words = tokenizeWords(clean);
+      const totalWords = words.length;
+
+      let weakCount = 0;
+      for (const w of words) {
+        if (WEAK_VERBS.has(w)) weakCount += 1;
+      }
+      const weakRatePer100 = totalWords ? (weakCount / totalWords) * 100 : 0;
+      const powerScore = clamp(Math.round(100 - weakRatePer100 * 8), 0, 100);
+
+      const sentences = splitSentencesSimple(clean);
+      let pronounStarts = 0;
+      for (const sentence of sentences) {
+        const starter = getSentenceStarterWord(sentence);
+        if (starter && PRONOUN_STARTERS.has(starter)) {
+          pronounStarts += 1;
+        }
+      }
+      const pronounStartRate = sentences.length ? pronounStarts / sentences.length : 0;
+      const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
+
+      const paragraphs = splitParagraphsSimple(clean);
+      const possibleTransitions = Math.max(0, paragraphs.length - 1);
+      let transitionCount = 0;
+      const transitionUseCounts = {};
+      for (let i = 1; i < paragraphs.length; i += 1) {
+        const transition = detectTransitionStart(paragraphs[i]);
+        if (transition) {
+          transitionCount += 1;
+          transitionUseCounts[transition] = (transitionUseCounts[transition] || 0) + 1;
+        }
+      }
+      const transitionRate = possibleTransitions ? transitionCount / possibleTransitions : 0;
+      let cohesionScore = clamp(Math.round(transitionRate * 100), 0, 100);
+      let cohesionPenalty = 0;
+      Object.values(transitionUseCounts).forEach((count) => {
+        if (count > 2) cohesionPenalty += (count - 2) * 10;
+      });
+      cohesionScore = clamp(cohesionScore - cohesionPenalty, 0, 100);
+
+      return {
+        power: {
+          score: powerScore,
+          sub: `Weak verbs: ${weakCount} (${weakRatePer100.toFixed(1)}/100w)`
+        },
+        variety: {
+          score: varietyScore,
+          sub: `Pronoun starts: ${pronounStarts}/${sentences.length}`
+        },
+        cohesion: {
+          score: cohesionScore,
+          sub: `Transitions used: ${transitionCount}/${possibleTransitions}`
+        },
+        meta: {
+          paragraphs: paragraphs.length,
+          mode: mode || ""
+        }
+      };
+    }
+
+    function renderSingleMetric(scoreEl, meterEl, subEl, metric) {
+      if (!scoreEl || !meterEl || !subEl) return;
+      if (!metric || typeof metric.score !== "number") {
+        scoreEl.textContent = "—";
+        meterEl.style.width = "0%";
+        subEl.textContent = "";
+        return;
+      }
+      const scoreValue = clamp(metric.score, 0, 100);
+      scoreEl.textContent = `${scoreValue}/100`;
+      meterEl.style.width = `${scoreValue}%`;
+      subEl.textContent = metric.sub || "";
+    }
+
+    function renderMetrics(metrics) {
+      if (!metricsGrid) return;
+      lastStudentMetrics = metrics || null;
+
+      renderSingleMetric(powerScoreText, powerMeterFill, powerSubText, metrics?.power);
+      renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
+      renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
+
+      const paragraphCount = metrics?.meta?.paragraphs || 0;
+      const mode = modeSelect ? modeSelect.value : (metrics?.meta?.mode || "");
+      const hideCohesion = paragraphCount <= 1 || mode === "peel_paragraph";
+      if (metricCohesionCard) {
+        metricCohesionCard.style.display = hideCohesion ? "none" : "block";
+      }
+    }
+
+    async function getMetricsTextSource() {
+      const previewText = extractPreviewText();
+      if (previewText) return previewText;
+      if (!selectedFile || !mammoth) return "";
+      try {
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        if (mammoth.convertToRawText) {
+          const raw = await mammoth.convertToRawText({ arrayBuffer });
+          return raw?.value || "";
+        }
+        if (mammoth.convertToHtml) {
+          const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
+          return stripTags(htmlResult?.value || "");
+        }
+      } catch (err) {
+        console.warn("Metrics fallback text extraction failed:", err);
+      }
+      return "";
+    }
+
+    async function refreshStudentMetrics() {
+      const text = await getMetricsTextSource();
+      if (!text) {
+        renderMetrics(null);
+        return;
+      }
+      const mode = modeSelect ? modeSelect.value : "";
+      const metrics = computeMetricsFromText(text, mode);
+      renderMetrics(metrics);
     }
 
     function setApplyAttention(applyBtn) {
@@ -1968,6 +2238,7 @@
         mostCommonIssuesChart.destroy();
         mostCommonIssuesChart = null;
       }
+      renderMetrics(null);
 
       updateFileUI();
     }
@@ -2872,6 +3143,7 @@
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
+            await refreshStudentMetrics();
             applyDismissalsToPreviewDOM();
             makePreviewLabelsClickable();
             markedPreviewCard.style.display = "block";
@@ -2880,12 +3152,14 @@
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             markedPreviewCard.style.display = "block";
             updateStatsPanel(liveLabelCounts);
+            await refreshStudentMetrics();
           }
         } catch (previewError) {
           console.error("Error rendering preview:", previewError);
           markedPreview.innerHTML = "<p>Error rendering preview. Please download the file to view.</p>";
           markedPreviewCard.style.display = "block";
           updateStatsPanel(liveLabelCounts);
+          await refreshStudentMetrics();
         }
 
         if (recheckDocumentBtn) {
@@ -5338,11 +5612,13 @@
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
+            await refreshStudentMetrics();
             applyDismissalsToPreviewDOM();
             makePreviewLabelsClickable();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             updateStatsPanel(liveLabelCounts);
+            await refreshStudentMetrics();
           }
 
           // Reload revision practice to refresh issues + examples
