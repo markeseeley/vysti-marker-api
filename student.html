@@ -1770,7 +1770,7 @@
         },
         cohesion: {
           score: cohesionScore,
-          sub: `Transitions used: ${transitionCount}/${possibleTransitions}`
+          sub: `Transitions: ${transitionCount}/${possibleTransitions}`
         },
         precision: {
           score: precisionScore,
@@ -1806,7 +1806,9 @@
       renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
 
       const paragraphCount = metrics?.meta?.paragraphs || 0;
-      if (metrics && paragraphCount <= 1) {
+      if (!metrics) {
+        renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, null);
+      } else if (paragraphCount <= 1) {
         cohesionScoreText.textContent = "—";
         cohesionMeterFill.style.width = "0%";
         cohesionSubText.textContent = "Add paragraph links (transitions/boundaries)";
