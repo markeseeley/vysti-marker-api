@@ -270,6 +270,70 @@ button, input, select, textarea {
   color: rgba(0,0,0,.78);
   font-weight: 600;
 }
+.student-metrics-grid{
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.metric-card{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  padding: 10px 10px 9px;
+}
+.metric-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.metric-title{
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  color: rgba(0,0,0,.75);
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+.metric-info{
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.18);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 900;
+  font-size: var(--fs-xs);
+  color: rgba(0,0,0,.55);
+}
+.metric-score{
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  color: rgba(0,0,0,.75);
+}
+.metric-meter{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.08);
+  overflow:hidden;
+}
+.metric-meter-fill{
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d9534f, #f0ad4e, #5cb85c);
+  transition: width 200ms ease;
+}
+.metric-sub{
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: rgba(0,0,0,.55);
+  line-height: 1.25;
+}
 label{ display:block; font-size:var(--fs-xs); font-weight:600; margin-top:12px; }
 .label-row{
   display: inline-flex;
