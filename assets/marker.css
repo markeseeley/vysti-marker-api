@@ -316,6 +316,15 @@ button, input, select, textarea {
   font-size: var(--fs-xs);
   color: rgba(0,0,0,.55);
 }
+.metric-info-btn{
+  cursor: pointer;
+  background: #fff;
+  padding: 0;
+}
+.metric-info-btn:focus{
+  outline: 2px solid rgba(169,13,34,.30);
+  outline-offset: 2px;
+}
 .metric-score{
   font-size: var(--fs-sm);
   font-weight: 900;
@@ -1073,6 +1082,31 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
 .tour-body{
   font-size: var(--fs-sm);
   color: rgba(0,0,0,.75);
+}
+.metric-popover{
+  width: min(420px, calc(100vw - 24px));
+  z-index: 90;
+}
+.metric-popover .tour-title{
+  margin-bottom: 8px;
+}
+.metric-popover .tour-body{
+  font-size: var(--fs-sm);
+}
+.metric-popover-tips-title{
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  color: rgba(90, 15, 28, 0.75);
+}
+.metric-popover-list{
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: var(--fs-sm);
+  color: rgba(0,0,0,.75);
+}
+.metric-popover-list li{
+  margin-bottom: 6px;
 }
 .tour-footer{
   margin-top: 12px;
