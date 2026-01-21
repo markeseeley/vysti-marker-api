@@ -5112,7 +5112,17 @@ def analyze_text(
     # PHASE 6 — WEAK VERBS
     # -----------------------
     if getattr(config, "enforce_weak_verbs_rule", True):
-        weak_verbs_regex = re.compile(r"\b(show|shows|showing|use|uses|using)\b", re.IGNORECASE)
+        weak_verbs_regex = re.compile(
+            r"\b("
+            r"show|shows|showed|showing|"
+            r"use|uses|used|using|"
+            r"make|makes|made|making|"
+            r"do|does|did|doing|"
+            r"get|gets|got|getting|"
+            r"have|has|had|having"
+            r")\b",
+            re.IGNORECASE
+        )
 
         rule_note_weak_verbs = "Avoid weak verbs"
 
@@ -5134,11 +5144,13 @@ def analyze_text(
             if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
                 continue
 
+            display = "Avoid weak verbs (show, use, make, do, get, have)"
             if rule_note_weak_verbs not in labels_used:
                 marks.append({
                     "start": match_start,
                     "end": match_end,
                     "note": rule_note_weak_verbs,
+                    "display_note": display,
                     "color": WD_COLOR_INDEX.TURQUOISE,
                     "label": True
                 })
