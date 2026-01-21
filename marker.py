@@ -5650,10 +5650,6 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
             # Normalize whitespace: collapse \s+ to single spaces
             sentence_text = re.sub(r'\s+', ' ', sentence_text)
             
-            # Cap at 500 chars
-            if len(sentence_text) > 500:
-                sentence_text = sentence_text[:500]
-            
             # Dedupe: compute md5(sentence_text) and use a set key (note, md5) in DOC_EXAMPLE_SENT_HASHES
             sentence_hash = hashlib.md5(sentence_text.encode('utf-8')).hexdigest()
             hash_key = (note, sentence_hash)
