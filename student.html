@@ -1767,6 +1767,10 @@
       return normalizeForMatch(String(label || "")).toLowerCase();
     }
 
+    function canonicalLabel(label) {
+      return normalizeLabelForMatch(label);
+    }
+
     function isDismissedIssueInstance(label, sentence) {
       if (!label || !sentence || !selectedFile) return false;
       const labelMatch = normalizeLabelForMatch(label);
@@ -5211,53 +5215,67 @@
         // Get examples from issue_examples
         // Fetch 50 rows to allow deduplication while still getting 10 unique examples
         // Filter by mark_event_id if available (prevents stale examples after recheck)
-        let examples = null;
-        let error = null;
-        
-        if (currentMarkEvent && currentMarkEvent.id) {
-          // Try filtered query with mark_event_id
-          const { data, error: err } = await supa
+        const userId = sessionData.session.user.id;
+        const fileName = selectedFile.name;
+        const wanted = canonicalLabel(label);
+        let examples = [];
+        let lastError = null;
+
+        const res = await supa
+          .from("issue_examples")
+          .select("label, sentence, paragraph_index, created_at")
+          .eq("user_id", userId)
+          .eq("file_name", fileName)
+          .eq("label", label)
+          .eq("mark_event_id", currentMarkEvent?.id)
+          .order("created_at", { ascending: true })
+          .limit(50);
+
+        examples = res.data || [];
+        lastError = res.error;
+
+        // Treat empty results or errors as failure and fall back.
+        if ((lastError || examples.length === 0) && currentMarkEvent?.id) {
+          // FALLBACK 1: same mark_event_id, no label filter
+          const broad = await supa
             .from("issue_examples")
             .select("label, sentence, paragraph_index, created_at")
-            .eq("user_id", sessionData.session.user.id)
-            .eq("file_name", selectedFile.name)
-            .eq("label", label)
+            .eq("user_id", userId)
+            .eq("file_name", fileName)
             .eq("mark_event_id", currentMarkEvent.id)
-            .order("created_at", { ascending: false })
-            .limit(50);
-          
-          if (err) {
-            // If mark_event_id column doesn't exist (older DB), fallback to old query
-            console.warn("mark_event_id filter failed, falling back to old query:", err);
-            const { data: fallbackData, error: fallbackError } = await supa
-              .from("issue_examples")
-              .select("label, sentence, paragraph_index, created_at")
-              .eq("user_id", sessionData.session.user.id)
-              .eq("file_name", selectedFile.name)
-              .eq("label", label)
-              .order("created_at", { ascending: false })
-              .limit(50);
-            examples = fallbackData;
-            error = fallbackError;
-          } else {
-            examples = data;
+            .order("created_at", { ascending: true })
+            .limit(200);
+
+          if (!broad.error && broad.data?.length) {
+            examples = broad.data.filter(
+              (row) => canonicalLabel(row.label) === wanted
+            );
+          } else if (broad.error) {
+            lastError = lastError || broad.error;
           }
-        } else {
-          // No mark_event_id available, use old query
-          const { data: fallbackData, error: fallbackError } = await supa
-            .from("issue_examples")
-            .select("label, sentence, paragraph_index, created_at")
-            .eq("user_id", sessionData.session.user.id)
-            .eq("file_name", selectedFile.name)
-            .eq("label", label)
-            .order("created_at", { ascending: false })
-            .limit(50);
-          examples = fallbackData;
-          error = fallbackError;
         }
 
-        if (error) {
-          console.error("Error loading examples:", error);
+        // FALLBACK 2: legacy rows without mark_event_id
+        if (examples.length === 0) {
+          const legacy = await supa
+            .from("issue_examples")
+            .select("label, sentence, paragraph_index, created_at")
+            .eq("user_id", userId)
+            .eq("file_name", fileName)
+            .order("created_at", { ascending: true })
+            .limit(200);
+
+          if (!legacy.error && legacy.data?.length) {
+            examples = legacy.data.filter(
+              (row) => canonicalLabel(row.label) === wanted
+            );
+          } else if (legacy.error) {
+            lastError = lastError || legacy.error;
+          }
+        }
+
+        if (lastError && examples.length === 0) {
+          console.error("Error loading examples:", lastError);
           hideExamplesEmptyState();
           updateAllApprovedBanner([]);
           examplesList.innerHTML = "<li>Error loading examples.</li>";
@@ -5265,6 +5283,10 @@
           currentExamplesAll = [];
           currentIndex = 0;
           return;
+        }
+
+        if (examples.length === 0) {
+          console.warn("No revision examples found for label:", label);
         }
 
         // Sort: first by created_at desc (latest run first), then by paragraph_index asc (doc order)
