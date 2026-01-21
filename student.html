@@ -900,6 +900,7 @@
     let lastRevisionSectionData = null;
     let currentWordCount = null;
     let currentTechniques = [];
+    let detectedWork = null;
     let hasStartedRevising = false;
     let liveLabelCounts = {};
     let dismissedIssues = [];
@@ -1112,6 +1113,12 @@
 
       if (assignmentName) {
         formData.append("assignment_name", assignmentName);
+      }
+
+      if (detectedWork && detectedWork.confidence === "high") {
+        formData.append("author", detectedWork.author);
+        formData.append("title", detectedWork.title);
+        formData.append("text_is_minor_work", detectedWork.isMinor ? "true" : "false");
       }
 
       return formData;
@@ -1899,6 +1906,7 @@
       currentMarkEvent = null;
       currentWordCount = null;
       currentTechniques = [];
+      detectedWork = null;
       if (wordCountReadout) wordCountReadout.textContent = "";
       if (totalIssuesReadout) totalIssuesReadout.textContent = "";
       if (techniquesWrap) techniquesWrap.style.display = "none";
@@ -2517,6 +2525,22 @@
         showMarkButtonHideRecheck();
 
         const meta = await extractMetaFromDocx(selectedFile);
+        detectedWork = null;
+        if (meta?.title && meta?.author) {
+          detectedWork = {
+            author: meta.author,
+            title: meta.title,
+            isMinor: !!meta.isMinor,
+            confidence: "high"
+          };
+        } else if (meta?.title || meta?.author) {
+          detectedWork = {
+            author: meta?.author || "",
+            title: meta?.title || "",
+            isMinor: !!meta?.isMinor,
+            confidence: "low"
+          };
+        }
         if (meta && meta.wordCount !== undefined) {
           currentWordCount = meta.wordCount;
           updateWordCountUI();
@@ -2610,6 +2634,22 @@
           showMarkButtonHideRecheck();
 
           const meta = await extractMetaFromDocx(selectedFile);
+          detectedWork = null;
+          if (meta?.title && meta?.author) {
+            detectedWork = {
+              author: meta.author,
+              title: meta.title,
+              isMinor: !!meta.isMinor,
+              confidence: "high"
+            };
+          } else if (meta?.title || meta?.author) {
+            detectedWork = {
+              author: meta?.author || "",
+              title: meta?.title || "",
+              isMinor: !!meta?.isMinor,
+              confidence: "low"
+            };
+          }
           if (meta && meta.wordCount !== undefined) {
             currentWordCount = meta.wordCount;
             updateWordCountUI();
@@ -2717,20 +2757,28 @@
 
             const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
             const API_BASE = "https://vysti-rules.onrender.com";
+            const markTextPayload = {
+              file_name: selectedFile.name,
+              text: previewText,
+              mode: currentMode,
+              highlight_thesis_devices: false,
+              include_summary_table: true,
+              student_mode: true,
+            };
+            if (detectedWork && detectedWork.confidence === "high") {
+              markTextPayload.titles = [{
+                author: detectedWork.author,
+                title: detectedWork.title,
+                is_minor: detectedWork.isMinor
+              }];
+            }
             const response = await fetch(`${API_BASE}/mark_text`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${sessionData.session.access_token}`,
               },
-              body: JSON.stringify({
-                file_name: selectedFile.name,
-                text: previewText,
-                mode: currentMode,
-                highlight_thesis_devices: false,
-                include_summary_table: true,
-                student_mode: true,
-              }),
+              body: JSON.stringify(markTextPayload),
             });
 
             if (!response.ok) {
@@ -5176,19 +5224,27 @@
         try {
           const API_BASE = "https://vysti-rules.onrender.com";
           const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+          const markTextPayload = {
+            file_name: selectedFile.name,
+            text: previewText,
+            mode: currentMode,
+            highlight_thesis_devices: false,
+            student_mode: true,
+          };
+          if (detectedWork && detectedWork.confidence === "high") {
+            markTextPayload.titles = [{
+              author: detectedWork.author,
+              title: detectedWork.title,
+              is_minor: detectedWork.isMinor
+            }];
+          }
           const response = await fetch(`${API_BASE}/mark_text`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${sessionData.session.access_token}`,
             },
-            body: JSON.stringify({
-              file_name: selectedFile.name,
-              text: previewText,
-              mode: currentMode,
-              highlight_thesis_devices: false,
-              student_mode: true,
-            }),
+            body: JSON.stringify(markTextPayload),
           });
 
           if (!response.ok) {
