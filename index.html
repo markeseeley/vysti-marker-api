@@ -32,6 +32,7 @@
       
         <div class="actions">
           <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Student Mode</button>
+      <button class="iconbtn tt" id="repeatTeacherTutorialBtn" type="button" aria-label="Repeat tutorial" data-tip="Repeat the tutorial">?</button>
           <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
         </div>
       </header>
@@ -599,6 +600,301 @@
       localStorage.removeItem("vysti_role");
       window.location.replace("/signin.html");
     });
+
+    // ===== Teacher tour =====
+    const TEACHER_TOUR_HIDE_KEY = "vysti_teacher_tour_hide";
+    const TEACHER_TOUR_DONE_KEY = "vysti_teacher_tour_done";
+
+    const teacherTourSteps = [
+      {
+        anchor: "#mode",
+        title: "Assignment type",
+        body: "Choose the assignment type so Vysti applies the right rules.",
+      },
+      {
+        anchor: "#dropZone",
+        title: "Upload",
+        body: "Drag & drop .docx files here or click to browse.",
+      },
+      {
+        anchor: "#assignmentName",
+        title: "Assignment Builder",
+        body: "Name and number the assignment to track progress over time.",
+      },
+      {
+        anchor: ".work-fieldset",
+        title: "Author + Title",
+        body: "Enter the author and title so Vysti can verify title formatting and intro conventions.",
+      },
+      {
+        anchor: ".rules-card .rules-title",
+        title: "Rule toggles",
+        body: "Turn rules on/off to match your assignment expectations.",
+      },
+      {
+        anchor: "#markBtn",
+        title: "Mark",
+        body: "Click to generate the marked document for download.",
+      },
+    ];
+
+    const teacherTourState = {
+      currentStepIndex: 0,
+      active: false,
+    };
+
+    let teacherTourOverlay = null;
+    let teacherTourPopover = null;
+    let teacherTourTitle = null;
+    let teacherTourBody = null;
+    let teacherTourStep = null;
+    let teacherTourNextBtn = null;
+    let teacherTourCloseBtn = null;
+    let teacherTourHideCheckbox = null;
+    let teacherTourArrow = null;
+    let teacherTourPositionHandler = null;
+
+    function shouldShowTeacherTour() {
+      return !localStorage.getItem(TEACHER_TOUR_HIDE_KEY) && !localStorage.getItem(TEACHER_TOUR_DONE_KEY);
+    }
+
+    function createTeacherTourElements() {
+      if (teacherTourPopover) return;
+
+      teacherTourOverlay = document.createElement("div");
+      teacherTourOverlay.className = "tour-overlay";
+
+      teacherTourPopover = document.createElement("div");
+      teacherTourPopover.className = "tour-popover";
+      teacherTourPopover.setAttribute("role", "dialog");
+      teacherTourPopover.setAttribute("aria-live", "polite");
+
+      teacherTourCloseBtn = document.createElement("button");
+      teacherTourCloseBtn.className = "tour-close";
+      teacherTourCloseBtn.type = "button";
+      teacherTourCloseBtn.setAttribute("aria-label", "Close tour");
+      teacherTourCloseBtn.textContent = "×";
+
+      teacherTourArrow = document.createElement("div");
+      teacherTourArrow.className = "tour-arrow";
+
+      teacherTourTitle = document.createElement("div");
+      teacherTourTitle.className = "tour-title";
+
+      teacherTourBody = document.createElement("div");
+      teacherTourBody.className = "tour-body";
+
+      const footer = document.createElement("div");
+      footer.className = "tour-footer";
+
+      teacherTourStep = document.createElement("div");
+      teacherTourStep.className = "tour-step";
+
+      const checkboxLabel = document.createElement("label");
+      checkboxLabel.className = "tour-checkbox-row";
+      teacherTourHideCheckbox = document.createElement("input");
+      teacherTourHideCheckbox.type = "checkbox";
+      teacherTourHideCheckbox.id = "teacherTourHideCheckbox";
+      checkboxLabel.appendChild(teacherTourHideCheckbox);
+      checkboxLabel.appendChild(document.createTextNode(" Do not show again"));
+
+      teacherTourNextBtn = document.createElement("button");
+      teacherTourNextBtn.className = "tour-primary-btn";
+      teacherTourNextBtn.type = "button";
+      teacherTourNextBtn.textContent = "Got it";
+
+      footer.appendChild(teacherTourStep);
+      footer.appendChild(checkboxLabel);
+      footer.appendChild(teacherTourNextBtn);
+
+      teacherTourPopover.appendChild(teacherTourCloseBtn);
+      teacherTourPopover.appendChild(teacherTourArrow);
+      teacherTourPopover.appendChild(teacherTourTitle);
+      teacherTourPopover.appendChild(teacherTourBody);
+      teacherTourPopover.appendChild(footer);
+
+      document.body.appendChild(teacherTourOverlay);
+      document.body.appendChild(teacherTourPopover);
+
+      teacherTourNextBtn.addEventListener("click", nextTeacherStep);
+      teacherTourCloseBtn.addEventListener("click", () => closeTeacherTour("dismissed"));
+      teacherTourHideCheckbox.addEventListener("change", () => {
+        if (teacherTourHideCheckbox.checked) {
+          closeTeacherTour("hide");
+        }
+      });
+    }
+
+    function getCurrentTeacherAnchor() {
+      const step = teacherTourSteps[teacherTourState.currentStepIndex];
+      if (!step) return null;
+      return document.querySelector(step.anchor);
+    }
+
+    function clearTeacherTourHighlight() {
+      const highlighted = document.querySelector(".tour-highlight");
+      if (highlighted) highlighted.classList.remove("tour-highlight");
+    }
+
+    function positionTeacherTourPopover(anchorEl) {
+      if (!teacherTourPopover || !anchorEl) return;
+
+      const gap = 12;
+      const padding = 12;
+      const rect = anchorEl.getBoundingClientRect();
+
+      teacherTourPopover.style.display = "block";
+      teacherTourPopover.style.visibility = "hidden";
+
+      const popRect = teacherTourPopover.getBoundingClientRect();
+      const fitsBelow = rect.bottom + gap + popRect.height <= window.innerHeight;
+
+      let top = fitsBelow ? rect.bottom + gap : rect.top - popRect.height - gap;
+      top = Math.max(padding, Math.min(top, window.innerHeight - popRect.height - padding));
+
+      let left = rect.left + rect.width / 2 - popRect.width / 2;
+      left = Math.max(padding, Math.min(left, window.innerWidth - popRect.width - padding));
+
+      teacherTourPopover.style.top = `${Math.round(top)}px`;
+      teacherTourPopover.style.left = `${Math.round(left)}px`;
+
+      teacherTourArrow.classList.toggle("tour-arrow-down", fitsBelow);
+      teacherTourArrow.classList.toggle("tour-arrow-up", !fitsBelow);
+
+      const anchorCenter = rect.left + rect.width / 2;
+      const arrowLeft = Math.max(16, Math.min(anchorCenter - left, popRect.width - 16));
+      teacherTourArrow.style.left = `${Math.round(arrowLeft)}px`;
+      teacherTourArrow.style.top = fitsBelow ? "-6px" : "";
+      teacherTourArrow.style.bottom = fitsBelow ? "" : "-6px";
+
+      teacherTourPopover.style.visibility = "visible";
+    }
+
+    function attachTeacherTourPositioning() {
+      if (teacherTourPositionHandler) return;
+      teacherTourPositionHandler = () => {
+        if (!teacherTourState.active) return;
+        const anchorEl = getCurrentTeacherAnchor();
+        if (anchorEl) positionTeacherTourPopover(anchorEl);
+      };
+      window.addEventListener("resize", teacherTourPositionHandler);
+      window.addEventListener("scroll", teacherTourPositionHandler, true);
+    }
+
+    function detachTeacherTourPositioning() {
+      if (!teacherTourPositionHandler) return;
+      window.removeEventListener("resize", teacherTourPositionHandler);
+      window.removeEventListener("scroll", teacherTourPositionHandler, true);
+      teacherTourPositionHandler = null;
+    }
+
+    function showTeacherStep(index) {
+      if (index < 0 || index >= teacherTourSteps.length) {
+        closeTeacherTour("completed");
+        return;
+      }
+
+      let anchorEl = null;
+      let step = null;
+      let resolvedIndex = index;
+
+      for (let i = index; i < teacherTourSteps.length; i += 1) {
+        const candidate = teacherTourSteps[i];
+        const candidateAnchor = document.querySelector(candidate.anchor);
+        if (candidateAnchor) {
+          resolvedIndex = i;
+          step = candidate;
+          anchorEl = candidateAnchor;
+          break;
+        }
+      }
+
+      if (!anchorEl || !step) {
+        closeTeacherTour("dismissed");
+        return;
+      }
+
+      teacherTourState.currentStepIndex = resolvedIndex;
+
+      clearTeacherTourHighlight();
+      anchorEl.classList.add("tour-highlight");
+      anchorEl.scrollIntoView({ block: "center", behavior: "smooth" });
+
+      teacherTourTitle.textContent = step.title;
+      teacherTourBody.textContent = step.body;
+      teacherTourStep.textContent = `${resolvedIndex + 1} of ${teacherTourSteps.length}`;
+
+      teacherTourOverlay.style.display = "block";
+      teacherTourPopover.style.display = "block";
+
+      attachTeacherTourPositioning();
+
+      requestAnimationFrame(() => {
+        positionTeacherTourPopover(anchorEl);
+        setTimeout(() => positionTeacherTourPopover(anchorEl), 350);
+      });
+    }
+
+    function startTeacherTourAt(index, { force = false } = {}) {
+      if (!force && !shouldShowTeacherTour()) return;
+      createTeacherTourElements();
+      teacherTourState.active = true;
+      teacherTourState.currentStepIndex = index;
+      if (force && teacherTourHideCheckbox) {
+        teacherTourHideCheckbox.checked = false;
+      }
+      showTeacherStep(index);
+    }
+
+    function startTeacherTour({ force = false } = {}) {
+      startTeacherTourAt(0, { force });
+    }
+
+    function clearTeacherTourSuppression() {
+      localStorage.removeItem(TEACHER_TOUR_HIDE_KEY);
+      localStorage.removeItem(TEACHER_TOUR_DONE_KEY);
+    }
+
+    function nextTeacherStep() {
+      if (teacherTourHideCheckbox && teacherTourHideCheckbox.checked) {
+        closeTeacherTour("hide");
+        return;
+      }
+      const nextIndex = teacherTourState.currentStepIndex + 1;
+      if (nextIndex >= teacherTourSteps.length) {
+        closeTeacherTour("completed");
+        return;
+      }
+      showTeacherStep(nextIndex);
+    }
+
+    function closeTeacherTour(reason) {
+      teacherTourState.active = false;
+      detachTeacherTourPositioning();
+      clearTeacherTourHighlight();
+
+      if (teacherTourOverlay) teacherTourOverlay.style.display = "none";
+      if (teacherTourPopover) teacherTourPopover.style.display = "none";
+
+      if (reason === "hide") {
+        localStorage.setItem(TEACHER_TOUR_HIDE_KEY, "1");
+      } else if (reason === "completed") {
+        localStorage.setItem(TEACHER_TOUR_DONE_KEY, "1");
+      } else if (reason === "dismissed" && teacherTourHideCheckbox?.checked) {
+        localStorage.setItem(TEACHER_TOUR_HIDE_KEY, "1");
+      }
+    }
+
+    const repeatTeacherTutorialBtn = document.getElementById("repeatTeacherTutorialBtn");
+    if (repeatTeacherTutorialBtn) {
+      repeatTeacherTutorialBtn.addEventListener("click", () => {
+        clearTeacherTourSuppression();
+        if (teacherTourState.active) {
+          closeTeacherTour("dismissed");
+        }
+        startTeacherTour({ force: true });
+      });
+    }
 
     const statusEl = document.getElementById("status");
     const classSelect = document.getElementById("classSelect");
@@ -1199,7 +1495,7 @@ dropZone.addEventListener("drop", (e) => {
   }
 });
 
-    
+    let teacherTourStartedThisLoad = false;
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
       const session = data.session;
@@ -1211,6 +1507,13 @@ dropZone.addEventListener("drop", (e) => {
 
       // logged in
       form.style.display = "grid";
+
+      if (!teacherTourStartedThisLoad && shouldShowTeacherTour()) {
+        teacherTourStartedThisLoad = true;
+        requestAnimationFrame(() => {
+          setTimeout(() => startTeacherTour({ force: false }), 50);
+        });
+      }
     }
 
     
