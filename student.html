@@ -556,6 +556,32 @@
           <input type="text" id="assignmentName" placeholder="Assignment 01" aria-label="Assignment name (optional)" />
         </div>
 
+        <div id="statsPanel" class="student-stats-panel" style="display:none;">
+          <div class="student-stats-title">At a glance</div>
+
+          <div class="student-stats-grid">
+            <div class="student-stat">
+              <div class="student-stat-label">Word count</div>
+              <div id="wordCountStat" class="student-stat-value">—</div>
+            </div>
+
+            <div class="student-stat">
+              <div class="student-stat-label">Total issues</div>
+              <div id="totalIssuesStat" class="student-stat-value">—</div>
+            </div>
+          </div>
+
+          <div id="topIssueRow" class="student-stat-row" style="display:none;">
+            <div class="student-stat-label">Most common</div>
+            <div id="topIssueStat" class="student-stat-value"></div>
+          </div>
+
+          <div id="techniquesStatWrap" class="student-techniques" style="display:none;">
+            <div class="student-stat-label">Range of techniques</div>
+            <div id="techniquesStatList" class="student-techniques-list"></div>
+          </div>
+        </div>
+
         <button class="primary-btn" id="checkBtn" type="submit" disabled>Mark my essay</button>
       </section>
 
@@ -591,14 +617,6 @@
           <div class="rules-title">Most Common Issues</div>
           <div style="position: relative; height: 280px;">
             <canvas id="mostCommonIssuesChart"></canvas>
-          </div>
-          <div id="mostCommonMeta" class="most-common-footer">
-            <div id="wordCountReadout" class="most-common-word-count"></div>
-            <div id="totalIssuesReadout" class="most-common-total-issues"></div>
-            <div id="techniquesWrap" class="most-common-techniques" style="display:none;">
-              <div class="most-common-techniques-title">Range of Techniques</div>
-              <div id="techniquesList" class="most-common-techniques-list"></div>
-            </div>
           </div>
         </div>
       </section>
@@ -886,11 +904,14 @@
 
     let mostCommonIssuesChart = null;
     const modeSelect = document.getElementById("mode");
-    const wordCountReadout = document.getElementById("wordCountReadout");
-    const totalIssuesReadout = document.getElementById("totalIssuesReadout");
-    const techniquesWrap = document.getElementById("techniquesWrap");
-    const techniquesList = document.getElementById("techniquesList");
     const assignmentNameInput = document.getElementById("assignmentName");
+    const statsPanel = document.getElementById("statsPanel");
+    const wordCountStat = document.getElementById("wordCountStat");
+    const totalIssuesStat = document.getElementById("totalIssuesStat");
+    const topIssueRow = document.getElementById("topIssueRow");
+    const topIssueStat = document.getElementById("topIssueStat");
+    const techniquesStatWrap = document.getElementById("techniquesStatWrap");
+    const techniquesStatList = document.getElementById("techniquesStatList");
 
     let selectedFile = null;
     const buttonLoadingTimers = new Map();
@@ -1224,7 +1245,7 @@
       setModeExplainer(modeSelect.value);
       modeSelect.addEventListener("change", () => {
         setModeExplainer(modeSelect.value);
-        updateTechniquesUI();
+        updateStatsPanel(liveLabelCounts);
       });
     }
 
@@ -1339,57 +1360,84 @@
       return Object.values(labelCounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
     }
 
-    function updateMostCommonMeta(labelCounts) {
-      if (wordCountReadout) {
-        if (currentWordCount === null || currentWordCount === undefined) {
-          wordCountReadout.textContent = "";
+    function updateStatsPanel(labelCounts) {
+      if (!statsPanel) return;
+      const counts = labelCounts && typeof labelCounts === "object" ? labelCounts : {};
+      const totalIssues = totalIssuesFromLabelCounts(counts);
+
+      if (wordCountStat) {
+        wordCountStat.textContent = (currentWordCount === null || currentWordCount === undefined)
+          ? "—"
+          : String(currentWordCount);
+      }
+      if (totalIssuesStat) {
+        totalIssuesStat.textContent = String(totalIssues);
+      }
+
+      const entries = Object.entries(counts)
+        .filter(([label, count]) => label && (Number(count) || 0) > 0)
+        .sort((a, b) => {
+          const diff = (Number(b[1]) || 0) - (Number(a[1]) || 0);
+          if (diff !== 0) return diff;
+          return String(a[0]).localeCompare(String(b[0]));
+        });
+
+      if (topIssueRow && topIssueStat) {
+        if (entries.length > 0) {
+          const [label, count] = entries[0];
+          topIssueStat.textContent = `${label} (${count})`;
+          topIssueRow.style.display = "flex";
         } else {
-          wordCountReadout.textContent = `Word count: ${currentWordCount}`;
+          topIssueRow.style.display = "none";
+          topIssueStat.textContent = "";
         }
       }
 
-      if (totalIssuesReadout) {
-        const counts = labelCounts && typeof labelCounts === "object" ? labelCounts : {};
-        const hasCounts = Object.keys(counts).length > 0;
-        const totalIssues = totalIssuesFromLabelCounts(counts);
-        totalIssuesReadout.textContent = hasCounts ? `Total Issues: ${totalIssues}` : "";
-      }
-    }
-
-    function updateWordCountUI() {
-      updateMostCommonMeta(liveLabelCounts);
-    }
-
-    function updateTechniquesUI() {
-      if (!techniquesWrap || !techniquesList) return;
+      if (!techniquesStatWrap || !techniquesStatList) return;
       const mode = modeSelect ? modeSelect.value : "";
       if (mode === "argumentation") {
-        techniquesWrap.style.display = "none";
-        techniquesList.textContent = "";
+        techniquesStatWrap.style.display = "none";
+        techniquesStatList.textContent = "";
         return;
       }
+
       if (!Array.isArray(currentTechniques) || currentTechniques.length === 0) {
-        techniquesWrap.style.display = "none";
-        techniquesList.textContent = "";
+        techniquesStatWrap.style.display = "none";
+        techniquesStatList.textContent = "";
         return;
       }
 
-      const sorted = currentTechniques.slice().sort((a, b) => {
-        const countDiff = (b?.count || 0) - (a?.count || 0);
-        if (countDiff !== 0) return countDiff;
-        const nameA = String(a?.name || "");
-        const nameB = String(b?.name || "");
-        return nameA.localeCompare(nameB);
-      });
+      const sorted = currentTechniques
+        .filter((item) => item && item.name && (Number(item.count) || 0) > 0)
+        .slice()
+        .sort((a, b) => {
+          const countDiff = (Number(b?.count) || 0) - (Number(a?.count) || 0);
+          if (countDiff !== 0) return countDiff;
+          const nameA = String(a?.name || "");
+          const nameB = String(b?.name || "");
+          return nameA.localeCompare(nameB);
+        });
 
-      techniquesList.innerHTML = "";
-      sorted.forEach((item) => {
-        if (!item || !item.name || !item.count) return;
+      if (sorted.length === 0) {
+        techniquesStatWrap.style.display = "none";
+        techniquesStatList.textContent = "";
+        return;
+      }
+
+      const maxItems = 6;
+      techniquesStatList.innerHTML = "";
+      sorted.slice(0, maxItems).forEach((item) => {
         const row = document.createElement("div");
         row.textContent = `${item.name} (${item.count})`;
-        techniquesList.appendChild(row);
+        techniquesStatList.appendChild(row);
       });
-      techniquesWrap.style.display = techniquesList.childNodes.length ? "block" : "none";
+      const remaining = sorted.length - maxItems;
+      if (remaining > 0) {
+        const moreRow = document.createElement("div");
+        moreRow.textContent = `+ ${remaining} more`;
+        techniquesStatList.appendChild(moreRow);
+      }
+      techniquesStatWrap.style.display = "block";
     }
 
     function setApplyAttention(applyBtn) {
@@ -1907,10 +1955,13 @@
       currentWordCount = null;
       currentTechniques = [];
       detectedWork = null;
-      if (wordCountReadout) wordCountReadout.textContent = "";
-      if (totalIssuesReadout) totalIssuesReadout.textContent = "";
-      if (techniquesWrap) techniquesWrap.style.display = "none";
-      if (techniquesList) techniquesList.textContent = "";
+      if (statsPanel) statsPanel.style.display = "none";
+      if (wordCountStat) wordCountStat.textContent = "—";
+      if (totalIssuesStat) totalIssuesStat.textContent = "—";
+      if (topIssueRow) topIssueRow.style.display = "none";
+      if (topIssueStat) topIssueStat.textContent = "";
+      if (techniquesStatWrap) techniquesStatWrap.style.display = "none";
+      if (techniquesStatList) techniquesStatList.textContent = "";
       // Hide + reset Most Common Issues chart
       if (mostCommonIssuesWrap) mostCommonIssuesWrap.style.display = "none";
       if (mostCommonIssuesChart) {
@@ -2520,6 +2571,7 @@
       const files = e.target.files;
       if (files && files.length > 0) {
         selectedFile = files[0];
+        if (statsPanel) statsPanel.style.display = "none";
         loadDismissedIssuesFromStorage();
         updateFileUI();
         showMarkButtonHideRecheck();
@@ -2543,7 +2595,7 @@
         }
         if (meta && meta.wordCount !== undefined) {
           currentWordCount = meta.wordCount;
-          updateWordCountUI();
+          updateStatsPanel(liveLabelCounts);
         }
         startPostUploadTour();
       }
@@ -2625,6 +2677,7 @@
         const docxFile = docxFiles[0];
         if (docxFile) {
           selectedFile = docxFile;
+          if (statsPanel) statsPanel.style.display = "none";
           loadDismissedIssuesFromStorage();
           // Update file input programmatically
           const dt = new DataTransfer();
@@ -2652,7 +2705,7 @@
           }
           if (meta && meta.wordCount !== undefined) {
             currentWordCount = meta.wordCount;
-            updateWordCountUI();
+            updateStatsPanel(liveLabelCounts);
           }
           startPostUploadTour();
         } else {
@@ -2666,6 +2719,7 @@
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       resetRevisionPracticeUI();
+      if (statsPanel) statsPanel.style.display = "none";
 
       if (!selectedFile) {
         statusArea.textContent = "Please select a .docx file.";
@@ -2817,7 +2871,7 @@
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
-            updateTechniquesUI();
+            updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
             makePreviewLabelsClickable();
             markedPreviewCard.style.display = "block";
@@ -2825,13 +2879,13 @@
             // Fallback: show message if docx-preview not loaded
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             markedPreviewCard.style.display = "block";
-            updateTechniquesUI();
+            updateStatsPanel(liveLabelCounts);
           }
         } catch (previewError) {
           console.error("Error rendering preview:", previewError);
           markedPreview.innerHTML = "<p>Error rendering preview. Please download the file to view.</p>";
           markedPreviewCard.style.display = "block";
-          updateTechniquesUI();
+          updateStatsPanel(liveLabelCounts);
         }
 
         if (recheckDocumentBtn) {
@@ -3336,7 +3390,7 @@
     function renderMostCommonIssues(labelCounts) {
       if (!mostCommonIssuesWrap || !mostCommonIssuesChartEl) return;
 
-      updateMostCommonMeta(labelCounts);
+      updateStatsPanel(labelCounts);
 
       const entries = Object.entries(labelCounts || {})
         .filter(([label, count]) => label && (count || 0) > 0)
@@ -3488,6 +3542,10 @@
           renderMostCommonIssues(liveLabelCounts);
         } catch (chartError) {
           console.warn("Most common issues chart failed to render:", chartError);
+        }
+        if (statsPanel) {
+          statsPanel.style.display = "block";
+          updateStatsPanel(liveLabelCounts);
         }
         
         // Build section index by querying issue_examples
@@ -5279,12 +5337,12 @@
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
-            updateTechniquesUI();
+            updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
             makePreviewLabelsClickable();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
-            updateTechniquesUI();
+            updateStatsPanel(liveLabelCounts);
           }
 
           // Reload revision practice to refresh issues + examples
