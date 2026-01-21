@@ -1185,6 +1185,16 @@
       return String(s || "").trim().toLowerCase();
     }
 
+    function getLocalRunKey() {
+      // Prefer mark_event_id so each re-mark run is a fresh namespace
+      const markId = currentMarkEvent?.id;
+      if (markId !== null && markId !== undefined && String(markId).trim() !== "") {
+        return `mark_${markId}`;
+      }
+      // Fallbacks (should be rare)
+      return `file_${selectedFile?.name || "nofile"}`;
+    }
+
     function resetIssueIdMaps() {
       issueIdByLabel.clear();
       labelByIssueId.clear();
@@ -1274,8 +1284,7 @@
     }
 
     function getPowerVerbsStorageKey(label) {
-      const assignmentKey = selectedFile?.name || assignmentNameInput?.value?.trim() || "nofile";
-      return `${POWER_VERBS_STORAGE_PREFIX}_${assignmentKey}__${normLabel(label || "")}`;
+      return `${POWER_VERBS_STORAGE_PREFIX}__${getLocalRunKey()}__${normLabel(label || "")}`;
     }
 
     function normalizePowerVerbs(data) {
@@ -1734,7 +1743,7 @@
     }
 
     function currentDismissStorageKey() {
-      return `vysti_dismissed_${(selectedFile?.name || "nofile")}`;
+      return `vysti_dismissed__${getLocalRunKey()}`;
     }
 
     function loadDismissedIssuesFromStorage() {
@@ -1764,9 +1773,9 @@
 
     function getAppliedStorageKey(label, exampleKey) {
       if (!exampleKey) return "";
-      const assignmentKey = selectedFile?.name || assignmentNameInput?.value?.trim() || "nofile";
       const safeLabel = String(label || "nolabel").trim();
-      return `vysti_applied_${assignmentKey}__${safeLabel}__${exampleKey}`;
+      const labelKey = normalizeIssueId(safeLabel);
+      return `vysti_applied__${getLocalRunKey()}__${labelKey}__${exampleKey}`;
     }
 
     function loadAppliedFlag(label, exampleKey) {
