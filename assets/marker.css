@@ -96,6 +96,13 @@ button, input, select, textarea {
   border:1px solid rgba(255,255,255,.22);
   background: rgba(255,255,255,.10);
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-weight:900;
+  font-size:18px;
+  line-height:1;
 }
 .topbar-btn{
   height:36px;
