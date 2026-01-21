@@ -1257,6 +1257,7 @@ SUBJECTIVE_EVAL_WORDS = {
     "persuasive",
     # Other common empty evaluators
     "powerful",
+    "powerfully",
     "effective",
     "interesting",
     "compelling",
