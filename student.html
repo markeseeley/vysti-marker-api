@@ -701,6 +701,9 @@
         <div class="issue-explanation-header">Explanation of the Issue</div>
         <div id="issueExplanation" class="issue-explanation"></div>
       </div>
+      <div id="allApprovedBanner" class="examples-empty-state" style="display:none;">
+        All examples for this issue are approved. Apply them to the Preview to update your progress, then click another bar to revise a different issue.
+      </div>
       <div id="examplesEmptyState" class="examples-empty-state" style="display:none;"></div>
       <div id="exampleNavRow" class="examples-nav" style="display:none;">
         <div id="exampleNavText" class="examples-nav-text">Issue 0 of 0</div>
@@ -943,6 +946,7 @@
     const exampleNavText = document.getElementById("exampleNavText");
     const nextExampleBtn = document.getElementById("nextExampleBtn");
     const examplesList = document.getElementById("examplesList");
+    const allApprovedBanner = document.getElementById("allApprovedBanner");
     const examplesEmptyState = document.getElementById("examplesEmptyState");
     const applyAllToPreviewBtn = document.getElementById("applyAllToPreviewBtn");
     const approvedRewritesWrap = document.getElementById("approvedRewritesWrap");
@@ -1085,6 +1089,38 @@
         localStorage.setItem(key, JSON.stringify(dismissedIssues || []));
       } catch (error) {
         console.warn("Failed to save dismissed issues:", error);
+      }
+    }
+
+    function getAppliedStorageKey(label, exampleKey) {
+      if (!exampleKey) return "";
+      const assignmentKey = selectedFile?.name || assignmentNameInput?.value?.trim() || "nofile";
+      const safeLabel = String(label || "nolabel").trim();
+      return `vysti_applied_${assignmentKey}__${safeLabel}__${exampleKey}`;
+    }
+
+    function loadAppliedFlag(label, exampleKey) {
+      const key = getAppliedStorageKey(label, exampleKey);
+      if (!key) return false;
+      try {
+        return localStorage.getItem(key) === "1";
+      } catch (error) {
+        console.warn("Failed to load applied flag:", error);
+        return false;
+      }
+    }
+
+    function saveAppliedFlag(label, exampleKey, value) {
+      const key = getAppliedStorageKey(label, exampleKey);
+      if (!key) return;
+      try {
+        if (value) {
+          localStorage.setItem(key, "1");
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch (error) {
+        console.warn("Failed to save applied flag:", error);
       }
     }
 
@@ -2117,6 +2153,7 @@
       if (revisionPracticeCard) revisionPracticeCard.style.display = "none";
       if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       if (examplesList) examplesList.innerHTML = "";
+      if (allApprovedBanner) allApprovedBanner.style.display = "none";
       if (examplesEmptyState) examplesEmptyState.style.display = "none";
       if (approvedRewritesList) approvedRewritesList.innerHTML = "";
       if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
@@ -2139,6 +2176,7 @@
       if (!exampleKey) return;
       approvedRewriteByKey.delete(exampleKey);
       approvedExampleKeys.delete(exampleKey);
+      setExampleApprovalState(exampleKey, false);
       removeApprovedRewriteByKey(exampleKey);
       renderApprovedRewritesList();
       if (exampleRow) {
@@ -2159,6 +2197,7 @@
         examplesList.appendChild(exampleRow);
       }
       updateApplyAllUI();
+      updateAllApprovedBanner(currentExamplesAll);
     }
 
     function hideExamplesEmptyState() {
@@ -2170,6 +2209,53 @@
       if (!examplesEmptyState) return;
       examplesEmptyState.textContent = message;
       examplesEmptyState.style.display = "block";
+    }
+
+    function isExampleApproved(example) {
+      if (!example) return false;
+      if (example.approved === true) return true;
+      const key = getExampleKey(example);
+      return key ? approvedExampleKeys.has(key) : false;
+    }
+
+    function isExampleApplied(example) {
+      if (!example) return false;
+      if (example.applied_to_preview === true) return true;
+      const key = getExampleKey(example);
+      return key ? appliedExampleKeys.has(key) : false;
+    }
+
+    function setExampleApprovalState(exampleKey, approved) {
+      if (!exampleKey) return;
+      currentExamplesAll.forEach((ex) => {
+        if (getExampleKey(ex) === exampleKey) {
+          ex.approved = !!approved;
+        }
+      });
+    }
+
+    function setExampleAppliedState(exampleKey, applied, label) {
+      if (!exampleKey) return;
+      const appliedValue = !!applied;
+      currentExamplesAll.forEach((ex) => {
+        if (getExampleKey(ex) === exampleKey) {
+          ex.applied_to_preview = appliedValue;
+        }
+      });
+      const exampleData = exampleDataByKey.get(exampleKey);
+      if (exampleData) {
+        exampleData.applied_to_preview = appliedValue;
+      }
+      saveAppliedFlag(label || currentLabel || "", exampleKey, appliedValue);
+    }
+
+    function updateAllApprovedBanner(examples) {
+      if (!allApprovedBanner) return;
+      const list = Array.isArray(examples) ? examples : [];
+      const hasExamples = list.length > 0;
+      const allApproved = hasExamples && list.every((ex) => isExampleApproved(ex));
+      const allApplied = hasExamples && list.every((ex) => isExampleApplied(ex));
+      allApprovedBanner.style.display = allApproved && !allApplied ? "block" : "none";
     }
 
     function escapeRegExp(str) {
@@ -2273,10 +2359,21 @@
       if (!examplesList) return;
 
       const rotationExamples = getRotationExamples();
+      updateAllApprovedBanner(currentExamplesAll);
       if (!rotationExamples.length) {
-        showExamplesEmptyState(
-          "All examples for this issue are approved. Apply them to the Preview to update your progress, then click another bar to revise a different issue."
-        );
+        const hasExamples = Array.isArray(currentExamplesAll) && currentExamplesAll.length > 0;
+        const allApproved = hasExamples && currentExamplesAll.every((ex) => isExampleApproved(ex));
+        const allApplied = hasExamples && currentExamplesAll.every((ex) => isExampleApplied(ex));
+        if (allApproved && !allApplied) {
+          hideExamplesEmptyState();
+        } else {
+          showExamplesEmptyState(
+            getPreviewOnlyMessage(
+              currentLabel || "",
+              "No more examples for this issue. Click another bar to practice a different issue."
+            )
+          );
+        }
         updateExampleNav(0);
         updateApplyAllUI();
         return;
@@ -2450,6 +2547,7 @@
       examplesList.appendChild(li);
       updateExampleNav(rotationExamples.length);
       updateApplyAllUI();
+      updateAllApprovedBanner(currentExamplesAll);
     }
 
     function refreshIssueCountUI() {
@@ -3649,6 +3747,9 @@
           examplesList.innerHTML = "";
           examplesList.style.display = "none";
         }
+        if (allApprovedBanner) {
+          allApprovedBanner.style.display = "none";
+        }
         if (examplesEmptyState) {
           examplesEmptyState.style.display = "block";
           examplesEmptyState.textContent = getPreviewOnlyMessage(label, "");
@@ -3682,6 +3783,7 @@
       if (!selectedLabel) {
         if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
+        if (allApprovedBanner) allApprovedBanner.style.display = "none";
         if (approvedRewritesList) approvedRewritesList.innerHTML = "";
         if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
         approvedRewrites.length = 0;
@@ -3724,8 +3826,15 @@
             scroll: false
           });
         }
+        currentExamplesAll.forEach((ex) => {
+          const key = getExampleKey(ex);
+          if (key && appliedExampleKeys.has(key)) {
+            setExampleAppliedState(key, true, currentLabel || "");
+          }
+        });
         renderCurrentExample();
         updateApplyAllUI();
+        updateAllApprovedBanner(currentExamplesAll);
       });
     }
 
@@ -4366,6 +4475,7 @@
         if (error) {
           console.error("Error loading examples:", error);
           hideExamplesEmptyState();
+          updateAllApprovedBanner([]);
           examplesList.innerHTML = "<li>Error loading examples.</li>";
           if (exampleNavRow) exampleNavRow.style.display = "none";
           currentExamplesAll = [];
@@ -4395,9 +4505,15 @@
           if (!s) continue;
           const paraIndex = ex?.paragraph_index ?? "";
           const key = getExampleKeyFromParts(paraIndex ?? 0, s);
+          if (loadAppliedFlag(label, key)) {
+            appliedExampleKeys.add(key);
+          }
           if (appliedExampleKeys.has(key)) continue;
           if (seenSent.has(key)) continue;
           seenSent.add(key);
+          if (typeof ex.applied_to_preview !== "boolean") {
+            ex.applied_to_preview = false;
+          }
           uniq.push(ex);
           if (uniq.length >= 10) break; // Cap at 10 examples
         }
@@ -4423,6 +4539,7 @@
                 "No more examples for this issue. Click another bar to practice a different issue."
               );
           showExamplesEmptyState(emptyMessage);
+          updateAllApprovedBanner([]);
           if (exampleNavRow) exampleNavRow.style.display = "none";
           downloadRevisionNotesBtn.style.display = "none";
           updateApplyAllUI();
@@ -4430,6 +4547,7 @@
         }
 
         hideExamplesEmptyState();
+        updateAllApprovedBanner(currentExamplesAll);
         renderCurrentExample();
 
         downloadRevisionNotesBtn.style.display = "block";
@@ -5537,6 +5655,7 @@
         showExamplesEmptyState(
           "All examples for this issue have been dismissed. Click another bar to revise a different issue."
         );
+        updateAllApprovedBanner([]);
         if (exampleNavRow) exampleNavRow.style.display = "none";
         downloadRevisionNotesBtn.style.display = "none";
         updateApplyAllUI();
@@ -5639,6 +5758,7 @@
             if (exampleKey) {
               approvedRewriteByKey.set(exampleKey, rewrite);
               approvedExampleKeys.add(exampleKey);
+              setExampleApprovalState(exampleKey, true);
               draftRewriteByKey.set(exampleKey, rewrite);
               if (!exampleDataByKey.has(exampleKey)) {
                 exampleDataByKey.set(exampleKey, example);
@@ -5790,7 +5910,10 @@
           exampleRow.dataset.applied = "true";
         }
 
-        if (resolvedKey) appliedExampleKeys.add(resolvedKey);
+        if (resolvedKey) {
+          appliedExampleKeys.add(resolvedKey);
+          setExampleAppliedState(resolvedKey, true, label);
+        }
         if (resolvedKey) {
           removeApprovedRewriteByKey(resolvedKey);
           renderApprovedRewritesList();
@@ -5804,6 +5927,7 @@
         renderMostCommonIssues(liveLabelCounts);
         refreshIssueCountUI();
         updateApplyAllUI();
+        updateAllApprovedBanner(currentExamplesAll);
         
         // Show recheck button if hidden
         hideMarkButtonShowRecheck();
