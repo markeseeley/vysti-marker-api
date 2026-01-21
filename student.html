@@ -2771,6 +2771,7 @@
             applyPreviewZoom();
             updateTechniquesUI();
             applyDismissalsToPreviewDOM();
+            makePreviewLabelsClickable();
             markedPreviewCard.style.display = "block";
           } else {
             // Fallback: show message if docx-preview not loaded
@@ -2890,6 +2891,51 @@
       const offset = (topbar ? topbar.getBoundingClientRect().height : 0) + 12;
       const y = header.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top: y, behavior: "smooth" });
+    }
+
+    function extractLabelFromArrowText(text) {
+      if (!text) return null;
+      const m = String(text).trim().match(/^→\s*(.+?)\s*$/);
+      if (!m) return null;
+      const label = m[1].trim();
+      if (!label) return null;
+      return label;
+    }
+
+    function onPreviewLabelClick(e) {
+      const target = e.target instanceof Element ? e.target : e.target.parentElement;
+      if (!target) return;
+      const sp = target.closest("span");
+      if (!sp) return;
+
+      const txt = (sp.textContent || "").trim();
+      if (!/^→\s*/.test(txt)) return;
+
+      const label = extractLabelFromArrowText(txt);
+      if (!label) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      void openRevisionExampleFromLabel(label);
+    }
+
+    function makePreviewLabelsClickable() {
+      if (!markedPreview) return;
+
+      if (!markedPreview.dataset.vystiLabelClickBound) {
+        markedPreview.addEventListener("click", onPreviewLabelClick, true);
+        markedPreview.dataset.vystiLabelClickBound = "1";
+      }
+
+      const spans = Array.from(markedPreview.querySelectorAll("span"));
+      spans.forEach((sp) => {
+        const t = (sp.textContent || "").trim();
+        if (!t.includes("→")) return;
+        if (!/^→\s*/.test(t)) return;
+        if (t.length > 140) return;
+        sp.classList.add("vysti-clickable-label");
+        sp.setAttribute("title", "Click to revise this issue");
+      });
     }
 
     async function jumpToPreviewForTopicSentenceIssue() {
@@ -5179,6 +5225,7 @@
             applyPreviewZoom();
             updateTechniquesUI();
             applyDismissalsToPreviewDOM();
+            makePreviewLabelsClickable();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             updateTechniquesUI();
