@@ -1147,6 +1147,7 @@
 
     let powerVerbsList = null;
     let powerVerbsLoadPromise = null;
+    let powerVerbFormsSet = null;
     let activePowerVerbsHelper = null;
     const powerVerbsState = {
       label: null,
@@ -1294,6 +1295,35 @@
       return verbs;
     }
 
+    function generateVerbForms(base) {
+      const b = String(base || "").trim().toLowerCase();
+      if (!b) return new Set();
+
+      const forms = new Set([b]);
+
+      if (b.endsWith("y") && !/[aeiou]y$/.test(b)) forms.add(b.slice(0, -1) + "ies");
+      else if (/(s|x|z|ch|sh|o)$/.test(b)) forms.add(b + "es");
+      else forms.add(b + "s");
+
+      if (b.endsWith("e")) forms.add(b + "d");
+      else if (b.endsWith("y") && !/[aeiou]y$/.test(b)) forms.add(b.slice(0, -1) + "ied");
+      else forms.add(b + "ed");
+
+      if (b.endsWith("ie")) forms.add(b.slice(0, -2) + "ying");
+      else if (b.endsWith("e") && !b.endsWith("ee") && !b.endsWith("ye")) forms.add(b.slice(0, -1) + "ing");
+      else forms.add(b + "ing");
+
+      return forms;
+    }
+
+    function buildPowerVerbFormsSet(powerVerbsListInput) {
+      const out = new Set();
+      (powerVerbsListInput || []).forEach((v) => {
+        generateVerbForms(v).forEach((f) => out.add(f));
+      });
+      return out;
+    }
+
     function loadPowerVerbsList() {
       if (powerVerbsList) return Promise.resolve(powerVerbsList);
       if (powerVerbsLoadPromise) return powerVerbsLoadPromise;
@@ -1301,6 +1331,7 @@
         .then((res) => res.ok ? res.json() : [])
         .then((data) => {
           powerVerbsList = normalizePowerVerbs(data);
+          powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
           return powerVerbsList;
         })
         .catch((error) => {
@@ -2312,10 +2343,9 @@
       "show","shows","showed","showing",
       "use","uses","used","using",
       "make","makes","made","making",
-      "get","gets","got","getting",
-      "have","has","had","having",
       "do","does","did","doing",
-      "is","are","was","were","be","being","been"
+      "get","gets","got","getting",
+      "have","has","had","having"
     ]);
 
     const PRONOUN_STARTERS = new Set([
@@ -2456,28 +2486,56 @@
       return "";
     }
 
+    function powerVerbTargetForWordCount(wc) {
+      const n = Number(wc) || 0;
+      if (n < 200) return 0;
+      if (n <= 500) return 5;
+      if (n <= 800) return 10;
+      return 10 + 5 * Math.ceil((n - 800) / 300);
+    }
+
     function computeMetricsFromText(text, mode) {
       const clean = stripQuotedText(normalizeTypography(text || ""));
       const cleanLower = clean.toLowerCase().replace(/\s+/g, " ").trim();
       const words = tokenizeWords(cleanLower);
       const totalWords = words.length;
 
+      const weakCounts = {};
       let weakCount = 0;
-      let showCount = 0;
-      let useCount = 0;
       for (const w of words) {
-        if (WEAK_VERBS.has(w)) weakCount += 1;
-        if (w === "show" || w === "shows" || w === "showed" || w === "showing") showCount += 1;
-        if (w === "use" || w === "uses" || w === "used" || w === "using") useCount += 1;
+        if (WEAK_VERBS.has(w)) {
+          weakCount += 1;
+          weakCounts[w] = (weakCounts[w] || 0) + 1;
+        }
       }
+
+      const uniquePower = new Set();
+      if (powerVerbFormsSet) {
+        for (const w of words) {
+          if (WEAK_VERBS.has(w)) continue;
+          if (powerVerbFormsSet.has(w)) uniquePower.add(w);
+        }
+      }
+
+      const target = powerVerbTargetForWordCount(totalWords);
       const weakRatePer100 = totalWords ? (weakCount / totalWords) * 100 : 0;
-      const powerScore = clamp(Math.round(100 - weakRatePer100 * 8), 0, 100);
-      const powerDetails = [];
-      if (showCount > 0) powerDetails.push(`show (${showCount})`);
-      if (useCount > 0) powerDetails.push(`use (${useCount})`);
-      const powerSub = powerDetails.length
-        ? `Weak verbs: ${powerDetails.join(", ")}`
-        : `Weak verbs: ${weakCount}`;
+      const weakScore = clamp(Math.round(100 - weakRatePer100 * 8), 0, 100);
+      const powerVerbScore = target === 0
+        ? 100
+        : clamp(Math.round((uniquePower.size / target) * 100), 0, 100);
+      const powerScore = clamp(Math.round(weakScore * 0.6 + powerVerbScore * 0.4), 0, 100);
+
+      const weakSummaryParts = ["show","use","make","do","get","have"]
+        .map((base) => {
+          const n = Object.entries(weakCounts)
+            .reduce((sum, [k, v]) => (k.startsWith(base) ? sum + v : sum), 0);
+          return n ? `${base} (${n})` : null;
+        })
+        .filter(Boolean);
+
+      const weakSummary = weakSummaryParts.length ? weakSummaryParts.join(", ") : "none";
+      const powerSummary = target ? `${uniquePower.size}/${target}` : `${uniquePower.size}`;
+      const powerSub = `Weak verbs: ${weakSummary} • Power verbs: ${powerSummary}`;
 
       const sentences = splitSentencesSimple(clean);
       let pronounStarts = 0;
@@ -2740,6 +2798,10 @@
       if (!text) {
         renderMetrics(null);
         return;
+      }
+      await loadPowerVerbsList();
+      if (!powerVerbFormsSet && powerVerbsList) {
+        powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
       }
       const mode = modeSelect ? modeSelect.value : "";
       const metrics = computeMetricsFromText(text, mode);
@@ -4422,13 +4484,19 @@
       window.scrollTo({ top: y, behavior: "smooth" });
     }
 
+    function canonicalizePreviewLabel(label) {
+      const s = String(label || "").trim();
+      if (/^avoid weak verbs\b/i.test(s)) return "Avoid weak verbs";
+      return s;
+    }
+
     function extractLabelFromArrowText(text) {
       if (!text) return null;
       const m = String(text).trim().match(/^→\s*(.+?)\s*$/);
       if (!m) return null;
-      const label = m[1].trim();
-      if (!label) return null;
-      return label;
+      const raw = m[1].trim();
+      if (!raw) return null;
+      return canonicalizePreviewLabel(raw);
     }
 
     function onPreviewLabelClick(e) {
