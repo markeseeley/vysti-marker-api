@@ -343,6 +343,13 @@ button, input, select, textarea {
   background: linear-gradient(90deg, #d9534f, #f0ad4e, #5cb85c);
   transition: width 200ms ease;
 }
+.metric-meter-fill.perfect{
+  background: #00E676 !important;
+  box-shadow: 0 0 0 3px rgba(0,230,118,.25), 0 0 18px rgba(0,230,118,.45);
+}
+.metric-score.perfect{
+  color: #00B35A;
+}
 .metric-sub{
   margin-top: 6px;
   font-size: var(--fs-xs);
