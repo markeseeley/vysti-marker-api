@@ -851,6 +851,23 @@ input:focus, select:focus{
   transform: translateY(0);
 }
 
+.repeat-tutorial-popover {
+  position: fixed;
+  z-index: 120;
+  background: #fff;
+  color: rgba(0,0,0,.75);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+  width: max-content;
+  max-width: 320px;
+  white-space: normal;
+  pointer-events: none;
+}
+
 /* Rule "i" tooltips: match Minor/Major (black bubble) */
 .rule-row .info.tt::after{
   top: auto;
