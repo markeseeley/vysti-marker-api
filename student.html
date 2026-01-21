@@ -330,6 +330,71 @@
       display: flex;
       gap: 8px;
     }
+    .power-verbs-helper {
+      margin: 6px 0 10px;
+    }
+    .power-verbs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .power-verbs-title {
+      font-size: var(--fs-sm);
+      font-weight: 600;
+      color: rgba(0, 0, 0, 0.75);
+    }
+    .power-verbs-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .power-verbs-feedback {
+      font-size: var(--fs-xs);
+      color: rgba(0, 0, 0, 0.6);
+      min-height: 14px;
+    }
+    .power-verbs-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .power-verbs-popover {
+      width: min(420px, calc(100vw - 24px));
+      max-height: 60vh;
+      overflow: auto;
+      z-index: 120;
+    }
+    .power-verbs-popover-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .power-verbs-popover-title {
+      font-weight: 700;
+      font-size: var(--fs-sm);
+    }
+    .power-verbs-popover-close {
+      border: none;
+      background: transparent;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .power-verbs-popover-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .power-verbs-popover-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 10px;
+    }
     .approved-rewrites-wrap {
       margin-top: 16px;
       padding: 14px;
@@ -1033,6 +1098,35 @@
     const PREVIEW_ONLY_LABELS = new Set([
       "No quotations in topic sentence"
     ]);
+    const POWER_VERBS_LABEL = "Avoid weak verbs";
+    const POWER_VERBS_INITIAL_COUNT = 5;
+    const POWER_VERBS_PAGE_COUNT = 10;
+    const POWER_VERBS_STORAGE_PREFIX = "vysti_power_verbs_2025";
+
+    let powerVerbsList = null;
+    let powerVerbsLoadPromise = null;
+    let activePowerVerbsHelper = null;
+    const powerVerbsState = {
+      label: null,
+      initialVerbs: [],
+      pageHistory: [],
+      pageIndex: 0,
+      recentlyShown: []
+    };
+    const powerVerbsPopover = {
+      el: null,
+      grid: null,
+      feedback: null,
+      nextBtn: null,
+      prevBtn: null,
+      closeBtn: null,
+      anchor: null,
+      textarea: null,
+      isOpen: false,
+      onDocumentClick: null,
+      onKeyDown: null,
+      onReposition: null
+    };
 
     function hideMarkButtonShowRecheck() {
       if (checkBtn) checkBtn.style.display = "none";
@@ -1054,6 +1148,433 @@
         if (normLabel(lbl) === target) return true;
       }
       return false;
+    }
+
+    function isAvoidWeakVerbsLabel(label) {
+      return normLabel(label) === normLabel(POWER_VERBS_LABEL);
+    }
+
+    function getPowerVerbsStorageKey(label) {
+      const assignmentKey = selectedFile?.name || assignmentNameInput?.value?.trim() || "nofile";
+      return `${POWER_VERBS_STORAGE_PREFIX}_${assignmentKey}__${normLabel(label || "")}`;
+    }
+
+    function normalizePowerVerbs(data) {
+      const list = Array.isArray(data) ? data : [];
+      const verbs = [];
+      const seen = new Set();
+      list.forEach((item) => {
+        const value = typeof item === "string" ? item : item?.verb;
+        if (!value) return;
+        const trimmed = String(value).trim();
+        if (!trimmed) return;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        verbs.push(trimmed);
+      });
+      return verbs;
+    }
+
+    function loadPowerVerbsList() {
+      if (powerVerbsList) return Promise.resolve(powerVerbsList);
+      if (powerVerbsLoadPromise) return powerVerbsLoadPromise;
+      powerVerbsLoadPromise = fetch("power_verbs_2025.json")
+        .then((res) => res.ok ? res.json() : [])
+        .then((data) => {
+          powerVerbsList = normalizePowerVerbs(data);
+          return powerVerbsList;
+        })
+        .catch((error) => {
+          console.warn("Failed to load power verbs:", error);
+          powerVerbsList = [];
+          return powerVerbsList;
+        });
+      return powerVerbsLoadPromise;
+    }
+
+    function sampleUnique(list, count, excludeSet = null) {
+      const pool = excludeSet
+        ? list.filter((item) => !excludeSet.has(item))
+        : list.slice();
+      if (pool.length <= count) return pool.slice();
+      for (let i = pool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      return pool.slice(0, count);
+    }
+
+    function loadStoredPowerVerbs(label) {
+      const key = getPowerVerbsStorageKey(label);
+      try {
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch (error) {
+        console.warn("Failed to load stored power verbs:", error);
+        return [];
+      }
+    }
+
+    function storePowerVerbs(label, verbs) {
+      const key = getPowerVerbsStorageKey(label);
+      try {
+        localStorage.setItem(key, JSON.stringify(verbs || []));
+      } catch (error) {
+        console.warn("Failed to store power verbs:", error);
+      }
+    }
+
+    function ensureInitialPowerVerbs(label) {
+      if (!isAvoidWeakVerbsLabel(label)) return;
+      if (powerVerbsState.initialVerbs.length) return;
+      const stored = loadStoredPowerVerbs(label);
+      if (stored.length) {
+        powerVerbsState.initialVerbs = stored.slice(0, POWER_VERBS_INITIAL_COUNT);
+        return;
+      }
+      if (!powerVerbsList || !powerVerbsList.length) return;
+      const verbs = sampleUnique(powerVerbsList, POWER_VERBS_INITIAL_COUNT);
+      powerVerbsState.initialVerbs = verbs;
+      storePowerVerbs(label, verbs);
+    }
+
+    function showPowerVerbFeedback(targetEl, message) {
+      if (!targetEl) return;
+      targetEl.textContent = message;
+      if (targetEl._timer) clearTimeout(targetEl._timer);
+      targetEl._timer = setTimeout(() => {
+        if (targetEl) targetEl.textContent = "";
+      }, 1800);
+    }
+
+    function insertVerbIntoTextarea(textarea, verb) {
+      if (!textarea || document.activeElement !== textarea) return false;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      if (typeof start !== "number" || typeof end !== "number") return false;
+      const before = textarea.value.slice(0, start);
+      const after = textarea.value.slice(end);
+      const needsSpaceBefore = before && !/\s$/.test(before);
+      const needsSpaceAfter = after && !/^\s/.test(after);
+      const insertText = `${needsSpaceBefore ? " " : ""}${verb}${needsSpaceAfter ? " " : ""}`;
+      textarea.value = before + insertText + after;
+      const cursor = before.length + insertText.length;
+      textarea.setSelectionRange(cursor, cursor);
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    }
+
+    function handlePowerVerbClick(verb, { feedbackEl, textarea } = {}) {
+      const didInsert = insertVerbIntoTextarea(textarea, verb);
+      const copy = navigator.clipboard?.writeText
+        ? navigator.clipboard.writeText(verb)
+        : Promise.reject(new Error("Clipboard unavailable"));
+      copy
+        .then(() => showPowerVerbFeedback(feedbackEl, "Copied!"))
+        .catch(() => {
+          if (didInsert) {
+            showPowerVerbFeedback(feedbackEl, "Inserted!");
+          } else {
+            showPowerVerbFeedback(feedbackEl, "Copy failed");
+          }
+        });
+    }
+
+    function renderPowerVerbButtons(container, verbs, { feedbackEl, textarea } = {}) {
+      if (!container) return;
+      container.innerHTML = "";
+      if (!verbs || !verbs.length) {
+        container.textContent = "Loading suggestions...";
+        return;
+      }
+      verbs.forEach((verb) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "example-btn power-verb-pill";
+        btn.textContent = verb;
+        btn.addEventListener("click", () => handlePowerVerbClick(verb, { feedbackEl, textarea }));
+        container.appendChild(btn);
+      });
+    }
+
+    function createPowerVerbsPage() {
+      if (!powerVerbsList || !powerVerbsList.length) return [];
+      const exclude = new Set(powerVerbsState.recentlyShown || []);
+      let page = sampleUnique(powerVerbsList, POWER_VERBS_PAGE_COUNT, exclude);
+      if (page.length < POWER_VERBS_PAGE_COUNT) {
+        page = page.concat(sampleUnique(powerVerbsList, POWER_VERBS_PAGE_COUNT - page.length));
+      }
+      powerVerbsState.recentlyShown = [...powerVerbsState.recentlyShown, ...page].slice(-40);
+      return page;
+    }
+
+    function updatePowerVerbsPopoverNav() {
+      if (!powerVerbsPopover.prevBtn || !powerVerbsPopover.nextBtn) return;
+      powerVerbsPopover.prevBtn.style.display = powerVerbsState.pageIndex > 0 ? "inline-flex" : "none";
+    }
+
+    function renderPowerVerbsPopoverPage() {
+      if (!powerVerbsPopover.grid) return;
+      const page = powerVerbsState.pageHistory[powerVerbsState.pageIndex] || [];
+      renderPowerVerbButtons(powerVerbsPopover.grid, page, {
+        feedbackEl: powerVerbsPopover.feedback,
+        textarea: powerVerbsPopover.textarea
+      });
+      updatePowerVerbsPopoverNav();
+    }
+
+    function goToPowerVerbsPage(index) {
+      if (index < 0) return;
+      if (index >= powerVerbsState.pageHistory.length) {
+        powerVerbsState.pageHistory.push(createPowerVerbsPage());
+      }
+      powerVerbsState.pageIndex = index;
+      renderPowerVerbsPopoverPage();
+    }
+
+    function positionPowerVerbsPopover() {
+      if (!powerVerbsPopover.el || !powerVerbsPopover.anchor) return;
+      const gap = 8;
+      const padding = 12;
+      const anchorRect = powerVerbsPopover.anchor.getBoundingClientRect();
+
+      powerVerbsPopover.el.style.display = "block";
+      powerVerbsPopover.el.style.visibility = "hidden";
+      const popRect = powerVerbsPopover.el.getBoundingClientRect();
+      const fitsBelow = anchorRect.bottom + gap + popRect.height <= window.innerHeight;
+
+      let top = fitsBelow
+        ? anchorRect.bottom + gap
+        : anchorRect.top - popRect.height - gap;
+      top = Math.max(padding, Math.min(top, window.innerHeight - popRect.height - padding));
+
+      let left = anchorRect.right - popRect.width;
+      left = Math.max(padding, Math.min(left, window.innerWidth - popRect.width - padding));
+
+      powerVerbsPopover.el.style.top = `${Math.round(top)}px`;
+      powerVerbsPopover.el.style.left = `${Math.round(left)}px`;
+      powerVerbsPopover.el.style.visibility = "visible";
+    }
+
+    function attachPowerVerbsPopoverListeners() {
+      if (powerVerbsPopover.onDocumentClick) return;
+      powerVerbsPopover.onDocumentClick = (event) => {
+        const target = event.target;
+        if (powerVerbsPopover.el?.contains(target)) return;
+        if (powerVerbsPopover.anchor?.contains(target)) return;
+        closePowerVerbsPopover();
+      };
+      powerVerbsPopover.onKeyDown = (event) => {
+        if (event.key === "Escape") closePowerVerbsPopover();
+      };
+      powerVerbsPopover.onReposition = () => {
+        if (powerVerbsPopover.isOpen) positionPowerVerbsPopover();
+      };
+      document.addEventListener("mousedown", powerVerbsPopover.onDocumentClick, true);
+      document.addEventListener("touchstart", powerVerbsPopover.onDocumentClick, true);
+      document.addEventListener("keydown", powerVerbsPopover.onKeyDown, true);
+      window.addEventListener("resize", powerVerbsPopover.onReposition);
+      window.addEventListener("scroll", powerVerbsPopover.onReposition, true);
+    }
+
+    function detachPowerVerbsPopoverListeners() {
+      if (!powerVerbsPopover.onDocumentClick) return;
+      document.removeEventListener("mousedown", powerVerbsPopover.onDocumentClick, true);
+      document.removeEventListener("touchstart", powerVerbsPopover.onDocumentClick, true);
+      document.removeEventListener("keydown", powerVerbsPopover.onKeyDown, true);
+      window.removeEventListener("resize", powerVerbsPopover.onReposition);
+      window.removeEventListener("scroll", powerVerbsPopover.onReposition, true);
+      powerVerbsPopover.onDocumentClick = null;
+      powerVerbsPopover.onKeyDown = null;
+      powerVerbsPopover.onReposition = null;
+    }
+
+    function ensurePowerVerbsPopover() {
+      if (powerVerbsPopover.el) return;
+      const popover = document.createElement("div");
+      popover.className = "tour-popover power-verbs-popover";
+      popover.style.display = "none";
+
+      const header = document.createElement("div");
+      header.className = "power-verbs-popover-header";
+
+      const title = document.createElement("div");
+      title.className = "power-verbs-popover-title";
+      title.textContent = "More power verbs";
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "power-verbs-popover-close";
+      closeBtn.setAttribute("aria-label", "Close");
+      closeBtn.textContent = "×";
+      closeBtn.addEventListener("click", () => closePowerVerbsPopover());
+
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+
+      const feedback = document.createElement("div");
+      feedback.className = "power-verbs-feedback";
+      feedback.setAttribute("aria-live", "polite");
+
+      const grid = document.createElement("div");
+      grid.className = "power-verbs-popover-grid";
+
+      const footer = document.createElement("div");
+      footer.className = "power-verbs-popover-footer";
+
+      const prevBtn = document.createElement("button");
+      prevBtn.type = "button";
+      prevBtn.className = "example-btn";
+      prevBtn.textContent = "← Prev";
+      prevBtn.style.display = "none";
+      prevBtn.addEventListener("click", () => {
+        goToPowerVerbsPage(powerVerbsState.pageIndex - 1);
+        positionPowerVerbsPopover();
+      });
+
+      const nextBtn = document.createElement("button");
+      nextBtn.type = "button";
+      nextBtn.className = "example-btn";
+      nextBtn.textContent = "Next →";
+      nextBtn.addEventListener("click", () => {
+        goToPowerVerbsPage(powerVerbsState.pageIndex + 1);
+        positionPowerVerbsPopover();
+      });
+
+      footer.appendChild(prevBtn);
+      footer.appendChild(nextBtn);
+
+      popover.appendChild(header);
+      popover.appendChild(feedback);
+      popover.appendChild(grid);
+      popover.appendChild(footer);
+
+      document.body.appendChild(popover);
+
+      powerVerbsPopover.el = popover;
+      powerVerbsPopover.grid = grid;
+      powerVerbsPopover.feedback = feedback;
+      powerVerbsPopover.nextBtn = nextBtn;
+      powerVerbsPopover.prevBtn = prevBtn;
+      powerVerbsPopover.closeBtn = closeBtn;
+    }
+
+    function openPowerVerbsPopover(anchorEl, textarea) {
+      ensurePowerVerbsPopover();
+      powerVerbsPopover.anchor = anchorEl;
+      powerVerbsPopover.textarea = textarea;
+      powerVerbsPopover.isOpen = true;
+      powerVerbsPopover.el.style.display = "block";
+      attachPowerVerbsPopoverListeners();
+
+      loadPowerVerbsList().then(() => {
+        if (!powerVerbsState.pageHistory.length) {
+          powerVerbsState.pageHistory.push(createPowerVerbsPage());
+          powerVerbsState.pageIndex = 0;
+        }
+        renderPowerVerbsPopoverPage();
+        requestAnimationFrame(positionPowerVerbsPopover);
+      });
+    }
+
+    function closePowerVerbsPopover() {
+      if (!powerVerbsPopover.el || !powerVerbsPopover.isOpen) return;
+      powerVerbsPopover.el.style.display = "none";
+      powerVerbsPopover.isOpen = false;
+      powerVerbsPopover.anchor = null;
+      detachPowerVerbsPopoverListeners();
+    }
+
+    function refreshPowerVerbsHelper() {
+      if (!activePowerVerbsHelper || !activePowerVerbsHelper.isConnected) return;
+      const grid = activePowerVerbsHelper.querySelector("[data-power-verbs-grid]");
+      const feedback = activePowerVerbsHelper.querySelector("[data-power-verbs-feedback]");
+      const textarea = activePowerVerbsHelper._textarea;
+      ensureInitialPowerVerbs(powerVerbsState.label || currentLabelText || currentLabel || "");
+      renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea });
+    }
+
+    function buildPowerVerbsHelper(label, rewriteTextarea) {
+      if (!isAvoidWeakVerbsLabel(label)) return null;
+      const helper = document.createElement("div");
+      helper.className = "power-verbs-helper";
+      helper._textarea = rewriteTextarea;
+
+      const header = document.createElement("div");
+      header.className = "power-verbs-header";
+
+      const title = document.createElement("div");
+      title.className = "power-verbs-title";
+      title.textContent = "Do any of these work?";
+
+      const actions = document.createElement("div");
+      actions.className = "power-verbs-actions";
+
+      const feedback = document.createElement("div");
+      feedback.className = "power-verbs-feedback";
+      feedback.setAttribute("aria-live", "polite");
+      feedback.dataset.powerVerbsFeedback = "1";
+
+      const moreBtn = document.createElement("button");
+      moreBtn.type = "button";
+      moreBtn.className = "secondary-btn";
+      moreBtn.textContent = "More options";
+      moreBtn.addEventListener("click", () => openPowerVerbsPopover(moreBtn, rewriteTextarea));
+
+      actions.appendChild(feedback);
+      actions.appendChild(moreBtn);
+
+      header.appendChild(title);
+      header.appendChild(actions);
+
+      const grid = document.createElement("div");
+      grid.className = "power-verbs-grid";
+      grid.dataset.powerVerbsGrid = "1";
+
+      helper.appendChild(header);
+      helper.appendChild(grid);
+
+      activePowerVerbsHelper = helper;
+      ensureInitialPowerVerbs(label);
+      renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea: rewriteTextarea });
+
+      if (!powerVerbsState.initialVerbs.length) {
+        loadPowerVerbsList().then(() => {
+          ensureInitialPowerVerbs(label);
+          if (helper.isConnected) {
+            renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea: rewriteTextarea });
+          }
+        });
+      }
+
+      return helper;
+    }
+
+    function handlePowerVerbsIssueChange(label) {
+      if (!isAvoidWeakVerbsLabel(label)) {
+        powerVerbsState.label = null;
+        powerVerbsState.initialVerbs = [];
+        powerVerbsState.pageHistory = [];
+        powerVerbsState.pageIndex = 0;
+        powerVerbsState.recentlyShown = [];
+        closePowerVerbsPopover();
+        return;
+      }
+      if (powerVerbsState.label !== label) {
+        powerVerbsState.label = label;
+        powerVerbsState.initialVerbs = [];
+        powerVerbsState.pageHistory = [];
+        powerVerbsState.pageIndex = 0;
+        powerVerbsState.recentlyShown = [];
+        closePowerVerbsPopover();
+      }
+      loadPowerVerbsList().then(() => {
+        if (!isAvoidWeakVerbsLabel(powerVerbsState.label)) return;
+        ensureInitialPowerVerbs(powerVerbsState.label);
+        refreshPowerVerbsHelper();
+      });
     }
 
     function getPreviewOnlyMessage(label, fallbackMessage) {
@@ -2385,6 +2906,7 @@
       const exampleKey = getExampleKey(ex);
 
       examplesList.innerHTML = "";
+      activePowerVerbsHelper = null;
 
       const li = document.createElement("li");
       li.className = "example-item";
@@ -2444,6 +2966,8 @@
           });
         }
       });
+
+      const powerVerbsHelper = buildPowerVerbsHelper(currentLabelText || currentLabel || "", rewriteTextarea);
 
       const rewriteStatusDiv = document.createElement("div");
       rewriteStatusDiv.className = "rewrite-status";
@@ -2541,6 +3065,7 @@
       li.appendChild(guidanceDiv);
       li.appendChild(exampleMetaDiv);
       li.appendChild(rewriteTextarea);
+      if (powerVerbsHelper) li.appendChild(powerVerbsHelper);
       li.appendChild(rewriteStatusDiv);
       li.appendChild(actionsDiv);
 
@@ -3734,6 +4259,7 @@
 
     async function openRevisionExampleFromLabel(label) {
       if (!label) return;
+      handlePowerVerbsIssueChange(label);
       if (revisionPracticeCard) revisionPracticeCard.style.display = "block";
       if (issueSelect && issueSelect.value !== label) {
         issueSelect.value = label;
@@ -3780,6 +4306,7 @@
     // Handle issue selection (set up once)
     issueSelect.addEventListener("change", async (e) => {
       const selectedLabel = e.target.value;
+      handlePowerVerbsIssueChange(selectedLabel);
       if (!selectedLabel) {
         if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
