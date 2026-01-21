@@ -98,6 +98,67 @@ def is_title_case_like(snippet: str) -> bool:
     return ratio >= 0.5
 
 
+def is_probable_title_quote(interior: str, surrounding_sentence: str) -> bool:
+    interior = interior.strip()
+    if not interior:
+        return False
+
+    words = re.findall(r"[A-Za-z]+", interior)
+    if not words:
+        return False
+
+    work_cues = [
+        "essay",
+        "novel",
+        "poem",
+        "speech",
+        "article",
+        "short story",
+        "play",
+        "memoir",
+        "address",
+        "chapter",
+    ]
+
+    def has_work_cue_before_quote() -> bool:
+        if not surrounding_sentence:
+            return False
+        s_lower = surrounding_sentence.lower()
+        idx = s_lower.find(interior.lower())
+        if idx == -1:
+            return False
+        left = s_lower[:idx].rstrip()
+        if not left:
+            return False
+        for cue in work_cues:
+            pattern = r"\b" + re.escape(cue) + r"\b[^A-Za-z]*$"
+            if re.search(pattern, left):
+                return True
+        return False
+
+    # Reject short evidence-like quotes unless a work cue immediately precedes it
+    if len(words) < 3 and not has_work_cue_before_quote():
+        return False
+
+    # Title-case heuristic
+    if not is_title_case_like(interior):
+        # Allow colon/comma-heavy titles even if not strict title case
+        if interior.count(",") + interior.count(":") < 1:
+            return False
+
+    s = (surrounding_sentence or "").lower()
+    if any(cue in s for cue in work_cues):
+        return True
+
+    # Look for a likely author name span (2+ capitalized tokens) outside the quote
+    sentence_without_quote = (surrounding_sentence or "").replace(interior, "", 1)
+    cap_tokens = re.findall(r"\b[A-Z][a-z]+\b", sentence_without_quote)
+    if len(cap_tokens) >= 2:
+        return True
+
+    return False
+
+
 def get_config_title_keys(config) -> set[str]:
     """
     Return a set containing the normalized title keys from all teacher-supplied works,
@@ -3022,6 +3083,16 @@ def analyze_text(
             # quotations in the *summary* sentences between first and thesis.
             if is_summary_sentence:
                 continue
+
+            # In intro paragraphs, exempt probable work titles from the
+            # generic intro-quotation ban (but not from thesis rules).
+            if paragraph_role == "intro" and not is_thesis_sentence:
+                sent_text = ""
+                if 0 <= sent_idx < len(sentences):
+                    s_start, s_end = sentences[sent_idx]
+                    sent_text = flat_text[s_start:s_end]
+                if is_probable_title_quote(interior, sent_text):
+                    continue
 
             # Thesis sentences are still forbidden to contain quotations,
             # unless closed-thesis rules are turned off.
