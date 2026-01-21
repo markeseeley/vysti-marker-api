@@ -578,7 +578,7 @@
               <div class="metric-head">
                 <div class="metric-title">
                   Power
-                  <span class="metric-info tt" tabindex="0" data-tip="Power measures how specific your verbs are.<br>Tips to improve:<br>- Replace show/use/make with precise verbs<br>- Use argue/illustrate/highlight<br>- Avoid repeating the same verb">i</span>
+                  <button class="metric-info metric-info-btn" type="button" data-metric="power" aria-label="Power info">i</button>
                 </div>
                 <div class="metric-score" id="powerScoreText">—</div>
               </div>
@@ -592,7 +592,7 @@
               <div class="metric-head">
                 <div class="metric-title">
                   Variety
-                  <span class="metric-info tt" tabindex="0" data-tip="Variety measures how repetitive your sentence openings are.<br>Tips to improve:<br>- Start some sentences with a clause (Although/While...)<br>- Use prepositional starters (In/Across...)<br>- Avoid too many This/It/They starts">i</span>
+                  <button class="metric-info metric-info-btn" type="button" data-metric="variety" aria-label="Variety info">i</button>
                 </div>
                 <div class="metric-score" id="varietyScoreText">—</div>
               </div>
@@ -606,7 +606,7 @@
               <div class="metric-head">
                 <div class="metric-title">
                   Cohesion
-                  <span class="metric-info tt" tabindex="0" data-tip="Cohesion measures how clearly you connect paragraphs.<br>Tips to improve:<br>- Use transitions sparingly and vary them<br>- Repeat a key word from the prior paragraph (boundary statement)<br>- Avoid stacking Moreover/Furthermore repeatedly">i</span>
+                  <button class="metric-info metric-info-btn" type="button" data-metric="cohesion" aria-label="Cohesion info">i</button>
                 </div>
                 <div class="metric-score" id="cohesionScoreText">—</div>
               </div>
@@ -614,6 +614,20 @@
                 <div class="metric-meter-fill" id="cohesionMeterFill"></div>
               </div>
               <div class="metric-sub" id="cohesionSubText"></div>
+            </div>
+
+            <div class="metric-card" id="metricPrecision">
+              <div class="metric-head">
+                <div class="metric-title">
+                  Precision
+                  <button class="metric-info metric-info-btn" type="button" data-metric="precision" aria-label="Precision info">i</button>
+                </div>
+                <div class="metric-score" id="precisionScoreText">—</div>
+              </div>
+              <div class="metric-meter">
+                <div class="metric-meter-fill" id="precisionMeterFill"></div>
+              </div>
+              <div class="metric-sub" id="precisionSubText"></div>
             </div>
           </div>
 
@@ -757,6 +771,12 @@
         <button id="brandConfirmOk" class="brand-confirm-ok" type="button">Remove</button>
       </div>
     </div>
+  </div>
+
+  <div id="metricInfoPopover" class="tour-popover metric-popover hidden" role="dialog" aria-modal="false">
+    <button id="metricInfoClose" class="tour-close" type="button" aria-label="Close">×</button>
+    <div id="metricInfoTitle" class="tour-title"></div>
+    <div id="metricInfoBody" class="tour-body"></div>
   </div>
 
   <script>
@@ -957,6 +977,7 @@
     const metricPowerCard = document.getElementById("metricPower");
     const metricVarietyCard = document.getElementById("metricVariety");
     const metricCohesionCard = document.getElementById("metricCohesion");
+    const metricPrecisionCard = document.getElementById("metricPrecision");
     const powerScoreText = document.getElementById("powerScoreText");
     const powerMeterFill = document.getElementById("powerMeterFill");
     const powerSubText = document.getElementById("powerSubText");
@@ -966,6 +987,13 @@
     const cohesionScoreText = document.getElementById("cohesionScoreText");
     const cohesionMeterFill = document.getElementById("cohesionMeterFill");
     const cohesionSubText = document.getElementById("cohesionSubText");
+    const precisionScoreText = document.getElementById("precisionScoreText");
+    const precisionMeterFill = document.getElementById("precisionMeterFill");
+    const precisionSubText = document.getElementById("precisionSubText");
+    const metricInfoPopover = document.getElementById("metricInfoPopover");
+    const metricInfoClose = document.getElementById("metricInfoClose");
+    const metricInfoTitle = document.getElementById("metricInfoTitle");
+    const metricInfoBody = document.getElementById("metricInfoBody");
 
     let selectedFile = null;
     const buttonLoadingTimers = new Map();
@@ -1510,6 +1538,11 @@
       return String(s || "").toLowerCase().match(/[a-z']+/g) || [];
     }
 
+    function countRegexMatches(text, regex) {
+      const matches = String(text || "").match(regex);
+      return matches ? matches.length : 0;
+    }
+
     function splitSentencesSimple(s) {
       return String(s || "")
         .replace(/\s+/g, " ")
@@ -1562,6 +1595,51 @@
       "meanwhile"
     ];
 
+    const SUBJECTIVE_TERMS = [
+      "successfully",
+      "successful",
+      "powerful"
+    ];
+
+    const METRIC_INFO = {
+      power: {
+        title: "Power",
+        body: "Power measures how specific your verb choices are (avoiding weak verbs like show/use).",
+        tips: [
+          "Swap show/use for precise verbs (illustrates, highlights, underscores).",
+          "Avoid repeating the same verb across sentences.",
+          "Aim for verbs that express analysis, not reporting."
+        ]
+      },
+      variety: {
+        title: "Variety",
+        body: "Variety measures how repetitive your sentence openings are (pronoun/noun starts vs. varied starters).",
+        tips: [
+          "Start some sentences with a clause (Although/While/When...).",
+          "Start with a prepositional phrase (In/Across/Through...).",
+          "Avoid too many This/It/They starts in a row."
+        ]
+      },
+      cohesion: {
+        title: "Cohesion",
+        body: "Cohesion measures how clearly your paragraphs connect using transitions and linking language.",
+        tips: [
+          "Use transitions sparingly and vary them.",
+          "Repeat a key word from the prior paragraph to link ideas.",
+          "Don’t stack Moreover/Furthermore repeatedly."
+        ]
+      },
+      precision: {
+        title: "Precision",
+        body: "Precision measures removable wordiness (phrases that often weaken academic style).",
+        tips: [
+          "Cut filler like \"the use of\", \"the author\", and \"in conclusion\".",
+          "Reduce extra \"and\" chains; split into clearer sentences.",
+          "Avoid \"reader/audience\" unless the text directly supports it."
+        ]
+      }
+    };
+
     function getSentenceStarterWord(sentence) {
       const tokens = tokenizeWords(sentence);
       if (tokens.length === 0) return "";
@@ -1586,15 +1664,26 @@
 
     function computeMetricsFromText(text, mode) {
       const clean = stripQuotedText(normalizeTypography(text || ""));
-      const words = tokenizeWords(clean);
+      const cleanLower = clean.toLowerCase().replace(/\s+/g, " ").trim();
+      const words = tokenizeWords(cleanLower);
       const totalWords = words.length;
 
       let weakCount = 0;
+      let showCount = 0;
+      let useCount = 0;
       for (const w of words) {
         if (WEAK_VERBS.has(w)) weakCount += 1;
+        if (w === "show" || w === "shows" || w === "showed" || w === "showing") showCount += 1;
+        if (w === "use" || w === "uses" || w === "used" || w === "using") useCount += 1;
       }
       const weakRatePer100 = totalWords ? (weakCount / totalWords) * 100 : 0;
       const powerScore = clamp(Math.round(100 - weakRatePer100 * 8), 0, 100);
+      const powerDetails = [];
+      if (showCount > 0) powerDetails.push(`show (${showCount})`);
+      if (useCount > 0) powerDetails.push(`use (${useCount})`);
+      const powerSub = powerDetails.length
+        ? `Weak verbs: ${powerDetails.join(", ")}`
+        : `Weak verbs: ${weakCount}`;
 
       const sentences = splitSentencesSimple(clean);
       let pronounStarts = 0;
@@ -1626,10 +1715,54 @@
       });
       cohesionScore = clamp(cohesionScore - cohesionPenalty, 0, 100);
 
+      const andCount = countRegexMatches(cleanLower, /\band\b/g);
+      const whichCount = countRegexMatches(cleanLower, /\bwhich\b/g);
+      const readerCount = countRegexMatches(cleanLower, /\breader\b/g);
+      const audienceCount = countRegexMatches(cleanLower, /\baudience\b/g);
+      const readerAudienceCount = readerCount + audienceCount;
+      const useOfCount = countRegexMatches(cleanLower, /\bthe\s+use\s+of\b/g);
+      const authorCount = countRegexMatches(cleanLower, /\bthe\s+author\b/g);
+      const inConclusionCount = countRegexMatches(cleanLower, /\bin\s+conclusion\b/g);
+      let subjectiveCount = 0;
+      SUBJECTIVE_TERMS.forEach((term) => {
+        const pattern = new RegExp(`\\b${term.replace(/\s+/g, "\\s+")}\\b`, "g");
+        subjectiveCount += countRegexMatches(cleanLower, pattern);
+      });
+
+      const per100 = (count) => (totalWords ? (count / totalWords) * 100 : 0);
+      const precisionPenalty = (per100(andCount) * 4)
+        + (per100(whichCount) * 8)
+        + (per100(readerAudienceCount) * 10)
+        + (per100(useOfCount) * 12)
+        + (per100(authorCount) * 12)
+        + (per100(inConclusionCount) * 15)
+        + (per100(subjectiveCount) * 10);
+      const precisionScore = clamp(Math.round(100 - precisionPenalty), 0, 100);
+
+      const clutterItems = [
+        { label: "and", count: andCount },
+        { label: "which", count: whichCount },
+        { label: "reader/audience", count: readerAudienceCount },
+        { label: "the use of", count: useOfCount },
+        { label: "the author", count: authorCount },
+        { label: "in conclusion", count: inConclusionCount },
+        { label: "subjective words", count: subjectiveCount }
+      ];
+      const topClutter = clutterItems
+        .filter((item) => item.count > 0)
+        .sort((a, b) => {
+          const diff = b.count - a.count;
+          if (diff !== 0) return diff;
+          return a.label.localeCompare(b.label);
+        })
+        .slice(0, 3)
+        .map((item) => `${item.label} (${item.count})`);
+      const precisionSub = topClutter.length ? `Top clutter: ${topClutter.join(", ")}` : "Top clutter: none";
+
       return {
         power: {
           score: powerScore,
-          sub: `Weak verbs: ${weakCount} (${weakRatePer100.toFixed(1)}/100w)`
+          sub: powerSub
         },
         variety: {
           score: varietyScore,
@@ -1638,6 +1771,10 @@
         cohesion: {
           score: cohesionScore,
           sub: `Transitions used: ${transitionCount}/${possibleTransitions}`
+        },
+        precision: {
+          score: precisionScore,
+          sub: precisionSub
         },
         meta: {
           paragraphs: paragraphs.length,
@@ -1666,14 +1803,88 @@
 
       renderSingleMetric(powerScoreText, powerMeterFill, powerSubText, metrics?.power);
       renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
-      renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
+      renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
 
       const paragraphCount = metrics?.meta?.paragraphs || 0;
-      const mode = modeSelect ? modeSelect.value : (metrics?.meta?.mode || "");
-      const hideCohesion = paragraphCount <= 1 || mode === "peel_paragraph";
-      if (metricCohesionCard) {
-        metricCohesionCard.style.display = hideCohesion ? "none" : "block";
+      if (metrics && paragraphCount <= 1) {
+        cohesionScoreText.textContent = "—";
+        cohesionMeterFill.style.width = "0%";
+        cohesionSubText.textContent = "Add paragraph links (transitions/boundaries)";
+      } else {
+        renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
       }
+
+      if (metricCohesionCard) metricCohesionCard.style.display = "block";
+      if (metricPrecisionCard) metricPrecisionCard.style.display = "block";
+    }
+
+    function closeMetricPopover() {
+      if (!metricInfoPopover) return;
+      metricInfoPopover.classList.add("hidden");
+    }
+
+    function openMetricPopover(anchorEl, key) {
+      if (!metricInfoPopover || !metricInfoTitle || !metricInfoBody || !anchorEl) return;
+      const info = METRIC_INFO[key];
+      if (!info) return;
+
+      metricInfoTitle.textContent = info.title || "";
+      metricInfoBody.innerHTML = "";
+
+      const bodyCopy = document.createElement("div");
+      bodyCopy.textContent = info.body || "";
+      metricInfoBody.appendChild(bodyCopy);
+
+      const tipsTitle = document.createElement("div");
+      tipsTitle.className = "metric-popover-tips-title";
+      tipsTitle.textContent = "Tips to improve";
+      metricInfoBody.appendChild(tipsTitle);
+
+      const tipsList = document.createElement("ul");
+      tipsList.className = "metric-popover-list";
+      (info.tips || []).forEach((tip) => {
+        const li = document.createElement("li");
+        li.textContent = tip;
+        tipsList.appendChild(li);
+      });
+      metricInfoBody.appendChild(tipsList);
+
+      metricInfoPopover.classList.remove("hidden");
+      metricInfoPopover.style.visibility = "hidden";
+      metricInfoPopover.style.display = "block";
+
+      const gap = 10;
+      const padding = 12;
+      const rect = anchorEl.getBoundingClientRect();
+      const popRect = metricInfoPopover.getBoundingClientRect();
+      const fitsBelow = rect.bottom + gap + popRect.height <= window.innerHeight;
+
+      let top = fitsBelow ? rect.bottom + gap : rect.top - popRect.height - gap;
+      top = Math.max(padding, Math.min(top, window.innerHeight - popRect.height - padding));
+
+      let left = rect.left + rect.width / 2 - popRect.width / 2;
+      left = Math.max(padding, Math.min(left, window.innerWidth - popRect.width - padding));
+
+      metricInfoPopover.style.top = `${Math.round(top)}px`;
+      metricInfoPopover.style.left = `${Math.round(left)}px`;
+      metricInfoPopover.style.visibility = "visible";
+    }
+
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".metric-info-btn");
+      if (btn) {
+        const key = btn.dataset.metric;
+        openMetricPopover(btn, key);
+        return;
+      }
+      if (metricInfoPopover && !metricInfoPopover.classList.contains("hidden")) {
+        const clickedInside = e.target.closest("#metricInfoPopover");
+        if (!clickedInside) closeMetricPopover();
+      }
+    });
+
+    if (metricInfoClose) {
+      metricInfoClose.addEventListener("click", closeMetricPopover);
     }
 
     async function getMetricsTextSource() {
