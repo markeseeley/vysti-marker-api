@@ -181,6 +181,95 @@ button, input, select, textarea {
   font-size: var(--fs-h3);
   font-weight: 700;
 }
+
+/* Student stats panel */
+.student-stats-panel{
+  margin-top: 12px;
+  padding: 14px 14px 12px;
+  background: #FAFAFB;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08);
+  border: 1px solid rgba(0,0,0,.08);
+}
+.student-stats-title{
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,.55);
+  margin-bottom: 10px;
+}
+.student-stats-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.student-stat{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  padding: 10px 10px 8px;
+  min-height: 58px;
+}
+.student-stat-label{
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: rgba(0,0,0,.55);
+  margin-bottom: 4px;
+}
+.student-stat-value{
+  font-size: var(--fs-h3);
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+}
+.student-stat-text{
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: rgba(0,0,0,.80);
+  line-height: 1.25;
+  text-align: right;
+}
+.student-stat-row{
+  margin-top: 10px;
+  padding: 10px 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.student-stat-row .student-stat-label{
+  margin: 0;
+  flex: 0 0 auto;
+}
+#topIssueStat{
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: rgba(0,0,0,.80);
+  text-align: right;
+  line-height: 1.25;
+  max-width: 68%;
+  overflow-wrap: anywhere;
+}
+.student-techniques{
+  margin-top: 10px;
+  padding: 10px 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+}
+.student-techniques-list{
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  color: rgba(0,0,0,.78);
+  font-weight: 600;
+}
 label{ display:block; font-size:var(--fs-xs); font-weight:600; margin-top:12px; }
 .label-row{
   display: inline-flex;
