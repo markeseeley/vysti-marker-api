@@ -319,12 +319,15 @@
     .example-rewrite {
       width: 100%;
       min-height: 80px;
+      max-height: 220px;
       padding: 8px;
       border: 1px solid #e0e0e0;
       border-radius: 6px;
       font-size: var(--fs-body);
       font-family: inherit;
       margin-bottom: 8px;
+      resize: vertical;
+      overflow-y: hidden;
     }
     .example-actions {
       display: flex;
@@ -407,6 +410,28 @@
       font-size: var(--fs-sm);
       font-weight: 700;
       color: #2d5a2d;
+    }
+    .approved-rewrites-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .approved-rewrites-toggle {
+      border: 1px solid rgba(53, 133, 53, 0.35);
+      background: rgba(241, 251, 241, 0.9);
+      color: #2d5a2d;
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .approved-rewrites-toggle:hover {
+      background: rgba(224, 244, 224, 0.95);
+    }
+    .approved-rewrites-wrap[data-collapsed="true"] .approved-rewrites-list {
+      display: none;
     }
     .approved-rewrites-list {
       list-style: none;
@@ -568,7 +593,7 @@
   
     <div class="actions">
       <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
-      <button class="iconbtn tt" id="repeatTutorialBtn" type="button" aria-label="Repeat tutorial" data-tip="Repeat the tutorial">?</button>
+      <button class="iconbtn repeat-tutorial-trigger" id="repeatTutorialBtn" type="button" aria-label="Repeat tutorial" data-tip="Repeat the tutorial">?</button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -775,9 +800,12 @@
         <button type="button" class="secondary-btn next-example-btn" id="nextExampleBtn">Next →</button>
       </div>
       <ul id="examplesList" class="examples-list"></ul>
-      <div id="approvedRewritesWrap" class="approved-rewrites-wrap" style="display:none;">
+      <div id="approvedRewritesWrap" class="approved-rewrites-wrap" style="display:none;" data-collapsed="true">
         <button type="button" class="secondary-btn apply-all-btn apply-to-preview-btn" id="applyAllToPreviewBtn" style="display:none;" disabled>Apply all rewrites to Preview</button>
-        <div class="approved-rewrites-title">Approved rewrites</div>
+        <div class="approved-rewrites-header">
+          <div class="approved-rewrites-title">Approved rewrites</div>
+          <button type="button" class="approved-rewrites-toggle" id="approvedRewritesToggle" aria-expanded="false">Show approved rewrites</button>
+        </div>
         <ul id="approvedRewritesList" class="approved-rewrites-list"></ul>
       </div>
       <button type="button" class="secondary-btn" id="downloadRevisionNotesBtn" style="margin-top: 16px; display:none;">Download revision notes</button>
@@ -851,6 +879,7 @@
 
   <script>
     const DEBUG_METRICS = false;
+    const DEBUG_REVISION_BARS = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
     // ===== Bucket definitions =====
     const LABEL_BUCKETS = [
@@ -1016,6 +1045,7 @@
     const applyAllToPreviewBtn = document.getElementById("applyAllToPreviewBtn");
     const approvedRewritesWrap = document.getElementById("approvedRewritesWrap");
     const approvedRewritesList = document.getElementById("approvedRewritesList");
+    const approvedRewritesToggle = document.getElementById("approvedRewritesToggle");
     const recheckDocumentBtn = document.getElementById("recheckDocumentBtn");
     const downloadRevisionNotesBtn = document.getElementById("downloadRevisionNotesBtn");
     const mostCommonIssuesWrap = document.getElementById("mostCommonIssuesWrap");
@@ -1036,6 +1066,13 @@
     }
     if (dismissIssueOverlay) {
       dismissIssueOverlay.classList.add("hidden");
+    }
+
+    if (approvedRewritesToggle) {
+      approvedRewritesToggle.addEventListener("click", () => {
+        setApprovedRewritesCollapsed(!approvedRewritesCollapsed);
+        updateApprovedRewritesToggle(approvedRewritesList ? approvedRewritesList.children.length : 0);
+      });
     }
 
     let mostCommonIssuesChart = null;
@@ -1094,7 +1131,12 @@
     const draftRewriteByKey = new Map();
     const approvedRewriteByKey = new Map();
     const exampleDataByKey = new Map();
+    const examplesByIssueId = new Map();
     const approvedRewrites = [];
+    let currentExampleKey = null;
+    let approvedRewritesCollapsed = true;
+    const issueIdByLabel = new Map();
+    const labelByIssueId = new Map();
     const PREVIEW_ONLY_LABELS = new Set([
       "No quotations in topic sentence"
     ]);
@@ -1140,6 +1182,82 @@
 
     function normLabel(s) {
       return String(s || "").trim().toLowerCase();
+    }
+
+    function resetIssueIdMaps() {
+      issueIdByLabel.clear();
+      labelByIssueId.clear();
+    }
+
+    function normalizeIssueId(label) {
+      const slug = String(label || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return slug || "issue";
+    }
+
+    function registerIssueId(label, idCandidate = "") {
+      const cleanLabel = String(label || "").trim();
+      if (!cleanLabel) return "";
+      if (issueIdByLabel.has(cleanLabel)) return issueIdByLabel.get(cleanLabel);
+      let base = String(idCandidate || "").trim();
+      if (!base) base = normalizeIssueId(cleanLabel);
+      let issueId = base;
+      let counter = 1;
+      while (labelByIssueId.has(issueId) && labelByIssueId.get(issueId) != cleanLabel) {
+        issueId = `${base}-${counter}`;
+        counter += 1;
+      }
+      issueIdByLabel.set(cleanLabel, issueId);
+      labelByIssueId.set(issueId, cleanLabel);
+      return issueId;
+    }
+
+    function syncIssueIdMaps(issues, labelCounts) {
+      resetIssueIdMaps();
+      (issues || []).forEach((issue) => {
+        if (!issue || !issue.label) return;
+        const issueId = issue.id || issue.issue_id || issue.issueId || "";
+        registerIssueId(issue.label, issueId);
+      });
+      Object.keys(labelCounts || {}).forEach((label) => {
+        registerIssueId(label);
+      });
+    }
+
+    function getIssueIdForLabel(label) {
+      return registerIssueId(label);
+    }
+
+    function getLabelForIssueId(issueId) {
+      return labelByIssueId.get(issueId) || "";
+    }
+
+    function auditRevisionIssueBindings({ issueIds = [], labels = [], source = "" } = {}) {
+      if (!DEBUG_REVISION_BARS) return;
+      const missingIds = [];
+      issueIds.forEach((id, idx) => {
+        if (!id) {
+          missingIds.push({ index: idx, label: labels[idx] || "" });
+          return;
+        }
+        if (!getLabelForIssueId(id)) {
+          console.warn("No label mapped for issueId:", id, "source:", source);
+        }
+      });
+      if (missingIds.length) {
+        console.warn("Missing issueIds for revision issues:", missingIds, "source:", source);
+      }
+      if (source === "buttons" && issueButtonsWrap) {
+        const btns = issueButtonsWrap.querySelectorAll(".issue-btn");
+        btns.forEach((btn) => {
+          if (!btn.dataset.issueId) {
+            console.warn("Issue button missing issueId:", btn.textContent || "(no label)");
+          }
+        });
+      }
     }
 
     function isPreviewOnlyLabel(label) {
@@ -1975,6 +2093,71 @@
       });
     }
 
+    let repeatTutorialPopover = null;
+    let repeatTutorialPopoverVisible = false;
+
+    function ensureRepeatTutorialPopover() {
+      if (repeatTutorialPopover) return repeatTutorialPopover;
+      repeatTutorialPopover = document.createElement("div");
+      repeatTutorialPopover.className = "repeat-tutorial-popover";
+      repeatTutorialPopover.setAttribute("role", "tooltip");
+      repeatTutorialPopover.style.display = "none";
+      document.body.appendChild(repeatTutorialPopover);
+      return repeatTutorialPopover;
+    }
+
+    function positionRepeatTutorialPopover() {
+      if (!repeatTutorialBtn || !repeatTutorialPopover) return;
+      const pad = 12;
+      const rect = repeatTutorialBtn.getBoundingClientRect();
+
+      repeatTutorialPopover.style.position = "fixed";
+
+      let left = rect.right - repeatTutorialPopover.offsetWidth;
+      let top = rect.bottom + 8;
+
+      left = Math.max(pad, Math.min(left, window.innerWidth - repeatTutorialPopover.offsetWidth - pad));
+
+      if (top + repeatTutorialPopover.offsetHeight > window.innerHeight - pad) {
+        top = rect.top - repeatTutorialPopover.offsetHeight - 8;
+      }
+      top = Math.max(pad, Math.min(top, window.innerHeight - repeatTutorialPopover.offsetHeight - pad));
+
+      repeatTutorialPopover.style.left = `${Math.round(left)}px`;
+      repeatTutorialPopover.style.top = `${Math.round(top)}px`;
+    }
+
+    function showRepeatTutorialPopover() {
+      if (!repeatTutorialBtn) return;
+      const popover = ensureRepeatTutorialPopover();
+      popover.textContent = repeatTutorialBtn.dataset.tip || "Repeat the tutorial";
+      popover.style.display = "block";
+      popover.style.visibility = "hidden";
+      positionRepeatTutorialPopover();
+      popover.style.visibility = "visible";
+      repeatTutorialPopoverVisible = true;
+    }
+
+    function hideRepeatTutorialPopover() {
+      if (!repeatTutorialPopover) return;
+      repeatTutorialPopover.style.display = "none";
+      repeatTutorialPopoverVisible = false;
+    }
+
+    function handleRepeatTutorialPopoverPosition() {
+      if (!repeatTutorialPopoverVisible) return;
+      positionRepeatTutorialPopover();
+    }
+
+    if (repeatTutorialBtn) {
+      repeatTutorialBtn.addEventListener("mouseenter", showRepeatTutorialPopover);
+      repeatTutorialBtn.addEventListener("focus", showRepeatTutorialPopover);
+      repeatTutorialBtn.addEventListener("mouseleave", hideRepeatTutorialPopover);
+      repeatTutorialBtn.addEventListener("blur", hideRepeatTutorialPopover);
+      window.addEventListener("resize", handleRepeatTutorialPopoverPosition, { passive: true });
+      window.addEventListener("scroll", handleRepeatTutorialPopoverPosition, true);
+    }
+
     function handleAssignmentNameFocus() {
       if (!assignmentNameInput) return;
       if (!assignmentNameInput.value.trim()) {
@@ -2598,10 +2781,41 @@
       }
     }
 
+    function setApprovedRewritesCollapsed(collapsed) {
+      approvedRewritesCollapsed = !!collapsed;
+      if (approvedRewritesWrap) {
+        approvedRewritesWrap.dataset.collapsed = approvedRewritesCollapsed ? "true" : "false";
+      }
+      if (approvedRewritesToggle) {
+        approvedRewritesToggle.setAttribute("aria-expanded", String(!approvedRewritesCollapsed));
+      }
+    }
+
+    function updateApprovedRewritesToggle(visibleCount) {
+      if (!approvedRewritesToggle) return;
+      const countText = Number.isFinite(visibleCount) ? ` (${visibleCount})` : "";
+      approvedRewritesToggle.textContent = `${approvedRewritesCollapsed ? "Show" : "Hide"} approved rewrites${countText}`;
+    }
+
     function renderApprovedRewritesList() {
       if (!approvedRewritesList || !approvedRewritesWrap) return;
       approvedRewritesList.innerHTML = "";
-      approvedRewrites.forEach((entry) => {
+
+      const approvedForList = approvedRewrites.filter(
+        (entry) => entry.exampleKey && entry.exampleKey !== currentExampleKey
+      );
+
+      if (!approvedForList.length) {
+        approvedRewritesWrap.style.display = "none";
+        updateApplyAllUI();
+        return;
+      }
+
+      approvedRewritesWrap.style.display = "block";
+      setApprovedRewritesCollapsed(approvedRewritesCollapsed);
+      updateApprovedRewritesToggle(approvedForList.length);
+
+      approvedForList.forEach((entry) => {
         const li = document.createElement("li");
         li.className = "approved-rewrite-card";
         li.dataset.exampleKey = entry.exampleKey;
@@ -2651,14 +2865,9 @@
       updateApplyAllUI();
     }
 
-    function updateApplyAllUI() {
-      if (!applyAllToPreviewBtn || !approvedRewritesWrap || !approvedRewritesList) return;
-      const approvedCount = approvedRewrites.length;
-      if (approvedCount > 0) {
-        approvedRewritesWrap.style.display = "block";
-      } else {
-        approvedRewritesWrap.style.display = "none";
-      }
+    function updateApplyAllUI(totalApprovedCount = approvedRewrites.length) {
+      if (!applyAllToPreviewBtn) return;
+      const approvedCount = totalApprovedCount;
       if (approvedCount >= 2) {
         applyAllToPreviewBtn.style.display = "block";
         applyAllToPreviewBtn.disabled = false;
@@ -2679,10 +2888,14 @@
       if (approvedRewritesList) approvedRewritesList.innerHTML = "";
       if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
       approvedRewrites.length = 0;
+      currentExampleKey = null;
+      approvedRewritesCollapsed = true;
+      setApprovedRewritesCollapsed(true);
       approvedRewriteByKey.clear();
       approvedExampleKeys.clear();
       draftRewriteByKey.clear();
       exampleDataByKey.clear();
+      examplesByIssueId.clear();
       if (applyAllToPreviewBtn) {
         applyAllToPreviewBtn.style.display = "none";
         applyAllToPreviewBtn.disabled = true;
@@ -2876,6 +3089,14 @@
       nextExampleBtn.disabled = totalCount <= 1;
     }
 
+    function autosizeTextarea(el, maxHeight = 220) {
+      if (!el) return;
+      el.style.height = "auto";
+      const nextHeight = Math.min(el.scrollHeight, maxHeight);
+      el.style.height = `${nextHeight}px`;
+      el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+    }
+
     function renderCurrentExample() {
       if (!examplesList) return;
 
@@ -2896,6 +3117,8 @@
           );
         }
         updateExampleNav(0);
+        currentExampleKey = null;
+        renderApprovedRewritesList();
         updateApplyAllUI();
         return;
       }
@@ -2904,6 +3127,7 @@
       currentIndex = ((currentIndex % rotationExamples.length) + rotationExamples.length) % rotationExamples.length;
       const ex = rotationExamples[currentIndex];
       const exampleKey = getExampleKey(ex);
+      currentExampleKey = exampleKey || null;
 
       examplesList.innerHTML = "";
       activePowerVerbsHelper = null;
@@ -2947,12 +3171,14 @@
       const approvedRewrite = approvedRewriteByKey.get(exampleKey);
       const draftRewrite = draftRewriteByKey.get(exampleKey);
       rewriteTextarea.value = approvedRewrite || draftRewrite || originalSentence;
+      autosizeTextarea(rewriteTextarea);
 
       rewriteTextarea.addEventListener("focus", () => {
         cursorHighlightExampleInPreview(ex);
       });
       rewriteTextarea.addEventListener("input", () => {
         cursorHighlightExampleInPreview(ex);
+        autosizeTextarea(rewriteTextarea);
         if (exampleKey) {
           draftRewriteByKey.set(exampleKey, rewriteTextarea.value);
         }
@@ -2980,6 +3206,7 @@
       resetExampleBtn.textContent = "Reset example";
       resetExampleBtn.onclick = () => {
         rewriteTextarea.value = originalSentence;
+        autosizeTextarea(rewriteTextarea);
         if (exampleKey) {
           draftRewriteByKey.set(exampleKey, originalSentence);
         }
@@ -3072,6 +3299,7 @@
       examplesList.appendChild(li);
       updateExampleNav(rotationExamples.length);
       updateApplyAllUI();
+      renderApprovedRewritesList();
       updateAllApprovedBanner(currentExamplesAll);
     }
 
@@ -3084,7 +3312,7 @@
         lastRevisionSectionData.sectionOrder
       );
 
-      const currentLabel = issueSelect.value || "";
+      const currentIssueId = currentLabel ? getIssueIdForLabel(currentLabel) : "";
       const sortedLabels = Object.entries(liveLabelCounts)
         .filter(([, count]) => (count || 0) > 0)
         .sort((a, b) => (b[1] || 0) - (a[1] || 0))
@@ -3094,14 +3322,16 @@
       issueSelect.innerHTML = '<option value="">Select an issue...</option>';
       sortedLabels.forEach((label) => {
         const option = document.createElement("option");
-        option.value = label;
+        const issueId = getIssueIdForLabel(label);
+        option.value = issueId;
+        option.dataset.issueLabel = label;
         const count = liveLabelCounts[label] || 0;
         option.textContent = `${label} (${count})`;
         issueSelect.appendChild(option);
       });
 
-      if (currentLabel && liveLabelCounts[currentLabel]) {
-        issueSelect.value = currentLabel;
+      if (currentIssueId && liveLabelCounts[currentLabel]) {
+        issueSelect.value = currentIssueId;
       }
     }
 
@@ -3119,6 +3349,7 @@
       statusArea.textContent = "";
       statusArea.className = "status-area";
       liveLabelCounts = {};
+      resetIssueIdMaps();
       appliedExampleKeys.clear();
       approvedExampleKeys.clear();
       currentLabel = null;
@@ -3129,6 +3360,7 @@
       draftRewriteByKey.clear();
       approvedRewriteByKey.clear();
       exampleDataByKey.clear();
+      examplesByIssueId.clear();
       approvedRewrites.length = 0;
       markedPreviewCard.style.display = "none";
       markedPreview.innerHTML = "";
@@ -4158,7 +4390,9 @@
       
       sortedLabels.forEach(label => {
         const option = document.createElement("option");
-        option.value = label;
+        const issueId = getIssueIdForLabel(label);
+        option.value = issueId;
+        option.dataset.issueLabel = label;
         const count = sectionData.labelCounts[label] || 0;
         option.textContent = `${label} (${count})`;
         issueSelect.appendChild(option);
@@ -4207,7 +4441,8 @@
 
       e.preventDefault();
       e.stopPropagation();
-      void openRevisionExampleFromLabel(label);
+      const issueId = getIssueIdForLabel(label);
+      void openRevisionExampleFromIssueId(issueId, label);
     }
 
     function makePreviewLabelsClickable() {
@@ -4257,12 +4492,18 @@
       scrollToPreviewHeader();
     }
 
-    async function openRevisionExampleFromLabel(label) {
-      if (!label) return;
+    async function openRevisionExampleFromIssueId(issueId, fallbackLabel = "") {
+      const label = getLabelForIssueId(issueId) || fallbackLabel || "";
+      if (!label) {
+        console.warn("No examples loaded for issueId:", issueId);
+        showExamplesEmptyState("No examples found for this issue yet.");
+        updateAllApprovedBanner([]);
+        return;
+      }
       handlePowerVerbsIssueChange(label);
       if (revisionPracticeCard) revisionPracticeCard.style.display = "block";
-      if (issueSelect && issueSelect.value !== label) {
-        issueSelect.value = label;
+      if (issueSelect && issueSelect.value !== issueId) {
+        issueSelect.value = issueId;
       }
       updateIssueMetadataForLabel(label);
       if (isPreviewOnlyLabel(label)) {
@@ -4305,9 +4546,13 @@
     
     // Handle issue selection (set up once)
     issueSelect.addEventListener("change", async (e) => {
-      const selectedLabel = e.target.value;
+      const selectedIssueId = e.target.value;
+      const selectedOption = e.target.selectedOptions ? e.target.selectedOptions[0] : null;
+      const selectedLabel = (selectedOption && selectedOption.dataset)
+        ? selectedOption.dataset.issueLabel
+        : getLabelForIssueId(selectedIssueId);
       handlePowerVerbsIssueChange(selectedLabel);
-      if (!selectedLabel) {
+      if (!selectedIssueId) {
         if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
         if (allApprovedBanner) allApprovedBanner.style.display = "none";
@@ -4332,7 +4577,7 @@
         return;
       }
 
-      await openRevisionExampleFromLabel(selectedLabel);
+      await openRevisionExampleFromIssueId(selectedIssueId, selectedLabel || "");
     });
 
     if (applyAllToPreviewBtn) {
@@ -4417,6 +4662,8 @@
           btn.className = "issue-btn";
           btn.classList.add("tt");
           btn.setAttribute("data-tip", "Click to see example");
+          const issueId = getIssueIdForLabel(label);
+          btn.dataset.issueId = issueId;
           btn.dataset.issueLabel = label;
 
           btn.textContent = `${label} (${count})`;
@@ -4441,7 +4688,7 @@
 
             // Trigger existing issueSelect flow (loads explanation + examples)
             if (issueSelect) {
-              issueSelect.value = label;
+              issueSelect.value = issueId;
               issueSelect.dispatchEvent(new Event("change"));
             }
           });
@@ -4453,6 +4700,8 @@
         block.appendChild(row);
         issueButtonsWrap.appendChild(block);
       });
+
+      auditRevisionIssueBindings({ source: "buttons" });
     }
 
     // Wrap text for tooltip display
@@ -4613,6 +4862,7 @@
       }
 
       const labels = entries.map(([label]) => label);
+      const issueIds = labels.map((lbl) => getIssueIdForLabel(lbl));
       const values = entries.map(([, count]) => count || 0);
       const bucketIds = labels.map((lbl) => getBucketIdForLabel(lbl));
       const barBg = bucketIds.map((id) => getBucketColor(id, 0.60));
@@ -4674,7 +4924,8 @@
             backgroundColor: barBg,
             borderColor: barBorder,
             borderWidth: 1,
-            explanations: explanations
+            explanations: explanations,
+            issueIds: issueIds
           }]
         },
         options: {
@@ -4702,8 +4953,10 @@
               true
             );
             if (!hits.length) return;
-            const label = targetChart.data.labels?.[hits[0].index];
-            void openRevisionExampleFromLabel(label);
+            const idx = hits[0].index;
+            const label = targetChart.data.labels?.[idx];
+            const issueId = targetChart.data.datasets?.[0]?.issueIds?.[idx];
+            void openRevisionExampleFromIssueId(issueId || "", label || "");
           },
           scales: {
             y: {
@@ -4728,6 +4981,7 @@
           }
         }
       });
+      auditRevisionIssueBindings({ issueIds, labels, source: "chart" });
     }
 
     async function loadRevisionPractice() {
@@ -4768,6 +5022,7 @@
         const filteredLabelCounts = applyDismissalsToLabelCounts(rawLabelCounts);
         liveLabelCounts = { ...filteredLabelCounts };
         const labelCounts = liveLabelCounts;
+        syncIssueIdMaps(currentMarkEvent?.issues || [], labelCounts);
         
         if (resultsCard) resultsCard.style.display = "block";
         try {
@@ -4914,7 +5169,9 @@
         issueSelect.innerHTML = '<option value="">Select an issue...</option>';
         sortedLabels.forEach(label => {
           const option = document.createElement("option");
-          option.value = label;
+          const issueId = getIssueIdForLabel(label);
+          option.value = issueId;
+          option.dataset.issueLabel = label;
           const count = labelCounts[label] || 0;
           option.textContent = `${label} (${count})`;
           issueSelect.appendChild(option);
@@ -5048,6 +5305,8 @@
         const labelChanged = currentLabel !== label;
         currentLabel = label;
         currentExamplesAll = filteredUniq;
+        const issueId = getIssueIdForLabel(label);
+        examplesByIssueId.set(issueId, filteredUniq || []);
         if (labelChanged) currentIndex = 0;
 
         currentExamplesAll.forEach((ex) => {
@@ -5058,13 +5317,19 @@
         });
 
         if (!filteredUniq || filteredUniq.length === 0) {
+          if (issueId) {
+            console.warn("No examples loaded for issueId:", issueId);
+          }
+          const hadAnyExamples = Array.isArray(examples) && examples.length > 0;
           const hadDismissals = uniq && uniq.length > 0;
-          const emptyMessage = hadDismissals
-            ? "All examples for this issue have been dismissed. Click another bar to revise a different issue."
-            : getPreviewOnlyMessage(
-                label,
-                "No more examples for this issue. Click another bar to practice a different issue."
-              );
+          const emptyMessage = !hadAnyExamples
+            ? "No examples found for this issue yet."
+            : hadDismissals
+              ? "All examples for this issue have been dismissed. Click another bar to revise a different issue."
+              : getPreviewOnlyMessage(
+                  label,
+                  "No more examples for this issue. Click another bar to practice a different issue."
+                );
           showExamplesEmptyState(emptyMessage);
           updateAllApprovedBanner([]);
           if (exampleNavRow) exampleNavRow.style.display = "none";
@@ -5094,31 +5359,33 @@
 
     async function loadRandomIssueForTraining() {
       let candidates = [];
-      if (mostCommonIssuesChart?.data?.labels?.length) {
-        candidates = mostCommonIssuesChart.data.labels.slice();
+      const chartIssueIds = mostCommonIssuesChart?.data?.datasets?.[0]?.issueIds;
+      if (Array.isArray(chartIssueIds) && chartIssueIds.length) {
+        candidates = chartIssueIds.slice();
       } else if (lastRevisionSectionData?.labelCounts) {
         candidates = Object.entries(lastRevisionSectionData.labelCounts)
           .filter(([lbl, ct]) => lbl && (ct || 0) > 0)
           .sort((a, b) => (b[1] || 0) - (a[1] || 0))
           .slice(0, 8)
-          .map(([lbl]) => lbl);
+          .map(([lbl]) => getIssueIdForLabel(lbl));
       }
       if (!candidates.length) return null;
 
-      const label = candidates[Math.floor(Math.random() * candidates.length)];
+      const issueId = candidates[Math.floor(Math.random() * candidates.length)];
+      const label = getLabelForIssueId(issueId) || "";
 
       if (sectionSelect) {
         sectionSelect.value = "";
         sectionSelect.dispatchEvent(new Event("change"));
       }
       if (issueSelect) {
-        issueSelect.value = label;
+        issueSelect.value = issueId;
       }
 
-      await openRevisionExampleFromLabel(label);
+      await openRevisionExampleFromIssueId(issueId, label);
 
       const btn = issueButtonsWrap?.querySelector(
-        `.issue-btn[data-issue-label="${CSS.escape(label)}"]`
+        `.issue-btn[data-issue-id="${CSS.escape(issueId)}"]`
       );
       if (btn) {
         if (activeIssueBtn) activeIssueBtn.classList.remove("active");
@@ -5126,7 +5393,7 @@
         activeIssueBtn.classList.add("active");
       }
 
-      return label;
+      return issueId;
     }
 
     // ===== Preview highlighting helpers =====
