@@ -1861,12 +1861,17 @@
       if (!metric || typeof metric.score !== "number") {
         scoreEl.textContent = "—";
         meterEl.style.width = "0%";
+        scoreEl.classList.remove("perfect");
+        meterEl.classList.remove("perfect");
         subEl.textContent = "";
         return;
       }
       const scoreValue = clamp(metric.score, 0, 100);
+      const isPerfect = scoreValue === 100;
       scoreEl.textContent = `${scoreValue}/100`;
       meterEl.style.width = `${scoreValue}%`;
+      scoreEl.classList.toggle("perfect", isPerfect);
+      meterEl.classList.toggle("perfect", isPerfect);
       subEl.textContent = metric.sub || "";
     }
 
@@ -1888,6 +1893,8 @@
       } else if (sentenceCount < 2) {
         cohesionScoreText.textContent = "—";
         cohesionMeterFill.style.width = "0%";
+        cohesionScoreText.classList.remove("perfect");
+        cohesionMeterFill.classList.remove("perfect");
         cohesionSubText.textContent = "Add sentence links (transitions/boundaries)";
       } else {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
