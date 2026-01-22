@@ -491,10 +491,58 @@
       line-height: 1;
       cursor: pointer;
     }
-    .power-verbs-popover-grid {
+    .power-verbs-popover-grid{
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .power-verb-card{
+      width: 100%;
+      text-align: left;
+      border: 1px solid rgba(0,0,0,.14);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    .power-verb-card:hover{
+      background: rgba(0,0,0,.02);
+    }
+
+    .power-verb-card-header{
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .power-verb-card-verb{
+      font-weight: 900;
+      font-size: var(--fs-sm);
+      color: rgba(0,0,0,.82);
+    }
+
+    .power-verb-card-copied{
+      font-size: var(--fs-xs);
+      font-weight: 800;
+      color: rgba(0,0,0,.45);
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .power-verb-card-copied.is-visible{
+      opacity: 1;
+    }
+
+    .power-verb-card-def{
+      margin-top: 6px;
+      font-size: var(--fs-sm);
+      font-weight: 650;
+      color: rgba(0,0,0,.68);
+      line-height: 1.35;
     }
     .power-verbs-popover-footer {
       display: flex;
@@ -1291,10 +1339,11 @@
     ]);
     const POWER_VERBS_LABEL = "Avoid weak verbs";
     const POWER_VERBS_INITIAL_COUNT = 5;
-    const POWER_VERBS_PAGE_COUNT = 10;
+    const POWER_VERBS_PAGE_COUNT = 5;
     const POWER_VERBS_STORAGE_PREFIX = "vysti_power_verbs_2025";
 
     let powerVerbsList = null;
+    let powerVerbDefinitionMap = new Map();
     let powerVerbsLoadPromise = null;
     let powerVerbFormsSet = null;
     let activePowerVerbsHelper = null;
@@ -1445,17 +1494,33 @@
       const list = Array.isArray(data) ? data : [];
       const verbs = [];
       const seen = new Set();
+      powerVerbDefinitionMap = new Map();
+
       list.forEach((item) => {
         const value = typeof item === "string" ? item : item?.verb;
         if (!value) return;
+
         const trimmed = String(value).trim();
         if (!trimmed) return;
+
         const key = trimmed.toLowerCase();
         if (seen.has(key)) return;
         seen.add(key);
+
+        const def = typeof item === "object"
+          ? String(item?.definition || item?.def || item?.meaning || "").trim()
+          : "";
+
+        if (def) powerVerbDefinitionMap.set(key, def);
         verbs.push(trimmed);
       });
+
       return verbs;
+    }
+
+    function getPowerVerbDefinition(verb) {
+      const key = String(verb || "").trim().toLowerCase();
+      return powerVerbDefinitionMap.get(key) || "";
     }
 
     function generateVerbForms(base) {
@@ -1611,6 +1676,91 @@
       });
     }
 
+    function setCopiedBadge(el) {
+      if (!el) return;
+      el.classList.add("is-visible");
+      if (el._timer) clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.remove("is-visible"), 1400);
+    }
+
+    function selectionIsInsidePreview() {
+      const sel = window.getSelection?.();
+      if (!sel || sel.rangeCount === 0) return false;
+      const range = sel.getRangeAt(0);
+      if (!range || range.collapsed) return false;
+      const node = range.commonAncestorContainer;
+      const el = node.nodeType === 1 ? node : node.parentElement;
+      return !!(el && markedPreview && markedPreview.contains(el));
+    }
+
+    function replaceSelectionInPreview(text) {
+      if (!selectionIsInsidePreview()) return false;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      if (markedPreview) markedPreview.normalize();
+      return true;
+    }
+
+    function renderPowerVerbCards(container, verbs) {
+      if (!container) return;
+      container.innerHTML = "";
+
+      (verbs || []).forEach((verb) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "power-verb-card";
+        card.setAttribute("aria-label", `Copy power verb: ${verb}`);
+
+        const header = document.createElement("div");
+        header.className = "power-verb-card-header";
+
+        const title = document.createElement("div");
+        title.className = "power-verb-card-verb";
+        title.textContent = verb;
+
+        const copied = document.createElement("div");
+        copied.className = "power-verb-card-copied";
+        copied.textContent = "Copied";
+
+        header.appendChild(title);
+        header.appendChild(copied);
+
+        const def = document.createElement("div");
+        def.className = "power-verb-card-def";
+        def.textContent = getPowerVerbDefinition(verb) || "Definition coming soon.";
+
+        card.appendChild(header);
+        card.appendChild(def);
+
+        card.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(verb);
+          } catch (e) {
+            console.warn("Clipboard failed:", e);
+          }
+
+          const didReplace = replaceSelectionInPreview(verb);
+          setCopiedBadge(copied);
+
+          if (didReplace) {
+            if (typeof refreshStudentMetrics === "function") refreshStudentMetrics();
+            if (typeof updateWordCountFromPreviewDebounced === "function") {
+              updateWordCountFromPreviewDebounced(0);
+            }
+          }
+        });
+
+        container.appendChild(card);
+      });
+    }
+
     function createPowerVerbsPage() {
       if (!powerVerbsList || !powerVerbsList.length) return [];
       const exclude = new Set(powerVerbsState.recentlyShown || []);
@@ -1630,10 +1780,7 @@
     function renderPowerVerbsPopoverPage() {
       if (!powerVerbsPopover.grid) return;
       const page = powerVerbsState.pageHistory[powerVerbsState.pageIndex] || [];
-      renderPowerVerbButtons(powerVerbsPopover.grid, page, {
-        feedbackEl: powerVerbsPopover.feedback,
-        textarea: powerVerbsPopover.textarea
-      });
+      renderPowerVerbCards(powerVerbsPopover.grid, page);
       updatePowerVerbsPopoverNav();
     }
 
@@ -1714,7 +1861,7 @@
 
       const title = document.createElement("div");
       title.className = "power-verbs-popover-title";
-      title.textContent = "More power verbs";
+      title.textContent = "Power Verbs";
 
       const closeBtn = document.createElement("button");
       closeBtn.type = "button";
