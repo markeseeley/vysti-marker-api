@@ -467,6 +467,33 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+    .power-verbs-suggestions-row{
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .power-verbs-suggestions-list{
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .power-verbs-shuffle-btn{
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.14);
+      background: #fff;
+      color: rgba(0,0,0,.55);
+      font-size: 22px;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .power-verbs-shuffle-btn:hover{ background: rgba(0,0,0,.03); }
     .power-verbs-popover {
       width: min(420px, calc(100vw - 24px));
       max-height: 60vh;
@@ -1582,6 +1609,46 @@
       return pool.slice(0, count);
     }
 
+    function getUsedPowerVerbKeysInPreview() {
+      const raw = extractPreviewText ? (extractPreviewText() || "") : "";
+      const norm = normalizeForMatch(raw).toLowerCase();
+      const tokens = new Set(tokenizeWords(norm));
+
+      const used = new Set();
+      (powerVerbsList || []).forEach((verb) => {
+        const v = String(verb || "").trim();
+        if (!v) return;
+        const k = v.toLowerCase();
+
+        if (k.includes(" ")) {
+          const phrase = k.replace(/\s+/g, " ");
+          if (norm.includes(phrase)) used.add(k);
+        } else if (tokens.has(k)) {
+          used.add(k);
+        }
+      });
+
+      return used;
+    }
+
+    function samplePowerVerbs(count, extraExcludeLowerSet = null) {
+      const used = getUsedPowerVerbKeysInPreview();
+      const exclude = new Set([...(extraExcludeLowerSet || [])]);
+
+      used.forEach((k) => exclude.add(k));
+
+      let pool = (powerVerbsList || []).filter((v) => !exclude.has(String(v).toLowerCase()));
+
+      if (pool.length < count) {
+        const fallbackExclude = extraExcludeLowerSet || new Set();
+        pool = (powerVerbsList || []).filter(
+          (v) => !fallbackExclude.has(String(v).toLowerCase())
+        );
+      }
+
+      return sampleUnique(pool, count);
+    }
+
     function loadStoredPowerVerbs(label) {
       const key = getPowerVerbsStorageKey(label);
       try {
@@ -1608,11 +1675,15 @@
       if (powerVerbsState.initialVerbs.length) return;
       const stored = loadStoredPowerVerbs(label);
       if (stored.length) {
-        powerVerbsState.initialVerbs = stored.slice(0, POWER_VERBS_INITIAL_COUNT);
-        return;
+        const used = getUsedPowerVerbKeysInPreview();
+        const filtered = stored.filter((verb) => !used.has(String(verb).toLowerCase()));
+        if (filtered.length) {
+          powerVerbsState.initialVerbs = filtered.slice(0, POWER_VERBS_INITIAL_COUNT);
+          return;
+        }
       }
       if (!powerVerbsList || !powerVerbsList.length) return;
-      const verbs = sampleUnique(powerVerbsList, POWER_VERBS_INITIAL_COUNT);
+      const verbs = samplePowerVerbs(POWER_VERBS_INITIAL_COUNT);
       powerVerbsState.initialVerbs = verbs;
       storePowerVerbs(label, verbs);
     }
@@ -1638,6 +1709,23 @@
       const insertText = `${needsSpaceBefore ? " " : ""}${verb}${needsSpaceAfter ? " " : ""}`;
       textarea.value = before + insertText + after;
       const cursor = before.length + insertText.length;
+      textarea.setSelectionRange(cursor, cursor);
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    }
+
+    function replaceSelectionInTextarea(textarea, text) {
+      if (!textarea) return false;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      if (typeof start !== "number" || typeof end !== "number") return false;
+      if (start === end) return false;
+
+      const before = textarea.value.slice(0, start);
+      const after = textarea.value.slice(end);
+      textarea.value = before + text + after;
+
+      const cursor = before.length + text.length;
       textarea.setSelectionRange(cursor, cursor);
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
       return true;
@@ -1708,66 +1796,63 @@
       return true;
     }
 
-    function renderPowerVerbCards(container, verbs) {
+    function createPowerVerbCard(verb, onClick) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "power-verb-card";
+      card.setAttribute("aria-label", `Use power verb: ${verb}`);
+
+      const header = document.createElement("div");
+      header.className = "power-verb-card-header";
+
+      const title = document.createElement("div");
+      title.className = "power-verb-card-verb";
+      title.textContent = verb;
+
+      const copied = document.createElement("div");
+      copied.className = "power-verb-card-copied";
+      copied.textContent = "Copied";
+
+      header.appendChild(title);
+      header.appendChild(copied);
+
+      const def = document.createElement("div");
+      def.className = "power-verb-card-def";
+      def.textContent = getPowerVerbDefinition(verb) || "Definition coming soon.";
+
+      card.appendChild(header);
+      card.appendChild(def);
+
+      card.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(verb);
+        } catch (e) {
+          console.warn("Clipboard failed:", e);
+        }
+        setCopiedBadge(copied);
+        if (typeof onClick === "function") onClick(verb);
+      });
+
+      return card;
+    }
+
+    function renderPowerVerbCardList(container, verbs, onClick) {
       if (!container) return;
       container.innerHTML = "";
 
       (verbs || []).forEach((verb) => {
-        const card = document.createElement("button");
-        card.type = "button";
-        card.className = "power-verb-card";
-        card.setAttribute("aria-label", `Copy power verb: ${verb}`);
-
-        const header = document.createElement("div");
-        header.className = "power-verb-card-header";
-
-        const title = document.createElement("div");
-        title.className = "power-verb-card-verb";
-        title.textContent = verb;
-
-        const copied = document.createElement("div");
-        copied.className = "power-verb-card-copied";
-        copied.textContent = "Copied";
-
-        header.appendChild(title);
-        header.appendChild(copied);
-
-        const def = document.createElement("div");
-        def.className = "power-verb-card-def";
-        def.textContent = getPowerVerbDefinition(verb) || "Definition coming soon.";
-
-        card.appendChild(header);
-        card.appendChild(def);
-
-        card.addEventListener("click", async () => {
-          try {
-            await navigator.clipboard.writeText(verb);
-          } catch (e) {
-            console.warn("Clipboard failed:", e);
-          }
-
-          const didReplace = replaceSelectionInPreview(verb);
-          setCopiedBadge(copied);
-
-          if (didReplace) {
-            if (typeof refreshStudentMetrics === "function") refreshStudentMetrics();
-            if (typeof updateWordCountFromPreviewDebounced === "function") {
-              updateWordCountFromPreviewDebounced(0);
-            }
-          }
-        });
-
-        container.appendChild(card);
+        container.appendChild(createPowerVerbCard(verb, onClick));
       });
     }
 
     function createPowerVerbsPage() {
       if (!powerVerbsList || !powerVerbsList.length) return [];
-      const exclude = new Set(powerVerbsState.recentlyShown || []);
-      let page = sampleUnique(powerVerbsList, POWER_VERBS_PAGE_COUNT, exclude);
-      if (page.length < POWER_VERBS_PAGE_COUNT) {
-        page = page.concat(sampleUnique(powerVerbsList, POWER_VERBS_PAGE_COUNT - page.length));
-      }
+
+      const recentLower = new Set(
+        (powerVerbsState.recentlyShown || []).map((v) => String(v).toLowerCase())
+      );
+      const page = samplePowerVerbs(POWER_VERBS_PAGE_COUNT, recentLower);
+
       powerVerbsState.recentlyShown = [...powerVerbsState.recentlyShown, ...page].slice(-40);
       return page;
     }
@@ -1780,7 +1865,15 @@
     function renderPowerVerbsPopoverPage() {
       if (!powerVerbsPopover.grid) return;
       const page = powerVerbsState.pageHistory[powerVerbsState.pageIndex] || [];
-      renderPowerVerbCards(powerVerbsPopover.grid, page);
+      renderPowerVerbCardList(powerVerbsPopover.grid, page, (verb) => {
+        const didReplace = replaceSelectionInPreview(verb);
+        if (didReplace) {
+          if (typeof refreshStudentMetrics === "function") refreshStudentMetrics();
+          if (typeof updateWordCountFromPreviewDebounced === "function") {
+            updateWordCountFromPreviewDebounced(0);
+          }
+        }
+      });
       updatePowerVerbsPopoverNav();
     }
 
@@ -1948,11 +2041,18 @@
 
     function refreshPowerVerbsHelper() {
       if (!activePowerVerbsHelper || !activePowerVerbsHelper.isConnected) return;
-      const grid = activePowerVerbsHelper.querySelector("[data-power-verbs-grid]");
-      const feedback = activePowerVerbsHelper.querySelector("[data-power-verbs-feedback]");
+      const list = activePowerVerbsHelper.querySelector("[data-power-verbs-list]");
       const textarea = activePowerVerbsHelper._textarea;
       ensureInitialPowerVerbs(powerVerbsState.label || currentLabelText || currentLabel || "");
-      renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea });
+      renderPowerVerbCardList(list, powerVerbsState.initialVerbs, (verb) => {
+        const didReplace = replaceSelectionInTextarea(textarea, verb);
+        if (didReplace) {
+          if (typeof refreshStudentMetrics === "function") refreshStudentMetrics();
+          if (typeof updateWordCountFromPreviewDebounced === "function") {
+            updateWordCountFromPreviewDebounced(0);
+          }
+        }
+      });
     }
 
     function buildPowerVerbsHelper(label, rewriteTextarea) {
@@ -1968,56 +2068,53 @@
       title.className = "power-verbs-title";
       title.textContent = "Do any of these work?";
 
-      const actions = document.createElement("div");
-      actions.className = "power-verbs-actions";
+      header.appendChild(title);
 
-      const feedback = document.createElement("div");
-      feedback.className = "power-verbs-feedback";
-      feedback.setAttribute("aria-live", "polite");
-      feedback.dataset.powerVerbsFeedback = "1";
+      const suggestionsRow = document.createElement("div");
+      suggestionsRow.className = "power-verbs-suggestions-row";
+
+      const list = document.createElement("div");
+      list.className = "power-verbs-suggestions-list";
+      list.dataset.powerVerbsList = "1";
 
       const shuffleBtn = document.createElement("button");
       shuffleBtn.type = "button";
-      shuffleBtn.className = "power-verbs-iconbtn";
+      shuffleBtn.className = "power-verbs-shuffle-btn";
       shuffleBtn.setAttribute("aria-label", "Shuffle power verb suggestions");
-      shuffleBtn.innerHTML = "⟳";
-      shuffleBtn.addEventListener("click", () => {
-        if (!powerVerbsList || !powerVerbsList.length) return;
-        powerVerbsState.initialVerbs = sampleUnique(powerVerbsList, POWER_VERBS_INITIAL_COUNT);
-        storePowerVerbs(label, powerVerbsState.initialVerbs);
-        renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea: rewriteTextarea });
-        showPowerVerbFeedback(feedback, "Shuffled");
-      });
+      shuffleBtn.textContent = "⟳";
 
-      const moreBtn = document.createElement("button");
-      moreBtn.type = "button";
-      moreBtn.className = "secondary-btn";
-      moreBtn.textContent = "More options";
-      moreBtn.addEventListener("click", () => openPowerVerbsPopover(moreBtn, rewriteTextarea));
+      function refreshSuggestions() {
+        const verbs = samplePowerVerbs(POWER_VERBS_INITIAL_COUNT);
+        powerVerbsState.initialVerbs = verbs;
+        storePowerVerbs(label, verbs);
 
-      actions.appendChild(feedback);
-      actions.appendChild(shuffleBtn);
-      actions.appendChild(moreBtn);
+        renderPowerVerbCardList(list, verbs, (verb) => {
+          const didReplace = replaceSelectionInTextarea(rewriteTextarea, verb);
+          if (didReplace) {
+            if (typeof refreshStudentMetrics === "function") refreshStudentMetrics();
+            if (typeof updateWordCountFromPreviewDebounced === "function") {
+              updateWordCountFromPreviewDebounced(0);
+            }
+          }
+        });
+      }
 
-      header.appendChild(title);
-      header.appendChild(actions);
+      shuffleBtn.addEventListener("click", refreshSuggestions);
 
-      const grid = document.createElement("div");
-      grid.className = "power-verbs-grid";
-      grid.dataset.powerVerbsGrid = "1";
+      suggestionsRow.appendChild(list);
+      suggestionsRow.appendChild(shuffleBtn);
 
       helper.appendChild(header);
-      helper.appendChild(grid);
+      helper.appendChild(suggestionsRow);
 
       activePowerVerbsHelper = helper;
-      ensureInitialPowerVerbs(label);
-      renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea: rewriteTextarea });
+
+      refreshSuggestions();
 
       if (!powerVerbsState.initialVerbs.length) {
         loadPowerVerbsList().then(() => {
-          ensureInitialPowerVerbs(label);
           if (helper.isConnected) {
-            renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea: rewriteTextarea });
+            refreshSuggestions();
           }
         });
       }
