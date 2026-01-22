@@ -42,7 +42,7 @@
     }
     
     .filter-group label {
-      font-size: var(--fs-xs);
+      font-size: 13px;
       font-weight: 600;
       margin-bottom: 6px;
       color: var(--text);
@@ -61,7 +61,7 @@
       border-radius: 8px;
       background: #fff;
       cursor: pointer;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       font-weight: 600;
       transition: all 0.2s;
     }
@@ -90,7 +90,7 @@
       padding: 0 8px;
       border: 1px solid rgba(0,0,0,.14);
       border-radius: 8px;
-      font-size: var(--fs-sm);
+      font-size: 13px;
     }
     
     .duplicates-toggle {
@@ -143,7 +143,7 @@
       display: flex;
       gap: 6px;
       align-items: center;
-      font-size: var(--fs-sm);
+      font-size: 0.9rem;
       cursor: pointer;
       font-weight: normal;
     }
@@ -166,7 +166,7 @@
       border-radius: 8px;
       background: #fff;
       cursor: pointer;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       font-weight: 600;
       transition: all 0.2s;
     }
@@ -198,7 +198,7 @@
     
     .chart-card h3 {
       margin: 0 0 16px;
-      font-size: var(--fs-h3);
+      font-size: 18px;
       font-weight: 600;
     }
     
@@ -216,7 +216,7 @@
     
     .table-section h3 {
       margin: 0 0 16px;
-      font-size: var(--fs-h3);
+      font-size: 18px;
       font-weight: 600;
       display: flex;
       justify-content: space-between;
@@ -230,7 +230,7 @@
       background: var(--maroon);
       color: #fff;
       font-weight: 600;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -242,7 +242,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: var(--fs-sm);
+      font-size: 13px;
     }
     
     thead {
@@ -257,7 +257,7 @@
     
     th {
       font-weight: 600;
-      font-size: var(--fs-xs);
+      font-size: 12px;
       text-transform: uppercase;
       color: var(--muted);
     }
@@ -275,7 +275,7 @@
       background: rgba(169,13,34,.05);
       border-radius: 8px;
       margin-bottom: 16px;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       color: var(--text);
     }
     
@@ -290,18 +290,18 @@
     
     .print-title h1 {
       margin: 0 0 8px;
-      font-size: var(--fs-h1);
+      font-size: 24px;
       font-weight: 700;
       color: var(--text);
     }
     
     .print-generated {
-      font-size: var(--fs-xs);
+      font-size: 12px;
       color: var(--muted);
     }
     
     .print-meta {
-      font-size: var(--fs-sm);
+      font-size: 13px;
       color: var(--text);
       line-height: 1.6;
     }
@@ -405,13 +405,13 @@
     }
     
     .examples-modal-bucket {
-      font-size: var(--fs-sm);
+      font-size: 13px;
       color: var(--muted);
       margin-bottom: 4px;
     }
     
     .examples-modal-label {
-      font-size: var(--fs-h3);
+      font-size: 18px;
       font-weight: 600;
       color: var(--text);
     }
@@ -450,7 +450,7 @@
       background: var(--maroon);
       color: #fff;
       font-weight: 600;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -491,7 +491,7 @@
     }
     
     .example-assignment-name {
-      font-size: var(--fs-sm);
+      font-size: 13px;
       color: var(--muted);
     }
     
@@ -514,7 +514,7 @@
       border-radius: 8px;
       background: #fff;
       cursor: pointer;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       font-weight: 600;
       transition: all 0.2s;
       color: var(--text);
@@ -543,7 +543,7 @@
       border: 1px solid var(--border);
       background: #fff;
       padding: 0 10px;
-      font-size: var(--fs-sm);
+      font-size: 13px;
       font-weight: 600;
       max-width: 320px;
     }
@@ -563,8 +563,7 @@
     </nav>
     
     <div class="actions">
-      <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
-      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
+      <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Student Mode</button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -580,7 +579,7 @@
       </div>
       
       <div class="filters-section">
-        <h2 style="margin: 0 0 16px; font-size: var(--fs-h2); font-weight: 600;">Filters</h2>
+        <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600;">Filters</h2>
         
         <div class="filters-grid">
           <div class="filter-group">
@@ -622,7 +621,7 @@
         
         <div class="duplicates-toggle">
           <input type="checkbox" id="includeDuplicates" />
-          <label for="includeDuplicates" style="margin: 0; font-size: var(--fs-sm); font-weight: 600;">Include duplicates (show all entries for same student+assignment)</label>
+          <label for="includeDuplicates" style="margin: 0; font-size: 13px; font-weight: 600;">Include duplicates (show all entries for same student+assignment)</label>
         </div>
         
         <div class="filter-group" style="margin-top: 20px;">
@@ -650,7 +649,7 @@
           <div id="examplesPanelMeta" style="margin-bottom:10px;">
             <div class="examples-modal-bucket" id="examplesPanelBucket"></div>
             <div class="examples-modal-label" id="examplesPanelLabel"></div>
-            <div style="margin-top:8px; color: var(--muted); font-size: var(--fs-sm); font-weight:600;" id="examplesPanelBestWorst"></div>
+            <div style="margin-top:8px; color: var(--muted); font-size: 13px; font-weight:600;" id="examplesPanelBestWorst"></div>
           </div>
 
           <div class="chart-container" style="height:300px;">
@@ -774,7 +773,6 @@
           /\bfact\b/i,
           /\bprove\b/i,
           /weak verb/i,
-          /article/i,
           /vague/i,
           /people/i,
           /human/i,
@@ -875,7 +873,6 @@
       "rgba(231, 76, 60, 1)",    // red - Formatting & Conventions
       "rgba(26, 188, 156, 1)",   // teal - Other
     ];
-    const CHART_TICK_FONT_SIZE = 12;
 
     // Helper function to get bucket color by bucketId
     // Returns color with specified alpha (default 1.0 for full opacity)
@@ -910,6 +907,7 @@
     
     const progressPage = document.getElementById("progressPage");
     const logoutBtn = document.getElementById("logoutBtn");
+    const switchModeBtn = document.getElementById("switchModeBtn");
     const classFilter = document.getElementById("classFilter");
     const studentFilter = document.getElementById("studentFilter");
     const seriesFilter = document.getElementById("seriesFilter");
@@ -955,8 +953,16 @@
         return;
       }
       
+      localStorage.setItem("vysti_role", "teacher");
       progressPage.style.display = "block";
       loadData();
+    }
+    
+    if (switchModeBtn) {
+      switchModeBtn.addEventListener("click", () => {
+        localStorage.setItem("vysti_role", "student");
+        window.location.href = "/student.html";
+      });
     }
     
     logoutBtn.addEventListener("click", async () => {
@@ -1553,16 +1559,8 @@
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: {
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
-              },
               y: {
-                beginAtZero: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+                beginAtZero: true
               }
             }
           }
@@ -1622,16 +1620,8 @@
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: {
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
-              },
               y: {
-                beginAtZero: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+                beginAtZero: true
               }
             }
           }
@@ -1760,15 +1750,7 @@
           maintainAspectRatio: false,
           scales: {
             y: {
-                beginAtZero: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
-              },
-              x: {
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+              beginAtZero: true
             }
           },
           plugins: {
@@ -1967,17 +1949,11 @@
             maintainAspectRatio: false,
             scales: {
               x: {
-                stacked: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+                stacked: true
               },
               y: {
                 stacked: true,
-                beginAtZero: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+                beginAtZero: true
               }
             }
           }
@@ -2060,17 +2036,11 @@
             maintainAspectRatio: false,
             scales: {
               x: {
-                stacked: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+                stacked: true
               },
               y: {
                 stacked: true,
-                beginAtZero: true,
-                ticks: {
-                  font: { size: CHART_TICK_FONT_SIZE }
-                }
+                beginAtZero: true
               }
             }
           }
@@ -2156,7 +2126,7 @@
         separatorTd.style.padding = "16px 12px 8px";
         separatorTd.style.borderTop = "2px solid #ffc107";
         separatorTd.style.background = "#fffbf0";
-        separatorTd.innerHTML = '<strong style="color: #856404;">⚠️ Unsorted / Missing assignment number</strong><br><span style="font-size: var(--fs-xs); color: #856404;">These assignments cannot be sorted sequentially. Please use format like "Foundation 01" for progress graphs.</span>';
+        separatorTd.innerHTML = '<strong style="color: #856404;">⚠️ Unsorted / Missing assignment number</strong><br><span style="font-size: 12px; color: #856404;">These assignments cannot be sorted sequentially. Please use format like "Foundation 01" for progress graphs.</span>';
         dataTableBody.appendChild(separatorTr);
         separatorTr.appendChild(separatorTd);
         
