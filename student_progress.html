@@ -1232,37 +1232,6 @@
           "Delete failed. Likely Row Level Security (RLS) is blocking deletes. Check console for details.";
       }
     }
-      const { data: sessionData } = await supa.auth.getSession();
-      if (!sessionData || !sessionData.session) {
-        window.location.replace("/signin.html");
-        return;
-      }
-
-      const userId = sessionData.session.user.id;
-      const { error: examplesError } = await supa
-        .from("issue_examples")
-        .delete()
-        .eq("user_id", userId)
-        .eq("file_name", fileName);
-
-      if (examplesError) {
-        alert(`Failed to delete examples: ${examplesError.message}`);
-        return;
-      }
-
-      const { error: eventsError } = await supa
-        .from("mark_events")
-        .delete()
-        .eq("user_id", userId)
-        .eq("file_name", fileName);
-
-      if (eventsError) {
-        alert(`Failed to delete events: ${eventsError.message}`);
-        return;
-      }
-
-      loadData();
-    }
 
     // ===== Bucket selection =====
     function buildBucketCheckboxes() {
@@ -2675,8 +2644,6 @@
       exportPdfBtn.addEventListener("click", exportToPDF);
     }
     
-    // ===== Initial load =====
-    refreshAuthUI();
   </script>
 </body>
 </html>
