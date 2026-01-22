@@ -164,6 +164,16 @@
       color: rgba(0,0,0,.70);
       white-space: nowrap;
     }
+    .quest-pill-btn{
+      appearance: none;
+      cursor: pointer;
+    }
+    .quest-pill-btn:hover{
+      background: rgba(217,83,79,.06);
+    }
+    .quest-pill-btn:active{
+      transform: translateY(0.5px);
+    }
     .quest-pill.weak{ border-color: rgba(217,83,79,.55); }
     .quest-pill.power{ border-color: rgba(46,204,113,.55); }
     .quest-dots{
@@ -480,13 +490,13 @@
       gap: 10px;
     }
     .power-verbs-shuffle-btn{
-      width: 42px;
-      height: 42px;
+      width: 48px;
+      height: 48px;
       border-radius: 999px;
       border: 1px solid rgba(0,0,0,.14);
       background: #fff;
       color: rgba(0,0,0,.55);
-      font-size: 22px;
+      font-size: 26px;
       font-weight: 900;
       cursor: pointer;
       display: inline-flex;
@@ -1534,9 +1544,32 @@
         if (seen.has(key)) return;
         seen.add(key);
 
-        const def = typeof item === "object"
-          ? String(item?.definition || item?.def || item?.meaning || "").trim()
+        const defRaw = (typeof item === "object")
+          ? (item?.definition ?? item?.def ?? item?.meaning ?? "")
           : "";
+
+        let def = "";
+
+        if (Array.isArray(defRaw)) {
+          def = defRaw.map((x) => String(x || "").trim()).filter(Boolean).join(" ");
+        } else {
+          def = String(defRaw || "").trim();
+        }
+
+        if (def.length > 140) {
+          const cut = def.search(/[.!?]\s/);
+          if (cut > 0 && cut < 220) {
+            def = def.slice(0, cut + 1).trim();
+          } else {
+            def = def.split(/\n{1,}|\s{2,}/)[0].trim();
+          }
+        }
+
+        if (def.length > 260) def = def.slice(0, 257).trim() + "…";
+
+        if (defRaw && typeof defRaw === "string" && defRaw.length > 260) {
+          console.warn("Power verb definition unusually long (check JSON):", trimmed, defRaw.slice(0, 120));
+        }
 
         if (def) powerVerbDefinitionMap.set(key, def);
         verbs.push(trimmed);
@@ -2081,6 +2114,7 @@
       shuffleBtn.type = "button";
       shuffleBtn.className = "power-verbs-shuffle-btn";
       shuffleBtn.setAttribute("aria-label", "Shuffle power verb suggestions");
+      shuffleBtn.title = "Shuffle choices";
       shuffleBtn.textContent = "⟳";
 
       function refreshSuggestions() {
@@ -2781,9 +2815,15 @@
         const row = document.createElement("div");
         row.className = "quest-row";
 
-        const pill = document.createElement("div");
-        pill.className = "quest-pill weak";
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "quest-pill weak quest-pill-btn";
         pill.textContent = "Weak verbs remaining";
+        pill.title = "Click to revise weak verbs";
+        pill.addEventListener("click", () => {
+          const issueId = getIssueIdForLabel("Avoid weak verbs");
+          openRevisionExampleFromIssueId(issueId, "Avoid weak verbs");
+        });
 
         const dots = document.createElement("div");
         dots.className = "quest-dots";
@@ -2838,6 +2878,89 @@
       }
 
       subEl.appendChild(wrap);
+    }
+
+    function renderPowerDotsPopover(containerEl, powerMetric) {
+      if (!containerEl) return;
+      containerEl.innerHTML = "";
+
+      if (!powerMetric || typeof powerMetric.score !== "number") return;
+
+      const d = powerMetric.details || {};
+      const weakCount = Number(d.weakCount) || 0;
+      const powerCount = Number(d.powerCount) || 0;
+      const powerTarget = Number(d.powerTarget) || 0;
+
+      const wrap = document.createElement("div");
+      wrap.className = "power-quests";
+
+      if (weakCount > 0) {
+        const row = document.createElement("div");
+        row.className = "quest-row";
+
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "quest-pill weak quest-pill-btn";
+        pill.textContent = "Weak verbs remaining";
+        pill.title = "Click to revise weak verbs";
+        pill.addEventListener("click", () => {
+          const issueId = getIssueIdForLabel("Avoid weak verbs");
+          openRevisionExampleFromIssueId(issueId, "Avoid weak verbs");
+        });
+
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
+
+        const maxDots = 10;
+        const showDots = Math.min(weakCount, maxDots);
+        for (let i = 0; i < showDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = "quest-dot bad";
+          dots.appendChild(dot);
+        }
+        if (weakCount > maxDots) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${weakCount - maxDots}`;
+          dots.appendChild(more);
+        }
+
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
+      }
+
+      if (powerTarget > 0) {
+        const row = document.createElement("div");
+        row.className = "quest-row";
+
+        const pill = document.createElement("div");
+        pill.className = "quest-pill power";
+        pill.textContent = "Power verbs completed";
+
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
+
+        const maxDots = Math.min(powerTarget, 10);
+        const filled = Math.min(powerCount, maxDots);
+        for (let i = 0; i < maxDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = `quest-dot ${i < filled ? "good" : "empty"}`;
+          dots.appendChild(dot);
+        }
+        if (powerTarget > 10) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${powerTarget - 10}`;
+          dots.appendChild(more);
+        }
+
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
+      }
+
+      containerEl.appendChild(wrap);
     }
 
     function stripQuotedText(s) {
@@ -3305,7 +3428,7 @@
         progWrap.style.marginTop = "8px";
         metricInfoBody.appendChild(progWrap);
 
-        renderPowerDots(progWrap, lastStudentMetrics?.power);
+        renderPowerDotsPopover(progWrap, lastStudentMetrics?.power);
       }
 
       metricInfoPopover.classList.remove("hidden");
