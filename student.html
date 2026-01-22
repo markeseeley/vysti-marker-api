@@ -91,12 +91,94 @@
       font-size: var(--fs-xs);
       color: var(--muted);
     }
+    .preview-tools{
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .preview-pill-btn{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.14);
+      background: #fff;
+      color: rgba(0,0,0,.75);
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .preview-pill-btn:hover{ background: rgba(0,0,0,.03); }
+    .preview-pill-btn:active{ transform: translateY(0.5px); }
+    .preview-pill-icon{
+      font-size: 14px;
+      line-height: 1;
+    }
     #previewZoom {
       width: auto;
       height: 32px;
       padding: 0 8px;
       border-radius: 8px;
       font-size: var(--fs-xs);
+    }
+    .power-quests{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .quest-chip{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.12);
+      background: #fff;
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      color: rgba(0,0,0,.75);
+      line-height: 1;
+    }
+    .quest-icon{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.14);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .quest-chip.ok{
+      border-color: rgba(46, 204, 113, .35);
+      background: rgba(46, 204, 113, .10);
+    }
+    .quest-chip.bad{
+      border-color: rgba(217, 83, 79, .35);
+      background: rgba(217, 83, 79, .10);
+    }
+    .quest-chip.star{
+      border-color: rgba(240, 173, 78, .45);
+      background: rgba(240, 173, 78, .12);
+    }
+    .quest-mini{
+      width: 74px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.10);
+      overflow: hidden;
+    }
+    .quest-mini-fill{
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: rgba(240, 173, 78, .95);
     }
     .marked-preview-container {
       max-height: 600px;
@@ -813,17 +895,25 @@
     <section class="card marked-preview-card" id="markedPreviewCard" style="display:none;">
       <div class="preview-header">
         <h2 class="preview-title">Preview</h2>
-        <label class="preview-zoom" for="previewZoom">
-          <span>Zoom</span>
-          <select id="previewZoom">
-            <option value="0.8">80%</option>
-            <option value="0.9">90%</option>
-            <option value="1">100%</option>
-            <option value="1.1">110%</option>
-            <option value="1.25">125%</option>
-            <option value="1.5" selected>150%</option>
-          </select>
-        </label>
+
+        <div class="preview-tools">
+          <button type="button" class="preview-pill-btn" id="previewPowerVerbsBtn" aria-label="Open Power Verbs">
+            <span class="preview-pill-icon" aria-hidden="true">📘</span>
+            Power Verbs
+          </button>
+
+          <label class="preview-zoom" for="previewZoom">
+            <span>Zoom</span>
+            <select id="previewZoom">
+              <option value="0.8">80%</option>
+              <option value="0.9">90%</option>
+              <option value="1">100%</option>
+              <option value="1.1">110%</option>
+              <option value="1.25">125%</option>
+              <option value="1.5" selected>150%</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div id="markedPreview" class="marked-preview-container"></div>
 
@@ -1029,6 +1119,7 @@
     const markedPreviewCard = document.getElementById("markedPreviewCard");
     const markedPreview = document.getElementById("markedPreview");
     const previewZoom = document.getElementById("previewZoom");
+    const previewPowerVerbsBtn = document.getElementById("previewPowerVerbsBtn");
     const revisionPracticeCard = document.getElementById("revisionPracticeCard");
     const sectionSelect = document.getElementById("sectionSelect");
     const issueSelect = document.getElementById("issueSelect");
@@ -1058,6 +1149,19 @@
     const dismissError = document.getElementById("dismissError");
     const dismissCancelBtn = document.getElementById("dismissCancelBtn");
     const dismissConfirmBtn = document.getElementById("dismissConfirmBtn");
+
+    function openPowerVerbsFromPreview() {
+      if (!previewPowerVerbsBtn) return;
+
+      const labelForPower = POWER_VERBS_LABEL || "Avoid weak verbs";
+      handlePowerVerbsIssueChange(labelForPower);
+
+      openPowerVerbsPopover(previewPowerVerbsBtn, null);
+    }
+
+    if (previewPowerVerbsBtn) {
+      previewPowerVerbsBtn.addEventListener("click", openPowerVerbsFromPreview);
+    }
 
     if (brandConfirmOverlay) {
       brandConfirmOverlay.hidden = true;
@@ -2355,6 +2459,107 @@
       return Math.max(min, Math.min(max, n));
     }
 
+    function clamp01(x) {
+      const n = Number(x);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(1, n));
+    }
+
+    function parsePowerSub(sub) {
+      const s = String(sub || "");
+
+      const weakMatch = s.match(/Weak verbs:\s*([^•]+)/i);
+      const weakRaw = weakMatch ? weakMatch[1].trim() : "";
+      let weakCount = null;
+
+      if (!weakRaw) {
+        weakCount = null;
+      } else if (/none\b|clear\b|0\b/i.test(weakRaw)) {
+        weakCount = 0;
+      } else {
+        const parens = Array.from(weakRaw.matchAll(/\((\d+)\)/g)).map(m => Number(m[1] || 0));
+        if (parens.length) {
+          weakCount = parens.reduce((a, b) => a + (Number(b) || 0), 0);
+        } else {
+          const num = weakRaw.match(/\b(\d+)\b/);
+          weakCount = num ? Number(num[1]) : 1;
+        }
+      }
+
+      const powerFrac = s.match(/Power verbs:\s*(\d+)\s*\/\s*(\d+)/i);
+      const powerCount = powerFrac ? Number(powerFrac[1]) : null;
+      const powerTarget = powerFrac ? Number(powerFrac[2]) : null;
+
+      return { weakRaw, weakCount, powerCount, powerTarget };
+    }
+
+    function renderPowerQuestsInto(el, powerMetric) {
+      if (!el) return;
+
+      const sub = powerMetric?.sub || "";
+      const { weakRaw, weakCount, powerCount, powerTarget } = parsePowerSub(sub);
+
+      if (weakCount === null && (powerCount === null || powerTarget === null)) {
+        el.textContent = sub;
+        return;
+      }
+
+      el.innerHTML = "";
+      const wrap = document.createElement("div");
+      wrap.className = "power-quests";
+
+      const weakChip = document.createElement("div");
+      weakChip.className = `quest-chip ${weakCount === 0 ? "ok" : "bad"}`;
+      if (weakRaw) weakChip.title = `Weak verbs: ${weakRaw}`;
+
+      const weakIcon = document.createElement("span");
+      weakIcon.className = "quest-icon";
+      weakIcon.textContent = weakCount === 0 ? "✓" : "✕";
+
+      const weakText = document.createElement("span");
+      weakText.textContent = weakCount === 0 ? "Weak verbs: none" : `Weak verbs: ${weakCount}`;
+
+      weakChip.appendChild(weakIcon);
+      weakChip.appendChild(weakText);
+
+      const powerChip = document.createElement("div");
+      powerChip.className = "quest-chip star";
+
+      const starIcon = document.createElement("span");
+      starIcon.className = "quest-icon";
+      starIcon.textContent = "★";
+
+      const powerText = document.createElement("span");
+      if (powerCount !== null && powerTarget !== null && powerTarget > 0) {
+        powerText.textContent = `Power verbs: ${powerCount}/${powerTarget}`;
+      } else {
+        powerText.textContent = "Power verbs";
+      }
+
+      powerChip.appendChild(starIcon);
+      powerChip.appendChild(powerText);
+
+      if (powerCount !== null && powerTarget !== null && powerTarget > 0) {
+        const mini = document.createElement("div");
+        mini.className = "quest-mini";
+
+        const fill = document.createElement("div");
+        fill.className = "quest-mini-fill";
+        fill.style.width = `${Math.round(clamp01(powerCount / powerTarget) * 100)}%`;
+
+        mini.appendChild(fill);
+        powerChip.appendChild(mini);
+
+        const remaining = Math.max(0, powerTarget - powerCount);
+        powerChip.title = remaining > 0 ? `Need ${remaining} more power verb(s)` : "Target reached";
+      }
+
+      wrap.appendChild(weakChip);
+      wrap.appendChild(powerChip);
+
+      el.appendChild(wrap);
+    }
+
     function stripQuotedText(s) {
       return String(s || "").replace(/"[^"]*"/g, " ");
     }
@@ -2726,6 +2931,7 @@
       lastStudentMetrics = metrics || null;
 
       renderSingleMetric(powerScoreText, powerMeterFill, powerSubText, metrics?.power);
+      renderPowerQuestsInto(powerSubText, metrics?.power);
       renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
       renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
 
@@ -2778,6 +2984,26 @@
         tipsList.appendChild(li);
       });
       metricInfoBody.appendChild(tipsList);
+
+      if (key === "power") {
+        const divider = document.createElement("div");
+        divider.style.marginTop = "12px";
+        divider.style.paddingTop = "10px";
+        divider.style.borderTop = "1px solid rgba(0,0,0,.10)";
+        metricInfoBody.appendChild(divider);
+
+        const progTitle = document.createElement("div");
+        progTitle.className = "metric-popover-tips-title";
+        progTitle.textContent = "Progress";
+        metricInfoBody.appendChild(progTitle);
+
+        const progWrap = document.createElement("div");
+        progWrap.style.marginTop = "8px";
+
+        renderPowerQuestsInto(progWrap, lastStudentMetrics?.power);
+
+        metricInfoBody.appendChild(progWrap);
+      }
 
       metricInfoPopover.classList.remove("hidden");
       metricInfoPopover.style.visibility = "hidden";
