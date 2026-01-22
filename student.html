@@ -505,9 +505,11 @@
     }
     .power-verbs-shuffle-btn:hover{ background: rgba(0,0,0,.03); }
     .power-verbs-popover {
-      width: min(420px, calc(100vw - 24px));
-      max-height: 60vh;
-      overflow: auto;
+      width: min(520px, calc(100vw - 24px));
+      height: min(560px, calc(100vh - 140px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       z-index: 120;
     }
     .power-verbs-popover-header {
@@ -533,6 +535,9 @@
       flex-direction: column;
       gap: 10px;
       margin-top: 8px;
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
     .power-verb-card{
@@ -582,10 +587,13 @@
       line-height: 1.35;
     }
     .power-verbs-popover-footer {
+      flex: 0 0 auto;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      margin-top: 10px;
+      padding-top: 10px;
+      background: #fff;
+      border-top: 1px solid rgba(0,0,0,.08);
     }
     .approved-rewrites-wrap {
       margin-top: 16px;
@@ -2016,7 +2024,6 @@
       prevBtn.style.display = "none";
       prevBtn.addEventListener("click", () => {
         goToPowerVerbsPage(powerVerbsState.pageIndex - 1);
-        positionPowerVerbsPopover();
       });
 
       const nextBtn = document.createElement("button");
@@ -2025,7 +2032,6 @@
       nextBtn.textContent = "Next →";
       nextBtn.addEventListener("click", () => {
         goToPowerVerbsPage(powerVerbsState.pageIndex + 1);
-        positionPowerVerbsPopover();
       });
 
       footer.appendChild(prevBtn);
@@ -2854,6 +2860,12 @@
         const pill = document.createElement("div");
         pill.className = "quest-pill power";
         pill.textContent = "Power verbs needed";
+        pill.addEventListener("click", () => {
+          // If weak verbs exist, we’ll likely find them first;
+          // otherwise we jump to a non-power verb candidate.
+          const found = jumpToNextVerbToUpgradeInPreview({ preferWeak: true });
+          if (!found) scrollToPreviewHeader?.();
+        });
 
         const dots = document.createElement("div");
         dots.className = "quest-dots";
@@ -6382,6 +6394,139 @@
       combined = combined.trim();
       
       return combined;
+    }
+
+    function selectionSafeText(block) {
+      // Exclude quoted text so we don’t target evidence
+      const raw = extractCleanTextFromElement(block) || "";
+      return stripQuotedText(raw);
+    }
+
+    function highlightAndScrollInBlock(block, textToFind) {
+      if (!block || !textToFind) return false;
+
+      clearPreviewHighlights();
+
+      // Try highlighting a slightly longer anchor first (more precise)
+      let spans = highlightExactTextInElement(block, textToFind);
+      if (!Array.isArray(spans) || spans.length === 0) {
+        // fallback: highlight just the first word
+        const firstWord = String(textToFind).split(/\s+/)[0];
+        spans = highlightExactTextInElement(block, firstWord);
+      }
+
+      if (Array.isArray(spans) && spans.length) {
+        spans.forEach(s => s.classList.add("vysti-cursor-highlight"));
+        spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        return true;
+      }
+
+      block.scrollIntoView({ behavior: "smooth", block: "center" });
+      return true;
+    }
+
+    function findWeakVerbInText(text) {
+      // Build regex once if you want; for now use WEAK_VERBS set
+      // Scan tokens with indices so we can build an anchor phrase
+      const re = /\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g;
+      let m;
+      const lowerText = text.toLowerCase();
+
+      while ((m = re.exec(text)) !== null) {
+        const tok = m[0];
+        const t = tok.toLowerCase();
+
+        if (!WEAK_VERBS.has(t)) continue;
+
+        // Skip "the use of" (Precision-only)
+        // Simple window check in raw text
+        if (t === "use") {
+          const before = lowerText.slice(Math.max(0, m.index - 6), m.index);
+          const after = lowerText.slice(m.index + tok.length, m.index + tok.length + 6);
+          if (/\bthe\s+$/.test(before) && /^\s+of\b/.test(after)) continue;
+        }
+
+        // Build anchor: token + next word (more precise)
+        const afterSlice = text.slice(m.index + tok.length);
+        const next = afterSlice.match(/^\s+([A-Za-z]+(?:'[A-Za-z]+)?)/);
+        const anchor = next ? `${tok} ${next[1]}` : tok;
+
+        return anchor;
+      }
+      return null;
+    }
+
+    const COMMON_UPGRADE_VERBS = new Set([
+      // “meh” reporting verbs that students overuse
+      "demonstrates","emphasizes","states","represents","suggests","indicates",
+      "explains","describes","discusses","presents","notes","mentions",
+      "portrays","conveys","reveals","highlights","illustrates","shows","uses",
+      "makes","does","gets","has","had"
+    ]);
+
+    function isLikelyVerbToken(lowerTok) {
+      if (!lowerTok) return false;
+      // exclude super common non-verbs
+      if (lowerTok.length < 3) return false;
+      // prefer known “meh verbs”
+      if (COMMON_UPGRADE_VERBS.has(lowerTok)) return true;
+      // fallback: morphology heuristic (imperfect but works decently)
+      return (
+        lowerTok.endsWith("ed") ||
+        lowerTok.endsWith("ing") ||
+        lowerTok.endsWith("s")
+      );
+    }
+
+    function findNonPowerVerbCandidate(text) {
+      const re = /\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g;
+      let m;
+
+      while ((m = re.exec(text)) !== null) {
+        const tok = m[0];
+        const t = tok.toLowerCase();
+
+        // Skip weak verbs here; we already prefer weak verbs first
+        if (WEAK_VERBS.has(t)) continue;
+
+        // Skip if it’s already a power verb (forms set)
+        if (powerVerbFormsSet && powerVerbFormsSet.has(t)) continue;
+
+        // Skip obvious function words (reuse your cohesion stop words if available)
+        if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(t)) continue;
+
+        if (!isLikelyVerbToken(t)) continue;
+
+        // Anchor with next word for more precise highlight
+        const afterSlice = text.slice(m.index + tok.length);
+        const next = afterSlice.match(/^\s+([A-Za-z]+(?:'[A-Za-z]+)?)/);
+        const anchor = next ? `${tok} ${next[1]}` : tok;
+
+        return anchor;
+      }
+      return null;
+    }
+
+    function jumpToNextVerbToUpgradeInPreview({ preferWeak = true } = {}) {
+      if (!markedPreviewCard || markedPreviewCard.style.display === "none") return false;
+      if (!markedPreview || !markedPreview.innerText.trim()) return false;
+
+      const blocks = getPreviewBlocks();
+
+      for (const block of blocks) {
+        const clean = selectionSafeText(block);
+        if (!clean) continue;
+
+        if (preferWeak) {
+          const weakAnchor = findWeakVerbInText(clean);
+          if (weakAnchor) return highlightAndScrollInBlock(block, weakAnchor);
+        }
+
+        const nonPowerAnchor = findNonPowerVerbCandidate(clean);
+        if (nonPowerAnchor) return highlightAndScrollInBlock(block, nonPowerAnchor);
+      }
+
+      return false;
     }
 
     function buildNormalizedTextMap(rootEl) {
