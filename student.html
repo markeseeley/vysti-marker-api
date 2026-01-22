@@ -744,63 +744,7 @@
             <div id="topIssueStat" class="student-stat-text"></div>
           </div>
 
-          <div class="student-metrics-grid" id="metricsGrid">
-            <div class="metric-card" id="metricPower">
-              <div class="metric-head">
-                <div class="metric-title">
-                  Power
-                  <button class="metric-info metric-info-btn" type="button" data-metric="power" aria-label="Power info">i</button>
-                </div>
-                <div class="metric-score" id="powerScoreText">—</div>
-              </div>
-              <div class="metric-meter">
-                <div class="metric-meter-fill" id="powerMeterFill"></div>
-              </div>
-              <div class="metric-sub" id="powerSubText"></div>
-            </div>
-
-            <div class="metric-card" id="metricVariety">
-              <div class="metric-head">
-                <div class="metric-title">
-                  Variety
-                  <button class="metric-info metric-info-btn" type="button" data-metric="variety" aria-label="Variety info">i</button>
-                </div>
-                <div class="metric-score" id="varietyScoreText">—</div>
-              </div>
-              <div class="metric-meter">
-                <div class="metric-meter-fill" id="varietyMeterFill"></div>
-              </div>
-              <div class="metric-sub" id="varietySubText"></div>
-            </div>
-
-            <div class="metric-card" id="metricCohesion">
-              <div class="metric-head">
-                <div class="metric-title">
-                  Cohesion
-                  <button class="metric-info metric-info-btn" type="button" data-metric="cohesion" aria-label="Cohesion info">i</button>
-                </div>
-                <div class="metric-score" id="cohesionScoreText">—</div>
-              </div>
-              <div class="metric-meter">
-                <div class="metric-meter-fill" id="cohesionMeterFill"></div>
-              </div>
-              <div class="metric-sub" id="cohesionSubText"></div>
-            </div>
-
-            <div class="metric-card" id="metricPrecision">
-              <div class="metric-head">
-                <div class="metric-title">
-                  Precision
-                  <button class="metric-info metric-info-btn" type="button" data-metric="precision" aria-label="Precision info">i</button>
-                </div>
-                <div class="metric-score" id="precisionScoreText">—</div>
-              </div>
-              <div class="metric-meter">
-                <div class="metric-meter-fill" id="precisionMeterFill"></div>
-              </div>
-              <div class="metric-sub" id="precisionSubText"></div>
-            </div>
-          </div>
+          
 
           <div id="techniquesStatWrap" class="student-techniques" style="display:none;">
             <div class="student-stat-label">Range of techniques</div>
@@ -913,6 +857,65 @@
               <option value="1.5" selected>150%</option>
             </select>
           </label>
+        </div>
+      </div>
+      <div class="preview-metrics-wrap">
+        <div class="student-metrics-grid metrics-inline" id="metricsGrid">
+          <div class="metric-card" id="metricPower">
+            <div class="metric-head">
+              <div class="metric-title">
+                Power
+                <button class="metric-info metric-info-btn" type="button" data-metric="power" aria-label="Power info">i</button>
+              </div>
+              <div class="metric-score" id="powerScoreText">—</div>
+            </div>
+            <div class="metric-meter">
+              <div class="metric-meter-fill" id="powerMeterFill"></div>
+            </div>
+            <div class="metric-sub" id="powerSubText"></div>
+          </div>
+
+          <div class="metric-card" id="metricVariety">
+            <div class="metric-head">
+              <div class="metric-title">
+                Variety
+                <button class="metric-info metric-info-btn" type="button" data-metric="variety" aria-label="Variety info">i</button>
+              </div>
+              <div class="metric-score" id="varietyScoreText">—</div>
+            </div>
+            <div class="metric-meter">
+              <div class="metric-meter-fill" id="varietyMeterFill"></div>
+            </div>
+            <div class="metric-sub" id="varietySubText"></div>
+          </div>
+
+          <div class="metric-card" id="metricCohesion">
+            <div class="metric-head">
+              <div class="metric-title">
+                Cohesion
+                <button class="metric-info metric-info-btn" type="button" data-metric="cohesion" aria-label="Cohesion info">i</button>
+              </div>
+              <div class="metric-score" id="cohesionScoreText">—</div>
+            </div>
+            <div class="metric-meter">
+              <div class="metric-meter-fill" id="cohesionMeterFill"></div>
+            </div>
+            <div class="metric-sub" id="cohesionSubText"></div>
+          </div>
+
+          <div class="metric-card" id="metricPrecision">
+            <div class="metric-head">
+              <div class="metric-title">
+                Precision
+                <button class="metric-info metric-info-btn" type="button" data-metric="precision" aria-label="Precision info">i</button>
+              </div>
+              <div class="metric-score" id="precisionScoreText">—</div>
+            </div>
+            <div class="metric-meter">
+              <div class="metric-meter-fill" id="precisionMeterFill"></div>
+            </div>
+            <div class="metric-sub" id="precisionSubText"></div>
+          </div>
         </div>
       </div>
       <div id="markedPreview" class="marked-preview-container"></div>
