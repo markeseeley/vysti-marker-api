@@ -583,8 +583,7 @@
     </nav>
     
     <div class="actions">
-      <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
-      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
+      <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -933,6 +932,7 @@
     
     const progressPage = document.getElementById("progressPage");
     const logoutBtn = document.getElementById("logoutBtn");
+    const switchModeBtn = document.getElementById("switchModeBtn");
     const seriesFilter = document.getElementById("seriesFilter");
     const rangeBtns = document.querySelectorAll(".range-btn");
     const rangeStart = document.getElementById("rangeStart");
@@ -964,8 +964,16 @@
         return;
       }
       
+      localStorage.setItem("vysti_role", "student");
       progressPage.style.display = "block";
       loadData();
+    }
+    
+    if (switchModeBtn) {
+      switchModeBtn.addEventListener("click", () => {
+        localStorage.setItem("vysti_role", "teacher");
+        window.location.href = "/index.html";
+      });
     }
     
     logoutBtn.addEventListener("click", async () => {
