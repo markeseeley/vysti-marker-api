@@ -684,14 +684,24 @@
       <div class="table-section">
         <h3>
           <span>Data Table</span>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <button class="export-btn" id="exportPdfBtn">Export PDF</button>
             <button class="export-btn" id="exportBtn">Export CSV</button>
+
+            <div style="width:1px; height:24px; background: rgba(0,0,0,.12); margin:0 6px;"></div>
+
+            <button class="delete-btn" id="deleteSelectedBtn" disabled>Delete selected</button>
+            <button class="delete-btn" id="checkAllBtn" type="button">Check all</button>
+            <button class="delete-btn" id="clearChecksBtn" type="button">Clear checks</button>
+            <span id="selectedCountText" style="font-size:12px; color: var(--muted); font-weight:600;">0 selected</span>
           </div>
         </h3>
         <table>
           <thead>
             <tr>
+              <th class="nowrap">
+                <input type="checkbox" id="selectAllRows" aria-label="Check all rows" />
+              </th>
               <th class="nowrap">Date</th>
               <th>Assignment</th>
               <th>Mode</th>
@@ -931,6 +941,12 @@
     const statusMessage = document.getElementById("statusMessage");
     const dataTableBody = document.getElementById("dataTableBody");
     const exportBtn = document.getElementById("exportBtn");
+    const selectedFileNames = new Set();
+    const selectAllRows = document.getElementById("selectAllRows");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
+    const checkAllBtn = document.getElementById("checkAllBtn");
+    const clearChecksBtn = document.getElementById("clearChecksBtn");
+    const selectedCountText = document.getElementById("selectedCountText");
     
     let allData = [];
     let filteredData = [];
@@ -1077,12 +1093,120 @@
       applyFilters();
     }
 
-    const deleteButtonsEnabled = false;
+    const deleteButtonsEnabled = true;
 
-    async function deleteDocumentByFileName(fileName) {
-      if (!fileName) return;
-      if (!confirm(`Delete all data for "${fileName}"? This cannot be undone.`)) return;
+    function getVisibleUniqueFileNames() {
+      const out = [];
+      const seen = new Set();
+      (filteredData || []).forEach((row) => {
+        const f = (row.file_name || "").trim();
+        if (!f) return;
+        if (seen.has(f)) return;
+        seen.add(f);
+        out.push(f);
+      });
+      return out;
+    }
 
+    function syncBulkUI() {
+      const visible = getVisibleUniqueFileNames();
+      const selectedVisible = visible.filter(f => selectedFileNames.has(f));
+
+      if (selectedCountText) selectedCountText.textContent = `${selectedFileNames.size} selected`;
+      if (deleteSelectedBtn) deleteSelectedBtn.disabled = selectedFileNames.size === 0;
+
+      if (!selectAllRows) return;
+      if (visible.length === 0) {
+        selectAllRows.checked = false;
+        selectAllRows.indeterminate = false;
+        selectAllRows.disabled = true;
+        return;
+      }
+      selectAllRows.disabled = false;
+
+      if (selectedVisible.length === 0) {
+        selectAllRows.checked = false;
+        selectAllRows.indeterminate = false;
+      } else if (selectedVisible.length === visible.length) {
+        selectAllRows.checked = true;
+        selectAllRows.indeterminate = false;
+      } else {
+        selectAllRows.checked = false;
+        selectAllRows.indeterminate = true;
+      }
+    }
+
+    async function deleteDocumentsByFileNames(fileNames) {
+      const list = (fileNames || []).map(s => String(s || "").trim()).filter(Boolean);
+      const unique = Array.from(new Set(list));
+      if (unique.length === 0) return;
+
+      const ok = confirm(`Delete ${unique.length} document(s)? This removes all stored examples and progress for those file names. This cannot be undone.`);
+      if (!ok) return;
+
+      const { data: sessionData } = await supa.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        window.location.replace("/signin.html");
+        return;
+      }
+
+      const userId = sessionData.session.user.id;
+
+      statusMessage.style.display = "block";
+      statusMessage.textContent = `Deleting ${unique.length} document(s)...`;
+
+      const CHUNK = 20;
+
+      try {
+        for (let i = 0; i < unique.length; i += CHUNK) {
+          const chunk = unique.slice(i, i + CHUNK);
+
+          statusMessage.textContent = `Deleting ${Math.min(i + CHUNK, unique.length)}/${unique.length}...`;
+
+          // 1) issue_examples first (avoid FK problems)
+          const { error: exErr } = await supa
+            .from("issue_examples")
+            .delete()
+            .eq("user_id", userId)
+            .in("file_name", chunk);
+
+          if (exErr) throw exErr;
+
+          // 2) optional cleanup: dismissed feedback (ignore if table/policy missing)
+          const fbRes = await supa
+            .from("dismissed_issue_feedback")
+            .delete()
+            .eq("user_id", userId)
+            .in("file_name", chunk);
+
+          if (fbRes?.error) {
+            console.warn("dismissed_issue_feedback delete failed (non-fatal):", fbRes.error);
+          }
+
+          // 3) mark_events
+          const { error: evErr } = await supa
+            .from("mark_events")
+            .delete()
+            .eq("user_id", userId)
+            .in("file_name", chunk);
+
+          if (evErr) throw evErr;
+        }
+
+        // Clear selections that were deleted
+        unique.forEach(f => selectedFileNames.delete(f));
+        syncBulkUI();
+
+        statusMessage.textContent = `Deleted ${unique.length} document(s).`;
+        setTimeout(() => { statusMessage.style.display = "none"; }, 1200);
+
+        await loadData();
+      } catch (err) {
+        console.error("Bulk delete failed:", err);
+        statusMessage.textContent =
+          "Delete failed. Likely Row Level Security (RLS) is blocking deletes. Check console for details.";
+      }
+    }
       const { data: sessionData } = await supa.auth.getSession();
       if (!sessionData || !sessionData.session) {
         window.location.replace("/signin.html");
@@ -1862,13 +1986,14 @@
       if (filteredData.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 6;
+        td.colSpan = 7;
         td.textContent = "No data to display";
         td.style.textAlign = "center";
         td.style.padding = "20px";
         td.style.color = "var(--muted)";
         tr.appendChild(td);
         dataTableBody.appendChild(tr);
+        syncBulkUI();
         return;
       }
 
@@ -1890,6 +2015,26 @@
         if (highlightUnparseable) {
           tr.style.background = "#fffbf0";
         }
+
+        const selectCell = document.createElement("td");
+        selectCell.className = "nowrap";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.disabled = !row.file_name;
+        cb.checked = !!row.file_name && selectedFileNames.has(row.file_name);
+
+        cb.addEventListener("change", () => {
+          const f = row.file_name;
+          if (!f) return;
+          if (cb.checked) selectedFileNames.add(f);
+          else selectedFileNames.delete(f);
+          syncBulkUI();
+        });
+
+        // clicking the row shouldn't toggle checkbox accidentally
+        selectCell.appendChild(cb);
+        tr.appendChild(selectCell);
 
         const dateCell = document.createElement("td");
         dateCell.className = "nowrap";
@@ -1932,7 +2077,7 @@
         deleteBtn.title = !row.file_name ? "No file to delete" : (deleteButtonsEnabled ? "" : "Delete disabled");
         deleteBtn.addEventListener("click", () => {
           if (deleteBtn.disabled) return;
-          deleteDocumentByFileName(row.file_name);
+          deleteDocumentsByFileNames([row.file_name]);
         });
         actionsCell.appendChild(deleteBtn);
         tr.appendChild(actionsCell);
@@ -1950,7 +2095,7 @@
         // Add separator row
         const separatorTr = document.createElement("tr");
         const separatorTd = document.createElement("td");
-        separatorTd.colSpan = 6;
+        separatorTd.colSpan = 7;
         separatorTd.style.padding = "16px 12px 8px";
         separatorTd.style.borderTop = "2px solid #ffc107";
         separatorTd.style.background = "#fffbf0";
@@ -1963,6 +2108,8 @@
           dataTableBody.appendChild(buildRow(row, true));
         });
       }
+
+      syncBulkUI();
     }
 
     // ===== CSV Export =====
@@ -2465,6 +2612,38 @@
     seriesFilter.addEventListener("change", applyFilters);
     includeDuplicates.addEventListener("change", applyFilters);
     exportBtn.addEventListener("click", exportToCSV);
+
+    if (checkAllBtn) {
+      checkAllBtn.addEventListener("click", () => {
+        getVisibleUniqueFileNames().forEach(f => selectedFileNames.add(f));
+        updateTable();
+        syncBulkUI();
+      });
+    }
+
+    if (clearChecksBtn) {
+      clearChecksBtn.addEventListener("click", () => {
+        selectedFileNames.clear();
+        updateTable();
+        syncBulkUI();
+      });
+    }
+
+    if (selectAllRows) {
+      selectAllRows.addEventListener("change", (e) => {
+        const shouldSelect = !!e.target.checked;
+        const visible = getVisibleUniqueFileNames();
+        visible.forEach(f => shouldSelect ? selectedFileNames.add(f) : selectedFileNames.delete(f));
+        updateTable();
+        syncBulkUI();
+      });
+    }
+
+    if (deleteSelectedBtn) {
+      deleteSelectedBtn.addEventListener("click", () => {
+        deleteDocumentsByFileNames(Array.from(selectedFileNames));
+      });
+    }
     
     const exportPdfBtn = document.getElementById("exportPdfBtn");
     if (exportPdfBtn) {
