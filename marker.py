@@ -6896,6 +6896,11 @@ def mark_docx_bytes(
             short_map = {}
         if ARTICLE_ERROR_LABEL not in guidance_map:
             guidance_map[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_GUIDANCE
+        WEAK_VERB_GUIDANCE = "Replace {FOUND} with a stronger verb (show/use/make/do/get/have)."
+
+        # Ensure weak-verb guidance is always present (do not include any be-verbs)
+        for key in ("Avoid weak verbs", "Refer to the Power Verbs list", "Refer to the Power Verbs List"):
+            guidance_map[key] = WEAK_VERB_GUIDANCE
         for issue in metadata.get("issues", []):
             if isinstance(issue, dict):
                 issue["student_guidance"] = guidance_map.get(issue.get("label"), "")
