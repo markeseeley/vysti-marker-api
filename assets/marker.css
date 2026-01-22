@@ -289,6 +289,26 @@ button, input, select, textarea {
   grid-template-columns: 1fr;
   gap: 10px;
 }
+
+/* Preview: horizontal metric strip above the document */
+.preview-metrics-wrap{
+  margin: 10px 0 12px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+}
+
+/* Override the default 1-col metrics grid when it's in the preview */
+.student-page .metrics-inline{
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+/* Slightly tighter metric cards for horizontal layout (optional but nice) */
+.student-page .metrics-inline .metric-card{
+  padding: 10px 10px 9px; /* keep existing feel */
+}
 .metric-card{
   background: #fff;
   border: 1px solid rgba(0,0,0,.08);
