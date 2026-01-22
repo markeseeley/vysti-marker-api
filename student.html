@@ -169,7 +169,13 @@
       cursor: pointer;
     }
     .quest-pill-btn:hover{
+      background: rgba(0,0,0,.03);
+    }
+    .quest-pill.weak.quest-pill-btn:hover{
       background: rgba(217,83,79,.06);
+    }
+    .quest-pill.power.quest-pill-btn:hover{
+      background: rgba(46,204,113,.08);
     }
     .quest-pill-btn:active{
       transform: translateY(0.5px);
@@ -1619,22 +1625,60 @@
       });
       return out;
     }
-
     function loadPowerVerbsList() {
-      if (powerVerbsList) return Promise.resolve(powerVerbsList);
+      // Only treat as "loaded" when we actually have entries.
+      if (Array.isArray(powerVerbsList) && powerVerbsList.length > 0) {
+        return Promise.resolve(powerVerbsList);
+      }
       if (powerVerbsLoadPromise) return powerVerbsLoadPromise;
-      powerVerbsLoadPromise = fetch("power_verbs_2025.json")
-        .then((res) => res.ok ? res.json() : [])
-        .then((data) => {
-          powerVerbsList = normalizePowerVerbs(data);
-          powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
-          return powerVerbsList;
-        })
-        .catch((error) => {
-          console.warn("Failed to load power verbs:", error);
-          powerVerbsList = [];
-          return powerVerbsList;
+
+      const CANDIDATE_URLS = [
+        "/assets/power_verbs_2025.json",
+        "/power_verbs_2025.json",
+        "power_verbs_2025.json"
+      ];
+
+      const tryFetch = async () => {
+        let lastErr = null;
+
+        for (const url of CANDIDATE_URLS) {
+          try {
+            const res = await fetch(url, { cache: "no-store" });
+            if (!res.ok) {
+              lastErr = new Error(`${url} returned HTTP ${res.status}`);
+              continue;
+            }
+            const data = await res.json();
+            const normalized = normalizePowerVerbs(data);
+
+            if (Array.isArray(normalized) && normalized.length > 0) {
+              powerVerbsList = normalized;
+              powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
+              return powerVerbsList;
+            }
+
+            lastErr = new Error(`${url} loaded but produced 0 verbs`);
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+
+        console.warn("Failed to load power verbs from all candidate URLs:", lastErr);
+
+        // Allow retry on next click (do NOT cache empty forever)
+        powerVerbsList = null;
+        powerVerbsLoadPromise = null;
+        return [];
+      };
+
+      powerVerbsLoadPromise = tryFetch()
+        .finally(() => {
+          // If we ended up with an empty list, allow retry.
+          if (!Array.isArray(powerVerbsList) || powerVerbsList.length === 0) {
+            powerVerbsLoadPromise = null;
+          }
         });
+
       return powerVerbsLoadPromise;
     }
 
@@ -2061,10 +2105,21 @@
       attachPowerVerbsPopoverListeners();
 
       loadPowerVerbsList().then(() => {
-        if (!powerVerbsState.pageHistory.length) {
-          powerVerbsState.pageHistory.push(createPowerVerbsPage());
+        // If verbs still not loaded, show a clear message in the grid
+        if (!Array.isArray(powerVerbsList) || powerVerbsList.length === 0) {
+          if (powerVerbsPopover.grid) {
+            powerVerbsPopover.grid.innerHTML = "<div style='color: rgba(0,0,0,.6); font-weight:600;'>Power verbs list not loaded. Check that power_verbs_2025.json is deployed.</div>";
+          }
+          return;
+        }
+
+        // Ensure we have a non-empty first page
+        const currentPage = powerVerbsState.pageHistory[powerVerbsState.pageIndex] || [];
+        if (!powerVerbsState.pageHistory.length || currentPage.length === 0) {
+          powerVerbsState.pageHistory = [createPowerVerbsPage()];
           powerVerbsState.pageIndex = 0;
         }
+
         renderPowerVerbsPopoverPage();
         requestAnimationFrame(positionPowerVerbsPopover);
       });
@@ -2857,14 +2912,20 @@
         const row = document.createElement("div");
         row.className = "quest-row";
 
-        const pill = document.createElement("div");
-        pill.className = "quest-pill power";
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "quest-pill power quest-pill-btn";
         pill.textContent = "Power verbs needed";
+        pill.title = "Jump to a verb to upgrade";
         pill.addEventListener("click", () => {
-          // If weak verbs exist, we’ll likely find them first;
-          // otherwise we jump to a non-power verb candidate.
+          // Ensure preview is in view
+          scrollToPreviewHeader();
+
+          // Try to highlight the next best upgrade target
           const found = jumpToNextVerbToUpgradeInPreview({ preferWeak: true });
-          if (!found) scrollToPreviewHeader?.();
+          if (!found) {
+            console.warn("No upgradeable verb found in Preview blocks.");
+          }
         });
 
         const dots = document.createElement("div");
@@ -6414,9 +6475,8 @@
         if (isVystiArtifactTextNode(node)) continue;
         
         const text = node.textContent || "";
-        if (text.trim()) {
-          textParts.push(text);
-        }
+        // IMPORTANT: do NOT drop whitespace-only nodes; docx-preview often stores spaces as their own text nodes.
+        textParts.push(text);
       }
       
       // Concatenate all text parts
