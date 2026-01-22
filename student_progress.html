@@ -576,13 +576,13 @@
     <div class="brand">
       <img src="/assets/logo.svg" alt="Vysti" />
     </div>
-    
+
     <nav></nav>
-    
+
     <div class="actions">
-      <button class="topbar-btn" id="returnStudentBtn" type="button">Student</button>
+      <a class="topbar-btn" id="returnStudentBtn" href="/student.html">Student</a>
       <button class="topbar-btn is-current" id="progressBtn" type="button" aria-current="page">Progress</button>
-      <button class="topbar-btn" id="switchModeBtn" type="button">Teacher</button>
+      <a class="topbar-btn" id="switchModeBtn" href="/index.html">Teacher</a>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -930,10 +930,10 @@
     const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     const progressPage = document.getElementById("progressPage");
-    const logoutBtn = document.getElementById("logoutBtn");
     const switchModeBtn = document.getElementById("switchModeBtn");
     const returnStudentBtn = document.getElementById("returnStudentBtn");
     const progressBtn = document.getElementById("progressBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
     const seriesFilter = document.getElementById("seriesFilter");
     const rangeBtns = document.querySelectorAll(".range-btn");
     const rangeStart = document.getElementById("rangeStart");
@@ -970,23 +970,25 @@
       loadData();
     }
     
-    logoutBtn.addEventListener("click", async () => {
-      await supa.auth.signOut();
-      localStorage.removeItem("vysti_role");
-      window.location.replace("/signin.html");
-    });
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async () => {
+        await supa.auth.signOut();
+        localStorage.removeItem("vysti_role");
+        window.location.replace("/signin.html");
+      });
+    }
 
     if (switchModeBtn) {
       switchModeBtn.addEventListener("click", () => {
         localStorage.setItem("vysti_role", "teacher");
-        window.location.href = "/index.html";
+        // allow normal link navigation
       });
     }
 
     if (returnStudentBtn) {
       returnStudentBtn.addEventListener("click", () => {
         localStorage.setItem("vysti_role", "student");
-        window.location.href = "/student.html";
+        // allow normal link navigation
       });
     }
 
@@ -995,6 +997,8 @@
       progressBtn.addEventListener("click", (e) => e.preventDefault());
     }
     
+    refreshAuthUI();
+
     supa.auth.onAuthStateChange((_event, _session) => {
       refreshAuthUI();
     });
