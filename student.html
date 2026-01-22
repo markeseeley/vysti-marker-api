@@ -1120,6 +1120,28 @@
     let dismissedIssues = [];
     let lastStudentMetrics = null;
 
+    let previewWordCountTimer = null;
+
+    function updateWordCountFromPreviewDebounced(delayMs = 350) {
+      if (!markedPreview) return;
+
+      if (previewWordCountTimer) {
+        clearTimeout(previewWordCountTimer);
+        previewWordCountTimer = null;
+      }
+
+      previewWordCountTimer = setTimeout(() => {
+        const previewText = extractPreviewText();
+        if (!previewText) return;
+
+        const wc = wordCountFromText(previewText);
+        if (Number.isFinite(wc)) {
+          currentWordCount = wc;
+          updateStatsPanel(liveLabelCounts);
+        }
+      }, delayMs);
+    }
+
     const appliedExampleKeys = new Set();
     const approvedExampleKeys = new Set();
     let currentLabel = null;
@@ -1927,6 +1949,7 @@
     if (markedPreview) {
       markedPreview.addEventListener("input", () => {
         hasStartedRevising = true;
+        updateWordCountFromPreviewDebounced(350);
       }, true);
     }
 
@@ -6817,6 +6840,7 @@
         
         // Clear any leftover highlight styling
         clearPreviewHighlights();
+        updateWordCountFromPreviewDebounced(0);
         
         // Update UI
         if (statusDiv) {
@@ -6905,6 +6929,10 @@
           if (resultsCard) resultsCard.style.display = "block";
           return;
         }
+
+        // Update Word count immediately based on what we are rechecking
+        currentWordCount = wordCountFromText(previewText);
+        updateStatsPanel(liveLabelCounts);
 
         // Get session
         const { data: sessionData } = await supa.auth.getSession();
@@ -7052,6 +7080,13 @@
       
       return paragraphs.join("\n\n");
     }
+    function wordCountFromText(text) {
+      const t = String(text || "");
+      // Count tokens like: word, don't, Fisher's
+      const words = t.match(/\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g) || [];
+      return words.length;
+    }
+
 
     // =========================
     // Student tour controller
