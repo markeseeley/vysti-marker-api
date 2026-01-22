@@ -134,6 +134,12 @@ button, input, select, textarea {
 .topbar-btn:active{ 
   transform: translateY(0.5px); 
 }
+/* Topbar button: current page indicator (outlined pill, slightly brighter) */
+.topbar-btn.is-current{
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.45);
+  cursor: default;
+}
 .avatar{
   width:34px;
   height:34px;
