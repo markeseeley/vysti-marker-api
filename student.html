@@ -587,13 +587,11 @@
       <img src="/assets/logo.svg" alt="Vysti" />
     </div>
   
-    <nav>
-      <a href="/student.html" class="active">Student Check</a>
-      <a href="/student_progress.html">Progress</a>
-    </nav>
+    <nav></nav>
   
     <div class="actions">
-      <button class="topbar-btn" id="switchModeBtn" type="button">Switch to Teacher Mode</button>
+      <button class="topbar-btn" id="progressBtn" type="button">Progress</button>
+      <button class="topbar-btn" id="switchModeBtn" type="button">Teacher</button>
       <button class="iconbtn repeat-tutorial-trigger" id="repeatTutorialBtn" type="button" aria-label="Repeat tutorial" data-tip="Repeat the tutorial">?</button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
@@ -2114,6 +2112,14 @@
     supa.auth.onAuthStateChange((_event, _session) => {
       refreshAuthUI();
     });
+
+    // ===== Progress handler =====
+    const progressBtn = document.getElementById("progressBtn");
+    if (progressBtn) {
+      progressBtn.addEventListener("click", () => {
+        window.location.href = "/student_progress.html";
+      });
+    }
 
     // ===== Switch mode handler =====
     const switchModeBtn = document.getElementById("switchModeBtn");
