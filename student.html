@@ -85,23 +85,24 @@
       font-weight: 700;
     }
     .preview-zoom {
+      height: 32px;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      height: 32px;
       font-size: var(--fs-xs);
       color: var(--muted);
     }
     .preview-tools{
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
     }
     .preview-pill-btn{
+      height: 32px;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      height: 32px;
       line-height: 1;
       padding: 0 12px;
       border-radius: 999px;
@@ -125,6 +126,20 @@
       border-radius: 8px;
       font-size: var(--fs-xs);
     }
+    .metric-success{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: var(--fs-xs);
+      font-weight: 800;
+      color: rgba(0,0,0,.65);
+    }
+    .metric-success .star{
+      color: #f0ad4e;
+      font-size: 14px;
+      line-height: 1;
+    }
     .power-quests{
       display: flex;
       flex-direction: column;
@@ -134,6 +149,7 @@
     .quest-row{
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 10px;
     }
     .quest-pill{
@@ -150,31 +166,26 @@
     }
     .quest-pill.weak{ border-color: rgba(217,83,79,.55); }
     .quest-pill.power{ border-color: rgba(46,204,113,.55); }
-    .quest-right{
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
     .quest-dots{
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
     .quest-dot{
       width: 10px;
       height: 10px;
       border-radius: 999px;
       border: 1px solid rgba(0,0,0,.85);
-      background: transparent;
+      background: #fff;
     }
-    .quest-dot.good{ background: rgba(46,204,113,1); }
-    .quest-dot.bad{ background: rgba(217,83,79,1); }
+    .quest-dot.good{ background: #2ecc71; }
+    .quest-dot.bad{ background: #d9534f; }
     .quest-dot.empty{ background: #fff; }
-    .quest-fraction{
+    .quest-more{
       font-size: var(--fs-xs);
       font-weight: 800;
-      color: rgba(0,0,0,.55);
+      color: rgba(0,0,0,.45);
     }
     .marked-preview-container {
       max-height: 600px;
@@ -436,6 +447,21 @@
       color: rgba(0, 0, 0, 0.6);
       min-height: 14px;
     }
+    .power-verbs-iconbtn{
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.14);
+      background: #fff;
+      color: rgba(0,0,0,.55);
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .power-verbs-iconbtn:hover{ background: rgba(0,0,0,.03); }
     .power-verbs-grid {
       display: flex;
       flex-wrap: wrap;
@@ -837,11 +863,6 @@
         <h2 class="preview-title">Preview</h2>
 
         <div class="preview-tools">
-          <button type="button" class="preview-pill-btn" id="previewPowerVerbsBtn" aria-label="Open Power Verbs">
-            <span class="preview-pill-icon" aria-hidden="true">📘</span>
-            Power Verbs
-          </button>
-
           <label class="preview-zoom" for="previewZoom">
             <span>Zoom</span>
             <select id="previewZoom">
@@ -853,6 +874,10 @@
               <option value="1.5" selected>150%</option>
             </select>
           </label>
+          <button type="button" class="preview-pill-btn" id="previewPowerVerbsBtn" aria-label="Open Power Verbs">
+            <span class="preview-pill-icon" aria-hidden="true">📘</span>
+            Power Verbs
+          </button>
         </div>
       </div>
       <div class="preview-metrics-wrap">
@@ -1804,6 +1829,19 @@
       feedback.setAttribute("aria-live", "polite");
       feedback.dataset.powerVerbsFeedback = "1";
 
+      const shuffleBtn = document.createElement("button");
+      shuffleBtn.type = "button";
+      shuffleBtn.className = "power-verbs-iconbtn";
+      shuffleBtn.setAttribute("aria-label", "Shuffle power verb suggestions");
+      shuffleBtn.innerHTML = "⟳";
+      shuffleBtn.addEventListener("click", () => {
+        if (!powerVerbsList || !powerVerbsList.length) return;
+        powerVerbsState.initialVerbs = sampleUnique(powerVerbsList, POWER_VERBS_INITIAL_COUNT);
+        storePowerVerbs(label, powerVerbsState.initialVerbs);
+        renderPowerVerbButtons(grid, powerVerbsState.initialVerbs, { feedbackEl: feedback, textarea: rewriteTextarea });
+        showPowerVerbFeedback(feedback, "Shuffled");
+      });
+
       const moreBtn = document.createElement("button");
       moreBtn.type = "button";
       moreBtn.className = "secondary-btn";
@@ -1811,6 +1849,7 @@
       moreBtn.addEventListener("click", () => openPowerVerbsPopover(moreBtn, rewriteTextarea));
 
       actions.appendChild(feedback);
+      actions.appendChild(shuffleBtn);
       actions.appendChild(moreBtn);
 
       header.appendChild(title);
@@ -2464,8 +2503,26 @@
       return Math.max(0, Math.min(1, n));
     }
 
-    function renderPowerProgressUI(subEl, powerMetric) {
-      if (!subEl || !powerMetric) return;
+    function renderSuccess(subEl, message) {
+      if (!subEl) return;
+      subEl.innerHTML = "";
+      const row = document.createElement("div");
+      row.className = "metric-success";
+      row.innerHTML = `<span class="star">★</span><span>${message}</span>`;
+      subEl.appendChild(row);
+    }
+
+    function renderPowerDots(subEl, powerMetric) {
+      if (!subEl) return;
+      if (!powerMetric || typeof powerMetric.score !== "number") {
+        subEl.textContent = "";
+        return;
+      }
+
+      if (powerMetric.score === 100) {
+        renderSuccess(subEl, "Verbs at full strength.");
+        return;
+      }
 
       const d = powerMetric.details || {};
       const weakCount = Number(d.weakCount) || 0;
@@ -2476,73 +2533,65 @@
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
 
-      const weakRow = document.createElement("div");
-      weakRow.className = "quest-row";
+      if (weakCount > 0) {
+        const row = document.createElement("div");
+        row.className = "quest-row";
 
-      const weakPill = document.createElement("div");
-      weakPill.className = "quest-pill weak";
-      weakPill.textContent = "Weak verbs remaining";
+        const pill = document.createElement("div");
+        pill.className = "quest-pill weak";
+        pill.textContent = "Weak verbs remaining";
 
-      const weakRight = document.createElement("div");
-      weakRight.className = "quest-right";
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
 
-      const weakDots = document.createElement("div");
-      weakDots.className = "quest-dots";
+        const maxDots = 10;
+        const showDots = Math.min(weakCount, maxDots);
+        for (let i = 0; i < showDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = "quest-dot bad";
+          dots.appendChild(dot);
+        }
+        if (weakCount > maxDots) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${weakCount - maxDots}`;
+          dots.appendChild(more);
+        }
 
-      const weakMaxDots = 8;
-      const weakDotsToShow = Math.min(weakCount, weakMaxDots);
-      for (let i = 0; i < weakDotsToShow; i += 1) {
-        const dot = document.createElement("span");
-        dot.className = "quest-dot bad";
-        weakDots.appendChild(dot);
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
       }
-      if (weakCount > weakMaxDots) {
-        const more = document.createElement("span");
-        more.className = "quest-fraction";
-        more.textContent = `+${weakCount - weakMaxDots}`;
-        weakRight.appendChild(more);
-      }
 
-      if (weakCount > 0) weakRight.appendChild(weakDots);
+      if (powerTarget > 0 && powerCount < powerTarget) {
+        const row = document.createElement("div");
+        row.className = "quest-row";
 
-      weakRow.appendChild(weakPill);
-      weakRow.appendChild(weakRight);
+        const pill = document.createElement("div");
+        pill.className = "quest-pill power";
+        pill.textContent = "Power verbs needed";
 
-      const powerRow = document.createElement("div");
-      powerRow.className = "quest-row";
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
 
-      const powerPill = document.createElement("div");
-      powerPill.className = "quest-pill power";
-      powerPill.textContent = "Power verbs";
-
-      const powerRight = document.createElement("div");
-      powerRight.className = "quest-right";
-
-      const powerDots = document.createElement("div");
-      powerDots.className = "quest-dots";
-
-      if (powerTarget > 0) {
         const maxDots = Math.min(powerTarget, 10);
         const filled = Math.min(powerCount, maxDots);
-
         for (let i = 0; i < maxDots; i += 1) {
           const dot = document.createElement("span");
           dot.className = `quest-dot ${i < filled ? "good" : "empty"}`;
-          powerDots.appendChild(dot);
+          dots.appendChild(dot);
         }
-        powerRight.appendChild(powerDots);
+        if (powerTarget > 10) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${powerTarget - 10}`;
+          dots.appendChild(more);
+        }
 
-        const frac = document.createElement("span");
-        frac.className = "quest-fraction";
-        frac.textContent = `${powerCount}/${powerTarget}`;
-        powerRight.appendChild(frac);
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
       }
-
-      powerRow.appendChild(powerPill);
-      powerRow.appendChild(powerRight);
-
-      wrap.appendChild(weakRow);
-      wrap.appendChild(powerRow);
 
       subEl.appendChild(wrap);
     }
@@ -2780,12 +2829,7 @@
         : clamp(Math.round((powerCount / powerTarget) * 100), 0, 100);
       const powerScore = clamp(Math.round(weakScore * 0.6 + powerVerbScore * 0.4), 0, 100);
 
-      const weakParts = Object.entries(weakByBase)
-        .filter(([, n]) => n > 0)
-        .map(([k, n]) => `${k} (${n})`);
-
-      const weakSummary = weakParts.length ? weakParts.join(", ") : "none";
-      const powerSub = `Weak verbs: ${weakSummary} • Power verbs: ${powerCount}/${powerTarget || 0}`;
+      const powerSub = "";
 
       const sentences = splitSentencesSimple(clean);
       let pronounStarts = 0;
@@ -2938,9 +2982,15 @@
       lastStudentMetrics = metrics || null;
 
       renderSingleMetric(powerScoreText, powerMeterFill, powerSubText, metrics?.power);
-      renderPowerProgressUI(powerSubText, metrics?.power);
+      renderPowerDots(powerSubText, metrics?.power);
       renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
+      if (metrics?.variety?.score === 100) {
+        renderSuccess(varietySubText, "Sentence patterns are varied.");
+      }
       renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
+      if (metrics?.precision?.score === 100) {
+        renderSuccess(precisionSubText, "No excess detected.");
+      }
 
       const sentenceCount = metrics?.meta?.sentences || 0;
       const mode = metrics?.meta?.mode || "";
@@ -2957,6 +3007,9 @@
         cohesionSubText.textContent = "Add sentence links (transitions/boundaries)";
       } else {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
+        if (metrics?.cohesion?.score === 100) {
+          renderSuccess(cohesionSubText, "Ideas connect without friction.");
+        }
       }
       if (metricPrecisionCard) metricPrecisionCard.style.display = "block";
     }
@@ -3008,27 +3061,7 @@
         progWrap.style.marginTop = "8px";
         metricInfoBody.appendChild(progWrap);
 
-        renderPowerProgressUI(progWrap, lastStudentMetrics?.power);
-      }
-
-      if (key === "power") {
-        const divider = document.createElement("div");
-        divider.style.marginTop = "12px";
-        divider.style.paddingTop = "10px";
-        divider.style.borderTop = "1px solid rgba(0,0,0,.10)";
-        metricInfoBody.appendChild(divider);
-
-        const progTitle = document.createElement("div");
-        progTitle.className = "metric-popover-tips-title";
-        progTitle.textContent = "Progress";
-        metricInfoBody.appendChild(progTitle);
-
-        const progWrap = document.createElement("div");
-        progWrap.style.marginTop = "8px";
-
-        renderPowerQuestsInto(progWrap, lastStudentMetrics?.power);
-
-        metricInfoBody.appendChild(progWrap);
+        renderPowerDots(progWrap, lastStudentMetrics?.power);
       }
 
       metricInfoPopover.classList.remove("hidden");
@@ -4991,6 +5024,7 @@
         renderCurrentExample();
         updateApplyAllUI();
         updateAllApprovedBanner(currentExamplesAll);
+        await refreshStudentMetrics();
       });
     }
 
@@ -7092,7 +7126,6 @@
         
         // Clear any leftover highlight styling
         clearPreviewHighlights();
-        updateWordCountFromPreviewDebounced(0);
         
         // Update UI
         if (statusDiv) {
@@ -7128,6 +7161,10 @@
         
         // Show recheck button if hidden
         hideMarkButtonShowRecheck();
+
+        // Update meters immediately after applying rewrite
+        void refreshStudentMetrics();
+        updateWordCountFromPreviewDebounced?.(0);
         return true;
       } catch (error) {
         console.error("Error applying rewrite:", error);
