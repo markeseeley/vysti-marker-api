@@ -88,6 +88,7 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      height: 32px;
       font-size: var(--fs-xs);
       color: var(--muted);
     }
@@ -101,6 +102,7 @@
       align-items: center;
       gap: 8px;
       height: 32px;
+      line-height: 1;
       padding: 0 12px;
       border-radius: 999px;
       border: 1px solid rgba(0,0,0,.14);
@@ -125,60 +127,54 @@
     }
     .power-quests{
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 8px;
-      align-items: center;
-      margin-top: 2px;
+      margin-top: 6px;
     }
-    .quest-chip{
+    .quest-row{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .quest-pill{
       display: inline-flex;
       align-items: center;
-      gap: 8px;
       padding: 6px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(0,0,0,.12);
       background: #fff;
+      border: 1px solid rgba(0,0,0,.18);
       font-size: var(--fs-xs);
-      font-weight: 700;
-      color: rgba(0,0,0,.75);
-      line-height: 1;
+      font-weight: 800;
+      color: rgba(0,0,0,.70);
+      white-space: nowrap;
     }
-    .quest-icon{
+    .quest-pill.weak{ border-color: rgba(217,83,79,.55); }
+    .quest-pill.power{ border-color: rgba(46,204,113,.55); }
+    .quest-right{
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .quest-dots{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quest-dot{
+      width: 10px;
+      height: 10px;
       border-radius: 999px;
-      border: 1px solid rgba(0,0,0,.14);
-      font-size: 12px;
-      font-weight: 900;
-      line-height: 1;
+      border: 1px solid rgba(0,0,0,.85);
+      background: transparent;
     }
-    .quest-chip.ok{
-      border-color: rgba(46, 204, 113, .35);
-      background: rgba(46, 204, 113, .10);
-    }
-    .quest-chip.bad{
-      border-color: rgba(217, 83, 79, .35);
-      background: rgba(217, 83, 79, .10);
-    }
-    .quest-chip.star{
-      border-color: rgba(240, 173, 78, .45);
-      background: rgba(240, 173, 78, .12);
-    }
-    .quest-mini{
-      width: 74px;
-      height: 6px;
-      border-radius: 999px;
-      background: rgba(0,0,0,.10);
-      overflow: hidden;
-    }
-    .quest-mini-fill{
-      height: 100%;
-      width: 0%;
-      border-radius: 999px;
-      background: rgba(240, 173, 78, .95);
+    .quest-dot.good{ background: rgba(46,204,113,1); }
+    .quest-dot.bad{ background: rgba(217,83,79,1); }
+    .quest-dot.empty{ background: #fff; }
+    .quest-fraction{
+      font-size: var(--fs-xs);
+      font-weight: 800;
+      color: rgba(0,0,0,.55);
     }
     .marked-preview-container {
       max-height: 600px;
@@ -2468,99 +2464,87 @@
       return Math.max(0, Math.min(1, n));
     }
 
-    function parsePowerSub(sub) {
-      const s = String(sub || "");
+    function renderPowerProgressUI(subEl, powerMetric) {
+      if (!subEl || !powerMetric) return;
 
-      const weakMatch = s.match(/Weak verbs:\s*([^•]+)/i);
-      const weakRaw = weakMatch ? weakMatch[1].trim() : "";
-      let weakCount = null;
+      const d = powerMetric.details || {};
+      const weakCount = Number(d.weakCount) || 0;
+      const powerCount = Number(d.powerCount) || 0;
+      const powerTarget = Number(d.powerTarget) || 0;
 
-      if (!weakRaw) {
-        weakCount = null;
-      } else if (/none\b|clear\b|0\b/i.test(weakRaw)) {
-        weakCount = 0;
-      } else {
-        const parens = Array.from(weakRaw.matchAll(/\((\d+)\)/g)).map(m => Number(m[1] || 0));
-        if (parens.length) {
-          weakCount = parens.reduce((a, b) => a + (Number(b) || 0), 0);
-        } else {
-          const num = weakRaw.match(/\b(\d+)\b/);
-          weakCount = num ? Number(num[1]) : 1;
-        }
-      }
-
-      const powerFrac = s.match(/Power verbs:\s*(\d+)\s*\/\s*(\d+)/i);
-      const powerCount = powerFrac ? Number(powerFrac[1]) : null;
-      const powerTarget = powerFrac ? Number(powerFrac[2]) : null;
-
-      return { weakRaw, weakCount, powerCount, powerTarget };
-    }
-
-    function renderPowerQuestsInto(el, powerMetric) {
-      if (!el) return;
-
-      const sub = powerMetric?.sub || "";
-      const { weakRaw, weakCount, powerCount, powerTarget } = parsePowerSub(sub);
-
-      if (weakCount === null && (powerCount === null || powerTarget === null)) {
-        el.textContent = sub;
-        return;
-      }
-
-      el.innerHTML = "";
+      subEl.innerHTML = "";
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
 
-      const weakChip = document.createElement("div");
-      weakChip.className = `quest-chip ${weakCount === 0 ? "ok" : "bad"}`;
-      if (weakRaw) weakChip.title = `Weak verbs: ${weakRaw}`;
+      const weakRow = document.createElement("div");
+      weakRow.className = "quest-row";
 
-      const weakIcon = document.createElement("span");
-      weakIcon.className = "quest-icon";
-      weakIcon.textContent = weakCount === 0 ? "✓" : "✕";
+      const weakPill = document.createElement("div");
+      weakPill.className = "quest-pill weak";
+      weakPill.textContent = "Weak verbs remaining";
 
-      const weakText = document.createElement("span");
-      weakText.textContent = weakCount === 0 ? "Weak verbs: none" : `Weak verbs: ${weakCount}`;
+      const weakRight = document.createElement("div");
+      weakRight.className = "quest-right";
 
-      weakChip.appendChild(weakIcon);
-      weakChip.appendChild(weakText);
+      const weakDots = document.createElement("div");
+      weakDots.className = "quest-dots";
 
-      const powerChip = document.createElement("div");
-      powerChip.className = "quest-chip star";
-
-      const starIcon = document.createElement("span");
-      starIcon.className = "quest-icon";
-      starIcon.textContent = "★";
-
-      const powerText = document.createElement("span");
-      if (powerCount !== null && powerTarget !== null && powerTarget > 0) {
-        powerText.textContent = `Power verbs: ${powerCount}/${powerTarget}`;
-      } else {
-        powerText.textContent = "Power verbs";
+      const weakMaxDots = 8;
+      const weakDotsToShow = Math.min(weakCount, weakMaxDots);
+      for (let i = 0; i < weakDotsToShow; i += 1) {
+        const dot = document.createElement("span");
+        dot.className = "quest-dot bad";
+        weakDots.appendChild(dot);
+      }
+      if (weakCount > weakMaxDots) {
+        const more = document.createElement("span");
+        more.className = "quest-fraction";
+        more.textContent = `+${weakCount - weakMaxDots}`;
+        weakRight.appendChild(more);
       }
 
-      powerChip.appendChild(starIcon);
-      powerChip.appendChild(powerText);
+      if (weakCount > 0) weakRight.appendChild(weakDots);
 
-      if (powerCount !== null && powerTarget !== null && powerTarget > 0) {
-        const mini = document.createElement("div");
-        mini.className = "quest-mini";
+      weakRow.appendChild(weakPill);
+      weakRow.appendChild(weakRight);
 
-        const fill = document.createElement("div");
-        fill.className = "quest-mini-fill";
-        fill.style.width = `${Math.round(clamp01(powerCount / powerTarget) * 100)}%`;
+      const powerRow = document.createElement("div");
+      powerRow.className = "quest-row";
 
-        mini.appendChild(fill);
-        powerChip.appendChild(mini);
+      const powerPill = document.createElement("div");
+      powerPill.className = "quest-pill power";
+      powerPill.textContent = "Power verbs";
 
-        const remaining = Math.max(0, powerTarget - powerCount);
-        powerChip.title = remaining > 0 ? `Need ${remaining} more power verb(s)` : "Target reached";
+      const powerRight = document.createElement("div");
+      powerRight.className = "quest-right";
+
+      const powerDots = document.createElement("div");
+      powerDots.className = "quest-dots";
+
+      if (powerTarget > 0) {
+        const maxDots = Math.min(powerTarget, 10);
+        const filled = Math.min(powerCount, maxDots);
+
+        for (let i = 0; i < maxDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = `quest-dot ${i < filled ? "good" : "empty"}`;
+          powerDots.appendChild(dot);
+        }
+        powerRight.appendChild(powerDots);
+
+        const frac = document.createElement("span");
+        frac.className = "quest-fraction";
+        frac.textContent = `${powerCount}/${powerTarget}`;
+        powerRight.appendChild(frac);
       }
 
-      wrap.appendChild(weakChip);
-      wrap.appendChild(powerChip);
+      powerRow.appendChild(powerPill);
+      powerRow.appendChild(powerRight);
 
-      el.appendChild(wrap);
+      wrap.appendChild(weakRow);
+      wrap.appendChild(powerRow);
+
+      subEl.appendChild(wrap);
     }
 
     function stripQuotedText(s) {
@@ -2569,6 +2553,11 @@
 
     function tokenizeWords(s) {
       return String(s || "").toLowerCase().match(/[a-z']+/g) || [];
+    }
+
+    function isTheUseOf(tokens, i) {
+      if (!tokens || i <= 0 || i >= tokens.length - 1) return false;
+      return tokens[i] === "use" && tokens[i - 1] === "the" && tokens[i + 1] === "of";
     }
 
     function countRegexMatches(text, regex) {
@@ -2591,14 +2580,24 @@
         .filter(Boolean);
     }
 
-    const WEAK_VERBS = new Set([
-      "show","shows","showed","showing",
-      "use","uses","used","using",
-      "make","makes","made","making",
-      "do","does","did","doing",
-      "get","gets","got","getting",
-      "have","has","had","having"
-    ]);
+    const WEAK_VERB_GROUPS = {
+      show: ["show","shows","showed","showing"],
+      use:  ["use","uses","used","using"],
+      make: ["make","makes","made","making"],
+      do:   ["do","does","did","doing"],
+      get:  ["get","gets","got","getting"],
+      have: ["have","has","had","having"]
+    };
+
+    const WEAK_VERB_FORM_TO_BASE = (() => {
+      const m = new Map();
+      Object.entries(WEAK_VERB_GROUPS).forEach(([base, forms]) => {
+        forms.forEach((f) => m.set(f, base));
+      });
+      return m;
+    })();
+
+    const WEAK_VERBS = new Set(Array.from(WEAK_VERB_FORM_TO_BASE.keys()));
 
     const PRONOUN_STARTERS = new Set([
       "this","it","they","he","she","we","i","you"
@@ -2752,42 +2751,41 @@
       const words = tokenizeWords(cleanLower);
       const totalWords = words.length;
 
-      const weakCounts = {};
+      const weakByBase = { show: 0, use: 0, make: 0, do: 0, get: 0, have: 0 };
       let weakCount = 0;
-      for (const w of words) {
-        if (WEAK_VERBS.has(w)) {
-          weakCount += 1;
-          weakCounts[w] = (weakCounts[w] || 0) + 1;
-        }
+      for (let i = 0; i < words.length; i += 1) {
+        const w = words[i];
+        if (!WEAK_VERBS.has(w)) continue;
+        if (isTheUseOf(words, i)) continue;
+
+        weakCount += 1;
+        const base = WEAK_VERB_FORM_TO_BASE.get(w);
+        if (base && weakByBase[base] !== undefined) weakByBase[base] += 1;
       }
 
-      const uniquePower = new Set();
-      if (powerVerbFormsSet) {
+      let powerCount = 0;
+      let powerTarget = powerVerbTargetForWordCount(totalWords);
+      if (powerVerbFormsSet && powerTarget > 0) {
+        const uniq = new Set();
         for (const w of words) {
           if (WEAK_VERBS.has(w)) continue;
-          if (powerVerbFormsSet.has(w)) uniquePower.add(w);
+          if (powerVerbFormsSet.has(w)) uniq.add(w);
         }
+        powerCount = uniq.size;
       }
-
-      const target = powerVerbTargetForWordCount(totalWords);
       const weakRatePer100 = totalWords ? (weakCount / totalWords) * 100 : 0;
       const weakScore = clamp(Math.round(100 - weakRatePer100 * 8), 0, 100);
-      const powerVerbScore = target === 0
+      const powerVerbScore = powerTarget === 0
         ? 100
-        : clamp(Math.round((uniquePower.size / target) * 100), 0, 100);
+        : clamp(Math.round((powerCount / powerTarget) * 100), 0, 100);
       const powerScore = clamp(Math.round(weakScore * 0.6 + powerVerbScore * 0.4), 0, 100);
 
-      const weakSummaryParts = ["show","use","make","do","get","have"]
-        .map((base) => {
-          const n = Object.entries(weakCounts)
-            .reduce((sum, [k, v]) => (k.startsWith(base) ? sum + v : sum), 0);
-          return n ? `${base} (${n})` : null;
-        })
-        .filter(Boolean);
+      const weakParts = Object.entries(weakByBase)
+        .filter(([, n]) => n > 0)
+        .map(([k, n]) => `${k} (${n})`);
 
-      const weakSummary = weakSummaryParts.length ? weakSummaryParts.join(", ") : "none";
-      const powerSummary = target ? `${uniquePower.size}/${target}` : `${uniquePower.size}`;
-      const powerSub = `Weak verbs: ${weakSummary} • Power verbs: ${powerSummary}`;
+      const weakSummary = weakParts.length ? weakParts.join(", ") : "none";
+      const powerSub = `Weak verbs: ${weakSummary} • Power verbs: ${powerCount}/${powerTarget || 0}`;
 
       const sentences = splitSentencesSimple(clean);
       let pronounStarts = 0;
@@ -2888,7 +2886,13 @@
       return {
         power: {
           score: powerScore,
-          sub: powerSub
+          sub: powerSub,
+          details: {
+            weakCount,
+            weakByBase,
+            powerCount,
+            powerTarget
+          }
         },
         variety: {
           score: varietyScore,
@@ -2934,7 +2938,7 @@
       lastStudentMetrics = metrics || null;
 
       renderSingleMetric(powerScoreText, powerMeterFill, powerSubText, metrics?.power);
-      renderPowerQuestsInto(powerSubText, metrics?.power);
+      renderPowerProgressUI(powerSubText, metrics?.power);
       renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
       renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
 
@@ -2987,6 +2991,25 @@
         tipsList.appendChild(li);
       });
       metricInfoBody.appendChild(tipsList);
+
+      if (key === "power") {
+        const divider = document.createElement("div");
+        divider.style.marginTop = "12px";
+        divider.style.paddingTop = "10px";
+        divider.style.borderTop = "1px solid rgba(0,0,0,.10)";
+        metricInfoBody.appendChild(divider);
+
+        const progTitle = document.createElement("div");
+        progTitle.className = "metric-popover-tips-title";
+        progTitle.textContent = "Progress";
+        metricInfoBody.appendChild(progTitle);
+
+        const progWrap = document.createElement("div");
+        progWrap.style.marginTop = "8px";
+        metricInfoBody.appendChild(progWrap);
+
+        renderPowerProgressUI(progWrap, lastStudentMetrics?.power);
+      }
 
       if (key === "power") {
         const divider = document.createElement("div");
