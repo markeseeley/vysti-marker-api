@@ -3099,11 +3099,11 @@
       },
       cohesion: {
         title: "Cohesion",
-        body: "Cohesion measures how clearly your paragraphs connect using transitions and linking language.",
+        body: "Cohesion measures how well each sentence connects to the next. You earn most points from boundary statements (repeating a key content word from one sentence to the next). Transitions add a smaller bonus when used sparingly and with variety.",
         tips: [
-          "Use transitions sparingly and vary them.",
-          "Repeat a key word from the prior paragraph to link ideas.",
-          "Don’t stack Moreover/Furthermore repeatedly."
+          "Repeat a key noun/verb/adjective from one sentence to the next.",
+          "Use transitions occasionally, but avoid repeating the same one (\"moreover\" x 19).",
+          "Prefer clarifying moves (e.g., \"To clarify...\") once we add them to the transition list."
         ]
       },
       precision: {
@@ -3144,11 +3144,7 @@
     function detectTransitionStart(sentence) {
       const tokens = tokenizeWords(sentence || "");
       if (tokens.length === 0) return "";
-      let idx = 0;
-      while (idx < tokens.length && SENTENCE_STARTER_SKIPS.has(tokens[idx])) {
-        idx += 1;
-      }
-      const windowTokens = tokens.slice(idx, idx + 4);
+      const windowTokens = tokens.slice(0, 4);
       if (windowTokens.length === 0) return "";
       for (const phrase of TRANSITIONS) {
         const phraseTokens = phrase.split(" ");
@@ -3163,6 +3159,73 @@
         if (matches) return phrase;
       }
       return "";
+    }
+
+
+    function computeCohesionSentenceBySentence(sentences) {
+      const sentenceCount = sentences.length;
+      const boundaryDenom = Math.max(0, sentenceCount - 1);
+
+      // ---- Boundary statements (sentence-to-sentence repetition) ----
+      // Uses existing getCohesionKeyTokens() which approximates noun/verb/adj/adv
+      // via stopword removal + light stemming.
+      const keyTokenSets = sentences.map((s) => new Set(getCohesionKeyTokens(s)));
+
+      let boundaryHits = 0;
+      for (let i = 0; i < keyTokenSets.length - 1; i += 1) {
+        const a = keyTokenSets[i];
+        const b = keyTokenSets[i + 1];
+        let hit = false;
+        for (const tok of a) {
+          if (b.has(tok)) {
+            hit = true;
+            break;
+          }
+        }
+        if (hit) boundaryHits += 1;
+      }
+
+      const boundaryRate = boundaryDenom ? boundaryHits / boundaryDenom : 0;
+
+      // ---- Transitions (sentence-initial, varied, not spammed) ----
+      const transitionCounts = new Map();
+      let transitionStarts = 0;
+
+      for (const sentence of sentences) {
+        const tr = detectTransitionStart(sentence);
+        if (tr) {
+          transitionStarts += 1;
+          const known = transitionCounts.get(tr) || 0;
+          transitionCounts.set(tr, known + 1);
+        }
+      }
+
+      const uniqueTransitions = transitionCounts.size;
+
+      // Variety factor: repeated transitions help less
+      const varietyFactor = transitionStarts ? (uniqueTransitions / transitionStarts) : 0;
+
+      // Encourage "some" transitions but not many.
+      // Professional writing often uses few explicit transitions,
+      // so target a low rate (tweakable).
+      const targetRate = 0.06; // ~1 transition per 16-17 sentences
+      const transitionRate = sentenceCount ? (transitionStarts / sentenceCount) : 0;
+
+      // Bell-shaped score: best near targetRate; drops if too low OR too high.
+      const transitionScoreRaw = 1 - Math.abs(transitionRate - targetRate) / targetRate;
+      const transitionScoreBase = clamp(transitionScoreRaw, 0, 1);
+
+      // Weighting: boundary statements are primary.
+      const boundaryScore = 80 * boundaryRate;
+      const transitionScore = 20 * transitionScoreBase * varietyFactor;
+
+      const cohesionScore = clamp(Math.round(boundaryScore + transitionScore), 0, 100);
+
+      const cohesionSub =
+        `Boundary statements: ${boundaryHits}/${boundaryDenom} • ` +
+        `Transitions: ${transitionStarts} (unique ${uniqueTransitions})`;
+
+      return { cohesionScore, cohesionSub, boundaryHits, boundaryDenom, transitionStarts, uniqueTransitions };
     }
 
     function powerVerbTargetForWordCount(wc) {
@@ -3222,44 +3285,18 @@
       const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
 
       const paragraphs = splitParagraphsSimple(clean);
-      const sentenceCount = sentences.length;
-      let transitionStarts = 0;
-      const transitionSet = new Set();
-      for (const sentence of sentences) {
-        const transition = detectTransitionStart(sentence);
-        if (transition) {
-          transitionStarts += 1;
-          transitionSet.add(transition);
-        }
-      }
-      const uniqueTransitions = transitionSet.size;
-      const transitionRate = sentenceCount ? transitionStarts / sentenceCount : 0;
-      const transitionScoreRaw = 1 - Math.abs(transitionRate - 0.08) / 0.08;
-      let transitionScore = clamp(transitionScoreRaw, 0, 1) * 40;
-      const spamPenalty = Math.max(0, transitionStarts - uniqueTransitions * 2) * 3;
-      transitionScore = Math.max(0, transitionScore - spamPenalty);
-
-      const keyTokenSets = sentences.map((sentence) => new Set(getCohesionKeyTokens(sentence)));
-      let boundaryHits = 0;
-      for (let i = 0; i < keyTokenSets.length - 1; i += 1) {
-        const currentSet = keyTokenSets[i];
-        const nextSet = keyTokenSets[i + 1];
-        let hit = false;
-        for (const tok of currentSet) {
-          if (nextSet.has(tok)) {
-            hit = true;
-            break;
-          }
-        }
-        if (hit) boundaryHits += 1;
-      }
-      const boundaryRate = sentenceCount > 1 ? boundaryHits / (sentenceCount - 1) : 0;
-      const boundaryScore = 60 * boundaryRate;
-      let cohesionScore = clamp(Math.round(boundaryScore + transitionScore), 0, 100);
-      const cohesionSub = `Transitions: ${transitionStarts} • Boundary links: ${boundaryHits}/${Math.max(0, sentenceCount - 1)}`;
+      const cohesionCalc = computeCohesionSentenceBySentence(sentences);
+      const cohesionScore = cohesionCalc.cohesionScore;
+      const cohesionSub = cohesionCalc.cohesionSub;
 
       if (DEBUG_METRICS) {
-        console.log({ sentenceCount, transitionStarts, uniqueTransitions, boundaryHits, cohesionScore });
+        console.log({
+          sentenceCount: sentences.length,
+          transitionStarts: cohesionCalc.transitionStarts,
+          uniqueTransitions: cohesionCalc.uniqueTransitions,
+          boundaryHits: cohesionCalc.boundaryHits,
+          cohesionScore
+        });
       }
 
       const andCount = countRegexMatches(cleanLower, /\band\b/g);
@@ -3331,7 +3368,7 @@
         },
         meta: {
           paragraphs: paragraphs.length,
-          sentences: sentenceCount,
+          sentences: sentences.length,
           mode: mode || ""
         }
       };
