@@ -16,6 +16,10 @@
     "definition": "arrange in classes or categories according to shared qualities or characteristics"
   },
   {
+    "verb": "commits",
+    "definition": "pledge or bind (a person or an organization) to a certain course or policy; or carry out or perpetrate (a mistake, crime, or immoral act)"
+  },
+  {
     "verb": "compares",
     "definition": "estimate, measure, or note the similarity or dissimilarity between"
   },
@@ -40,10 +44,6 @@
     "definition": "compare in such a way as to emphasize differences"
   },
   {
-    "verb": "commits",
-    "definition": "pledge or bind (a person or an organization) to a certain course or policy; or carry out or perpetrate (a mistake, crime, or immoral act)"
-  },
-  {
     "verb": "decodes",
     "definition": "breaks down hidden cues or subtext"
   },
@@ -61,7 +61,7 @@
   },
   {
     "verb": "describes",
-    "definition": "gie an account in words of (someone or something), including all the relevant characteristics, qualities, or events"
+    "definition": "give an account in words of (someone or something), including all the relevant characteristics, qualities, or events"
   },
   {
     "verb": "devalues",
@@ -72,10 +72,6 @@
     "definition": "reduces importance"
   },
   {
-    "verb": "disrupts",
-    "definition": "breaks expected patterns"
-  },
-  {
     "verb": "discusses",
     "definition": "talk about (something) with another person or group of people"
   },
@@ -84,24 +80,16 @@
     "definition": "free (something or someone) from an entanglement; extricate"
   },
   {
+    "verb": "disrupts",
+    "definition": "breaks expected patterns"
+  },
+  {
     "verb": "draws a picture of",
-    "definition": "another way to say 'describes'"
+    "definition": "portrays vividly; describes in words"
   },
   {
     "verb": "draws attention to",
-    "definition": "another way to say 'highlights'"
-  },
-  {
-    "verb": "exemplifies",
-    "definition": "give an example of; illustrate by giving an example"
-  },
-  {
-    "verb": "extricate",
-    "definition": "another way to say 'disentangles'"
-  },
-  {
-    "verb": "lists",
-    "definition": "make a list of"
+    "definition": "highlights; calls attention to"
   },
   {
     "verb": "embeds",
@@ -117,7 +105,11 @@
   },
   {
     "verb": "enumerates",
-    "definition": "another way to say 'lists'"
+    "definition": "lists items one by one"
+  },
+  {
+    "verb": "envision",
+    "definition": "imagine as a future possibility; visualize"
   },
   {
     "verb": "eradicates",
@@ -126,10 +118,6 @@
   {
     "verb": "eroticizes",
     "definition": "give (something or someone) erotic qualities"
-  },
-  {
-    "verb": "envision",
-    "definition": "imagine as a future possibility; visualize"
   },
   {
     "verb": "evaluates",
@@ -144,6 +132,14 @@
     "definition": "bring or recall to the conscious mind"
   },
   {
+    "verb": "exemplifies",
+    "definition": "give an example of; illustrate by giving an example"
+  },
+  {
+    "verb": "explains",
+    "definition": "make (an idea, situation, or problem) clear to someone by describing it in more detail or revealing relevant facts or ideas"
+  },
+  {
     "verb": "expresses",
     "definition": "convey (a thought or feeling) in words or by gestures and conduct"
   },
@@ -152,8 +148,8 @@
     "definition": "extend the application of (a method or conclusion, especially one based on statistics) to an unknown situation by assuming that existing trends will continue or similar methods will be applicable"
   },
   {
-    "verb": "explains",
-    "definition": "make (an idea, situation, or problem) clear to someone by describing it in more detail or revealing relevant facts or ideas"
+    "verb": "extricate",
+    "definition": "free from an entanglement; disentangle"
   },
   {
     "verb": "gives",
@@ -205,15 +201,99 @@
   },
   {
     "verb": "insinuates",
-    "definition": "suggest or hint (something bad or reprehensible) in an indirect and unpleasant way intermingles mix or mingle together intensifies become or make more intense intermixes another way to say 'intermingles' interrogates ask questions of someone or of some topic justifies show or prove to be right or reasonable jettisons abandon or discard (someone or something that is no longer wanted) juxtaposes place or deal with close together for contrasting effect lampoons ridicule with sharp humor lessens make or become less; diminish manipulates handle or control (a tool, mechanism, etc.), typically in a skillful manner modifies make partial or minor changes to (something), typically so as to improve it or to make it less extreme negotiates find a way over or through (an obstacle or difficult path) obviates remove (a need or difficulty) observes notice or perceive (something) and register it as being significant opines hold and state as one's opinion outlines a general description or plan giving the essential features of something but not the detail overturns abolish, invalidate, or reverse (a previous system, decision, situation, etc.) paints a picture of another way to say 'describes'"
+    "definition": "suggest or hint (something bad or reprehensible) in an indirect and unpleasant way"
+  },
+  {
+    "verb": "intensifies",
+    "definition": "become or make more intense"
+  },
+  {
+    "verb": "intermingles",
+    "definition": "mix or mingle together"
+  },
+  {
+    "verb": "intermixes",
+    "definition": "mix or blend together; combine"
+  },
+  {
+    "verb": "interrogates",
+    "definition": "ask questions of someone or about a topic; question closely"
+  },
+  {
+    "verb": "jettisons",
+    "definition": "abandon or discard (something no longer wanted)"
+  },
+  {
+    "verb": "justifies",
+    "definition": "show or prove to be right or reasonable"
+  },
+  {
+    "verb": "juxtaposes",
+    "definition": "place close together for contrasting effect"
+  },
+  {
+    "verb": "lampoons",
+    "definition": "ridicule with sharp humor"
+  },
+  {
+    "verb": "lessens",
+    "definition": "make or become less; diminish"
+  },
+  {
+    "verb": "lists",
+    "definition": "make a list of"
+  },
+  {
+    "verb": "manipulates",
+    "definition": "handle or control (a tool or mechanism), typically skillfully"
+  },
+  {
+    "verb": "modifies",
+    "definition": "make partial or minor changes to improve or make less extreme"
+  },
+  {
+    "verb": "negotiates",
+    "definition": "find a way over, through, or around an obstacle; navigate"
+  },
+  {
+    "verb": "observes",
+    "definition": "notice or perceive and register as significant"
+  },
+  {
+    "verb": "obviates",
+    "definition": "remove a need or difficulty"
+  },
+  {
+    "verb": "opines",
+    "definition": "state or express an opinion"
+  },
+  {
+    "verb": "outlines",
+    "definition": "give a general description or plan showing essential features without detail"
+  },
+  {
+    "verb": "overturns",
+    "definition": "abolish, invalidate, or reverse a previous decision, situation, or system"
+  },
+  {
+    "verb": "paints a picture of",
+    "definition": "portrays vividly; describes in words"
+  },
+  {
+    "verb": "penetrates",
+    "definition": "succeed in understanding or gaining insight into (something complex or mysterious)"
   },
   {
     "verb": "points out",
-    "definition": "another way to say 'indicates'"
+    "definition": "indicates; draws attention to"
   },
   {
     "verb": "posits",
     "definition": "puts forward a theory or claim confidently"
+  },
+  {
+    "verb": "prepares",
+    "definition": "make (something) ready for use or consideration"
   },
   {
     "verb": "presents",
@@ -226,14 +306,6 @@
   {
     "verb": "provokes",
     "definition": "stimulate or give rise to (a reaction or emotion, typically a strong or unwelcome one) in someone"
-  },
-  {
-    "verb": "penetrates",
-    "definition": "succeed in understanding or gaining insight into (something complex or mysterious)"
-  },
-  {
-    "verb": "prepares",
-    "definition": "make (something) ready for use or consideration"
   },
   {
     "verb": "punctuates",
@@ -256,16 +328,16 @@
     "definition": "respond or behave in a particular way in response to something"
   },
   {
-    "verb": "reevaluates",
-    "definition": "evaluate again or differently"
-  },
-  {
     "verb": "recalls",
     "definition": "bring (a fact, event, or situation) back into one's mind; remember"
   },
   {
     "verb": "recounts",
-    "definition": "another way of saying \"gives an account of\""
+    "definition": "narrates; gives an account of"
+  },
+  {
+    "verb": "reevaluates",
+    "definition": "evaluate again or differently"
   },
   {
     "verb": "reimagines",
@@ -277,7 +349,7 @@
   },
   {
     "verb": "reiterates",
-    "definition": "another way to say 'repeats'"
+    "definition": "repeats; restates"
   },
   {
     "verb": "relegates",
@@ -316,20 +388,20 @@
     "definition": "covers the complete range or scope of something"
   },
   {
-    "verb": "scrutinizes",
-    "definition": "another way to say \"interrogates\""
-  },
-  {
-    "verb": "spotlights",
-    "definition": "direct attention to (a particular problem or situation)"
-  },
-  {
     "verb": "satirizes",
     "definition": "uses satire to expose"
   },
   {
     "verb": "satisfies",
     "definition": "meet the expectations, needs, or desires of (someone)"
+  },
+  {
+    "verb": "scrutinizes",
+    "definition": "examines closely; inspects critically"
+  },
+  {
+    "verb": "sexualizes",
+    "definition": "portrays or describes in sexual terms; gives sexual qualities"
   },
   {
     "verb": "sidesteps",
@@ -340,12 +412,12 @@
     "definition": "put in context; describe the circumstances surrounding (something)"
   },
   {
-    "verb": "sexualizes",
-    "definition": "another way to say \"eroticizes\""
+    "verb": "spotlights",
+    "definition": "direct attention to (a particular problem or situation)"
   },
   {
     "verb": "stratifies",
-    "definition": "another way to say \"classifies\""
+    "definition": "arranges into layers or ranks; classifies into strata"
   },
   {
     "verb": "strengthens",
@@ -360,24 +432,24 @@
     "definition": "frames something through a conceptual lens"
   },
   {
-    "verb": "underscores",
-    "definition": "another way to say \"highlights\""
-  },
-  {
     "verb": "undermines",
     "definition": "lessen the effectiveness, power, or ability of, especially gradually or insidiously"
+  },
+  {
+    "verb": "underscores",
+    "definition": "emphasizes; highlights"
   },
   {
     "verb": "unpacks",
     "definition": "pulls apart layers of meaning"
   },
   {
-    "verb": "upsets",
-    "definition": "cause disorder in (something); disrupt"
+    "verb": "upends",
+    "definition": "overturns; disrupts or reverses"
   },
   {
-    "verb": "upends",
-    "definition": "another way of saying \"overturns\""
+    "verb": "upsets",
+    "definition": "cause disorder in (something); disrupt"
   },
   {
     "verb": "values",
