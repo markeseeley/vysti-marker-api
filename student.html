@@ -1281,7 +1281,12 @@
     }
 
     function isAvoidWeakVerbsLabel(label) {
-      return normLabel(label) === normLabel(POWER_VERBS_LABEL);
+      const l = normLabel(label);
+      return (
+        l === normLabel("Avoid weak verbs") ||
+        l === normLabel("Refer to the Power Verbs list") ||
+        l === normLabel("Refer to the Power Verbs List")
+      );
     }
 
     function getPowerVerbsStorageKey(label) {
@@ -3095,6 +3100,22 @@
     function findFoundTerms(sentence, labelText) {
       const s = String(sentence || "");
       const candidates = extractQuotedTerms(labelText);
+
+      // If label has no quoted terms but this is the weak-verbs issue,
+      // infer the "FOUND" term(s) directly from the sentence.
+      if (candidates.length === 0 && isAvoidWeakVerbsLabel(labelText)) {
+        const hits = [];
+        const seen = new Set();
+        const tokens = tokenizeWords(sentence);
+
+        for (const w of tokens) {
+          if (WEAK_VERBS.has(w) && !seen.has(w)) {
+            seen.add(w);
+            hits.push(w);
+          }
+        }
+        return hits; // e.g., ["showed"] or ["use", "make"]
+      }
 
       const found = [];
       const seen = new Set();
