@@ -5133,9 +5133,9 @@ def analyze_text(
             # Special case: "the use of" is handled as a delete-phrase with
             # red strikethrough, so we do NOT also flag "use" as a weak verb there.
             word_lower = match.group(0).lower()
-            if word_lower.startswith("use"):
-                phrase_start = match_start - 4  # position of "the "
-                phrase_end = match_end + 3      # position after " of"
+            if word_lower == "use":
+                phrase_start = match_start - 4
+                phrase_end = match_end + 3
                 if phrase_start >= 0 and phrase_end <= len(flat_text):
                     if flat_text[phrase_start:phrase_end].lower() == "the use of":
                         continue
