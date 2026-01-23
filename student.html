@@ -2971,10 +2971,12 @@
     }
 
     function splitParagraphsSimple(s) {
-      return String(s || "")
-        .split(/\n{2,}/)
-        .map((p) => p.trim())
-        .filter(Boolean);
+      const text = String(s || "").replace(/\r\n/g, "\n");
+      const hasBlankLine = /\n\s*\n/.test(text);
+      const parts = hasBlankLine
+        ? text.split(/\n\s*\n+/)
+        : text.split(/\n+/);
+      return parts.map((p) => p.trim()).filter(Boolean);
     }
 
     const WEAK_VERB_GROUPS = {
@@ -3006,22 +3008,121 @@
     ]);
 
     const TRANSITIONS = [
+      // Clarification / restatement
+      "to put it simply",
+      "to put it another way",
+      "to put it differently",
+      "to say it another way",
+      "in other words",
+      "that is to say",
+      "that is",
+      "simply put",
+      "put differently",
+      "put another way",
+      "in a word",
+
+      // Contrast / concession
       "on the other hand",
-      "for example",
-      "for instance",
-      "in addition",
-      "as a result",
-      "however",
-      "moreover",
-      "furthermore",
-      "additionally",
-      "therefore",
-      "thus",
-      "consequently",
+      "on the one hand",
+      "by contrast",
+      "in contrast",
+      "in comparison",
+      "conversely",
+      "on the contrary",
+      "even so",
+      "all the same",
+      "that said",
+      "having said that",
+      "in spite of this",
+      "despite this",
       "nevertheless",
       "nonetheless",
-      "meanwhile"
-    ];
+      "however",
+      "still",
+      "yet",
+      "instead",
+      "rather",
+      "otherwise",
+      "alternatively",
+
+      // Addition
+      "in addition",
+      "in addition to this",
+      "additionally",
+      "furthermore",
+      "moreover",
+      "what's more",
+      "besides this",
+      "not only that",
+
+      // Cause / effect
+      "as a result",
+      "as a consequence",
+      "in consequence",
+      "for this reason",
+      "for that reason",
+      "because of this",
+      "accordingly",
+      "consequently",
+      "therefore",
+      "thus",
+      "hence",
+
+      // Example / specificity
+      "for example",
+      "for instance",
+      "to illustrate",
+      "to demonstrate",
+      "specifically",
+      "in particular",
+      "more specifically",
+      "namely",
+
+      // Emphasis
+      "as a matter of fact",
+      "in fact",
+      "indeed",
+      "of course",
+      "certainly",
+      "to be sure",
+      "most importantly",
+      "more importantly",
+      "above all",
+      "notably",
+
+      // Sequence / time
+      "to begin with",
+      "to start with",
+      "at first",
+      "first of all",
+      "first",
+      "second",
+      "third",
+      "next",
+      "then",
+      "afterward",
+      "afterwards",
+      "later",
+      "meanwhile",
+      "subsequently",
+      "eventually",
+      "in the end",
+      "finally",
+      "ultimately",
+
+      // Summary
+      "in summary",
+      "to summarize",
+      "to sum up",
+      "in short",
+      "in brief",
+      "overall"
+    ].sort((a, b) => {
+      const ta = a.split(" ").length;
+      const tb = b.split(" ").length;
+      if (tb !== ta) return tb - ta;
+      return b.length - a.length;
+    });
 
     const COHESION_STOP_WORDS = new Set([
       "the","a","an","and","or","but","if","then","so","because","since","as",
@@ -3038,8 +3139,20 @@
       "nor","own","same","other","another","there","here","then","now","who",
       "whom","which","what","where","why","how","up","down","out","off","again",
       "further","once","ever","never","across","around","behind","beyond","near",
-      "among","amongst","via"
+      "among","amongst","via",
+      // Single-word transitions (should not count as boundary tokens)
+      "accordingly","alternatively","afterward","afterwards","above","all",
+      "besides","certainly","consequently","conversely","despite","eventually",
+      "finally","first","hence","indeed","instead","later","meanwhile","namely",
+      "nevertheless","next","nonetheless","notably","otherwise","overall","rather",
+      "second","specifically","still","subsequently","third","ultimately","yet"
     ]);
+
+    const COHESION_LOW_SIGNAL_WORDS = [
+      "essay","text","story","novel","poem","poetry","author","writer","reader",
+      "audience","character","quote","quotation","example","evidence","paragraph",
+      "sentence","chapter"
+    ];
 
     const COHESION_ENABLE_SEMANTIC_GROUPS = true;
     // Keep groups noun-heavy and high-signal. Avoid generic nouns (thing, idea, aspect, factor) to prevent inflated cohesion scores.
@@ -3127,9 +3240,9 @@
       },
       cohesion: {
         title: "Cohesion",
-        body: "Cohesion measures how well ideas connect within and across paragraphs. You earn most points from boundary statements—repeating key content words within a paragraph and especially across paragraph breaks. Word families count (desert → desertion), and a small curated set of related or contrast words can also connect ideas (growth ↔ decline, support ↔ undermine). Transitions add only a small bonus within paragraphs; paragraph-start transitions are tracked but not rewarded.",
+        body: "Cohesion measures how well ideas connect within paragraphs (sentence boundaries) and across paragraph breaks (paragraph boundaries). You earn the most points from boundary statements—repeating key content words or word families (desert → desertion). Repeating author names, titles, or character names does NOT count. Transitions add only a small bonus within paragraphs; paragraph-start transitions are tracked but not rewarded.",
         tips: [
-          "Carry a key term across a paragraph break to link ideas.",
+          "Carry a thesis noun into each paragraph’s topic sentence.",
           "Repeat a key noun/verb/adjective or its word family (race → racial).",
           "Use occasional within-paragraph transitions, but avoid repeats."
         ]
@@ -3350,6 +3463,39 @@
       return stem;
     }
 
+    function extractRepeatedProperNounAnchors(paragraphs) {
+      const overallCounts = new Map();
+      const paragraphCounts = new Map();
+
+      for (const paragraph of (paragraphs || [])) {
+        const tokens = String(paragraph || "").match(/[A-Za-z][A-Za-z']*/g) || [];
+        const seenInParagraph = new Set();
+        for (const token of tokens) {
+          if (!token || token.length < 3) continue;
+          if (!/^[A-Z]/.test(token)) continue;
+          const lower = token.toLowerCase();
+          if (COHESION_STOP_WORDS.has(lower)) continue;
+
+          overallCounts.set(lower, (overallCounts.get(lower) || 0) + 1);
+          if (!seenInParagraph.has(lower)) {
+            paragraphCounts.set(lower, (paragraphCounts.get(lower) || 0) + 1);
+            seenInParagraph.add(lower);
+          }
+        }
+      }
+
+      const candidates = [];
+      for (const [token, totalCount] of overallCounts.entries()) {
+        const paraCount = paragraphCounts.get(token) || 0;
+        const qualifies = (paraCount >= 2 && totalCount >= 3) || totalCount >= 6;
+        if (qualifies) candidates.push({ token, totalCount });
+      }
+
+      candidates.sort((a, b) => b.totalCount - a.totalCount);
+      const top = candidates.slice(0, 10);
+      return new Set(top.map((item) => item.token));
+    }
+
     function getCohesionKeyTokens(sentence) {
       const tokens = tokenizeWords(sentence) || [];
       const results = [];
@@ -3378,12 +3524,26 @@
         normalizeCohesionToken("growth") === normalizeCohesionToken("decline"),
         "growth and decline should map to the same semantic group"
       );
+      console.assert(splitParagraphsSimple("A\nB").length === 2, "single newline should split paragraphs");
+      console.assert(splitParagraphsSimple("A\n\nB").length === 2, "blank line should split paragraphs");
+      console.assert(
+        detectTransitionStart("To put it simply, this is true.") === "to put it simply",
+        "should detect multi-word transition: to put it simply"
+      );
+      console.assert(
+        detectTransitionStart("In other words, this is true.") === "in other words",
+        "should detect in other words"
+      );
+      console.assert(
+        detectTransitionStart("As a matter of fact, this is true.") === "as a matter of fact",
+        "should detect as a matter of fact"
+      );
     }
 
     function detectTransitionStart(sentence) {
       const tokens = tokenizeWords(sentence || "");
       if (tokens.length === 0) return "";
-      const windowTokens = tokens.slice(0, 4);
+      const windowTokens = tokens.slice(0, 7);
       if (windowTokens.length === 0) return "";
       for (const phrase of TRANSITIONS) {
         const phraseTokens = phrase.split(" ");
@@ -3407,8 +3567,18 @@
         .filter((arr) => arr && arr.length);
       const paragraphCount = paraSentences.length;
 
+      const dynamicAnchors = extractRepeatedProperNounAnchors(paragraphs);
+      const ignoredTokens = new Set(
+        [...dynamicAnchors, ...COHESION_LOW_SIGNAL_WORDS]
+          .map((t) => normalizeCohesionToken(t))
+          .filter(Boolean)
+      );
+
       const sentenceTokenSets = paraSentences.map((sentences) =>
-        sentences.map((s) => new Set(getCohesionKeyTokens(s)))
+        sentences.map((s) => {
+          const tokens = getCohesionKeyTokens(s).filter((t) => !ignoredTokens.has(t));
+          return new Set(tokens);
+        })
       );
 
       const paragraphUnionTokens = sentenceTokenSets.map((sentenceSets) => {
@@ -3504,8 +3674,8 @@
         ? (paragraphBoundaryHits / paragraphBoundaryDenom)
         : 0;
 
-      let sentenceBoundaryWeight = 65;
-      let paragraphBoundaryWeight = 30;
+      let sentenceBoundaryWeight = 55;
+      let paragraphBoundaryWeight = 40;
       const transitionWeight = 5;
 
       if (paragraphBoundaryDenom === 0) {
@@ -3571,6 +3741,20 @@
         "desert/desertion should count across paragraphs"
       );
 
+      const sampleProper = "Didion explains the essay.\n\nDidion continues.";
+      const rProper = computeCohesionParagraphAware(splitParagraphsSimple(sampleProper));
+      console.assert(
+        rProper.paragraphBoundaryHits === 0,
+        "proper noun repetition alone should not count"
+      );
+
+      const sampleProperPlusConcept = "Didion explains identity.\n\nDidion returns to identity.";
+      const rProperPlus = computeCohesionParagraphAware(splitParagraphsSimple(sampleProperPlusConcept));
+      console.assert(
+        rProperPlus.paragraphBoundaryHits === 1,
+        "analytical noun should count even with proper noun repetition"
+      );
+
       const sample2 = "One point.\n\nHowever, another point.";
       const r2 = computeCohesionParagraphAware(splitParagraphsSimple(sample2));
       console.assert(
@@ -3595,8 +3779,11 @@
     }
 
     function computeMetricsFromText(text, mode) {
-      const clean = stripQuotedText(normalizeTypography(text || ""));
-      const cleanLower = clean.toLowerCase().replace(/\s+/g, " ").trim();
+      const cleanForCohesion = stripQuotedText(
+        normalizeTypographyPreserveParagraphs(text || "")
+      );
+      const cleanForCounts = stripQuotedText(normalizeTypography(text || ""));
+      const cleanLower = cleanForCounts.toLowerCase().replace(/\s+/g, " ").trim();
       const words = tokenizeWords(cleanLower);
       const totalWords = words.length;
 
@@ -3631,7 +3818,7 @@
 
       const powerSub = "";
 
-      const sentences = splitSentencesSimple(clean);
+      const sentences = splitSentencesSimple(cleanForCohesion);
       let pronounStarts = 0;
       for (const sentence of sentences) {
         const starter = getSentenceStarterWord(sentence);
@@ -3642,10 +3829,7 @@
       const pronounStartRate = sentences.length ? pronounStarts / sentences.length : 0;
       const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
 
-      const cohesionText = stripQuotedText(
-        normalizeTypographyPreserveParagraphs(text || "")
-      );
-      const paragraphs = splitParagraphsSimple(cohesionText);
+      const paragraphs = splitParagraphsSimple(cleanForCohesion);
       const cohesionCalc = computeCohesionParagraphAware(paragraphs);
       const cohesionScore = cohesionCalc.cohesionScore;
       const cohesionSub = cohesionCalc.cohesionSub;
@@ -4636,22 +4820,13 @@
         // normalize dashes
         .replace(/[\u2013\u2014]/g, "-");
 
+      // Collapse horizontal whitespace but preserve newlines
+      t = t.replace(/[ \t]+/g, " ");
+      // Trim spaces around newlines
+      t = t.replace(/[ \t]*\n[ \t]*/g, "\n");
       // Normalize paragraph separators: 3+ newlines -> 2 newlines
       t = t.replace(/\n{3,}/g, "\n\n");
-
-      // Collapse whitespace inside each paragraph, keep paragraph breaks.
-      const paras = t
-        .split(/\n{2,}/)
-        .map((p) =>
-          p
-            .replace(/[ \t\f\v]+/g, " ")
-            .replace(/\s+\n/g, "\n")
-            .replace(/\n\s+/g, "\n")
-            .trim()
-        )
-        .filter(Boolean);
-
-      return paras.join("\n\n");
+      return t.trim();
     }
     
     // Helper: Normalize punctuation (curly quotes/apostrophes to straight ones, non-breaking spaces)
