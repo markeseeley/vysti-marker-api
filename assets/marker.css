@@ -1080,16 +1080,15 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
 
 /* Fallback when we can only find the paragraph, not the exact sentence */
 .vysti-preview-hit-block {
-  /* Remove yellow box styling */
+  background: rgba(0, 120, 215, 0.25) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 120, 215, 0.35) !important;
+  border-radius: 2px !important;
   outline: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
 
-  /* Same brand highlight styling */
-  font-family: "Times New Roman", Times, serif !important;
-  font-weight: 700 !important;
-  color: var(--maroon) !important;
+  /* Keep typography inherited */
+  color: inherit !important;
+  font-weight: inherit !important;
+  font-family: inherit !important;
 }
 
 /* Text inserted into Preview via "Apply to Preview" */
