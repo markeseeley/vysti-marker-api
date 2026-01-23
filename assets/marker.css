@@ -164,6 +164,11 @@ button, input, select, textarea {
   gap: 18px;
   align-items:start;
 }
+.student-page .marker-grid.has-results{
+  grid-template-areas:
+    "form  upload"
+    "rules rules";
+}
 
 .form-card{ grid-area: form; }
 .upload-card{ grid-area: upload; }
@@ -177,6 +182,9 @@ button, input, select, textarea {
   border: 0 solid #000;                /* Figma says border 0 */
   border-radius: 12px;                 /* Figma */
   box-shadow: 0 2px 4px 0 rgba(0,0,0,.08); /* Figma */
+}
+.student-page .marked-preview-card{
+  padding: 18px;
 }
 
 
@@ -721,6 +729,13 @@ input:focus, select:focus{
 
 @media (max-width: 980px){
   .marker-grid{
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "form"
+      "upload"
+      "rules";
+  }
+  .student-page .marker-grid.has-results{
     grid-template-columns: 1fr;
     grid-template-areas:
       "form"
