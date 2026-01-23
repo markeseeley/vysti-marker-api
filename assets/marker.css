@@ -1413,6 +1413,7 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   height: clamp(420px, 60vh, 560px);
   max-height: calc(100vh - 24px);
   display: flex;
+  min-height: 0; /* allow children to size correctly */
   flex-direction: column;
   overflow: hidden;
   z-index: 120;
@@ -1442,6 +1443,7 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   gap: 10px;
   margin-top: 6px;
   flex: 1 1 auto;
+  min-height: 0; /* allow grid to shrink so footer stays visible */
   overflow-y: auto;
   padding-bottom: 8px;
   padding-right: 4px;
