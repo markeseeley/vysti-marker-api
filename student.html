@@ -510,104 +510,6 @@
       justify-content: center;
     }
     .power-verbs-shuffle-btn:hover{ background: rgba(0,0,0,.03); }
-    .power-verbs-popover {
-      width: min(520px, calc(100vw - 24px));
-      height: min(560px, calc(100vh - 140px));
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      z-index: 120;
-    }
-    .power-verbs-popover-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
-    }
-    .power-verbs-popover-title {
-      font-weight: 700;
-      font-size: var(--fs-sm);
-    }
-    .power-verbs-popover-close {
-      border: none;
-      background: transparent;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
-    }
-    .power-verbs-popover-grid{
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
-      flex: 1;
-      overflow-y: auto;
-      padding-bottom: 10px;
-      padding-right: 4px;
-      scrollbar-gutter: stable;
-    }
-
-    .power-verb-card{
-      width: 100%;
-      text-align: left;
-      border: 1px solid rgba(0,0,0,.14);
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px 12px;
-      cursor: pointer;
-    }
-
-    .power-verb-card:hover{
-      background: rgba(0,0,0,.02);
-    }
-
-    .power-verb-card-header{
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .power-verb-card-verb{
-      font-weight: 900;
-      font-size: var(--fs-sm);
-      color: rgba(0,0,0,.82);
-    }
-
-    .power-verb-card-copied{
-      font-size: var(--fs-xs);
-      font-weight: 800;
-      color: rgba(0,0,0,.45);
-      opacity: 0;
-      transition: opacity 120ms ease;
-    }
-
-    .power-verb-card-copied.is-visible{
-      opacity: 1;
-    }
-
-    .power-verb-card-def{
-      margin-top: 6px;
-      font-size: var(--fs-sm);
-      font-weight: 650;
-      color: rgba(0,0,0,.68);
-      line-height: 1.35;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
-      overflow: hidden;
-    }
-    .power-verbs-popover-footer {
-      flex: 0 0 auto;
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding-top: 10px;
-      background: #fff;
-      border-top: 1px solid rgba(0,0,0,.08);
-    }
     .approved-rewrites-wrap {
       margin-top: 16px;
       padding: 14px;
@@ -1976,6 +1878,7 @@
 
       powerVerbsPopover.el.style.display = "block";
       powerVerbsPopover.el.style.visibility = "hidden";
+      powerVerbsPopover.el.offsetHeight;
       const popRect = powerVerbsPopover.el.getBoundingClientRect();
       const fitsBelow = anchorRect.bottom + gap + popRect.height <= window.innerHeight;
 
