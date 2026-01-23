@@ -3034,22 +3034,33 @@
     const COHESION_ENABLE_SEMANTIC_GROUPS = true;
     const COHESION_SEMANTIC_GROUPS = {
       increase_decrease: [
-        "increase","grow","growth","expand","amplify","intensify",
-        "decrease","decline","reduce","diminish","weaken"
+        "increase","increasing","increased","rise","rising","grow","grows","grown","growth",
+        "expand","expands","expanded","expansion","intensify","intensifies","intensified",
+        "decrease","decreasing","decreased","decline","declines","declined",
+        "reduce","reduces","reduced","reduction","diminish","diminishes","diminished",
+        "shrink","shrinks","shrank"
       ],
       support_oppose: [
-        "support","reinforce","bolster","uphold",
-        "oppose","resist","counter","undermine"
+        "support","supports","supported","supporting","reinforce","reinforces","reinforced",
+        "bolster","bolsters","bolstered","uphold","upholds","upheld","defend","defends","defended",
+        "oppose","opposes","opposed","opposing","resist","resists","resisted",
+        "undermine","undermines","undermined","refute","refutes","refuted",
+        "counter","counters","countered","challenge","challenges","challenged","contradict","contradicts","contradicted"
       ],
-      urban_rural: [
-        "urban","city","metropolitan",
-        "rural","pastoral","countryside"
+      freedom_constraint: [
+        "freedom","free","liberty","liberate","liberation","autonomy",
+        "constraint","constraints","restrict","restricts","restricted","restriction",
+        "limit","limits","limited","limitation","confine","confines","confined","confinement"
       ],
-      hope_despair: [
-        "hope","optimism","promise",
-        "despair","pessimism","hopeless"
+      appearance_reality: [
+        "seem","seems","seemed","seeming","appear","appears","appeared","appearance",
+        "illusion","illusions","mask","masks","masked","facade",
+        "reality","real","truth","true","genuine","authentic"
+      ],
+      power_weakness: [
+        "power","powerful","strength","strong","dominance","dominate","control","authority",
+        "weak","weakness","fragile","vulnerable","vulnerability","powerless"
       ]
-      // Expand as needed.
     };
 
     const SUBJECTIVE_TERMS = [
@@ -3079,11 +3090,11 @@
       },
       cohesion: {
         title: "Cohesion",
-        body: "Cohesion measures how well each sentence connects to the next. You earn most points from boundary statements—repeating key content words or their word families (desert → desertion). A curated set of synonym/antonym pairs can also count (urban ↔ rural) when enabled. Transitions add a smaller bonus when used sparingly and with variety.",
+        body: "Cohesion measures how well each sentence connects to the next. You earn most points from boundary statements—repeating key content words across sentences. Word families count (desert → desertion), and a small curated set of related or contrast words can also connect ideas (growth ↔ decline, support ↔ undermine). Transitions add a smaller bonus when used sparingly and with variety.",
         tips: [
           "Repeat a key noun/verb/adjective or its word family (race → racial).",
           "Use transitions occasionally, but avoid repeating the same one (\"moreover\" x 19).",
-          "Curated pairs like increase/decline can also connect ideas."
+          "Occasional contrast pairs (increase/decline) can still link ideas."
         ]
       },
       precision: {
@@ -3268,17 +3279,21 @@
       return w;
     }
 
-    const COHESION_SEMANTIC_LOOKUP = (() => {
+    function cohesionGroupKey(id) {
+      return `__g__:${id}`;
+    }
+
+    const COHESION_GROUP_LOOKUP = (() => {
       const map = new Map();
       if (!COHESION_ENABLE_SEMANTIC_GROUPS) return map;
-      for (const [groupKey, words] of Object.entries(COHESION_SEMANTIC_GROUPS)) {
-        for (const word of words) {
-          const raw = String(word || "").toLowerCase();
-          if (!raw) continue;
-          map.set(raw, groupKey);
-          const stem = porterStem(raw);
-          if (stem) map.set(stem, groupKey);
-        }
+      for (const [groupId, words] of Object.entries(COHESION_SEMANTIC_GROUPS)) {
+        const gk = cohesionGroupKey(groupId);
+        (words || []).forEach((w) => {
+          const raw = String(w || "").toLowerCase().trim();
+          if (!raw) return;
+          map.set(raw, gk);
+          map.set(porterStem(raw), gk);
+        });
       }
       return map;
     })();
@@ -3288,9 +3303,11 @@
     function normalizeCohesionToken(token) {
       const raw = String(token || "").toLowerCase();
       if (!raw) return "";
-      const stem = porterStem(raw);
+      let clean = raw.replace(/'s$/g, "").replace(/'/g, "");
+      if (!clean) return "";
+      const stem = porterStem(clean);
       if (COHESION_ENABLE_SEMANTIC_GROUPS) {
-        const groupKey = COHESION_SEMANTIC_LOOKUP.get(raw) || COHESION_SEMANTIC_LOOKUP.get(stem);
+        const groupKey = COHESION_GROUP_LOOKUP.get(clean) || COHESION_GROUP_LOOKUP.get(stem);
         if (groupKey) return groupKey;
       }
       return stem;
@@ -3304,19 +3321,25 @@
         if (!raw) continue;
         if (COHESION_STOP_WORDS.has(raw)) continue;
         const normalized = normalizeCohesionToken(raw);
-        if (normalized.length >= 3) results.push(normalized);
+        if (!normalized) continue;
+        if (normalized.startsWith("__g__:")) {
+          results.push(normalized);
+          continue;
+        }
+        if (normalized.length < 3) continue;
+        if (COHESION_STOP_WORDS.has(normalized)) continue;
+        results.push(normalized);
       }
       return results;
     }
 
     if (DEBUG_COHESION) {
-      console.assert(porterStem("desertion") === "desert", "Expected desertion → desert");
-      console.assert(porterStem("abandonment") === "abandon", "Expected abandonment → abandon");
-      const debugTokens = getCohesionKeyTokens("Moreover, this is true.");
-      console.assert(!debugTokens.includes("moreover"), "Stopwords should be filtered before stemming");
+      console.assert(porterStem("desertion") === "desert");
+      console.assert(porterStem("abandonment") === "abandon");
+      console.assert(!getCohesionKeyTokens("Moreover, this is true.").some((t) => t.includes("moreov")));
       console.assert(
-        !debugTokens.includes(porterStem("moreover")),
-        "Stemmed stopwords should not leak into cohesion tokens"
+        normalizeCohesionToken("growth") === normalizeCohesionToken("decline"),
+        "growth and decline should map to the same semantic group"
       );
     }
 
@@ -3351,17 +3374,25 @@
       const keyTokenSets = sentences.map((s) => new Set(getCohesionKeyTokens(s)));
 
       let boundaryHits = 0;
+      let boundaryHitsGroupOnly = 0;
+      let boundaryHitsExactOrStem = 0;
       for (let i = 0; i < keyTokenSets.length - 1; i += 1) {
         const a = keyTokenSets[i];
         const b = keyTokenSets[i + 1];
         let hit = false;
+        let hitToken = "";
         for (const tok of a) {
           if (b.has(tok)) {
             hit = true;
+            hitToken = tok;
             break;
           }
         }
-        if (hit) boundaryHits += 1;
+        if (hit) {
+          boundaryHits += 1;
+          if (hitToken.startsWith("__g__:")) boundaryHitsGroupOnly += 1;
+          else boundaryHitsExactOrStem += 1;
+        }
       }
 
       const boundaryRate = boundaryDenom ? boundaryHits / boundaryDenom : 0;
@@ -3404,7 +3435,16 @@
         `Boundary statements: ${boundaryHits}/${boundaryDenom} • ` +
         `Transitions: ${transitionStarts} (unique ${uniqueTransitions})`;
 
-      return { cohesionScore, cohesionSub, boundaryHits, boundaryDenom, transitionStarts, uniqueTransitions };
+      return {
+        cohesionScore,
+        cohesionSub,
+        boundaryHits,
+        boundaryDenom,
+        transitionStarts,
+        uniqueTransitions,
+        boundaryHitsGroupOnly,
+        boundaryHitsExactOrStem
+      };
     }
 
     function powerVerbTargetForWordCount(wc) {
