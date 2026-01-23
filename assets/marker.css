@@ -180,6 +180,14 @@ button, input, select, textarea {
 .student-page .upload-card{
   height: 100%;
 }
+.student-page .form-card{
+  display: flex;
+  flex-direction: column;
+}
+.student-page .form-card #checkBtn{
+  margin-top: auto;
+  margin-bottom: 0;
+}
 
 
 
