@@ -164,6 +164,9 @@ button, input, select, textarea {
   gap: 18px;
   align-items:start;
 }
+.student-page .marker-grid{
+  align-items: stretch;
+}
 .student-page .marker-grid.has-results{
   grid-template-areas:
     "form  upload"
@@ -173,6 +176,10 @@ button, input, select, textarea {
 .form-card{ grid-area: form; }
 .upload-card{ grid-area: upload; }
 .rules-card{ grid-area: rules; }
+.student-page .form-card,
+.student-page .upload-card{
+  height: 100%;
+}
 
 
 
