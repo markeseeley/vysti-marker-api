@@ -164,9 +164,6 @@ button, input, select, textarea {
   gap: 18px;
   align-items:start;
 }
-.student-page .marker-grid{
-  align-items: stretch;
-}
 .student-page .marker-grid.has-results{
   grid-template-areas:
     "form  upload"
@@ -176,21 +173,6 @@ button, input, select, textarea {
 .form-card{ grid-area: form; }
 .upload-card{ grid-area: upload; }
 .rules-card{ grid-area: rules; }
-.student-page .form-card,
-.student-page .upload-card{
-  height: 100%;
-}
-.student-page .form-card{
-  display: flex;
-  flex-direction: column;
-}
-.student-page .form-card #checkBtn{
-  margin-top: auto;
-  margin-bottom: 0;
-}
-
-
-
 /* Cards */
 .card{
   background: #FAFAFB;                 /* Figma */
@@ -741,6 +723,23 @@ input:focus, select:focus{
 
 
 
+
+/* Student page: keep form + upload cards equal height in the top row */
+.student-page .marker-grid{
+  align-items: stretch;
+}
+.student-page .form-card,
+.student-page .upload-card{
+  height: 100%;
+}
+.student-page .form-card{
+  display: flex;
+  flex-direction: column;
+}
+.student-page .form-card #checkBtn{
+  margin-top: auto;
+  margin-bottom: 0;
+}
 
 @media (max-width: 980px){
   .marker-grid{
