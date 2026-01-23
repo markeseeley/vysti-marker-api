@@ -3642,7 +3642,10 @@
       const pronounStartRate = sentences.length ? pronounStarts / sentences.length : 0;
       const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
 
-      const paragraphs = splitParagraphsSimple(clean);
+      const cohesionText = stripQuotedText(
+        normalizeTypographyPreserveParagraphs(text || "")
+      );
+      const paragraphs = splitParagraphsSimple(cohesionText);
       const cohesionCalc = computeCohesionParagraphAware(paragraphs);
       const cohesionScore = cohesionCalc.cohesionScore;
       const cohesionSub = cohesionCalc.cohesionSub;
@@ -4604,6 +4607,7 @@
     // Helper: Normalize typography (curly quotes to straight quotes, non-breaking spaces, whitespace)
     function normalizeTypography(s) {
       return (s || "")
+        .replace(/\r\n/g, "\n")
         .replace(/\u00A0/g, " ")
         // smart double quotes + guillemets → "
         .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
@@ -4616,6 +4620,38 @@
         .replace(/[\u2013\u2014]/g, "-")
         .replace(/\s+/g, " ")
         .trim();
+    }
+
+    function normalizeTypographyPreserveParagraphs(s) {
+      let t = (s || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\u00A0/g, " ")
+        // smart double quotes + guillemets → "
+        .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
+        // smart single quotes/apostrophes → '
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        // primes sometimes appear as quotes
+        .replace(/[\u2032\u2035]/g, "'")
+        .replace(/[\u2033\u2036]/g, '"')
+        // normalize dashes
+        .replace(/[\u2013\u2014]/g, "-");
+
+      // Normalize paragraph separators: 3+ newlines -> 2 newlines
+      t = t.replace(/\n{3,}/g, "\n\n");
+
+      // Collapse whitespace inside each paragraph, keep paragraph breaks.
+      const paras = t
+        .split(/\n{2,}/)
+        .map((p) =>
+          p
+            .replace(/[ \t\f\v]+/g, " ")
+            .replace(/\s+\n/g, "\n")
+            .replace(/\n\s+/g, "\n")
+            .trim()
+        )
+        .filter(Boolean);
+
+      return paras.join("\n\n");
     }
     
     // Helper: Normalize punctuation (curly quotes/apostrophes to straight ones, non-breaking spaces)
