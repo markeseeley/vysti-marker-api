@@ -1876,7 +1876,7 @@
       const padding = 12;
       const anchorRect = powerVerbsPopover.anchor.getBoundingClientRect();
 
-      powerVerbsPopover.el.style.display = "block";
+      powerVerbsPopover.el.style.display = "flex";
       powerVerbsPopover.el.style.visibility = "hidden";
       const popRect = powerVerbsPopover.el.getBoundingClientRect();
       const fitsBelow = anchorRect.bottom + gap + popRect.height <= window.innerHeight;
@@ -2000,7 +2000,7 @@
       powerVerbsPopover.anchor = anchorEl;
       powerVerbsPopover.textarea = textarea;
       powerVerbsPopover.isOpen = true;
-      powerVerbsPopover.el.style.display = "block";
+      powerVerbsPopover.el.style.display = "flex";
       attachPowerVerbsPopoverListeners();
 
       loadPowerVerbsList().then(() => {
