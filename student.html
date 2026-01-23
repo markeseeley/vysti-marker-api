@@ -79,6 +79,22 @@
       gap: 12px;
       margin-bottom: 10px;
     }
+    .preview-header-right{
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .preview-header-stats-row{
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .preview-header-stats{
+      display: block;
+    }
+    .preview-stat{
+      min-height: 0;
+    }
     .preview-title {
       margin: 0;
       font-size: var(--fs-h3);
@@ -118,6 +134,12 @@
     .preview-pill-icon{
       font-size: 14px;
       line-height: 1;
+    }
+    @media (max-width: 980px){
+      .preview-header-right{
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
     }
     #previewZoom {
       width: auto;
@@ -754,34 +776,6 @@
           <input type="text" id="assignmentName" placeholder="Assignment 01" aria-label="Assignment name (optional)" />
         </div>
 
-        <div id="statsPanel" class="student-stats-panel" style="display:none;">
-          <div class="student-stats-title">At a glance</div>
-
-          <div class="student-stats-grid">
-            <div class="student-stat">
-              <div class="student-stat-label">Word count</div>
-              <div id="wordCountStat" class="student-stat-value">—</div>
-            </div>
-
-            <div class="student-stat">
-              <div class="student-stat-label">Total issues</div>
-              <div id="totalIssuesStat" class="student-stat-value">—</div>
-            </div>
-          </div>
-
-          <div id="topIssueRow" class="student-stat-row" style="display:none;">
-            <div class="student-stat-label">Most common</div>
-            <div id="topIssueStat" class="student-stat-text"></div>
-          </div>
-
-          
-
-          <div id="techniquesStatWrap" class="student-techniques" style="display:none;">
-            <div class="student-stat-label">Range of techniques</div>
-            <div id="techniquesStatList" class="student-techniques-list"></div>
-          </div>
-        </div>
-
         <button class="primary-btn" id="checkBtn" type="submit" disabled>Mark my essay</button>
       </section>
 
@@ -870,22 +864,38 @@
       <div class="preview-header">
         <h2 class="preview-title">Preview</h2>
 
-        <div class="preview-tools">
-          <label class="preview-zoom" for="previewZoom">
-            <span>Zoom</span>
-            <select id="previewZoom">
-              <option value="0.8">80%</option>
-              <option value="0.9">90%</option>
-              <option value="1">100%</option>
-              <option value="1.1">110%</option>
-              <option value="1.25">125%</option>
-              <option value="1.5" selected>150%</option>
-            </select>
-          </label>
-          <button type="button" class="preview-pill-btn" id="previewPowerVerbsBtn" aria-label="Open Power Verbs">
-            <span class="preview-pill-icon" aria-hidden="true">📘</span>
-            Power Verbs
-          </button>
+        <div class="preview-header-right">
+          <div id="statsPanel" class="preview-header-stats" style="display:none;">
+            <div class="preview-header-stats-row">
+              <div class="student-stat preview-stat">
+                <div class="student-stat-label">Word count</div>
+                <div id="wordCountStat" class="student-stat-value">—</div>
+              </div>
+
+              <div class="student-stat preview-stat">
+                <div class="student-stat-label">Total issues</div>
+                <div id="totalIssuesStat" class="student-stat-value">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-tools">
+            <label class="preview-zoom" for="previewZoom">
+              <span>Zoom</span>
+              <select id="previewZoom">
+                <option value="0.8">80%</option>
+                <option value="0.9">90%</option>
+                <option value="1">100%</option>
+                <option value="1.1">110%</option>
+                <option value="1.25">125%</option>
+                <option value="1.5" selected>150%</option>
+              </select>
+            </label>
+            <button type="button" class="preview-pill-btn" id="previewPowerVerbsBtn" aria-label="Open Power Verbs">
+              <span class="preview-pill-icon" aria-hidden="true">📘</span>
+              Power Verbs
+            </button>
+          </div>
         </div>
       </div>
       <div class="preview-metrics-wrap">
@@ -4386,6 +4396,7 @@
       stopButtonLoading(checkBtn, () => !!selectedFile);
       showMarkButtonHideRecheck();
       if (resultsCard) resultsCard.style.display = "none";
+      if (form) form.classList.remove("has-results");
       selectedFile = null;
       hasStartedRevising = false;
       fileInput.value = "";
@@ -5211,6 +5222,7 @@
 
       // Update UI (don’t show Uploading... in Results; show it on the button instead)
       if (resultsCard) resultsCard.style.display = "none";
+      if (form) form.classList.remove("has-results");
       statusArea.textContent = "";
       statusArea.className = "status-area";
       downloadBtn.style.display = "none";
@@ -6078,6 +6090,7 @@
         syncIssueIdMaps(currentMarkEvent?.issues || [], labelCounts);
         
         if (resultsCard) resultsCard.style.display = "block";
+        if (form) form.classList.add("has-results");
         try {
           renderMostCommonIssues(liveLabelCounts);
         } catch (chartError) {
