@@ -541,9 +541,10 @@
       flex-direction: column;
       gap: 10px;
       margin-top: 8px;
-      flex: 1 1 auto;
+      flex: 1;
       overflow-y: auto;
       padding-right: 4px;
+      scrollbar-gutter: stable;
     }
 
     .power-verb-card{
@@ -1633,9 +1634,9 @@
       if (powerVerbsLoadPromise) return powerVerbsLoadPromise;
 
       const CANDIDATE_URLS = [
-        "/assets/power_verbs_2025.json",
         "/power_verbs_2025.json",
-        "power_verbs_2025.json"
+        "./power_verbs_2025.json",
+        "/assets/power_verbs_2025.json"
       ];
 
       const tryFetch = async () => {
@@ -1650,14 +1651,9 @@
             }
             const data = await res.json();
             const normalized = normalizePowerVerbs(data);
-
-            if (Array.isArray(normalized) && normalized.length > 0) {
-              powerVerbsList = normalized;
-              powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
-              return powerVerbsList;
-            }
-
-            lastErr = new Error(`${url} loaded but produced 0 verbs`);
+            powerVerbsList = Array.isArray(normalized) ? normalized : [];
+            powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
+            return powerVerbsList;
           } catch (e) {
             lastErr = e;
           }
@@ -1666,18 +1662,12 @@
         console.warn("Failed to load power verbs from all candidate URLs:", lastErr);
 
         // Allow retry on next click (do NOT cache empty forever)
-        powerVerbsList = null;
+        powerVerbsList = [];
         powerVerbsLoadPromise = null;
-        return [];
+        return powerVerbsList;
       };
 
-      powerVerbsLoadPromise = tryFetch()
-        .finally(() => {
-          // If we ended up with an empty list, allow retry.
-          if (!Array.isArray(powerVerbsList) || powerVerbsList.length === 0) {
-            powerVerbsLoadPromise = null;
-          }
-        });
+      powerVerbsLoadPromise = tryFetch();
 
       return powerVerbsLoadPromise;
     }
@@ -2108,14 +2098,16 @@
         // If verbs still not loaded, show a clear message in the grid
         if (!Array.isArray(powerVerbsList) || powerVerbsList.length === 0) {
           if (powerVerbsPopover.grid) {
-            powerVerbsPopover.grid.innerHTML = "<div style='color: rgba(0,0,0,.6); font-weight:600;'>Power verbs list not loaded. Check that power_verbs_2025.json is deployed.</div>";
+            powerVerbsPopover.grid.innerHTML = "<div style='color: rgba(0,0,0,.6); font-weight:600;'>Power verbs list failed to load. Check power_verbs_2025.json path.</div>";
           }
+          if (powerVerbsPopover.prevBtn) powerVerbsPopover.prevBtn.style.display = "none";
           return;
         }
 
         // Ensure we have a non-empty first page
         const currentPage = powerVerbsState.pageHistory[powerVerbsState.pageIndex] || [];
-        if (!powerVerbsState.pageHistory.length || currentPage.length === 0) {
+        const firstPage = powerVerbsState.pageHistory[0] || [];
+        if (!powerVerbsState.pageHistory.length || currentPage.length === 0 || firstPage.length === 0) {
           powerVerbsState.pageHistory = [createPowerVerbsPage()];
           powerVerbsState.pageIndex = 0;
         }
@@ -2922,10 +2914,7 @@
           scrollToPreviewHeader();
 
           // Try to highlight the next best upgrade target
-          const found = jumpToNextVerbToUpgradeInPreview({ preferWeak: true });
-          if (!found) {
-            console.warn("No upgradeable verb found in Preview blocks.");
-          }
+          void jumpToNextVerbToUpgradeInPreview();
         });
 
         const dots = document.createElement("div");
@@ -6561,6 +6550,12 @@
       "makes","does","gets","has","had"
     ]);
 
+    const BE_VERBS = new Set([
+      "am","is","are","was","were","be","been","being"
+    ]);
+
+    let lastPowerVerbJumpIndex = 0;
+
     function isLikelyVerbToken(lowerTok) {
       if (!lowerTok) return false;
       // exclude super common non-verbs
@@ -6573,6 +6568,76 @@
         lowerTok.endsWith("ing") ||
         lowerTok.endsWith("s")
       );
+    }
+
+    function findNextTokenMatch(normText, startIndex, predicate) {
+      if (!normText) return null;
+      const re = /\b[A-Za-z]+\b/g;
+      re.lastIndex = Math.max(0, startIndex || 0);
+      let m;
+
+      while ((m = re.exec(normText)) !== null) {
+        const tok = m[0];
+        const lowerTok = tok.toLowerCase();
+        if (predicate(lowerTok, m.index, tok)) {
+          return {
+            token: tok,
+            startIdx: m.index,
+            endIdx: m.index + tok.length - 1
+          };
+        }
+      }
+      return null;
+    }
+
+    function getNormalizedIndexFromRangeStart(preview, posMap) {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return null;
+      const range = selection.getRangeAt(0);
+      if (!preview.contains(range.startContainer)) return null;
+
+      let node = range.startContainer;
+      let offset = range.startOffset;
+
+      if (node.nodeType !== Node.TEXT_NODE) {
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
+        const firstText = walker.nextNode();
+        if (!firstText) return null;
+        node = firstText;
+        offset = 0;
+      }
+
+      let fallbackIndex = null;
+      for (let i = 0; i < posMap.length; i += 1) {
+        const pos = posMap[i];
+        if (pos.node !== node) continue;
+        if (pos.offset >= offset) return i;
+        fallbackIndex = i + 1;
+      }
+      return fallbackIndex;
+    }
+
+    function selectWordRangeFromMap(preview, posMap, startIdx, endIdx) {
+      if (!posMap.length) return false;
+      const start = posMap[startIdx];
+      const end = posMap[endIdx];
+      if (!start || !end) return false;
+
+      const selection = window.getSelection();
+      if (!selection) return false;
+
+      const range = document.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset + 1);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      preview.focus();
+      const scrollEl = start.node && start.node.parentElement ? start.node.parentElement : preview;
+      if (scrollEl && scrollEl.scrollIntoView) {
+        scrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return true;
     }
 
     function findNonPowerVerbCandidate(text) {
@@ -6604,26 +6669,49 @@
       return null;
     }
 
-    function jumpToNextVerbToUpgradeInPreview({ preferWeak = true } = {}) {
-      if (!markedPreviewCard || markedPreviewCard.style.display === "none") return false;
-      if (!markedPreview || !markedPreview.innerText.trim()) return false;
+    async function jumpToNextVerbToUpgradeInPreview() {
+      const preview = document.getElementById("markedPreview");
+      if (!preview || !preview.isContentEditable) return false;
+      if (!preview.innerText.trim()) return false;
 
-      const blocks = getPreviewBlocks();
-
-      for (const block of blocks) {
-        const clean = selectionSafeText(block);
-        if (!clean) continue;
-
-        if (preferWeak) {
-          const weakAnchor = findWeakVerbInText(clean);
-          if (weakAnchor) return highlightAndScrollInBlock(block, weakAnchor);
-        }
-
-        const nonPowerAnchor = findNonPowerVerbCandidate(clean);
-        if (nonPowerAnchor) return highlightAndScrollInBlock(block, nonPowerAnchor);
+      if (!powerVerbFormsSet || powerVerbFormsSet.size === 0) {
+        await loadPowerVerbsList();
       }
 
-      return false;
+      const { normText, posMap } = buildNormalizedTextMap(preview);
+      if (!normText || !posMap.length) return false;
+
+      const selectionIndex = getNormalizedIndexFromRangeStart(preview, posMap);
+      const startIndex = Number.isInteger(selectionIndex) ? selectionIndex : lastPowerVerbJumpIndex;
+      const lowerNorm = normText.toLowerCase();
+
+      const weakMatch = findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
+        if (!WEAK_VERBS.has(lowerTok)) return false;
+        if (lowerTok === "use") {
+          const before = lowerNorm.slice(Math.max(0, idx - 6), idx);
+          const after = lowerNorm.slice(idx + lowerTok.length, idx + lowerTok.length + 6);
+          if (/\bthe\s+$/.test(before) && /^\s+of\b/.test(after)) return false;
+        }
+        return true;
+      });
+
+      const target = weakMatch || findNextTokenMatch(normText, startIndex, (lowerTok) => {
+        if (!lowerTok) return false;
+        if (BE_VERBS.has(lowerTok)) return false;
+        if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
+        if (powerVerbFormsSet && powerVerbFormsSet.has(lowerTok)) return false;
+        if (!isLikelyVerbToken(lowerTok)) return false;
+        return true;
+      });
+
+      if (!target) return false;
+
+      clearPreviewHighlights();
+      const didSelect = selectWordRangeFromMap(preview, posMap, target.startIdx, target.endIdx);
+      if (didSelect) {
+        lastPowerVerbJumpIndex = Math.min(target.endIdx + 1, normText.length);
+      }
+      return didSelect;
     }
 
     function buildNormalizedTextMap(rootEl) {
