@@ -6161,14 +6161,17 @@
           let textForDownload = previewText;
           if (modalResult.action === "mla") {
             const bodyText = stripStudentHeaderBeforeTitleForDownload(previewText);
+            const cleanBodyText = String(bodyText || "")
+              .replace(/^\s+/, "")
+              .replace(/^\n+/, "");
             const headerLines = [
               modalResult.fields?.name || "",
               modalResult.fields?.teacher || "",
               modalResult.fields?.date || "",
               modalResult.fields?.assignment || (assignmentNameInput ? assignmentNameInput.value.trim() : "") || "",
             ].map((line) => (line || "").trim()).filter(Boolean);
-            const mlaHeader = headerLines.join("\n\n") + "\n\n";
-            textForDownload = mlaHeader + bodyText;
+            const mlaHeader = headerLines.join("\n") + "\n\n";
+            textForDownload = mlaHeader + cleanBodyText;
           }
 
           startButtonLoading(downloadBtn, "Download marked essay");
