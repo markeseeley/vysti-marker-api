@@ -2943,7 +2943,7 @@
       if (!issue?.sentence) return false;
 
       scrollToPreviewHeader();
-      const result = highlightAndScrollToExample(issue, null, { scroll: true });
+      const result = highlightAndScrollToExample(issue, null, { scroll: true, restrictToProse: true });
       if (result?.hits?.length) {
         result.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
       }
@@ -3398,20 +3398,19 @@
       const paras = (paragraphs || []).map((p) => String(p || "").trim()).filter(Boolean);
       if (!paras.length) return [];
 
-      // drop leading MLA header/title lines until real prose begins
+      // Drop leading front matter until real prose begins
       let startIdx = 0;
       for (let i = 0; i < paras.length; i += 1) {
-        const p = paras[i];
-        if (looksLikeRealProseParagraph(p)) {
-          startIdx = i;
-          break;
-        }
-        if (!looksLikeFrontMatterParagraph(p)) {
-          startIdx = i;
-          break;
-        }
+        if (looksLikeRealProseParagraph(paras[i])) { startIdx = i; break; }
       }
-      return paras.slice(startIdx);
+      const trimmed = paras.slice(startIdx);
+
+      // Remove any remaining front-matter-like paras AFTER start (title lines that are still short/no-punct)
+      return trimmed.filter((p, idx) => {
+        // Keep the very first prose paragraph even if it's short-ish (some intros are short)
+        if (idx === 0) return true;
+        return !looksLikeFrontMatterParagraph(p);
+      });
     }
 
     const WEAK_VERB_GROUPS = {
@@ -4011,12 +4010,12 @@
 
 
     function computeCohesionParagraphAware(paragraphsInput) {
-      const paragraphs = (paragraphsInput || [])
+      const filteredParagraphs = (paragraphsInput || [])
         .map((p) => String(p || "").trim())
         .filter(Boolean);
       const paraSentences = [];
       const normalizedParagraphs = [];
-      for (const p of paragraphs) {
+      for (const p of filteredParagraphs) {
         const sentences = splitSentencesSimple(p);
         if (!sentences.length) continue;
         normalizedParagraphs.push(p);
@@ -4115,9 +4114,10 @@
         if (hitToken) {
           paragraphBoundaryHits += 1;
         } else {
+          const nextParaIdx = i + 1;
           paragraphBoundaryMisses.push({
-            sentence: paraSentences[i + 1][0],
-            paragraph_index: i + 1,
+            sentence: paraSentences[nextParaIdx][0],
+            paragraph_index: nextParaIdx,
             reason: "No shared key terms across paragraph break."
           });
         }
@@ -4214,42 +4214,42 @@
 
     if (DEBUG_COHESION) {
       const sample1 = "He crossed the desert.\n\nThis desertion shocked everyone.";
-      const r1 = computeCohesionParagraphAware(splitParagraphsSimple(sample1));
+      const r1 = computeCohesionParagraphAware(filterCohesionParagraphs(splitParagraphsSimple(sample1)));
       console.assert(
         r1.details.paragraphBoundaryHits === 1,
         "desert/desertion should count across paragraphs"
       );
 
       const sampleProper = "Didion explains the essay.\n\nDidion continues.";
-      const rProper = computeCohesionParagraphAware(splitParagraphsSimple(sampleProper));
+      const rProper = computeCohesionParagraphAware(filterCohesionParagraphs(splitParagraphsSimple(sampleProper)));
       console.assert(
         rProper.details.paragraphBoundaryHits === 0,
         "proper noun repetition alone should not count"
       );
 
       const sampleProperPlusConcept = "Didion explains identity.\n\nDidion returns to identity.";
-      const rProperPlus = computeCohesionParagraphAware(splitParagraphsSimple(sampleProperPlusConcept));
+      const rProperPlus = computeCohesionParagraphAware(filterCohesionParagraphs(splitParagraphsSimple(sampleProperPlusConcept)));
       console.assert(
         rProperPlus.details.paragraphBoundaryHits === 1,
         "analytical noun should count even with proper noun repetition"
       );
 
       const sample2 = "One point.\n\nHowever, another point.";
-      const r2 = computeCohesionParagraphAware(splitParagraphsSimple(sample2));
+      const r2 = computeCohesionParagraphAware(filterCohesionParagraphs(splitParagraphsSimple(sample2)));
       console.assert(
         r2.details.paragraphStartTransitionsCount === 1,
         "paragraph-start transition should be tracked"
       );
 
       const sample3 = "One point. However, another point.";
-      const r3 = computeCohesionParagraphAware(splitParagraphsSimple(sample3));
+      const r3 = computeCohesionParagraphAware(filterCohesionParagraphs(splitParagraphsSimple(sample3)));
       console.assert(
         r3.details.transitionsWithinCount === 1,
         "within-paragraph transition should count"
       );
 
       const sampleRepeat = "In other words, one point. In other words, another point.";
-      const rRepeat = computeCohesionParagraphAware(splitParagraphsSimple(sampleRepeat));
+      const rRepeat = computeCohesionParagraphAware(filterCohesionParagraphs(splitParagraphsSimple(sampleRepeat)));
       console.assert(
         rRepeat.details.issues.weakTransitions.some((item) => /Repeated transition/i.test(item.reason)),
         "repeated transitions should be flagged as weak"
@@ -7343,6 +7343,9 @@
     }
 
     // ===== Preview highlighting helpers =====
+    let cachedFirstProseBlockIndex = null;
+    let cachedFirstProseBlockCount = 0;
+
     function getPreviewBlocks() {
       if (!markedPreview) return [];
       
@@ -7359,6 +7362,30 @@
       }
       
       return blocks;
+    }
+
+    function getFirstProseBlockIndex(blocks) {
+      if (!Array.isArray(blocks) || blocks.length === 0) return -1;
+      if (cachedFirstProseBlockIndex != null && cachedFirstProseBlockCount === blocks.length) {
+        return cachedFirstProseBlockIndex;
+      }
+
+      const minWords = 8;
+      for (let i = 0; i < blocks.length; i += 1) {
+        const block = blocks[i];
+        if (!block || block.tagName !== "P") continue;
+        const text = (block.innerText || "").trim();
+        if (!text) continue;
+        if (hasSentencePunct(text) && wordCount(text) >= minWords) {
+          cachedFirstProseBlockIndex = i;
+          cachedFirstProseBlockCount = blocks.length;
+          return i;
+        }
+      }
+
+      cachedFirstProseBlockIndex = -1;
+      cachedFirstProseBlockCount = blocks.length;
+      return -1;
     }
 
     function normalizeForMatch(text) {
@@ -8012,9 +8039,14 @@
       return hits / tokens.length;
     }
 
-    function findBestPreviewBlockForExample(example) {
+    function findBestPreviewBlockForExample(example, options = {}) {
       const blocks = getPreviewBlocks();
       if (blocks.length === 0) return null;
+
+      const shouldRestrict = options.restrictToProse || !example?.label;
+      const proseStartIdx = shouldRestrict ? getFirstProseBlockIndex(blocks) : -1;
+      const hasRestrictedBlocks = shouldRestrict && proseStartIdx > 0 && proseStartIdx < blocks.length;
+      const workingBlocks = hasRestrictedBlocks ? blocks.slice(proseStartIdx) : blocks;
 
       const sentence = stripVystiInlineArtifacts((example?.sentence || "").trim());
       const paraIndex = example?.paragraph_index;
@@ -8022,22 +8054,22 @@
       // If there's no usable sentence text, fall back deterministically.
       if (!sentence) {
         if (typeof paraIndex === "number") {
-          const idx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
-          return blocks[idx] || blocks[0] || null;
+          const idx = Math.max(0, Math.min(workingBlocks.length - 1, paraIndex));
+          return workingBlocks[idx] || workingBlocks[0] || null;
         }
-        return blocks[0] || null;
+        return workingBlocks[0] || null;
       }
 
       // 1) Global best (search all blocks). This protects us when paragraph_index is offset
       // by title/name/spacing blocks at the top of docx-preview.
-      let globalBest = blocks[0];
+      let globalBest = workingBlocks[0];
       let globalBestScore = -1;
 
-      for (let i = 0; i < blocks.length; i++) {
-        const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
+      for (let i = 0; i < workingBlocks.length; i++) {
+        const score = scoreBlockMatch(sentence, workingBlocks[i].innerText || "");
         if (score > globalBestScore) {
           globalBestScore = score;
-          globalBest = blocks[i];
+          globalBest = workingBlocks[i];
           if (score === 1.0) break; // can't beat perfect
         }
       }
@@ -8061,12 +8093,12 @@
         const forward = base <= 2 ? 12 : 4;
 
         const start = Math.max(0, base - backward);
-        const end = Math.min(blocks.length - 1, base + forward);
+        const end = Math.min(workingBlocks.length - 1, base + forward);
 
         for (let i = start; i <= end; i++) {
-          const score = scoreBlockMatch(sentence, blocks[i].innerText || "");
-          candidates.push({ block: blocks[i], score, index: i });
-          if (score === 1.0) return blocks[i];
+          const score = scoreBlockMatch(sentence, workingBlocks[i].innerText || "");
+          candidates.push({ block: workingBlocks[i], score, index: i });
+          if (score === 1.0) return workingBlocks[i];
         }
       }
 
@@ -8084,9 +8116,9 @@
       }
 
       // Last resort: old deterministic fallback.
-      const fallbackIdx = Math.max(0, Math.min(blocks.length - 1, paraIndex));
-      const fallbackIdx2 = Math.max(0, Math.min(blocks.length - 1, paraIndex - 1));
-      return blocks[fallbackIdx] || blocks[fallbackIdx2] || globalBest || null;
+      const fallbackIdx = Math.max(0, Math.min(workingBlocks.length - 1, paraIndex));
+      const fallbackIdx2 = Math.max(0, Math.min(workingBlocks.length - 1, paraIndex - 1));
+      return workingBlocks[fallbackIdx] || workingBlocks[fallbackIdx2] || globalBest || null;
     }
 
     function highlightAndScrollToExample(example, statusDivOptional, options = {}) {
@@ -8094,7 +8126,7 @@
       
       const rawSentence = example?.sentence || "";
       const sentence = stripVystiInlineArtifacts(rawSentence);
-      const blockEl = findBestPreviewBlockForExample(example);
+      const blockEl = findBestPreviewBlockForExample(example, options);
       
       if (!blockEl) {
         if (statusDivOptional) {
