@@ -2852,22 +2852,22 @@
         subEl.textContent = "";
         return;
       }
-
+      subEl.innerHTML = "";
       if (powerMetric.score === 100) {
-        renderSuccess(subEl, "Verbs at full strength.");
-        return;
+        const row = document.createElement("div");
+        row.className = "metric-success";
+        row.innerHTML = `<span class="star">★</span><span>Verbs at full strength.</span>`;
+        subEl.appendChild(row);
       }
 
       const d = powerMetric.details || {};
       const weakCount = Number(d.weakCount) || 0;
       const powerCount = Number(d.powerCount) || 0;
       const powerTarget = Number(d.powerTarget) || 0;
-
-      subEl.innerHTML = "";
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
 
-      if (weakCount > 0) {
+      {
         const row = document.createElement("div");
         row.className = "quest-row";
 
@@ -2875,27 +2875,34 @@
         pill.type = "button";
         pill.className = "quest-pill weak quest-pill-btn";
         pill.textContent = "Weak verbs remaining";
-        pill.title = "Click to revise weak verbs";
-        pill.addEventListener("click", () => {
-          const issueId = getIssueIdForLabel("Avoid weak verbs");
-          openRevisionExampleFromIssueId(issueId, "Avoid weak verbs");
-        });
+        if (weakCount === 0) {
+          pill.disabled = true;
+          pill.title = "No weak verbs remaining";
+        } else {
+          pill.title = "Click to revise weak verbs";
+          pill.addEventListener("click", () => {
+            const issueId = getIssueIdForLabel("Avoid weak verbs");
+            openRevisionExampleFromIssueId(issueId, "Avoid weak verbs");
+          });
+        }
 
         const dots = document.createElement("div");
         dots.className = "quest-dots";
 
-        const maxDots = 10;
-        const showDots = Math.min(weakCount, maxDots);
-        for (let i = 0; i < showDots; i += 1) {
-          const dot = document.createElement("span");
-          dot.className = "quest-dot bad";
-          dots.appendChild(dot);
-        }
-        if (weakCount > maxDots) {
-          const more = document.createElement("span");
-          more.className = "quest-more";
-          more.textContent = `+${weakCount - maxDots}`;
-          dots.appendChild(more);
+        if (weakCount > 0) {
+          const maxDots = 10;
+          const showDots = Math.min(weakCount, maxDots);
+          for (let i = 0; i < showDots; i += 1) {
+            const dot = document.createElement("span");
+            dot.className = "quest-dot bad";
+            dots.appendChild(dot);
+          }
+          if (weakCount > maxDots) {
+            const more = document.createElement("span");
+            more.className = "quest-more";
+            more.textContent = `+${weakCount - maxDots}`;
+            dots.appendChild(more);
+          }
         }
 
         row.appendChild(pill);
@@ -2903,7 +2910,7 @@
         wrap.appendChild(row);
       }
 
-      if (powerTarget > 0 && powerCount < powerTarget) {
+      if (powerTarget > 0) {
         const row = document.createElement("div");
         row.className = "quest-row";
 
@@ -2911,23 +2918,28 @@
         pill.type = "button";
         pill.className = "quest-pill power quest-pill-btn";
         pill.textContent = "Power verbs needed";
-        pill.title = "Jump to a verb to upgrade";
-        pill.addEventListener("click", async () => {
-          // Ensure preview is in view
-          scrollToPreviewHeader();
+        if (powerCount >= powerTarget) {
+          pill.disabled = true;
+          pill.title = "Power verb target met";
+        } else {
+          pill.title = "Jump to a verb to upgrade";
+          pill.addEventListener("click", async () => {
+            // Ensure preview is in view
+            scrollToPreviewHeader();
 
-          // Try to highlight the next best upgrade target
-          const didJump = await jumpToNextVerbToUpgradeInPreview();
-          if (!didJump) {
-            const prevTitle = pill.title;
-            pill.title = "No upgradeable verb found in Preview";
-            if (pill._titleTimer) clearTimeout(pill._titleTimer);
-            pill._titleTimer = setTimeout(() => {
-              pill.title = prevTitle;
-              pill._titleTimer = null;
-            }, 2200);
-          }
-        });
+            // Try to highlight the next best upgrade target
+            const didJump = await jumpToNextVerbToUpgradeInPreview();
+            if (!didJump) {
+              const prevTitle = pill.title;
+              pill.title = "No upgradeable verb found in Preview";
+              if (pill._titleTimer) clearTimeout(pill._titleTimer);
+              pill._titleTimer = setTimeout(() => {
+                pill.title = prevTitle;
+                pill._titleTimer = null;
+              }, 2200);
+            }
+          });
+        }
 
         const dots = document.createElement("div");
         dots.className = "quest-dots";
@@ -3009,9 +3021,12 @@
         return;
       }
 
+      subEl.innerHTML = "";
       if (cohesionMetric.score === 100) {
-        renderSuccess(subEl, "Cohesion is tight.");
-        return;
+        const row = document.createElement("div");
+        row.className = "metric-success";
+        row.innerHTML = `<span class="star">★</span><span>Cohesion is tight.</span>`;
+        subEl.appendChild(row);
       }
 
       const details = cohesionMetric.details || {};
@@ -3024,7 +3039,6 @@
 
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
-      subEl.innerHTML = "";
 
       const addDotRow = (label, total, filled, key, issueCount) => {
         if (total <= 0) return;
@@ -3085,7 +3099,7 @@
         sentenceMisses
       );
 
-      if (weakCount > 0) {
+      {
         const row = document.createElement("div");
         row.className = "quest-row";
 
@@ -3093,24 +3107,31 @@
         pill.type = "button";
         pill.className = "quest-pill weak quest-pill-btn";
         pill.textContent = "Weak transitions";
-        pill.title = "Click to jump to the next sentence";
-        pill.addEventListener("click", () => {
-          jumpToNextCohesionIssue("weak");
-        });
+        if (weakCount === 0) {
+          pill.disabled = true;
+          pill.title = "No issues found";
+        } else {
+          pill.title = "Click to jump to the next sentence";
+          pill.addEventListener("click", () => {
+            jumpToNextCohesionIssue("weak");
+          });
+        }
 
         const dots = document.createElement("div");
         dots.className = "quest-dots";
-        const maxDots = Math.min(weakCount, 10);
-        for (let i = 0; i < maxDots; i += 1) {
-          const dot = document.createElement("span");
-          dot.className = "quest-dot bad";
-          dots.appendChild(dot);
-        }
-        if (weakCount > 10) {
-          const more = document.createElement("span");
-          more.className = "quest-more";
-          more.textContent = `+${weakCount - 10}`;
-          dots.appendChild(more);
+        if (weakCount > 0) {
+          const maxDots = Math.min(weakCount, 10);
+          for (let i = 0; i < maxDots; i += 1) {
+            const dot = document.createElement("span");
+            dot.className = "quest-dot bad";
+            dots.appendChild(dot);
+          }
+          if (weakCount > 10) {
+            const more = document.createElement("span");
+            more.className = "quest-more";
+            more.textContent = `+${weakCount - 10}`;
+            dots.appendChild(more);
+          }
         }
 
         row.appendChild(pill);
@@ -3194,10 +3215,11 @@
       const previewReady = isPreviewReadyForPrecision();
 
       subEl.innerHTML = "";
-
       if (precisionMetric && precisionMetric.score === 100 && hasCounts) {
-        renderSuccess(subEl, "No excess detected.");
-        return;
+        const row = document.createElement("div");
+        row.className = "metric-success";
+        row.innerHTML = `<span class="star">★</span><span>No excess detected.</span>`;
+        subEl.appendChild(row);
       }
 
       const wrap = document.createElement("div");
@@ -3288,6 +3310,74 @@
         note.textContent = "Click \"Mark my essay\" to load Preview.";
         subEl.appendChild(note);
       }
+    }
+
+    function renderVarietyQuests(subEl, varietyMetric) {
+      if (!subEl) return;
+      if (!varietyMetric || typeof varietyMetric.score !== "number") {
+        subEl.textContent = "";
+        return;
+      }
+
+      const details = varietyMetric.details || {};
+      const pronounStarts = Number(details.pronounStarts) || 0;
+      const sentenceCount = Number(details.sentenceCount) || 0;
+      const fallbackSub = sentenceCount ? `Pronoun starts: ${pronounStarts}/${sentenceCount}` : "";
+      const subText = varietyMetric.sub || fallbackSub;
+
+      subEl.innerHTML = "";
+      if (varietyMetric.score === 100) {
+        const row = document.createElement("div");
+        row.className = "metric-success";
+        row.innerHTML = `<span class="star">★</span><span>Sentence patterns are varied.</span>`;
+        subEl.appendChild(row);
+      }
+
+      if (subText) {
+        const subRow = document.createElement("div");
+        subRow.textContent = subText;
+        subEl.appendChild(subRow);
+      }
+
+      const wrap = document.createElement("div");
+      wrap.className = "power-quests";
+
+      const row = document.createElement("div");
+      row.className = "quest-row";
+
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "quest-pill weak quest-pill-btn";
+      pill.textContent = "Pronoun starts";
+      if (pronounStarts === 0) {
+        pill.disabled = true;
+        pill.title = "No pronoun starts detected";
+      } else {
+        pill.title = "Reduce pronoun starts";
+      }
+
+      const dots = document.createElement("div");
+      dots.className = "quest-dots";
+      if (pronounStarts > 0) {
+        const maxDots = 10;
+        const showDots = Math.min(pronounStarts, maxDots);
+        for (let i = 0; i < showDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = "quest-dot bad";
+          dots.appendChild(dot);
+        }
+        if (pronounStarts > maxDots) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${pronounStarts - maxDots}`;
+          dots.appendChild(more);
+        }
+      }
+
+      row.appendChild(pill);
+      row.appendChild(dots);
+      wrap.appendChild(row);
+      subEl.appendChild(wrap);
     }
 
     function renderPowerDotsPopover(containerEl, powerMetric) {
@@ -4428,7 +4518,11 @@
         },
         variety: {
           score: varietyScore,
-          sub: `Pronoun starts: ${pronounStarts}/${sentences.length}`
+          sub: `Pronoun starts: ${pronounStarts}/${sentences.length}`,
+          details: {
+            pronounStarts,
+            sentenceCount: sentences.length
+          }
         },
         cohesion: {
           score: cohesionScore,
@@ -4474,9 +4568,7 @@
       renderSingleMetric(powerScoreText, powerMeterFill, powerSubText, metrics?.power);
       renderPowerDots(powerSubText, metrics?.power);
       renderSingleMetric(varietyScoreText, varietyMeterFill, varietySubText, metrics?.variety);
-      if (metrics?.variety?.score === 100) {
-        renderSuccess(varietySubText, "Sentence patterns are varied.");
-      }
+      renderVarietyQuests(varietySubText, metrics?.variety);
       renderSingleMetric(precisionScoreText, precisionMeterFill, precisionSubText, metrics?.precision);
       renderPrecisionQuests(precisionSubText, metrics?.precision);
 
