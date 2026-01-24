@@ -4985,7 +4985,6 @@ def analyze_text(
     delete_phrases = [
         "vividly",
         "vivid",
-        "in conclusion",
         "all in all",
         "in summary",
         "to conclude",
@@ -5006,7 +5005,6 @@ def analyze_text(
 
     # These should only be deleted in the conclusion paragraph
     conclusion_only_delete_phrases = {
-        "in conclusion",
         "all in all",
         "in summary",
         "to conclude",
@@ -5042,6 +5040,39 @@ def analyze_text(
             "strike": True,
             # no "label": this prevents a yellow arrow comment
         })
+
+    rule_note_in_conclusion = "Use a boundary statement to begin your conclusion"
+
+    if paragraph_role == "conclusion" and sentences:
+        first_start, first_end = sentences[0]
+        first_text = flat_text[first_start:first_end]
+        trimmed = first_text.lstrip()
+        lead_ws = len(first_text) - len(trimmed)
+
+        if trimmed.lower().startswith("in conclusion"):
+            after_idx = len("in conclusion")
+            if after_idx >= len(trimmed) or not trimmed[after_idx].isalnum():
+                match_start = first_start + lead_ws
+                match_end = match_start + len("in conclusion")
+
+                # Skip if inside a quotation span
+                if not (pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans)):
+                    if rule_note_in_conclusion not in labels_used:
+                        marks.append({
+                            "start": match_start,
+                            "end": match_end,
+                            "note": rule_note_in_conclusion,
+                            "color": WD_COLOR_INDEX.TURQUOISE,
+                            "label": True,
+                        })
+                        labels_used.append(rule_note_in_conclusion)
+                    else:
+                        marks.append({
+                            "start": match_start,
+                            "end": match_end,
+                            "note": rule_note_in_conclusion,
+                            "color": WD_COLOR_INDEX.TURQUOISE,
+                        })
 
     # -----------------------
     # PHASE 5A — "The author" references (replace, don't delete)
