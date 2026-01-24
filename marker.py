@@ -4258,9 +4258,39 @@ def analyze_text(
                 labels_used.append(rule_note_quotation_start)
 
     # -----------------------
+    # QUOTATIONS OVER 5 WORDS (Precision Wordy)
+    # -----------------------
+    rule_note_long_quote = "Limit quotations to 5 words or fewer"
+    long_quote_labeled = rule_note_long_quote in labels_used
+
+    for q_start, q_end in spans:
+        if q_start is None or q_end is None:
+            continue
+        interior = flat_text[q_start:q_end].strip()
+        if not interior:
+            continue
+        if is_teacher_title_interior(interior):
+            continue
+        word_count = len(re.findall(r"[A-Za-z']+", interior))
+        if word_count <= 5:
+            continue
+
+        mark = {
+            "start": q_start,
+            "end": q_end,
+            "note": rule_note_long_quote,
+            "color": WD_COLOR_INDEX.GRAY_25,
+        }
+        if not long_quote_labeled:
+            mark["label"] = True
+            labels_used.append(rule_note_long_quote)
+            long_quote_labeled = True
+        marks.append(mark)
+
+    # -----------------------
     # REPEATED "AND" IN A SENTENCE
     # -----------------------
-    rule_note_and = "Avoid using the word 'and' more than once in a sentence"
+    rule_note_and = "Avoid using the word 'and' more than twice in a sentence"
 
     # Have we already attached a yellow label for this rule anywhere in the document?
     and_label_attached = rule_note_and in labels_used
@@ -4285,7 +4315,7 @@ def analyze_text(
 
             and_tokens.append((tok_start, tok_end))
 
-        if len(and_tokens) > 1:
+        if len(and_tokens) > 2:
             # Highlight ALL 'and's in this sentence in TURQUOISE
             for idx, (tok_start, tok_end) in enumerate(and_tokens):
                 mark = {
@@ -4668,8 +4698,37 @@ def analyze_text(
                 "note": rule_note,
                 "color": WD_COLOR_INDEX.GRAY_25,
             })
-     
-        # -----------------------
+
+    # -----------------------
+    # ABSOLUTE LANGUAGE (Precision Imprecise)
+    # -----------------------
+    absolute_terms = ["always", "never"]
+    rule_note_absolute = "Avoid absolute language like 'always' or 'never'"
+    absolute_regex = re.compile(
+        r"\b(" + "|".join(re.escape(term) for term in absolute_terms) + r")\b",
+        re.IGNORECASE,
+    )
+    absolute_labeled = rule_note_absolute in labels_used
+
+    for match in absolute_regex.finditer(flat_text):
+        match_start = match.start()
+        match_end = match.end()
+        if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
+            continue
+
+        mark = {
+            "start": match_start,
+            "end": match_end,
+            "note": rule_note_absolute,
+            "color": WD_COLOR_INDEX.GRAY_25,
+        }
+        if not absolute_labeled:
+            mark["label"] = True
+            labels_used.append(rule_note_absolute)
+            absolute_labeled = True
+        marks.append(mark)
+
+    # -----------------------
     # PHASE 1.5 — SUBJECT–VERB AGREEMENT (experimental)
     # -----------------------
     """
@@ -4932,6 +4991,7 @@ def analyze_text(
         "to conclude",
         "to summarize",
         "the use of",
+        "successfully",
     ]
     delete_phrases = sorted(
         set(p.strip() for p in delete_phrases if p.strip()),
@@ -4953,7 +5013,7 @@ def analyze_text(
         "to summarize",
     }
 
-    rule_description = ""
+    rule_description = "Remove unnecessary filler words/phrases"
 
     for match in delete_pattern.finditer(flat_text):
         match_start, match_end = match.start(1), match.end(1)
@@ -4982,6 +5042,36 @@ def analyze_text(
             "strike": True,
             # no "label": this prevents a yellow arrow comment
         })
+
+    # -----------------------
+    # PHASE 5A — "The author" references (replace, don't delete)
+    # -----------------------
+    rule_note_author_ref = "Use the author’s name instead of 'the author'"
+    author_regex = re.compile(r"\bthe\s+author(?:'s)?\b", re.IGNORECASE)
+
+    for match in author_regex.finditer(flat_text):
+        match_start, match_end = match.start(), match.end()
+
+        # Skip matches inside direct quotations
+        if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
+            continue
+
+        if rule_note_author_ref not in labels_used:
+            marks.append({
+                "start": match_start,
+                "end": match_end,
+                "note": rule_note_author_ref,
+                "color": WD_COLOR_INDEX.GRAY_25,
+                "label": True,
+            })
+            labels_used.append(rule_note_author_ref)
+        else:
+            marks.append({
+                "start": match_start,
+                "end": match_end,
+                "note": rule_note_author_ref,
+                "color": WD_COLOR_INDEX.GRAY_25,
+            })
 
     # -----------------------
     # PHASE 5A.1 — Logical connectors: therefore/thereby/hence/thus
