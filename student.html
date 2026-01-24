@@ -1010,7 +1010,7 @@
         </label>
 
         <label>Teacher / Class
-          <input id="mlaTeacher" type="text" placeholder="Mr. Seeley / English" />
+          <input id="mlaTeacher" type="text" placeholder="Dr. Vysti / English" />
         </label>
 
         <label>Date
@@ -6160,14 +6160,15 @@
 
           let textForDownload = previewText;
           if (modalResult.action === "mla") {
+            const bodyText = stripStudentHeaderBeforeTitleForDownload(previewText);
             const headerLines = [
               modalResult.fields?.name || "",
               modalResult.fields?.teacher || "",
               modalResult.fields?.date || "",
               modalResult.fields?.assignment || (assignmentNameInput ? assignmentNameInput.value.trim() : "") || "",
             ].map((line) => (line || "").trim()).filter(Boolean);
-            const mlaHeader = headerLines.join("\n") + "\n\n";
-            textForDownload = mlaHeader + previewText;
+            const mlaHeader = headerLines.join("\n\n") + "\n\n";
+            textForDownload = mlaHeader + bodyText;
           }
 
           startButtonLoading(downloadBtn, "Download marked essay");
@@ -9363,6 +9364,88 @@
       }
       
       return paragraphs.join("\n\n");
+    }
+
+    function looksLikeStudentTitleLineForDownload(p) {
+      const s = normalizeTypography(p || "");
+      if (!s) return false;
+
+      // Not a sentence
+      if (hasSentenceEnd(s)) return false;
+
+      const wc = wordCount(s);
+      if (wc < 2) return false;
+
+      // Strongest: the project's known creative title format
+      if (isEssayTitleHeaderLine(s)) return true;
+
+      // Common title signals: quotes, colon, lots of Title Case, ALL CAPS emphasis
+      const hasQuotes = /["“”]/.test(s);
+      const hasColon = s.includes(":");
+
+      const toks = s.split(/\s+/).filter(Boolean);
+      const titleCaseCount = toks.filter((t) => /^[A-Z][A-Za-z'’\-]*$/.test(t)).length;
+      const titleCaseRatio = toks.length ? titleCaseCount / toks.length : 0;
+      const allCapsCount = toks.filter((t) => /^[A-Z]{3,}$/.test(t.replace(/[^A-Z]/g, ""))).length;
+
+      // Avoid misclassifying names (2–4 words Title Case) as titles unless quotes/colon exist
+      if (hasQuotes || hasColon) return true;
+
+      // Longer title lines (>=5 tokens) that are mostly Title Case
+      if (toks.length >= 5 && titleCaseRatio >= 0.6) return true;
+
+      // Some students write loud titles in caps
+      if (allCapsCount >= 2 && toks.length >= 4) return true;
+
+      return false;
+    }
+
+    function looksLikeMlaFrontMatterLineForDownload(p) {
+      const s = normalizeTypography(p || "");
+      if (!s) return true;
+
+      // If it's a real sentence, do not treat as header
+      if (hasSentenceEnd(s)) return false;
+
+      const wc = wordCount(s);
+      // Very short non-sentences are almost always MLA/header
+      if (wc <= 10) {
+        // Date-ish
+        if (/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(s)) return true;
+        if (/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(s) && /\d/.test(s)) return true;
+
+        // Teacher/class tokens
+        if (/\b(mr\.|ms\.|mrs\.|dr\.|prof\.|professor|english|ib|ap|period|block|class|course|teacher)\b/i.test(s)) return true;
+
+        // Name-like (1–4 Title Case tokens)
+        const toks = s.split(/\s+/).filter(Boolean);
+        if (toks.length >= 1 && toks.length <= 4 && toks.every((t) => /^[A-Z][a-z]+$/.test(t))) return true;
+      }
+
+      return false;
+    }
+
+    function stripStudentHeaderBeforeTitleForDownload(text) {
+      const paras = splitParagraphsSimple(String(text || ""));
+      if (!paras.length) return String(text || "");
+
+      // Prefer: keep from the first detected student title line onward
+      const titleIdx = paras.findIndex((p) => looksLikeStudentTitleLineForDownload(p));
+      if (titleIdx >= 0) {
+        return paras.slice(titleIdx).join("\n\n");
+      }
+
+      // Fallback: keep from first real prose paragraph (sentence punctuation + >= 6 words)
+      let startIdx = 0;
+      for (let i = 0; i < paras.length; i += 1) {
+        const p = paras[i];
+        const norm = normalizeTypography(p);
+        if (!norm) continue;
+        if (hasSentenceEnd(norm) && wordCount(norm) >= 6) { startIdx = i; break; }
+        // keep skipping MLA-ish lines
+        if (!looksLikeMlaFrontMatterLineForDownload(norm)) { startIdx = i; break; }
+      }
+      return paras.slice(startIdx).join("\n\n");
     }
     function wordCountFromText(text) {
       const t = String(text || "");
