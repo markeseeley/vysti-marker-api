@@ -999,6 +999,44 @@
     </div>
   </div>
 
+  <div id="mlaHeaderOverlay" class="modal-overlay hidden">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mlaHeaderTitle">
+      <div id="mlaHeaderTitle" class="modal-title">Add MLA header?</div>
+      <div class="modal-body">
+        <div class="modal-question">We can add a clean MLA header for you.</div>
+
+        <label>Student name
+          <input id="mlaName" type="text" placeholder="Your name" />
+        </label>
+
+        <label>Teacher / Class
+          <input id="mlaTeacher" type="text" placeholder="Mr. Seeley / English" />
+        </label>
+
+        <label>Date
+          <input id="mlaDate" type="text" />
+        </label>
+
+        <label>Assignment (optional)
+          <input id="mlaAssignment" type="text" placeholder="Assignment 01" />
+        </label>
+
+        <label style="display:flex; gap:10px; align-items:center; margin-top:12px;">
+          <input id="mlaRemember" type="checkbox" />
+          Remember these defaults
+        </label>
+
+        <div id="mlaHeaderError" class="modal-error hidden"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="mlaCancelBtn" class="secondary-btn" type="button">Cancel</button>
+        <button id="mlaNoThanksBtn" class="secondary-btn" type="button">No thanks</button>
+        <button id="mlaOkBtn" class="primary-btn" type="button">Add MLA header</button>
+      </div>
+    </div>
+  </div>
+
   <div id="brandConfirmOverlay" class="brand-confirm-overlay" hidden>
     <div class="brand-confirm-popover" role="dialog" aria-modal="true" aria-labelledby="brandConfirmTitle">
       <button class="brand-confirm-close" type="button" aria-label="Close dialog">×</button>
@@ -1020,6 +1058,7 @@
   <script>
     const DEBUG_METRICS = false;
     const DEBUG_REVISION_BARS = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const MLA_STORAGE_KEY = "vysti_mla_defaults_v1";
 
     // ===== Bucket definitions =====
     const LABEL_BUCKETS = [
@@ -1200,6 +1239,16 @@
     const dismissError = document.getElementById("dismissError");
     const dismissCancelBtn = document.getElementById("dismissCancelBtn");
     const dismissConfirmBtn = document.getElementById("dismissConfirmBtn");
+    const mlaHeaderOverlay = document.getElementById("mlaHeaderOverlay");
+    const mlaNameInput = document.getElementById("mlaName");
+    const mlaTeacherInput = document.getElementById("mlaTeacher");
+    const mlaDateInput = document.getElementById("mlaDate");
+    const mlaAssignmentInput = document.getElementById("mlaAssignment");
+    const mlaRememberInput = document.getElementById("mlaRemember");
+    const mlaHeaderError = document.getElementById("mlaHeaderError");
+    const mlaCancelBtn = document.getElementById("mlaCancelBtn");
+    const mlaNoThanksBtn = document.getElementById("mlaNoThanksBtn");
+    const mlaOkBtn = document.getElementById("mlaOkBtn");
 
     function openPowerVerbsFromPreview() {
       if (!previewPowerVerbsBtn) return;
@@ -1220,6 +1269,9 @@
     }
     if (dismissIssueOverlay) {
       dismissIssueOverlay.classList.add("hidden");
+    }
+    if (mlaHeaderOverlay) {
+      mlaHeaderOverlay.classList.add("hidden");
     }
 
     if (approvedRewritesToggle) {
@@ -6101,6 +6153,23 @@
             return;
           }
 
+          const modalResult = await openMlaModal();
+          if (modalResult.action === "cancel") {
+            return;
+          }
+
+          let textForDownload = previewText;
+          if (modalResult.action === "mla") {
+            const headerLines = [
+              modalResult.fields?.name || "",
+              modalResult.fields?.teacher || "",
+              modalResult.fields?.date || "",
+              modalResult.fields?.assignment || (assignmentNameInput ? assignmentNameInput.value.trim() : "") || "",
+            ].map((line) => (line || "").trim()).filter(Boolean);
+            const mlaHeader = headerLines.join("\n") + "\n\n";
+            textForDownload = mlaHeader + previewText;
+          }
+
           startButtonLoading(downloadBtn, "Download marked essay");
           try {
             const { data: sessionData } = await supa.auth.getSession();
@@ -6112,7 +6181,7 @@
             const API_BASE = "https://vysti-rules.onrender.com";
             const markTextPayload = {
               file_name: selectedFile.name,
-              text: previewText,
+              text: textForDownload,
               mode: currentMode,
               highlight_thesis_devices: false,
               include_summary_table: true,
@@ -8472,6 +8541,139 @@
           scroll: false,
           allowParagraphFallback: true,
           silent: true
+        });
+      });
+    }
+
+    function defaultMlaDateString() {
+      const d = new Date();
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    }
+
+    function loadMlaDefaults() {
+      try {
+        const raw = localStorage.getItem(MLA_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveMlaDefaults(data) {
+      try {
+        localStorage.setItem(MLA_STORAGE_KEY, JSON.stringify(data || {}));
+      } catch {}
+    }
+
+    async function openMlaModal() {
+      if (!mlaHeaderOverlay || !mlaCancelBtn || !mlaNoThanksBtn || !mlaOkBtn) {
+        return { action: "plain" };
+      }
+      if (!mlaNameInput || !mlaTeacherInput || !mlaDateInput || !mlaAssignmentInput || !mlaRememberInput) {
+        return { action: "plain" };
+      }
+
+      return new Promise((resolve) => {
+        let resolved = false;
+
+        const cleanup = () => {
+          mlaHeaderOverlay.classList.add("hidden");
+          document.removeEventListener("keydown", onKeyDown);
+          mlaHeaderOverlay.removeEventListener("click", onOverlayClick);
+          mlaCancelBtn.removeEventListener("click", onCancel);
+          mlaNoThanksBtn.removeEventListener("click", onNoThanks);
+          mlaOkBtn.removeEventListener("click", onOk);
+          [mlaNameInput, mlaTeacherInput, mlaDateInput, mlaAssignmentInput].forEach((input) => {
+            input.removeEventListener("input", onInputChange);
+          });
+        };
+
+        const finish = (result) => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          resolve(result);
+        };
+
+        const setError = (message) => {
+          if (!mlaHeaderError) return;
+          if (!message) {
+            mlaHeaderError.textContent = "";
+            mlaHeaderError.classList.add("hidden");
+            return;
+          }
+          mlaHeaderError.textContent = message;
+          mlaHeaderError.classList.remove("hidden");
+        };
+
+        const onInputChange = () => setError("");
+
+        const onCancel = () => finish({ action: "cancel" });
+        const onNoThanks = () => finish({ action: "plain" });
+
+        const onOk = () => {
+          const name = mlaNameInput.value.trim();
+          const teacher = mlaTeacherInput.value.trim();
+          const date = mlaDateInput.value.trim();
+          const assignment = mlaAssignmentInput.value.trim();
+          const remember = mlaRememberInput.checked;
+
+          if (!name || !teacher || !date) {
+            setError("Please add your name, teacher/class, and date.");
+            return;
+          }
+
+          setError("");
+          if (remember) {
+            saveMlaDefaults({
+              name,
+              teacher,
+              assignment,
+            });
+          }
+
+          finish({
+            action: "mla",
+            fields: { name, teacher, date, assignment },
+            remember,
+          });
+        };
+
+        const onOverlayClick = (event) => {
+          if (event.target === mlaHeaderOverlay) {
+            finish({ action: "cancel" });
+          }
+        };
+
+        const onKeyDown = (event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish({ action: "cancel" });
+          }
+        };
+
+        const defaults = loadMlaDefaults();
+        mlaNameInput.value = (defaults?.name || "").toString();
+        mlaTeacherInput.value = (defaults?.teacher || "").toString();
+        mlaAssignmentInput.value = (
+          defaults?.assignment ||
+          (assignmentNameInput ? assignmentNameInput.value.trim() : "") ||
+          ""
+        ).toString();
+        mlaDateInput.value = (defaults?.date || "").toString() || defaultMlaDateString();
+        mlaRememberInput.checked = false;
+        setError("");
+
+        mlaHeaderOverlay.classList.remove("hidden");
+        mlaNameInput.focus();
+
+        document.addEventListener("keydown", onKeyDown);
+        mlaHeaderOverlay.addEventListener("click", onOverlayClick);
+        mlaCancelBtn.addEventListener("click", onCancel);
+        mlaNoThanksBtn.addEventListener("click", onNoThanks);
+        mlaOkBtn.addEventListener("click", onOk);
+        [mlaNameInput, mlaTeacherInput, mlaDateInput, mlaAssignmentInput].forEach((input) => {
+          input.addEventListener("input", onInputChange);
         });
       });
     }
