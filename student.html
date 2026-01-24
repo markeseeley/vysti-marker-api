@@ -3082,8 +3082,8 @@
       labels.forEach((label) => {
         const items = examplesByLabel[label] || [];
         items.forEach((ex) => {
-          const sentence = String(ex?.sentence || "").trim();
-          if (!sentence) return;
+          const sentence = stripVystiInlineArtifacts(String(ex?.sentence || "").trim());
+          if (!sentence || sentence.length < 6) return;
           if (isDismissedIssueInstance(label, sentence)) return;
           const paraIndex = ex?.paragraph_index ?? ex?.paragraphIndex ?? 0;
           const key = getExampleKeyFromParts(paraIndex ?? 0, sentence);
@@ -7363,6 +7363,18 @@
         .trim();
     }
 
+    function stripVystiInlineArtifacts(text) {
+      let s = String(text || "");
+      // Remove rewrite-practice tag (sometimes stored in issue_examples sentences)
+      s = s.replace(/\*\s*Rewrite this paragraph for practice\s*\*/gi, " ");
+      // Remove injected arrow labels: "→ ..." up to a reasonable length or sentence boundary.
+      // We remove repeatedly in case multiple labels exist in one sentence.
+      s = s.replace(/\s*→\s*[^.!?\n]{0,180}/g, " ");
+      // Normalize whitespace
+      s = s.replace(/\s+/g, " ").trim();
+      return s;
+    }
+
     function unwrapNode(el) {
       const parent = el.parentNode;
       if (!parent) return;
@@ -7994,7 +8006,7 @@
       const blocks = getPreviewBlocks();
       if (blocks.length === 0) return null;
 
-      const sentence = (example?.sentence || "").trim();
+      const sentence = stripVystiInlineArtifacts((example?.sentence || "").trim());
       const paraIndex = example?.paragraph_index;
 
       // If there's no usable sentence text, fall back deterministically.
@@ -8070,7 +8082,8 @@
     function highlightAndScrollToExample(example, statusDivOptional, options = {}) {
       clearPreviewHighlights();
       
-      const sentence = example?.sentence || "";
+      const rawSentence = example?.sentence || "";
+      const sentence = stripVystiInlineArtifacts(rawSentence);
       const blockEl = findBestPreviewBlockForExample(example);
       
       if (!blockEl) {
@@ -8145,8 +8158,8 @@
       console.debug("[FindPreview fallback]", {
         label: example?.label,
         paragraph_index: example?.paragraph_index,
-        sentence: example?.sentence,
-        normSentence: normalizeForMatch(example?.sentence || "").slice(0, 200),
+        sentence: rawSentence,
+        normSentence: normalizeForMatch(rawSentence).slice(0, 200),
         normBlock: normalizeForMatch(blockEl?.innerText || "").slice(0, 200),
       });
       blockEl.classList.add("vysti-preview-hit-block");
@@ -8162,7 +8175,7 @@
       if (!markedPreview) return;
       clearPreviewHighlights();
 
-      const sentence = example?.sentence || "";
+      const sentence = stripVystiInlineArtifacts(example?.sentence || "");
       const paragraphEl = findBestPreviewBlockForExample(example);
       if (!paragraphEl) return;
 
