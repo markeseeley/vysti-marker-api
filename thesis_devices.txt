@@ -50,11 +50,6 @@ allusion,allusion
 repetition,repetition
 bathos,bathos
 data,data
-quotation,quotation
-quotes,quotation
-quotations,quotation
-quoting,quotation
-quote,quotation
 statistic,statistic
 statistics,statistics
 hypophora,hypophora
