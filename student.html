@@ -4290,9 +4290,10 @@
       }
 
       const labelCounts = liveLabelCounts && typeof liveLabelCounts === "object" ? liveLabelCounts : {};
-      const hasMarkResults = !!currentMarkEvent
-        || (markedPreview && markedPreview.innerText && markedPreview.innerText.trim());
-      const hasPrecisionCounts = Object.keys(labelCounts).length > 0 || hasMarkResults;
+
+      // Only claim "we have Precision counts" once a mark_event has been loaded.
+      // This prevents Precision from showing 100 just because the Preview exists.
+      const hasPrecisionCounts = !!(currentMarkEvent && currentMarkEvent.id != null);
       let precisionScore = null;
       let precisionDetails = {
         unnecessaryCount: 0,
@@ -4305,8 +4306,10 @@
         const unnecessaryCount = sumLabelCounts(UNNECESSARY_LABELS, labelCounts);
         const wordyCount = sumLabelCounts(WORDY_LABELS, labelCounts);
         const impreciseCount = sumLabelCounts(IMPRECISE_LABELS, labelCounts);
+
         const penalty = unnecessaryCount * 3 + wordyCount * 2 + impreciseCount * 3;
         precisionScore = clamp(100 - penalty, 0, 100);
+
         precisionDetails = {
           unnecessaryCount,
           wordyCount,
@@ -6124,7 +6127,6 @@
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
-            await refreshStudentMetrics();
             applyDismissalsToPreviewDOM();
             makePreviewLabelsClickable();
             markedPreviewCard.style.display = "block";
@@ -6133,14 +6135,12 @@
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             markedPreviewCard.style.display = "block";
             updateStatsPanel(liveLabelCounts);
-            await refreshStudentMetrics();
           }
         } catch (previewError) {
           console.error("Error rendering preview:", previewError);
           markedPreview.innerHTML = "<p>Error rendering preview. Please download the file to view.</p>";
           markedPreviewCard.style.display = "block";
           updateStatsPanel(liveLabelCounts);
-          await refreshStudentMetrics();
         }
 
         if (recheckDocumentBtn) {
@@ -6156,6 +6156,11 @@
         
         // Load revision practice data
         await loadRevisionPractice();
+
+        // Now that loadRevisionPractice() has populated currentMarkEvent + liveLabelCounts,
+        // recompute the meters so Precision is accurate on first mark.
+        updateStatsPanel(liveLabelCounts);
+        await refreshStudentMetrics();
 
         const totalIssues = totalIssuesFromLabelCounts(liveLabelCounts);
         if (totalIssues === 0) {
@@ -8966,17 +8971,18 @@
             markedPreview.classList.add("preview-editable");
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
-            await refreshStudentMetrics();
             applyDismissalsToPreviewDOM();
             makePreviewLabelsClickable();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
             updateStatsPanel(liveLabelCounts);
-            await refreshStudentMetrics();
           }
 
           // Reload revision practice to refresh issues + examples
           await loadRevisionPractice();
+
+          updateStatsPanel(liveLabelCounts);
+          await refreshStudentMetrics();
 
           const totalIssues = totalIssuesFromLabelCounts(liveLabelCounts);
           if (totalIssues === 0) {
