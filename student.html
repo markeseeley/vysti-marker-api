@@ -234,6 +234,12 @@
       font-weight: 800;
       color: rgba(0,0,0,.45);
     }
+    .metric-note{
+      font-size: var(--fs-xs);
+      font-weight: 600;
+      color: rgba(0,0,0,.55);
+      margin-top: 6px;
+    }
     .marked-preview-container {
       max-height: 600px;
       overflow: auto;
@@ -1330,6 +1336,7 @@
     let cohesionJumpIndex = { paragraph: 0, sentence: 0, weak: 0 };
     let lastCohesionSource = "";
     let lastPowerVerbJumpIndex = 0;
+    let varietyJumpIndex = { techniques: 0, evidence: 0, development: 0, structure: 0 };
     let precisionIssueCache = {
       sourceKey: "",
       unnecessary: [],
@@ -1410,6 +1417,15 @@
       onKeyDown: null,
       onReposition: null
     };
+
+    const THESIS_DEVICES_CANDIDATE_URLS = [
+      "/thesis_devices.txt",
+      "./thesis_devices.txt",
+      "/assets/thesis_devices.txt"
+    ];
+    let thesisDevicesLexicon = null;
+    let thesisDevicesLoadPromise = null;
+    let thesisDevicesUnavailable = false;
 
     function hideMarkButtonShowRecheck() {
       if (checkBtn) checkBtn.style.display = "none";
@@ -1666,6 +1682,93 @@
       powerVerbsLoadPromise = tryFetch();
 
       return powerVerbsLoadPromise;
+    }
+
+    function normalizeThesisDeviceTerm(term) {
+      const normalized = normalizeTypography(term || "").toLowerCase();
+      return normalized.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    function parseThesisDevicesLexicon(text) {
+      const singleWordTermToCanonical = new Map();
+      const phraseTermToCanonical = [];
+      const lines = String(text || "").split(/\r?\n/);
+
+      lines.forEach((raw) => {
+        const line = String(raw || "").trim();
+        if (!line || line.startsWith("#")) return;
+
+        const match = line.match(/^\s*(?:"([^"]+)"|([^,]+))\s*,\s*(?:"([^"]+)"|(.+))\s*$/);
+        if (!match) return;
+
+        const term = (match[1] || match[2] || "").trim();
+        const canonical = (match[3] || match[4] || "").trim();
+        if (!term || !canonical) return;
+
+        const termNorm = normalizeThesisDeviceTerm(term);
+        const canonicalNorm = normalizeThesisDeviceTerm(canonical) || canonical.toLowerCase();
+        if (!termNorm || !canonicalNorm) return;
+
+        if (termNorm.includes(" ")) {
+          phraseTermToCanonical.push({ phrase: termNorm, canonical: canonicalNorm });
+        } else {
+          singleWordTermToCanonical.set(termNorm, canonicalNorm);
+        }
+      });
+
+      return {
+        singleWordTermToCanonical,
+        phraseTermToCanonical,
+        singleWordKeys: Array.from(singleWordTermToCanonical.keys())
+      };
+    }
+
+    function hasThesisDevicesLexicon(lexicon) {
+      if (!lexicon) return false;
+      const singleCount = lexicon.singleWordKeys ? lexicon.singleWordKeys.length : 0;
+      const phraseCount = Array.isArray(lexicon.phraseTermToCanonical)
+        ? lexicon.phraseTermToCanonical.length
+        : 0;
+      return singleCount + phraseCount > 0;
+    }
+
+    function loadThesisDevicesLexicon() {
+      if (hasThesisDevicesLexicon(thesisDevicesLexicon)) {
+        return Promise.resolve(thesisDevicesLexicon);
+      }
+      if (thesisDevicesLoadPromise) return thesisDevicesLoadPromise;
+
+      const tryFetch = async () => {
+        let lastErr = null;
+
+        for (const url of THESIS_DEVICES_CANDIDATE_URLS) {
+          try {
+            const res = await fetch(url, { cache: "no-store" });
+            if (!res.ok) {
+              lastErr = new Error(`${url} returned HTTP ${res.status}`);
+              continue;
+            }
+            const text = await res.text();
+            const parsed = parseThesisDevicesLexicon(text);
+            if (hasThesisDevicesLexicon(parsed)) {
+              thesisDevicesLexicon = parsed;
+              thesisDevicesUnavailable = false;
+              return thesisDevicesLexicon;
+            }
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+
+        console.warn("Failed to load thesis devices from all candidate URLs:", lastErr);
+        thesisDevicesLexicon = null;
+        thesisDevicesUnavailable = true;
+        thesisDevicesLoadPromise = null;
+        return null;
+      };
+
+      thesisDevicesLoadPromise = tryFetch();
+      return thesisDevicesLoadPromise;
     }
 
     function sampleUnique(list, count, excludeSet = null) {
@@ -3318,66 +3421,200 @@
         subEl.textContent = "";
         return;
       }
-
+      const previewReady = !!(markedPreview && markedPreview.innerText && markedPreview.innerText.trim());
       const details = varietyMetric.details || {};
-      const pronounStarts = Number(details.pronounStarts) || 0;
-      const sentenceCount = Number(details.sentenceCount) || 0;
-      const fallbackSub = sentenceCount ? `Pronoun starts: ${pronounStarts}/${sentenceCount}` : "";
-      const subText = varietyMetric.sub || fallbackSub;
+      const bodyParagraphCount = Number(details.bodyParagraphCount) || 0;
+      const bodyParagraphIndices = Array.isArray(details.bodyParagraphIndices) ? details.bodyParagraphIndices : [];
+      const paragraphs = Array.isArray(details.paragraphsFiltered) ? details.paragraphsFiltered : [];
+      const techniqueFailures = Array.isArray(details.techniqueFailures) ? details.techniqueFailures : [];
+      const evidenceFailures = Array.isArray(details.evidenceFailures) ? details.evidenceFailures : [];
+      const undevelopedParagraphs = Array.isArray(details.undevelopedParagraphs) ? details.undevelopedParagraphs : [];
+      const weakStartSentences = Array.isArray(details.weakStartSentences) ? details.weakStartSentences : [];
+      const weakStartCount = Number(details.weakStartCount) || weakStartSentences.length;
+      const techniquesUnavailable = !!details.techniquesUnavailable;
+
+      const bodyIndexes = bodyParagraphIndices.length
+        ? bodyParagraphIndices
+        : Array.from({ length: bodyParagraphCount }, (_, i) => i);
 
       subEl.innerHTML = "";
       if (varietyMetric.score === 100) {
         const row = document.createElement("div");
         row.className = "metric-success";
-        row.innerHTML = `<span class="star">★</span><span>Sentence patterns are varied.</span>`;
+        row.innerHTML = `<span class="star">★</span><span>Variety goals achieved.</span>`;
         subEl.appendChild(row);
-      }
-
-      if (subText) {
-        const subRow = document.createElement("div");
-        subRow.textContent = subText;
-        subEl.appendChild(subRow);
       }
 
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
 
-      const row = document.createElement("div");
-      row.className = "quest-row";
+      const addParagraphQuestRow = ({ label, failures, kind, disabledNote, pillClass = "power" }) => {
+        const row = document.createElement("div");
+        row.className = "quest-row";
 
-      const pill = document.createElement("button");
-      pill.type = "button";
-      pill.className = "quest-pill weak quest-pill-btn";
-      pill.textContent = "Pronoun starts";
-      if (pronounStarts === 0) {
-        pill.disabled = true;
-        pill.title = "No pronoun starts detected";
-      } else {
-        pill.title = "Reduce pronoun starts";
-      }
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = `quest-pill ${pillClass} quest-pill-btn`;
+        pill.textContent = label;
 
-      const dots = document.createElement("div");
-      dots.className = "quest-dots";
-      if (pronounStarts > 0) {
-        const maxDots = 10;
-        const showDots = Math.min(pronounStarts, maxDots);
-        for (let i = 0; i < showDots; i += 1) {
+        const failureSet = new Set(failures);
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
+        bodyIndexes.forEach((idx) => {
           const dot = document.createElement("span");
-          dot.className = "quest-dot bad";
+          dot.className = `quest-dot ${failureSet.has(idx) ? "empty" : "good"}`;
           dots.appendChild(dot);
+        });
+
+        const canInteract = previewReady && failures.length > 0 && bodyIndexes.length > 0 && !disabledNote;
+        if (!canInteract) {
+          pill.disabled = true;
+          pill.title = disabledNote || (bodyIndexes.length ? "All set" : "No body paragraphs detected");
+        } else {
+          pill.title = "Click to jump to the next paragraph";
+          pill.addEventListener("click", () => {
+            const jumpList = failures.length ? failures : [];
+            if (!jumpList.length) return;
+            const idx = varietyJumpIndex[kind] % jumpList.length;
+            varietyJumpIndex[kind] = (idx + 1) % jumpList.length;
+            const paraIndex = jumpList[idx];
+            const paraText = paragraphs[paraIndex] || "";
+            scrollToPreviewHeader();
+            const res = highlightAndScrollToExample(
+              { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex },
+              null,
+              { scroll: true, restrictToProse: true }
+            );
+            if (res?.hits?.length) {
+              res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+            }
+          });
         }
-        if (pronounStarts > maxDots) {
-          const more = document.createElement("span");
-          more.className = "quest-more";
-          more.textContent = `+${pronounStarts - maxDots}`;
-          dots.appendChild(more);
+
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
+
+        if (disabledNote) {
+          const note = document.createElement("div");
+          note.className = "metric-note";
+          note.textContent = disabledNote;
+          wrap.appendChild(note);
         }
+      };
+
+      const addIssueQuestRow = ({ label, count, pillClass = "weak", emptyTitle, activeTitle }) => {
+        const row = document.createElement("div");
+        row.className = "quest-row";
+
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = `quest-pill ${pillClass} quest-pill-btn`;
+        pill.textContent = label;
+
+        const canInteract = previewReady && count > 0;
+        if (!canInteract) {
+          pill.disabled = true;
+          pill.title = previewReady ? (emptyTitle || "No issues found") : "Preview not loaded";
+        } else {
+          pill.title = activeTitle || "Click to jump to the next issue";
+        }
+
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
+        if (count > 0) {
+          const maxDots = 10;
+          const showDots = Math.min(count, maxDots);
+          for (let i = 0; i < showDots; i += 1) {
+            const dot = document.createElement("span");
+            dot.className = "quest-dot bad";
+            dots.appendChild(dot);
+          }
+          if (count > maxDots) {
+            const more = document.createElement("span");
+            more.className = "quest-more";
+            more.textContent = `+${count - maxDots}`;
+            dots.appendChild(more);
+          }
+        }
+
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
+        return pill;
+      };
+
+      addParagraphQuestRow({
+        label: "Techniques",
+        failures: techniqueFailures,
+        kind: "techniques",
+        disabledNote: techniquesUnavailable ? "Device list unavailable." : ""
+      });
+
+      addParagraphQuestRow({
+        label: "Evidence",
+        failures: evidenceFailures,
+        kind: "evidence"
+      });
+
+      const developmentPill = addIssueQuestRow({
+        label: "Development",
+        count: undevelopedParagraphs.length,
+        emptyTitle: "All paragraphs are developed",
+        activeTitle: "Click to jump to an undeveloped paragraph"
+      });
+      if (developmentPill && !developmentPill.disabled) {
+        developmentPill.addEventListener("click", () => {
+          const jumpList = undevelopedParagraphs.length ? undevelopedParagraphs : [];
+          if (!jumpList.length) return;
+          const idx = varietyJumpIndex.development % jumpList.length;
+          varietyJumpIndex.development = (idx + 1) % jumpList.length;
+          const paraIndex = jumpList[idx];
+          const paraText = paragraphs[paraIndex] || "";
+          scrollToPreviewHeader();
+          const res = highlightAndScrollToExample(
+            { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex },
+            null,
+            { scroll: true, restrictToProse: true }
+          );
+          if (res?.hits?.length) {
+            res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+          }
+        });
       }
 
-      row.appendChild(pill);
-      row.appendChild(dots);
-      wrap.appendChild(row);
+      const structurePill = addIssueQuestRow({
+        label: "Structure",
+        count: weakStartCount,
+        emptyTitle: "No weak starts detected",
+        activeTitle: "Click to jump to a weak sentence start"
+      });
+      if (structurePill && !structurePill.disabled) {
+        structurePill.addEventListener("click", () => {
+          if (!weakStartSentences.length) return;
+          const idx = varietyJumpIndex.structure % weakStartSentences.length;
+          varietyJumpIndex.structure = (idx + 1) % weakStartSentences.length;
+          const target = weakStartSentences[idx];
+          if (!target) return;
+          scrollToPreviewHeader();
+          const res = highlightAndScrollToExample(
+            { sentence: target.sentence, paragraph_index: target.paragraph_index },
+            null,
+            { scroll: true, restrictToProse: true }
+          );
+          if (res?.hits?.length) {
+            res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+          }
+        });
+      }
+
       subEl.appendChild(wrap);
+
+      if (!previewReady) {
+        const note = document.createElement("div");
+        note.textContent = "Click \"Mark my essay\" to load Preview.";
+        subEl.appendChild(note);
+      }
     }
 
     function renderPowerDotsPopover(containerEl, powerMetric) {
@@ -3471,6 +3708,56 @@
       return String(s || "").toLowerCase().match(/[a-z']+/g) || [];
     }
 
+    function normalizeParagraphForPhraseMatch(s) {
+      return normalizeTypography(s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function getCanonicalDevicesInParagraph(paragraph) {
+      const canonicalSet = new Set();
+      if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return canonicalSet;
+
+      const normalized = normalizeParagraphForPhraseMatch(paragraph);
+      if (!normalized) return canonicalSet;
+
+      const tokenSet = new Set(tokenizeWords(normalized));
+      const padded = ` ${normalized} `;
+
+      (thesisDevicesLexicon.singleWordKeys || []).forEach((term) => {
+        if (tokenSet.has(term)) {
+          const canonical = thesisDevicesLexicon.singleWordTermToCanonical.get(term);
+          if (canonical) canonicalSet.add(canonical);
+        }
+      });
+
+      (thesisDevicesLexicon.phraseTermToCanonical || []).forEach(({ phrase, canonical }) => {
+        if (!phrase || !canonical) return;
+        if (padded.includes(` ${phrase} `)) {
+          canonicalSet.add(canonical);
+        }
+      });
+
+      return canonicalSet;
+    }
+
+    function countShortQuotesInParagraph(paragraph) {
+      const normalized = normalizeTypography(paragraph || "")
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'");
+      const matches = normalized.matchAll(/"([^"]+)"/g);
+      let count = 0;
+      for (const match of matches) {
+        const rawQuote = match[1] || "";
+        const stripped = rawQuote.replace(/\[[^\]]*\]/g, " ");
+        const words = stripped.match(/\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g) || [];
+        if (words.length > 0 && words.length <= 5) count += 1;
+      }
+      return count;
+    }
+
     function isTheUseOf(tokens, i) {
       if (!tokens || i <= 0 || i >= tokens.length - 1) return false;
       return tokens[i] === "use" && tokens[i - 1] === "the" && tokens[i + 1] === "of";
@@ -3555,6 +3842,24 @@
       });
     }
 
+    function getEssayParagraphsForVariety(text) {
+      const clean = normalizeTypographyPreserveParagraphs(text || "");
+      const rawParagraphs = splitParagraphsSimple(clean);
+      const filteredParagraphs = filterCohesionParagraphs(rawParagraphs);
+      return { rawParagraphs, filteredParagraphs };
+    }
+
+    function getBodyParagraphIndices(filteredParagraphs) {
+      const paragraphCount = Array.isArray(filteredParagraphs) ? filteredParagraphs.length : 0;
+      if (paragraphCount >= 3) {
+        return Array.from({ length: paragraphCount - 2 }, (_, i) => i + 1);
+      }
+      if (paragraphCount > 0) {
+        return Array.from({ length: paragraphCount }, (_, i) => i);
+      }
+      return [];
+    }
+
     const WEAK_VERB_GROUPS = {
       show: ["show","shows","showed","showing"],
       use:  ["use","uses","used","using"],
@@ -3574,8 +3879,10 @@
 
     const WEAK_VERBS = new Set(Array.from(WEAK_VERB_FORM_TO_BASE.keys()));
 
-    const PRONOUN_STARTERS = new Set([
-      "this","it","they","he","she","we","i","you"
+    const WEAK_STARTERS = new Set([
+      "it","this","these","those","there",
+      "he","she","they","we","i","you",
+      "his","her","their","our","your","its"
     ]);
 
     const SENTENCE_STARTER_SKIPS = new Set([
@@ -3788,7 +4095,8 @@
     const WORDY_LABELS = [
       "Avoid the word 'which'",
       "Avoid using the word 'and' more than twice in a sentence",
-      "Limit quotations to 6 words or fewer"
+      // This is the existing long-quote rule students already see in the Preview.
+      "Shorten, modify, and integrate quotations",
     ];
 
     const IMPRECISE_LABELS = [
@@ -3810,11 +4118,11 @@
       },
       variety: {
         title: "Variety",
-        body: "Variety measures how repetitive your sentence openings are (pronoun/noun starts vs. varied starters).",
+        body: "Variety measures analytical depth across techniques, evidence, development, and structure.",
         tips: [
-          "Start some sentences with a clause (Although/While/When...).",
-          "Start with a prepositional phrase (In/Across/Through...).",
-          "Avoid too many This/It/They starts in a row."
+          "Use 3+ unique devices per body paragraph.",
+          "Add 2+ short quotes per body paragraph.",
+          "Build paragraphs to 4+ sentences with varied starts."
         ]
       },
       cohesion: {
@@ -4444,19 +4752,76 @@
 
       const powerSub = "";
 
-      const sentences = splitSentencesSimple(cleanForCohesion);
-      let pronounStarts = 0;
-      for (const sentence of sentences) {
-        const starter = getSentenceStarterWord(sentence);
-        if (starter && PRONOUN_STARTERS.has(starter)) {
-          pronounStarts += 1;
-        }
-      }
-      const pronounStartRate = sentences.length ? pronounStarts / sentences.length : 0;
-      const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
+      const { rawParagraphs, filteredParagraphs } = getEssayParagraphsForVariety(cleanForCohesion);
+      const paragraphs = filteredParagraphs;
+      const paragraphSentences = paragraphs.map((p) => splitSentencesSimple(p));
+      const sentences = paragraphSentences.flat();
+      const totalSentenceCount = sentences.length;
 
-      const paragraphsRaw = splitParagraphsSimple(cleanForCohesion);
-      const paragraphs = filterCohesionParagraphs(paragraphsRaw);
+      const bodyParagraphIndices = getBodyParagraphIndices(paragraphs);
+      const bodyParagraphs = bodyParagraphIndices.map((idx) => paragraphs[idx] || "");
+      const bodyParagraphCount = bodyParagraphs.length;
+
+      const techniqueFailures = [];
+      const evidenceFailures = [];
+      const undevelopedParagraphs = [];
+      const weakStartSentences = [];
+
+      let techniqueOkCount = 0;
+      let evidenceOkCount = 0;
+      let undevelopedCount = 0;
+      let weakStartCount = 0;
+
+      const techniquesAvailable = hasThesisDevicesLexicon(thesisDevicesLexicon) && !thesisDevicesUnavailable;
+
+      bodyParagraphs.forEach((para, idx) => {
+        const paraIndex = bodyParagraphIndices[idx];
+        const sentenceCount = paragraphSentences[paraIndex]?.length || 0;
+
+        if (sentenceCount < 4) {
+          undevelopedCount += 1;
+          undevelopedParagraphs.push(paraIndex);
+        }
+
+        const shortQuoteCount = countShortQuotesInParagraph(para);
+        if (shortQuoteCount >= 2) {
+          evidenceOkCount += 1;
+        } else {
+          evidenceFailures.push(paraIndex);
+        }
+
+        if (!techniquesAvailable) return;
+        const canonicalDevices = getCanonicalDevicesInParagraph(para);
+        if (canonicalDevices.size >= 3) {
+          techniqueOkCount += 1;
+        } else {
+          techniqueFailures.push(paraIndex);
+        }
+      });
+
+      if (!techniquesAvailable) {
+        techniqueOkCount = bodyParagraphCount;
+      }
+
+      paragraphSentences.forEach((sentenceList, paraIndex) => {
+        sentenceList.forEach((sentence) => {
+          const starter = getSentenceStarterWord(sentence);
+          if (starter && WEAK_STARTERS.has(starter)) {
+            weakStartCount += 1;
+            weakStartSentences.push({ sentence, paragraph_index: paraIndex });
+          }
+        });
+      });
+
+      const techRatio = bodyParagraphCount ? (techniqueOkCount / bodyParagraphCount) : 1;
+      const evidenceRatio = bodyParagraphCount ? (evidenceOkCount / bodyParagraphCount) : 1;
+      const devRatio = bodyParagraphCount ? (1 - (undevelopedCount / bodyParagraphCount)) : 1;
+      const structureRatio = totalSentenceCount ? (1 - (weakStartCount / totalSentenceCount)) : 1;
+      const varietyScore = clamp(
+        Math.round(100 * (0.35 * techRatio + 0.35 * evidenceRatio + 0.20 * devRatio + 0.10 * structureRatio)),
+        0,
+        100
+      );
       const cohesionCalc = computeCohesionParagraphAware(paragraphs);
       const cohesionScore = cohesionCalc.cohesionScore;
       const cohesionSub = cohesionCalc.cohesionSub;
@@ -4518,10 +4883,21 @@
         },
         variety: {
           score: varietyScore,
-          sub: `Pronoun starts: ${pronounStarts}/${sentences.length}`,
+          sub: "",
           details: {
-            pronounStarts,
-            sentenceCount: sentences.length
+            bodyParagraphCount,
+            bodyParagraphIndices,
+            paragraphsFiltered: paragraphs,
+            techniqueOkCount,
+            techniqueFailures,
+            evidenceOkCount,
+            evidenceFailures,
+            undevelopedCount,
+            undevelopedParagraphs,
+            weakStartCount,
+            weakStartSentences,
+            totalSentenceCount,
+            techniquesUnavailable: !techniquesAvailable
           }
         },
         cohesion: {
@@ -4535,8 +4911,8 @@
           details: precisionDetails
         },
         meta: {
-          paragraphs: paragraphsRaw.length,
-          sentences: sentences.length,
+          paragraphs: rawParagraphs.length,
+          sentences: totalSentenceCount,
           mode: mode || ""
         }
       };
@@ -4713,6 +5089,7 @@
       if (!powerVerbFormsSet && powerVerbsList) {
         powerVerbFormsSet = buildPowerVerbFormsSet(powerVerbsList);
       }
+      await loadThesisDevicesLexicon();
       const mode = modeSelect ? modeSelect.value : "";
       const metrics = computeMetricsFromText(text, mode);
       renderMetrics(metrics);
