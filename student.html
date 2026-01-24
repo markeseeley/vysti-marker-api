@@ -1277,6 +1277,7 @@
     let cohesionIssueCache = { paragraph: [], sentence: [], weak: [] };
     let cohesionJumpIndex = { paragraph: 0, sentence: 0, weak: 0 };
     let lastCohesionSource = "";
+    let lastPowerVerbJumpIndex = 0;
     let precisionIssueCache = {
       sourceKey: "",
       unnecessary: [],
@@ -2853,12 +2854,21 @@
         pill.className = "quest-pill power quest-pill-btn";
         pill.textContent = "Power verbs needed";
         pill.title = "Jump to a verb to upgrade";
-        pill.addEventListener("click", () => {
+        pill.addEventListener("click", async () => {
           // Ensure preview is in view
           scrollToPreviewHeader();
 
           // Try to highlight the next best upgrade target
-          void jumpToNextVerbToUpgradeInPreview();
+          const didJump = await jumpToNextVerbToUpgradeInPreview();
+          if (!didJump) {
+            const prevTitle = pill.title;
+            pill.title = "No upgradeable verb found in Preview";
+            if (pill._titleTimer) clearTimeout(pill._titleTimer);
+            pill._titleTimer = setTimeout(() => {
+              pill.title = prevTitle;
+              pill._titleTimer = null;
+            }, 2200);
+          }
         });
 
         const dots = document.createElement("div");
@@ -3150,13 +3160,37 @@
           pill.title = previewReady ? "No issues found" : "Preview not loaded";
         } else {
           pill.title = "Click to jump to the next issue";
-          pill.addEventListener("click", () => {
-            const example = jumpToNextPrecisionIssue(key);
-            if (!example) return;
+          pill.addEventListener("click", async () => {
+            let example = jumpToNextPrecisionIssue(key);
+            if (!example) {
+              let fallbackLabel = "";
+              if (key === "wordy") {
+                fallbackLabel = WORDY_LABELS.find((label) => (liveLabelCounts[label] || 0) > 0) || "";
+              } else if (key === "unnecessary") {
+                fallbackLabel = UNNECESSARY_LABELS.find((label) => (liveLabelCounts[label] || 0) > 0) || "";
+              } else if (key === "imprecise") {
+                fallbackLabel = IMPRECISE_LABELS.find((label) => (liveLabelCounts[label] || 0) > 0) || "";
+              }
+
+              if (fallbackLabel) {
+                const fallbackIssueId = getIssueIdForLabel(fallbackLabel);
+                await openRevisionExampleFromIssueId(fallbackIssueId, fallbackLabel);
+                updatePrecisionIssueCache();
+                example = jumpToNextPrecisionIssue(key);
+              }
+            }
+
+            if (!example) {
+              pill.title = "Could not locate an example in Preview yet";
+              return;
+            }
             scrollToPreviewHeader();
-            highlightAndScrollToExample(example, null, { scroll: true });
+            const res = highlightAndScrollToExample(example, null, { scroll: true });
+            if (res?.hits?.length) {
+              res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+            }
             const issueId = getIssueIdForLabel(example.label);
-            void openRevisionExampleFromIssueId(issueId, example.label);
+            await openRevisionExampleFromIssueId(issueId, example.label);
           });
         }
 
@@ -6125,6 +6159,7 @@
             markedPreview.contentEditable = "true";
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
+            lastPowerVerbJumpIndex = 0;
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
@@ -6883,21 +6918,42 @@
         }
         
         // Build section index by querying issue_examples
-        let examplesQuery = supa
+      const userId = sessionData.session.user.id;
+      const fileName = selectedFile.name;
+      let examplesQuery = supa
           .from("issue_examples")
           .select("label, paragraph_index, sentence, created_at")
-          .eq("user_id", sessionData.session.user.id)
-          .eq("file_name", selectedFile.name);
+        .eq("user_id", userId)
+        .eq("file_name", fileName);
         
         // Filter by mark_event_id if available
         if (currentMarkEvent.id) {
           examplesQuery = examplesQuery.eq("mark_event_id", currentMarkEvent.id);
         }
         
-        const { data: examplesData, error: examplesError } = await examplesQuery;
+      let { data: examplesData, error: examplesError } = await examplesQuery;
         
+      if (examplesError || !examplesData || examplesData.length === 0) {
         if (examplesError) {
           console.warn("Error loading examples for section index:", examplesError);
+        }
+        let fallbackQuery = supa
+          .from("issue_examples")
+          .select("label, paragraph_index, sentence, created_at")
+          .eq("user_id", userId)
+          .eq("file_name", fileName);
+        if (currentMarkEvent?.created_at) {
+          fallbackQuery = fallbackQuery.gte("created_at", currentMarkEvent.created_at);
+        }
+        const fallback = await fallbackQuery
+          .order("created_at", { ascending: true })
+          .limit(500);
+        if (fallback.error) {
+          console.warn("Fallback load examples failed:", fallback.error);
+        } else if (fallback.data?.length) {
+          examplesData = fallback.data;
+          examplesError = null;
+        }
         }
         
         const examplesByLabel = {};
@@ -7532,8 +7588,6 @@
       "am","is","are","was","were","be","been","being"
     ]);
 
-    let lastPowerVerbJumpIndex = 0;
-
     function isLikelyVerbToken(lowerTok) {
       if (!lowerTok) return false;
       // exclude super common non-verbs
@@ -7649,7 +7703,12 @@
 
     async function jumpToNextVerbToUpgradeInPreview() {
       const preview = document.getElementById("markedPreview");
-      if (!preview || !preview.isContentEditable) return false;
+      if (!preview) return false;
+      if (!preview.isContentEditable) {
+        preview.contentEditable = "true";
+        preview.spellcheck = true;
+        preview.classList.add("preview-editable");
+      }
       if (!preview.innerText.trim()) return false;
 
       if (!powerVerbFormsSet || powerVerbFormsSet.size === 0) {
@@ -7660,7 +7719,9 @@
       if (!normText || !posMap.length) return false;
 
       const selectionIndex = getNormalizedIndexFromRangeStart(preview, posMap);
-      const startIndex = Number.isInteger(selectionIndex) ? selectionIndex : lastPowerVerbJumpIndex;
+      const startIndex = Number.isInteger(selectionIndex)
+        ? selectionIndex
+        : (Number.isFinite(lastPowerVerbJumpIndex) ? lastPowerVerbJumpIndex : 0);
       const lowerNorm = normText.toLowerCase();
 
       const weakMatch = findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
@@ -8969,6 +9030,7 @@
             markedPreview.contentEditable = "true";
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
+            lastPowerVerbJumpIndex = 0;
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
