@@ -1373,6 +1373,12 @@
       return String(s || "").trim().toLowerCase();
     }
 
+    function isCommonIssueForRevisions(label) {
+      const issues = currentMarkEvent?.issues || [];
+      const hit = issues.find((iss) => normLabel(iss?.label) === normLabel(label));
+      return !!(hit && (String(hit.student_guidance || "").trim() || String(hit.explanation || "").trim()));
+    }
+
     function getLocalRunKey() {
       // Prefer mark_event_id so each re-mark run is a fresh namespace
       const markId = currentMarkEvent?.id;
@@ -3174,7 +3180,9 @@
 
               if (fallbackLabel) {
                 const fallbackIssueId = getIssueIdForLabel(fallbackLabel);
-                await openRevisionExampleFromIssueId(fallbackIssueId, fallbackLabel);
+                if (isCommonIssueForRevisions(fallbackLabel)) {
+                  await openRevisionExampleFromIssueId(fallbackIssueId, fallbackLabel);
+                }
                 updatePrecisionIssueCache();
                 example = jumpToNextPrecisionIssue(key);
               }
@@ -3190,7 +3198,9 @@
               res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
             }
             const issueId = getIssueIdForLabel(example.label);
-            await openRevisionExampleFromIssueId(issueId, example.label);
+            if (isCommonIssueForRevisions(example.label)) {
+              await openRevisionExampleFromIssueId(issueId, example.label);
+            }
           });
         }
 
@@ -3637,7 +3647,7 @@
     const WORDY_LABELS = [
       "Avoid the word 'which'",
       "Avoid using the word 'and' more than twice in a sentence",
-      "Limit quotations to 5 words or fewer"
+      "Limit quotations to 6 words or fewer"
     ];
 
     const IMPRECISE_LABELS = [
