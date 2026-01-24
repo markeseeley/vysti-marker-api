@@ -174,6 +174,10 @@
       justify-content: space-between;
       gap: 10px;
     }
+    .quest-row.pill-row{
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
     .quest-pill{
       display: inline-flex;
       align-items: center;
@@ -189,6 +193,11 @@
     .quest-pill-btn{
       appearance: none;
       cursor: pointer;
+    }
+    .quest-pill-btn:disabled{
+      opacity: .55;
+      cursor: not-allowed;
+      background: #f6f6f6;
     }
     .quest-pill-btn:hover{
       background: rgba(0,0,0,.03);
@@ -1265,6 +1274,9 @@
     let liveLabelCounts = {};
     let dismissedIssues = [];
     let lastStudentMetrics = null;
+    let cohesionIssueCache = { paragraph: [], sentence: [], weak: [] };
+    let cohesionJumpIndex = { paragraph: 0, sentence: 0, weak: 0 };
+    let lastCohesionSource = "";
 
     let previewWordCountTimer = null;
 
@@ -2861,6 +2873,109 @@
       subEl.appendChild(wrap);
     }
 
+    function updateCohesionIssueCache(details, sourceText) {
+      const paragraphIssues = Array.isArray(details?.issues?.paragraphBoundaryMisses)
+        ? details.issues.paragraphBoundaryMisses
+        : [];
+      const sentenceIssues = Array.isArray(details?.issues?.sentenceBoundaryMisses)
+        ? details.issues.sentenceBoundaryMisses
+        : [];
+      const weakIssues = Array.isArray(details?.issues?.weakTransitions)
+        ? details.issues.weakTransitions
+        : [];
+
+      const nextSource = String(sourceText || "");
+      if (nextSource && nextSource !== lastCohesionSource) {
+        cohesionJumpIndex = { paragraph: 0, sentence: 0, weak: 0 };
+        lastCohesionSource = nextSource;
+      } else if (!nextSource && lastCohesionSource) {
+        lastCohesionSource = "";
+      }
+
+      cohesionIssueCache = {
+        paragraph: paragraphIssues,
+        sentence: sentenceIssues,
+        weak: weakIssues
+      };
+
+      ["paragraph", "sentence", "weak"].forEach((key) => {
+        if (cohesionJumpIndex[key] >= cohesionIssueCache[key].length) {
+          cohesionJumpIndex[key] = 0;
+        }
+      });
+    }
+
+    function jumpToNextCohesionIssue(kind) {
+      const list = cohesionIssueCache?.[kind] || [];
+      if (!list.length) return false;
+      const idx = cohesionJumpIndex[kind] % list.length;
+      const issue = list[idx];
+      cohesionJumpIndex[kind] = (idx + 1) % list.length;
+      if (!issue?.sentence) return false;
+
+      scrollToPreviewHeader();
+      const result = highlightAndScrollToExample(issue, null, { scroll: true });
+      if (result?.hits?.length) {
+        result.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+      }
+      return result?.ok;
+    }
+
+    function renderCohesionQuests(subEl, cohesionMetric) {
+      if (!subEl) return;
+      if (!cohesionMetric || typeof cohesionMetric.score !== "number") {
+        subEl.textContent = "";
+        return;
+      }
+
+      const details = cohesionMetric.details || {};
+      const issues = details.issues || {};
+      const paragraphCount = Array.isArray(issues.paragraphBoundaryMisses)
+        ? issues.paragraphBoundaryMisses.length
+        : 0;
+      const sentenceCount = Array.isArray(issues.sentenceBoundaryMisses)
+        ? issues.sentenceBoundaryMisses.length
+        : 0;
+      const weakCount = Array.isArray(issues.weakTransitions)
+        ? issues.weakTransitions.length
+        : 0;
+
+      subEl.innerHTML = "";
+      const subLine = document.createElement("div");
+      subLine.textContent = cohesionMetric.sub || "";
+      subEl.appendChild(subLine);
+
+      const wrap = document.createElement("div");
+      wrap.className = "power-quests";
+
+      const row = document.createElement("div");
+      row.className = "quest-row pill-row";
+
+      const makePill = (label, count, key) => {
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "quest-pill quest-pill-btn";
+        pill.textContent = `${label} (${count})`;
+        if (count === 0) {
+          pill.disabled = true;
+          pill.title = "No issues found";
+        } else {
+          pill.title = "Click to jump to the next sentence";
+          pill.addEventListener("click", () => {
+            jumpToNextCohesionIssue(key);
+          });
+        }
+        return pill;
+      };
+
+      row.appendChild(makePill("Between paragraphs", paragraphCount, "paragraph"));
+      row.appendChild(makePill("Between sentences", sentenceCount, "sentence"));
+      row.appendChild(makePill("Weak transitions", weakCount, "weak"));
+
+      wrap.appendChild(row);
+      subEl.appendChild(wrap);
+    }
+
     function renderPowerDotsPopover(containerEl, powerMetric) {
       if (!containerEl) return;
       containerEl.innerHTML = "";
@@ -3016,10 +3131,18 @@
       "in other words",
       "that is to say",
       "that is",
+      "to be clear",
+      "to clarify",
       "simply put",
       "put differently",
       "put another way",
+      "stated differently",
+      "in simple terms",
+      "in essence",
+      "to rephrase",
+      "to restate",
       "in a word",
+      "more precisely",
 
       // Contrast / concession
       "on the other hand",
@@ -3051,7 +3174,13 @@
       "additionally",
       "furthermore",
       "moreover",
+      "also",
+      "likewise",
+      "similarly",
+      "by the same token",
+      "in the same way",
       "what's more",
+      "another key point",
       "besides this",
       "not only that",
 
@@ -3127,7 +3256,7 @@
     const COHESION_STOP_WORDS = new Set([
       "the","a","an","and","or","but","if","then","so","because","since","as",
       "while","when","after","before","though","although","however","therefore",
-      "thus","moreover","furthermore","additionally","also","from","into","onto",
+      "thus","moreover","furthermore","additionally","also","likewise","similarly","from","into","onto",
       "with","within","without","of","to","in","on","at","by","for","about",
       "over","under","between","through","during","is","are","was","were","be",
       "been","being","am","have","has","had","do","does","did","doing","that",
@@ -3155,63 +3284,25 @@
     ];
 
     const COHESION_ENABLE_SEMANTIC_GROUPS = true;
-    // Keep groups noun-heavy and high-signal. Avoid generic nouns (thing, idea, aspect, factor) to prevent inflated cohesion scores.
-    const COHESION_SEMANTIC_GROUPS = {
-      increase_decrease: [
-        "increase","increasing","increased","rise","rising","grow","grows","grown","growth",
-        "expand","expands","expanded","expansion","intensify","intensifies","intensified",
-        "decrease","decreasing","decreased","decline","declines","declined",
-        "reduce","reduces","reduced","reduction","diminish","diminishes","diminished",
-        "shrink","shrinks","shrank"
-      ],
-      support_oppose: [
-        "support","supports","supported","supporting","reinforce","reinforces","reinforced",
-        "bolster","bolsters","bolstered","uphold","upholds","upheld","defend","defends","defended",
-        "oppose","opposes","opposed","opposing","resist","resists","resisted",
-        "undermine","undermines","undermined","refute","refutes","refuted",
-        "counter","counters","countered","challenge","challenges","challenged","contradict","contradicts","contradicted"
-      ],
-      freedom_constraint: [
-        "freedom","free","liberty","liberate","liberation","autonomy",
-        "agency","imprisonment","surveillance","censorship",
-        "constraint","constraints","restrict","restricts","restricted","restriction",
-        "limit","limits","limited","limitation","confine","confines","confined","confinement"
-      ],
-      appearance_reality: [
-        "seem","seems","seemed","seeming","appear","appears","appeared","appearance",
-        "illusion","illusions","mask","masks","masked","facade","deception","disguise",
-        "reality","real","truth","true","genuine","authentic","authenticity"
-      ],
-      power_weakness: [
-        "power","powerful","strength","strong","dominance","dominate","control","authority",
-        "influence","submission","dependence",
-        "weak","weakness","fragile","vulnerable","vulnerability","powerless"
-      ],
-      identity_otherness: [
-        "identity","self","other","outsider","stranger","alienation","belonging",
-        "exclusion","inclusion","community","membership"
-      ],
-      order_chaos: [
-        "order","structure","system","control","discipline","stability",
-        "chaos","disorder","rupture","collapse","turmoil"
-      ],
-      violence_harm: [
-        "violence","brutality","harm","injury","wound","trauma","oppression",
-        "cruelty","assault","exploitation"
-      ],
-      knowledge_ignorance: [
-        "knowledge","understanding","awareness","insight","perception",
-        "ignorance","blindness","naivety","illusion","misrecognition"
-      ],
-      morality_corruption: [
-        "morality","virtue","ethics","guilt","innocence","corruption",
-        "vice","greed","betrayal","hypocrisy"
-      ],
-      wealth_poverty: [
-        "wealth","privilege","capital","class","status",
-        "poverty","deprivation","hardship","inequality","exploitation"
-      ]
-    };
+    // Curated, noun-heavy concept groups (avoid generic nouns that inflate scores).
+    const COHESION_CONCEPT_GROUPS = [
+      {
+        id: "CHANGE_MAGNITUDE",
+        words: ["growth","increase","rise","expansion","decline","decrease","reduction","fall","drop"]
+      },
+      {
+        id: "SUPPORT_CONTRAST",
+        words: ["support","reinforcement","bolster","aid","undermine","erosion","weakening","subversion"]
+      },
+      {
+        id: "CAUSE_EFFECT",
+        words: ["cause","reason","basis","effect","result","consequence","outcome"]
+      },
+      {
+        id: "CONFLICT",
+        words: ["conflict","tension","clash","opposition","contrast"]
+      }
+    ];
 
     const SUBJECTIVE_TERMS = [
       "successfully",
@@ -3436,15 +3527,17 @@
     const COHESION_GROUP_LOOKUP = (() => {
       const map = new Map();
       if (!COHESION_ENABLE_SEMANTIC_GROUPS) return map;
-      for (const [groupId, words] of Object.entries(COHESION_SEMANTIC_GROUPS)) {
+      (COHESION_CONCEPT_GROUPS || []).forEach((group) => {
+        const groupId = group?.id;
+        if (!groupId) return;
         const gk = cohesionGroupKey(groupId);
-        (words || []).forEach((w) => {
+        (group.words || []).forEach((w) => {
           const raw = String(w || "").toLowerCase().trim();
           if (!raw) return;
           map.set(raw, gk);
           map.set(porterStem(raw), gk);
         });
-      }
+      });
       return map;
     })();
 
@@ -3463,48 +3556,41 @@
       return stem;
     }
 
-    function extractRepeatedProperNounAnchors(paragraphs) {
-      const overallCounts = new Map();
-      const paragraphCounts = new Map();
+    function buildProperNounStopSet(text) {
+      const tokens = String(text || "").match(/[A-Za-z][A-Za-z']*/g) || [];
+      const flags = new Map();
 
-      for (const paragraph of (paragraphs || [])) {
-        const tokens = String(paragraph || "").match(/[A-Za-z][A-Za-z']*/g) || [];
-        const seenInParagraph = new Set();
-        for (const token of tokens) {
-          if (!token || token.length < 3) continue;
-          if (!/^[A-Z]/.test(token)) continue;
-          const lower = token.toLowerCase();
-          if (COHESION_STOP_WORDS.has(lower)) continue;
+      for (const token of tokens) {
+        if (!token || token.length < 3) continue;
+        const lower = token.toLowerCase();
+        if (COHESION_STOP_WORDS.has(lower)) continue;
 
-          overallCounts.set(lower, (overallCounts.get(lower) || 0) + 1);
-          if (!seenInParagraph.has(lower)) {
-            paragraphCounts.set(lower, (paragraphCounts.get(lower) || 0) + 1);
-            seenInParagraph.add(lower);
-          }
+        const entry = flags.get(lower) || { lowerStart: false, upperStart: false };
+        if (/^[a-z]/.test(token)) entry.lowerStart = true;
+        if (/^[A-Z]/.test(token)) entry.upperStart = true;
+        flags.set(lower, entry);
+      }
+
+      const stopSet = new Set();
+      for (const [token, entry] of flags.entries()) {
+        if (entry.upperStart && !entry.lowerStart) {
+          stopSet.add(token);
         }
       }
-
-      const candidates = [];
-      for (const [token, totalCount] of overallCounts.entries()) {
-        const paraCount = paragraphCounts.get(token) || 0;
-        const qualifies = (paraCount >= 2 && totalCount >= 3) || totalCount >= 6;
-        if (qualifies) candidates.push({ token, totalCount });
-      }
-
-      candidates.sort((a, b) => b.totalCount - a.totalCount);
-      const top = candidates.slice(0, 10);
-      return new Set(top.map((item) => item.token));
+      return stopSet;
     }
 
-    function getCohesionKeyTokens(sentence) {
+    function getCohesionKeyTokens(sentence, properNounStopSet, ignoredNormalized) {
       const tokens = tokenizeWords(sentence) || [];
       const results = [];
       for (const token of tokens) {
         const raw = String(token || "").toLowerCase();
         if (!raw) continue;
+        if (properNounStopSet && properNounStopSet.has(raw)) continue;
         if (COHESION_STOP_WORDS.has(raw)) continue;
         const normalized = normalizeCohesionToken(raw);
         if (!normalized) continue;
+        if (ignoredNormalized && ignoredNormalized.has(normalized)) continue;
         if (normalized.startsWith("__g__:")) {
           results.push(normalized);
           continue;
@@ -3561,40 +3647,44 @@
     }
 
 
-    function computeCohesionParagraphAware(paragraphs) {
-      const paraSentences = (paragraphs || [])
+    function computeCohesionParagraphAware(text) {
+      const cleanText = String(text || "");
+      const paragraphs = splitParagraphsSimple(cleanText);
+      const paraSentences = paragraphs
         .map((p) => splitSentencesSimple(p))
         .filter((arr) => arr && arr.length);
       const paragraphCount = paraSentences.length;
 
-      const dynamicAnchors = extractRepeatedProperNounAnchors(paragraphs);
-      const ignoredTokens = new Set(
-        [...dynamicAnchors, ...COHESION_LOW_SIGNAL_WORDS]
+      const properNounStopSet = buildProperNounStopSet(cleanText);
+      const ignoredNormalized = new Set(
+        [...COHESION_LOW_SIGNAL_WORDS]
           .map((t) => normalizeCohesionToken(t))
           .filter(Boolean)
       );
 
       const sentenceTokenSets = paraSentences.map((sentences) =>
-        sentences.map((s) => {
-          const tokens = getCohesionKeyTokens(s).filter((t) => !ignoredTokens.has(t));
-          return new Set(tokens);
-        })
+        sentences.map((s) =>
+          new Set(getCohesionKeyTokens(s, properNounStopSet, ignoredNormalized))
+        )
       );
 
-      const paragraphUnionTokens = sentenceTokenSets.map((sentenceSets) => {
-        const union = new Set();
-        for (const set of sentenceSets) {
-          for (const tok of set) union.add(tok);
-        }
-        return union;
-      });
+      const sentenceBoundaryMisses = [];
+      const paragraphBoundaryMisses = [];
+      const weakIssueMap = new Map();
+
+      const addWeakIssue = (sentence, paragraphIndex, reason) => {
+        if (!sentence) return;
+        const key = `${paragraphIndex}|${sentence}`;
+        const existing = weakIssueMap.get(key) || { sentence, paragraph_index: paragraphIndex, reasons: [] };
+        if (!existing.reasons.includes(reason)) existing.reasons.push(reason);
+        weakIssueMap.set(key, existing);
+      };
 
       let sentenceBoundaryDenom = 0;
       let sentenceBoundaryHits = 0;
-      let sentenceBoundaryHitsGroupOnly = 0;
-      let sentenceBoundaryHitsExactOrStem = 0;
 
-      for (const sentenceSets of sentenceTokenSets) {
+      for (let p = 0; p < sentenceTokenSets.length; p += 1) {
+        const sentenceSets = sentenceTokenSets[p];
         const sentCount = sentenceSets.length;
         sentenceBoundaryDenom += Math.max(0, sentCount - 1);
         for (let i = 0; i < sentCount - 1; i += 1) {
@@ -3609,105 +3699,117 @@
           }
           if (hitToken) {
             sentenceBoundaryHits += 1;
-            if (hitToken.startsWith("__g__:")) sentenceBoundaryHitsGroupOnly += 1;
-            else sentenceBoundaryHitsExactOrStem += 1;
+          } else {
+            sentenceBoundaryMisses.push({
+              sentence: paraSentences[p][i + 1],
+              paragraph_index: p,
+              reason: "No shared key terms with previous sentence."
+            });
           }
         }
       }
 
-      let paragraphBoundaryHits = 0;
-      let paragraphBoundaryHitsGroupOnly = 0;
-      let paragraphBoundaryHitsExactOrStem = 0;
       const paragraphBoundaryDenom = Math.max(0, paragraphCount - 1);
+      let paragraphBoundaryHits = 0;
 
       for (let i = 0; i < paragraphCount - 1; i += 1) {
-        const prevUnion = paragraphUnionTokens[i];
-        const nextFirstSentence = sentenceTokenSets[i + 1][0];
+        const prevLastSet = sentenceTokenSets[i][sentenceTokenSets[i].length - 1];
+        const nextFirstSet = sentenceTokenSets[i + 1][0];
         let hitToken = "";
-        for (const tok of prevUnion) {
-          if (nextFirstSentence.has(tok)) {
+        for (const tok of prevLastSet) {
+          if (nextFirstSet.has(tok)) {
             hitToken = tok;
             break;
           }
         }
         if (hitToken) {
           paragraphBoundaryHits += 1;
-          if (hitToken.startsWith("__g__:")) paragraphBoundaryHitsGroupOnly += 1;
-          else paragraphBoundaryHitsExactOrStem += 1;
+        } else {
+          paragraphBoundaryMisses.push({
+            sentence: paraSentences[i + 1][0],
+            paragraph_index: i + 1,
+            reason: "No shared key terms across paragraph break."
+          });
         }
       }
 
       const withinTransitionCounts = new Map();
+      const allTransitionOccurrences = [];
       let withinTransitionStarts = 0;
+      let paragraphStartTransitionStarts = 0;
 
-      for (const sentences of paraSentences) {
-        for (let i = 1; i < sentences.length; i += 1) {
-          const tr = detectTransitionStart(sentences[i]);
-          if (tr) {
+      for (let p = 0; p < paraSentences.length; p += 1) {
+        const sentences = paraSentences[p];
+        for (let s = 0; s < sentences.length; s += 1) {
+          const tr = detectTransitionStart(sentences[s]);
+          if (!tr) continue;
+          const isParagraphStart = s === 0;
+          if (isParagraphStart) {
+            paragraphStartTransitionStarts += 1;
+          } else {
             withinTransitionStarts += 1;
             const known = withinTransitionCounts.get(tr) || 0;
             withinTransitionCounts.set(tr, known + 1);
           }
-        }
-      }
-
-      const paragraphStartTransitionCounts = new Map();
-      let paragraphStartTransitionStarts = 0;
-
-      for (let i = 1; i < paragraphCount; i += 1) {
-        const firstSentence = paraSentences[i][0];
-        const tr = detectTransitionStart(firstSentence);
-        if (tr) {
-          paragraphStartTransitionStarts += 1;
-          const known = paragraphStartTransitionCounts.get(tr) || 0;
-          paragraphStartTransitionCounts.set(tr, known + 1);
+          allTransitionOccurrences.push({
+            phrase: tr,
+            sentence: sentences[s],
+            paragraph_index: p,
+            isParagraphStart
+          });
         }
       }
 
       const withinUniqueTransitions = withinTransitionCounts.size;
-      const paragraphStartUniqueTransitions = paragraphStartTransitionCounts.size;
+
+      const phraseCounts = new Map();
+      allTransitionOccurrences.forEach((occ) => {
+        const count = phraseCounts.get(occ.phrase) || 0;
+        if (count >= 1) {
+          addWeakIssue(occ.sentence, occ.paragraph_index, `Repeated transition: ${occ.phrase}`);
+        }
+        phraseCounts.set(occ.phrase, count + 1);
+        if (occ.isParagraphStart) {
+          addWeakIssue(occ.sentence, occ.paragraph_index, "Paragraph starts with transition");
+        }
+      });
 
       const sentenceBoundaryRate = sentenceBoundaryDenom
         ? (sentenceBoundaryHits / sentenceBoundaryDenom)
-        : 0;
+        : null;
       const paragraphBoundaryRate = paragraphBoundaryDenom
         ? (paragraphBoundaryHits / paragraphBoundaryDenom)
-        : 0;
+        : null;
 
-      let sentenceBoundaryWeight = 55;
-      let paragraphBoundaryWeight = 40;
-      const transitionWeight = 5;
+      let sentenceWeight = sentenceBoundaryRate === null ? 0 : 0.4;
+      let paragraphWeight = paragraphBoundaryRate === null ? 0 : 0.6;
 
-      if (paragraphBoundaryDenom === 0) {
-        sentenceBoundaryWeight += paragraphBoundaryWeight;
-        paragraphBoundaryWeight = 0;
+      if (sentenceWeight === 0 && paragraphWeight === 0) {
+        sentenceWeight = 1;
+        paragraphWeight = 0;
       }
+
+      const boundaryScore = (sentenceWeight + paragraphWeight) === 0
+        ? 100
+        : 100 * (
+          (sentenceBoundaryRate || 0) * sentenceWeight
+          + (paragraphBoundaryRate || 0) * paragraphWeight
+        ) / (sentenceWeight + paragraphWeight);
 
       const varietyFactor = withinTransitionStarts
         ? (withinUniqueTransitions / withinTransitionStarts)
         : 0;
-      const densityFactor = paragraphCount
-        ? clamp(
-          1 - Math.max(0, withinTransitionStarts - paragraphCount) / paragraphCount,
-          0,
-          1
-        )
-        : 0;
-      const transitionBonus = transitionWeight * densityFactor * varietyFactor;
-      const repeatsWithin = Math.max(0, withinTransitionStarts - withinUniqueTransitions);
-      const repetitionPenalty = transitionWeight
-        * clamp(repeatsWithin / Math.max(1, paragraphCount), 0, 1);
-      const transitionNet = transitionBonus - repetitionPenalty;
-
-      const cohesionScore = clamp(
-        Math.round(
-          sentenceBoundaryWeight * sentenceBoundaryRate
-          + paragraphBoundaryWeight * paragraphBoundaryRate
-          + transitionNet
-        ),
-        0,
-        100
+      const baseTransitionBonus = 8 * clamp01(
+        paragraphCount ? (withinTransitionStarts / paragraphCount) : 0
       );
+      const repeatsWithin = Math.max(0, withinTransitionStarts - withinUniqueTransitions);
+      const repetitionPenalty = 8 * clamp01(
+        withinTransitionStarts ? (repeatsWithin / withinTransitionStarts) : 0
+      );
+      let transitionBonus = baseTransitionBonus * varietyFactor - repetitionPenalty;
+      transitionBonus = clamp(transitionBonus, 0, 8);
+
+      const cohesionScore = clamp(Math.round(boundaryScore + transitionBonus), 0, 100);
 
       const cohesionSub =
         `Sentence boundaries: ${sentenceBoundaryHits}/${sentenceBoundaryDenom} • `
@@ -3715,58 +3817,75 @@
         + `Transitions (within): ${withinTransitionStarts} (unique ${withinUniqueTransitions}) • `
         + `Paragraph-start transitions: ${paragraphStartTransitionStarts}`;
 
+      const weakTransitions = Array.from(weakIssueMap.values())
+        .map((entry) => ({
+          sentence: entry.sentence,
+          paragraph_index: entry.paragraph_index,
+          reason: entry.reasons.join("; ")
+        }));
+
       return {
         cohesionScore,
         cohesionSub,
-        sentenceBoundaryHits,
-        sentenceBoundaryDenom,
-        paragraphBoundaryHits,
-        paragraphBoundaryDenom,
-        withinTransitionStarts,
-        withinUniqueTransitions,
-        paragraphStartTransitionStarts,
-        paragraphStartUniqueTransitions,
-        sentenceBoundaryHitsGroupOnly,
-        sentenceBoundaryHitsExactOrStem,
-        paragraphBoundaryHitsGroupOnly,
-        paragraphBoundaryHitsExactOrStem
+        details: {
+          sentenceBoundaryHits,
+          sentenceBoundaryDenom,
+          paragraphBoundaryHits,
+          paragraphBoundaryDenom,
+          transitionsWithinCount: withinTransitionStarts,
+          transitionsWithinUnique: withinUniqueTransitions,
+          paragraphStartTransitionsCount: paragraphStartTransitionStarts,
+          issues: {
+            sentenceBoundaryMisses,
+            paragraphBoundaryMisses,
+            weakTransitions
+          },
+          sourceText: cleanText
+        }
       };
     }
 
     if (DEBUG_COHESION) {
       const sample1 = "He crossed the desert.\n\nThis desertion shocked everyone.";
-      const r1 = computeCohesionParagraphAware(splitParagraphsSimple(sample1));
+      const r1 = computeCohesionParagraphAware(sample1);
       console.assert(
-        r1.paragraphBoundaryHits === 1,
+        r1.details.paragraphBoundaryHits === 1,
         "desert/desertion should count across paragraphs"
       );
 
       const sampleProper = "Didion explains the essay.\n\nDidion continues.";
-      const rProper = computeCohesionParagraphAware(splitParagraphsSimple(sampleProper));
+      const rProper = computeCohesionParagraphAware(sampleProper);
       console.assert(
-        rProper.paragraphBoundaryHits === 0,
+        rProper.details.paragraphBoundaryHits === 0,
         "proper noun repetition alone should not count"
       );
 
       const sampleProperPlusConcept = "Didion explains identity.\n\nDidion returns to identity.";
-      const rProperPlus = computeCohesionParagraphAware(splitParagraphsSimple(sampleProperPlusConcept));
+      const rProperPlus = computeCohesionParagraphAware(sampleProperPlusConcept);
       console.assert(
-        rProperPlus.paragraphBoundaryHits === 1,
+        rProperPlus.details.paragraphBoundaryHits === 1,
         "analytical noun should count even with proper noun repetition"
       );
 
       const sample2 = "One point.\n\nHowever, another point.";
-      const r2 = computeCohesionParagraphAware(splitParagraphsSimple(sample2));
+      const r2 = computeCohesionParagraphAware(sample2);
       console.assert(
-        r2.paragraphStartTransitionStarts === 1,
+        r2.details.paragraphStartTransitionsCount === 1,
         "paragraph-start transition should be tracked"
       );
 
       const sample3 = "One point. However, another point.";
-      const r3 = computeCohesionParagraphAware(splitParagraphsSimple(sample3));
+      const r3 = computeCohesionParagraphAware(sample3);
       console.assert(
-        r3.withinTransitionStarts === 1,
+        r3.details.transitionsWithinCount === 1,
         "within-paragraph transition should count"
+      );
+
+      const sampleRepeat = "In other words, one point. In other words, another point.";
+      const rRepeat = computeCohesionParagraphAware(sampleRepeat);
+      console.assert(
+        rRepeat.details.issues.weakTransitions.some((item) => /Repeated transition/i.test(item.reason)),
+        "repeated transitions should be flagged as weak"
       );
     }
 
@@ -3830,20 +3949,20 @@
       const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
 
       const paragraphs = splitParagraphsSimple(cleanForCohesion);
-      const cohesionCalc = computeCohesionParagraphAware(paragraphs);
+      const cohesionCalc = computeCohesionParagraphAware(cleanForCohesion);
       const cohesionScore = cohesionCalc.cohesionScore;
       const cohesionSub = cohesionCalc.cohesionSub;
 
       if (DEBUG_METRICS) {
         console.log({
           sentenceCount: sentences.length,
-          sentenceBoundaryHits: cohesionCalc.sentenceBoundaryHits,
-          sentenceBoundaryDenom: cohesionCalc.sentenceBoundaryDenom,
-          paragraphBoundaryHits: cohesionCalc.paragraphBoundaryHits,
-          paragraphBoundaryDenom: cohesionCalc.paragraphBoundaryDenom,
-          withinTransitionStarts: cohesionCalc.withinTransitionStarts,
-          withinUniqueTransitions: cohesionCalc.withinUniqueTransitions,
-          paragraphStartTransitionStarts: cohesionCalc.paragraphStartTransitionStarts,
+          sentenceBoundaryHits: cohesionCalc.details.sentenceBoundaryHits,
+          sentenceBoundaryDenom: cohesionCalc.details.sentenceBoundaryDenom,
+          paragraphBoundaryHits: cohesionCalc.details.paragraphBoundaryHits,
+          paragraphBoundaryDenom: cohesionCalc.details.paragraphBoundaryDenom,
+          withinTransitionStarts: cohesionCalc.details.transitionsWithinCount,
+          withinUniqueTransitions: cohesionCalc.details.transitionsWithinUnique,
+          paragraphStartTransitionStarts: cohesionCalc.details.paragraphStartTransitionsCount,
           cohesionScore
         });
       }
@@ -3909,7 +4028,8 @@
         },
         cohesion: {
           score: cohesionScore,
-          sub: cohesionSub
+          sub: cohesionSub,
+          details: cohesionCalc.details
         },
         precision: {
           score: precisionScore,
@@ -3964,17 +4084,18 @@
 
       if (!metrics || hideCohesion) {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, null);
+        updateCohesionIssueCache(null, "");
       } else if (sentenceCount < 2) {
         cohesionScoreText.textContent = "—";
         cohesionMeterFill.style.width = "0%";
         cohesionScoreText.classList.remove("perfect");
         cohesionMeterFill.classList.remove("perfect");
         cohesionSubText.textContent = "Add sentence links (transitions/boundaries)";
+        updateCohesionIssueCache(null, "");
       } else {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
-        if (metrics?.cohesion?.score === 100) {
-          renderSuccess(cohesionSubText, "Ideas connect without friction.");
-        }
+        updateCohesionIssueCache(metrics?.cohesion?.details, metrics?.cohesion?.details?.sourceText);
+        renderCohesionQuests(cohesionSubText, metrics?.cohesion);
       }
       if (metricPrecisionCard) metricPrecisionCard.style.display = "block";
     }
