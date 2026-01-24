@@ -3094,6 +3094,62 @@
       return parts.map((p) => p.trim()).filter(Boolean);
     }
 
+    function hasSentencePunct(p) {
+      return /[.!?]/.test(p);
+    }
+
+    function wordCount(p) {
+      return (String(p || "").trim().match(/[A-Za-z]+/g) || []).length;
+    }
+
+    // conservative header/title detector for cohesion
+    function looksLikeFrontMatterParagraph(p) {
+      const s = String(p || "").trim();
+      if (!s) return true;
+
+      const wc = wordCount(s);
+      const hasEnd = hasSentencePunct(s);
+
+      // short fragments without punctuation are almost always header/title lines
+      if (!hasEnd && wc <= 12) return true;
+
+      // date-ish
+      if (/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(s)) return true;
+
+      // 1-4 Title-Case tokens (name-like), no punctuation
+      const toks = s.split(/\s+/).filter(Boolean);
+      if (!hasEnd && toks.length <= 4 && toks.every((t) => /^[A-Z][a-z]+$/.test(t))) return true;
+
+      // "class/teacher" keywords (common in MLA header)
+      if (!hasEnd && /\b(english|ib|ap|period|block|teacher|course|class|mr\.|ms\.|mrs\.|dr\.)\b/i.test(s)) {
+        return true;
+      }
+
+      // essay title header format: "Quotation": Topic
+      if (!hasEnd && /^"[^"]+"\s*:\s*.+/.test(s)) return true;
+
+      return false;
+    }
+
+    function filterCohesionParagraphs(paragraphs) {
+      const paras = (paragraphs || []).map((p) => String(p || "").trim()).filter(Boolean);
+      if (!paras.length) return [];
+
+      // find first "real" paragraph (intro) and drop everything before it
+      let startIdx = 0;
+      for (let i = 0; i < paras.length; i += 1) {
+        const p = paras[i];
+        if (hasSentencePunct(p) && wordCount(p) >= 8) {
+          startIdx = i;
+          break;
+        }
+      }
+      const trimmed = paras.slice(startIdx);
+
+      // then remove any remaining front matter paragraphs (should be rare)
+      return trimmed.filter((p) => !looksLikeFrontMatterParagraph(p));
+    }
+
     const WEAK_VERB_GROUPS = {
       show: ["show","shows","showed","showing"],
       use:  ["use","uses","used","using"],
@@ -3647,13 +3703,20 @@
     }
 
 
-    function computeCohesionParagraphAware(text) {
-      const cleanText = String(text || "");
-      const paragraphs = splitParagraphsSimple(cleanText);
-      const paraSentences = paragraphs
-        .map((p) => splitSentencesSimple(p))
-        .filter((arr) => arr && arr.length);
+    function computeCohesionParagraphAware(paragraphsInput) {
+      const paragraphs = (paragraphsInput || [])
+        .map((p) => String(p || "").trim())
+        .filter(Boolean);
+      const paraSentences = [];
+      const normalizedParagraphs = [];
+      for (const p of paragraphs) {
+        const sentences = splitSentencesSimple(p);
+        if (!sentences.length) continue;
+        normalizedParagraphs.push(p);
+        paraSentences.push(sentences);
+      }
       const paragraphCount = paraSentences.length;
+      const cleanText = normalizedParagraphs.join("\n\n");
 
       const properNounStopSet = buildProperNounStopSet(cleanText);
       const ignoredNormalized = new Set(
@@ -3682,11 +3745,14 @@
 
       let sentenceBoundaryDenom = 0;
       let sentenceBoundaryHits = 0;
+      const withinBoundaryHitsByParagraph = [];
 
       for (let p = 0; p < sentenceTokenSets.length; p += 1) {
         const sentenceSets = sentenceTokenSets[p];
         const sentCount = sentenceSets.length;
-        sentenceBoundaryDenom += Math.max(0, sentCount - 1);
+        const gaps = Math.max(0, sentCount - 1);
+        sentenceBoundaryDenom += gaps;
+        let withinHits = 0;
         for (let i = 0; i < sentCount - 1; i += 1) {
           const a = sentenceSets[i];
           const b = sentenceSets[i + 1];
@@ -3699,6 +3765,7 @@
           }
           if (hitToken) {
             sentenceBoundaryHits += 1;
+            withinHits += 1;
           } else {
             sentenceBoundaryMisses.push({
               sentence: paraSentences[p][i + 1],
@@ -3707,6 +3774,7 @@
             });
           }
         }
+        withinBoundaryHitsByParagraph[p] = withinHits;
       }
 
       const paragraphBoundaryDenom = Math.max(0, paragraphCount - 1);
@@ -3734,7 +3802,6 @@
       }
 
       const withinTransitionCounts = new Map();
-      const allTransitionOccurrences = [];
       let withinTransitionStarts = 0;
       let paragraphStartTransitionStarts = 0;
 
@@ -3743,73 +3810,68 @@
         for (let s = 0; s < sentences.length; s += 1) {
           const tr = detectTransitionStart(sentences[s]);
           if (!tr) continue;
-          const isParagraphStart = s === 0;
+          const isParagraphStart = s === 0 && p >= 1;
           if (isParagraphStart) {
             paragraphStartTransitionStarts += 1;
-          } else {
-            withinTransitionStarts += 1;
-            const known = withinTransitionCounts.get(tr) || 0;
-            withinTransitionCounts.set(tr, known + 1);
+            addWeakIssue(sentences[s], p, "Paragraph starts with transition");
+            continue;
           }
-          allTransitionOccurrences.push({
-            phrase: tr,
-            sentence: sentences[s],
-            paragraph_index: p,
-            isParagraphStart
-          });
+          if (s === 0) continue;
+          withinTransitionStarts += 1;
+          const known = withinTransitionCounts.get(tr) || 0;
+          if (known >= 1) {
+            addWeakIssue(sentences[s], p, `Repeated transition: ${tr}`);
+          }
+          withinTransitionCounts.set(tr, known + 1);
         }
       }
 
       const withinUniqueTransitions = withinTransitionCounts.size;
 
-      const phraseCounts = new Map();
-      allTransitionOccurrences.forEach((occ) => {
-        const count = phraseCounts.get(occ.phrase) || 0;
-        if (count >= 1) {
-          addWeakIssue(occ.sentence, occ.paragraph_index, `Repeated transition: ${occ.phrase}`);
-        }
-        phraseCounts.set(occ.phrase, count + 1);
-        if (occ.isParagraphStart) {
-          addWeakIssue(occ.sentence, occ.paragraph_index, "Paragraph starts with transition");
-        }
-      });
-
-      const sentenceBoundaryRate = sentenceBoundaryDenom
-        ? (sentenceBoundaryHits / sentenceBoundaryDenom)
-        : null;
-      const paragraphBoundaryRate = paragraphBoundaryDenom
+      const betweenScoreNormalized = paragraphBoundaryDenom
         ? (paragraphBoundaryHits / paragraphBoundaryDenom)
-        : null;
+        : 1;
 
-      let sentenceWeight = sentenceBoundaryRate === null ? 0 : 0.4;
-      let paragraphWeight = paragraphBoundaryRate === null ? 0 : 0.6;
-
-      if (sentenceWeight === 0 && paragraphWeight === 0) {
-        sentenceWeight = 1;
-        paragraphWeight = 0;
+      let bodyParagraphIndices = [];
+      if (paragraphCount >= 3) {
+        bodyParagraphIndices = Array.from({ length: paragraphCount - 2 }, (_, i) => i + 1);
+      } else if (paragraphCount > 0) {
+        bodyParagraphIndices = Array.from({ length: paragraphCount }, (_, i) => i);
       }
 
-      const boundaryScore = (sentenceWeight + paragraphWeight) === 0
-        ? 100
-        : 100 * (
-          (sentenceBoundaryRate || 0) * sentenceWeight
-          + (paragraphBoundaryRate || 0) * paragraphWeight
-        ) / (sentenceWeight + paragraphWeight);
+      let withinScoreNormalized = 1;
+      if (bodyParagraphIndices.length) {
+        const perParagraphScores = bodyParagraphIndices.map((pIdx) => {
+          const sentCount = paraSentences[pIdx]?.length || 0;
+          const gaps = Math.max(0, sentCount - 1);
+          const required = Math.ceil(0.5 * gaps);
+          const hits = withinBoundaryHitsByParagraph[pIdx] || 0;
+          if (required === 0) return 1;
+          return Math.min(1, hits / required);
+        });
+        withinScoreNormalized = perParagraphScores.reduce((a, b) => a + b, 0) / perParagraphScores.length;
+      }
 
-      const varietyFactor = withinTransitionStarts
-        ? (withinUniqueTransitions / withinTransitionStarts)
-        : 0;
-      const baseTransitionBonus = 8 * clamp01(
-        paragraphCount ? (withinTransitionStarts / paragraphCount) : 0
-      );
+      const isPeel = paragraphCount === 1;
       const repeatsWithin = Math.max(0, withinTransitionStarts - withinUniqueTransitions);
-      const repetitionPenalty = 8 * clamp01(
-        withinTransitionStarts ? (repeatsWithin / withinTransitionStarts) : 0
-      );
-      let transitionBonus = baseTransitionBonus * varietyFactor - repetitionPenalty;
-      transitionBonus = clamp(transitionBonus, 0, 8);
+      let transitionBonus = 0;
+      if (!isPeel) {
+        if (paragraphStartTransitionStarts > 0) {
+          transitionBonus = 0;
+        } else if (repeatsWithin > 0) {
+          transitionBonus = 0;
+        } else {
+          transitionBonus = Math.min(10, withinUniqueTransitions * 2);
+        }
+      }
 
-      const cohesionScore = clamp(Math.round(boundaryScore + transitionBonus), 0, 100);
+      let cohesionScore = 0;
+      if (isPeel) {
+        cohesionScore = Math.round(100 * withinScoreNormalized);
+      } else {
+        const boundaryScore = Math.round(90 * (0.5 * betweenScoreNormalized + 0.5 * withinScoreNormalized));
+        cohesionScore = clamp(boundaryScore + transitionBonus, 0, 100);
+      }
 
       const cohesionSub =
         `Sentence boundaries: ${sentenceBoundaryHits}/${sentenceBoundaryDenom} • `
@@ -3847,42 +3909,42 @@
 
     if (DEBUG_COHESION) {
       const sample1 = "He crossed the desert.\n\nThis desertion shocked everyone.";
-      const r1 = computeCohesionParagraphAware(sample1);
+      const r1 = computeCohesionParagraphAware(splitParagraphsSimple(sample1));
       console.assert(
         r1.details.paragraphBoundaryHits === 1,
         "desert/desertion should count across paragraphs"
       );
 
       const sampleProper = "Didion explains the essay.\n\nDidion continues.";
-      const rProper = computeCohesionParagraphAware(sampleProper);
+      const rProper = computeCohesionParagraphAware(splitParagraphsSimple(sampleProper));
       console.assert(
         rProper.details.paragraphBoundaryHits === 0,
         "proper noun repetition alone should not count"
       );
 
       const sampleProperPlusConcept = "Didion explains identity.\n\nDidion returns to identity.";
-      const rProperPlus = computeCohesionParagraphAware(sampleProperPlusConcept);
+      const rProperPlus = computeCohesionParagraphAware(splitParagraphsSimple(sampleProperPlusConcept));
       console.assert(
         rProperPlus.details.paragraphBoundaryHits === 1,
         "analytical noun should count even with proper noun repetition"
       );
 
       const sample2 = "One point.\n\nHowever, another point.";
-      const r2 = computeCohesionParagraphAware(sample2);
+      const r2 = computeCohesionParagraphAware(splitParagraphsSimple(sample2));
       console.assert(
         r2.details.paragraphStartTransitionsCount === 1,
         "paragraph-start transition should be tracked"
       );
 
       const sample3 = "One point. However, another point.";
-      const r3 = computeCohesionParagraphAware(sample3);
+      const r3 = computeCohesionParagraphAware(splitParagraphsSimple(sample3));
       console.assert(
         r3.details.transitionsWithinCount === 1,
         "within-paragraph transition should count"
       );
 
       const sampleRepeat = "In other words, one point. In other words, another point.";
-      const rRepeat = computeCohesionParagraphAware(sampleRepeat);
+      const rRepeat = computeCohesionParagraphAware(splitParagraphsSimple(sampleRepeat));
       console.assert(
         rRepeat.details.issues.weakTransitions.some((item) => /Repeated transition/i.test(item.reason)),
         "repeated transitions should be flagged as weak"
@@ -3948,8 +4010,9 @@
       const pronounStartRate = sentences.length ? pronounStarts / sentences.length : 0;
       const varietyScore = clamp(Math.round(100 - pronounStartRate * 120), 0, 100);
 
-      const paragraphs = splitParagraphsSimple(cleanForCohesion);
-      const cohesionCalc = computeCohesionParagraphAware(cleanForCohesion);
+      const paragraphsRaw = splitParagraphsSimple(cleanForCohesion);
+      const paragraphs = filterCohesionParagraphs(paragraphsRaw);
+      const cohesionCalc = computeCohesionParagraphAware(paragraphs);
       const cohesionScore = cohesionCalc.cohesionScore;
       const cohesionSub = cohesionCalc.cohesionSub;
 
@@ -4036,7 +4099,7 @@
           sub: precisionSub
         },
         meta: {
-          paragraphs: paragraphs.length,
+          paragraphs: paragraphsRaw.length,
           sentences: sentences.length,
           mode: mode || ""
         }
