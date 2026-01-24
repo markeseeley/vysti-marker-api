@@ -2921,42 +2921,43 @@
       return result?.ok;
     }
 
-    function renderCohesionQuests(subEl, cohesionMetric) {
+    function renderCohesionDots(subEl, cohesionMetric) {
       if (!subEl) return;
       if (!cohesionMetric || typeof cohesionMetric.score !== "number") {
         subEl.textContent = "";
         return;
       }
 
+      if (cohesionMetric.score === 100) {
+        renderSuccess(subEl, "Cohesion is tight.");
+        return;
+      }
+
       const details = cohesionMetric.details || {};
       const issues = details.issues || {};
-      const paragraphCount = Array.isArray(issues.paragraphBoundaryMisses)
-        ? issues.paragraphBoundaryMisses.length
-        : 0;
-      const sentenceCount = Array.isArray(issues.sentenceBoundaryMisses)
-        ? issues.sentenceBoundaryMisses.length
-        : 0;
-      const weakCount = Array.isArray(issues.weakTransitions)
-        ? issues.weakTransitions.length
-        : 0;
-
-      subEl.innerHTML = "";
-      const subLine = document.createElement("div");
-      subLine.textContent = cohesionMetric.sub || "";
-      subEl.appendChild(subLine);
+      const paragraphTotal = Number(details.paragraphBoundaryTotal ?? details.paragraphBoundaryDenom ?? 0);
+      const paragraphHits = Number(details.paragraphBoundaryHits ?? 0);
+      const sentenceRequired = Number(details.sentenceRequiredHits ?? 0);
+      const sentenceHits = Number(details.sentenceHits ?? details.sentenceBoundaryHits ?? 0);
+      const weakCount = Number(details.weakTransitionsCount ?? (issues.weakTransitions || []).length);
 
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
+      subEl.innerHTML = "";
 
-      const row = document.createElement("div");
-      row.className = "quest-row pill-row";
+      const addDotRow = (label, total, filled, key, issueCount) => {
+        if (total <= 0) return;
+        const row = document.createElement("div");
+        row.className = "quest-row";
 
-      const makePill = (label, count, key) => {
         const pill = document.createElement("button");
         pill.type = "button";
         pill.className = "quest-pill quest-pill-btn";
-        pill.textContent = `${label} (${count})`;
-        if (count === 0) {
+        pill.textContent = label;
+
+        const missing = Math.max(0, total - filled);
+        const hasIssues = (Number(issueCount) || 0) > 0;
+        if (!hasIssues) {
           pill.disabled = true;
           pill.title = "No issues found";
         } else {
@@ -2965,14 +2966,77 @@
             jumpToNextCohesionIssue(key);
           });
         }
-        return pill;
+
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
+        const maxDots = Math.min(total, 10);
+        const showFilled = Math.min(filled, maxDots);
+        for (let i = 0; i < maxDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = `quest-dot ${i < showFilled ? "good" : "empty"}`;
+          dots.appendChild(dot);
+        }
+        if (total > 10) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${total - 10}`;
+          dots.appendChild(more);
+        }
+
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
       };
 
-      row.appendChild(makePill("Between paragraphs", paragraphCount, "paragraph"));
-      row.appendChild(makePill("Between sentences", sentenceCount, "sentence"));
-      row.appendChild(makePill("Weak transitions", weakCount, "weak"));
+      const paragraphMisses = Array.isArray(issues.paragraphBoundaryMisses)
+        ? issues.paragraphBoundaryMisses.length
+        : Math.max(0, paragraphTotal - paragraphHits);
+      const sentenceMisses = Array.isArray(issues.sentenceBoundaryMisses)
+        ? issues.sentenceBoundaryMisses.length
+        : Math.max(0, sentenceRequired - sentenceHits);
 
-      wrap.appendChild(row);
+      addDotRow("Paragraph level", paragraphTotal, paragraphHits, "paragraph", paragraphMisses);
+      addDotRow(
+        "Sentence level",
+        sentenceRequired,
+        Math.min(sentenceHits, sentenceRequired),
+        "sentence",
+        sentenceMisses
+      );
+
+      if (weakCount > 0) {
+        const row = document.createElement("div");
+        row.className = "quest-row";
+
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "quest-pill weak quest-pill-btn";
+        pill.textContent = "Weak transitions";
+        pill.title = "Click to jump to the next sentence";
+        pill.addEventListener("click", () => {
+          jumpToNextCohesionIssue("weak");
+        });
+
+        const dots = document.createElement("div");
+        dots.className = "quest-dots";
+        const maxDots = Math.min(weakCount, 10);
+        for (let i = 0; i < maxDots; i += 1) {
+          const dot = document.createElement("span");
+          dot.className = "quest-dot bad";
+          dots.appendChild(dot);
+        }
+        if (weakCount > 10) {
+          const more = document.createElement("span");
+          more.className = "quest-more";
+          more.textContent = `+${weakCount - 10}`;
+          dots.appendChild(more);
+        }
+
+        row.appendChild(pill);
+        row.appendChild(dots);
+        wrap.appendChild(row);
+      }
+
       subEl.appendChild(wrap);
     }
 
@@ -3080,7 +3144,7 @@
     function splitSentencesSimple(s) {
       return String(s || "")
         .replace(/\s+/g, " ")
-        .split(/(?<=[.!?])\s+/)
+        .split(/(?<=[.!?]["'”’])\s+|(?<=[.!?])\s+/)
         .map((x) => x.trim())
         .filter(Boolean);
     }
@@ -3109,45 +3173,47 @@
 
       const wc = wordCount(s);
       const hasEnd = hasSentencePunct(s);
-
-      // short fragments without punctuation are almost always header/title lines
-      if (!hasEnd && wc <= 12) return true;
-
-      // date-ish
-      if (/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(s)) return true;
-
-      // 1-4 Title-Case tokens (name-like), no punctuation
       const toks = s.split(/\s+/).filter(Boolean);
-      if (!hasEnd && toks.length <= 4 && toks.every((t) => /^[A-Z][a-z]+$/.test(t))) return true;
 
-      // "class/teacher" keywords (common in MLA header)
-      if (!hasEnd && /\b(english|ib|ap|period|block|teacher|course|class|mr\.|ms\.|mrs\.|dr\.)\b/i.test(s)) {
-        return true;
-      }
+      if (hasEnd) return false;
+      if (wc > 10) return false;
 
-      // essay title header format: "Quotation": Topic
-      if (!hasEnd && /^"[^"]+"\s*:\s*.+/.test(s)) return true;
+      const hasDate = /\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(s)
+        || /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i.test(s);
+      const hasCourseTokens = /\b(english|ib|ap|period|block|teacher|course|class|mr\.|ms\.|mrs\.|dr\.)\b/i.test(s);
+      const isShortTitleCase = toks.length <= 6 && toks.every((t) => /^[A-Z][a-z]+$/.test(t));
+      const isQuotedTitle = /^"[^"]+"\s*:\s*.+/.test(s);
 
-      return false;
+      return hasDate || hasCourseTokens || isShortTitleCase || isQuotedTitle;
+    }
+
+    function looksLikeRealProseParagraph(p) {
+      const s = String(p || "").trim();
+      if (!s) return false;
+      const wc = wordCount(s);
+      if (wc < 12) return false;
+      if (hasSentencePunct(s)) return true;
+      return splitSentencesSimple(s).length >= 2;
     }
 
     function filterCohesionParagraphs(paragraphs) {
       const paras = (paragraphs || []).map((p) => String(p || "").trim()).filter(Boolean);
       if (!paras.length) return [];
 
-      // find first "real" paragraph (intro) and drop everything before it
+      // drop leading MLA header/title lines until real prose begins
       let startIdx = 0;
       for (let i = 0; i < paras.length; i += 1) {
         const p = paras[i];
-        if (hasSentencePunct(p) && wordCount(p) >= 8) {
+        if (looksLikeRealProseParagraph(p)) {
+          startIdx = i;
+          break;
+        }
+        if (!looksLikeFrontMatterParagraph(p)) {
           startIdx = i;
           break;
         }
       }
-      const trimmed = paras.slice(startIdx);
-
-      // then remove any remaining front matter paragraphs (should be rare)
-      return trimmed.filter((p) => !looksLikeFrontMatterParagraph(p));
+      return paras.slice(startIdx);
     }
 
     const WEAK_VERB_GROUPS = {
@@ -3181,133 +3247,146 @@
     const TRANSITIONS = [
       // Clarification / restatement
       "to put it simply",
+      "to put it plainly",
+      "to put it in plain terms",
+      "to put it in plain language",
       "to put it another way",
       "to put it differently",
       "to say it another way",
+      "in simpler terms",
+      "in simple terms",
+      "in plain terms",
+      "in plain language",
       "in other words",
       "that is to say",
-      "that is",
       "to be clear",
       "to clarify",
       "simply put",
       "put differently",
       "put another way",
       "stated differently",
-      "in simple terms",
-      "in essence",
-      "to rephrase",
-      "to restate",
       "in a word",
-      "more precisely",
+      "in short",
+      "in brief",
+      "in essence",
 
       // Contrast / concession
-      "on the other hand",
-      "on the one hand",
-      "by contrast",
-      "in contrast",
-      "in comparison",
-      "conversely",
-      "on the contrary",
-      "even so",
-      "all the same",
-      "that said",
-      "having said that",
-      "in spite of this",
-      "despite this",
+      "however",
       "nevertheless",
       "nonetheless",
-      "however",
+      "even so",
       "still",
       "yet",
+      "on the other hand",
+      "in contrast",
+      "by contrast",
+      "conversely",
+      "despite this",
+      "in spite of this",
       "instead",
-      "rather",
-      "otherwise",
-      "alternatively",
-
-      // Addition
-      "in addition",
-      "in addition to this",
-      "additionally",
-      "furthermore",
-      "moreover",
-      "also",
-      "likewise",
-      "similarly",
-      "by the same token",
-      "in the same way",
-      "what's more",
-      "another key point",
-      "besides this",
-      "not only that",
 
       // Cause / effect
-      "as a result",
-      "as a consequence",
-      "in consequence",
-      "for this reason",
-      "for that reason",
-      "because of this",
-      "accordingly",
-      "consequently",
       "therefore",
       "thus",
       "hence",
+      "as a result",
+      "consequently",
+      "accordingly",
+      "for this reason",
+      "because of this",
+
+      // Addition
+      "moreover",
+      "furthermore",
+      "additionally",
+      "in addition",
+      "also",
+      "besides",
+      "what's more",
 
       // Example / specificity
       "for example",
       "for instance",
       "to illustrate",
-      "to demonstrate",
       "specifically",
-      "in particular",
-      "more specifically",
       "namely",
+      "in particular",
 
-      // Emphasis
-      "as a matter of fact",
-      "in fact",
-      "indeed",
-      "of course",
-      "certainly",
-      "to be sure",
-      "most importantly",
-      "more importantly",
-      "above all",
-      "notably",
+      // Similarity
+      "similarly",
+      "likewise",
+      "in the same way",
+      "by the same token",
 
       // Sequence / time
-      "to begin with",
-      "to start with",
-      "at first",
-      "first of all",
       "first",
       "second",
       "third",
       "next",
       "then",
+      "finally",
+      "meanwhile",
+      "subsequently",
+
+      // Extra (existing useful items)
+      "as a matter of fact",
+      "in fact",
+      "indeed",
+      "to be sure",
+      "to begin with",
+      "to start with",
+      "at first",
+      "first of all",
       "afterward",
       "afterwards",
       "later",
-      "meanwhile",
-      "subsequently",
       "eventually",
       "in the end",
-      "finally",
       "ultimately",
-
-      // Summary
       "in summary",
       "to summarize",
       "to sum up",
-      "in short",
-      "in brief",
-      "overall"
-    ].sort((a, b) => {
-      const ta = a.split(" ").length;
-      const tb = b.split(" ").length;
-      if (tb !== ta) return tb - ta;
-      return b.length - a.length;
-    });
+      "overall",
+      "more precisely",
+      "to rephrase",
+      "to restate",
+      "another key point",
+      "besides this",
+      "not only that",
+      "on the one hand",
+      "in comparison",
+      "on the contrary",
+      "all the same",
+      "that said",
+      "having said that",
+      "as a consequence",
+      "in consequence",
+      "for that reason",
+      "to demonstrate",
+      "more specifically",
+      "most importantly",
+      "more importantly",
+      "above all",
+      "notably",
+      "of course",
+      "certainly",
+      "rather",
+      "otherwise",
+      "alternatively"
+    ];
+
+    const TRANSITION_ITEMS = TRANSITIONS
+      .map((phrase) => ({ phrase, tokens: phrase.split(" ") }))
+      .sort((a, b) => {
+        const lenDiff = b.tokens.length - a.tokens.length;
+        if (lenDiff !== 0) return lenDiff;
+        return b.phrase.length - a.phrase.length;
+      });
+
+    const MAX_TRANSITION_TOKENS = TRANSITION_ITEMS.reduce(
+      (maxLen, item) => Math.max(maxLen, item.tokens.length),
+      0
+    );
 
     const COHESION_STOP_WORDS = new Set([
       "the","a","an","and","or","but","if","then","so","because","since","as",
@@ -3613,31 +3692,30 @@
     }
 
     function buildProperNounStopSet(text) {
-      const tokens = String(text || "").match(/[A-Za-z][A-Za-z']*/g) || [];
-      const flags = new Map();
+      const sentences = splitSentencesSimple(text || "");
+      const counts = new Map();
 
-      for (const token of tokens) {
-        if (!token || token.length < 3) continue;
-        const lower = token.toLowerCase();
-        if (COHESION_STOP_WORDS.has(lower)) continue;
-
-        const entry = flags.get(lower) || { lowerStart: false, upperStart: false };
-        if (/^[a-z]/.test(token)) entry.lowerStart = true;
-        if (/^[A-Z]/.test(token)) entry.upperStart = true;
-        flags.set(lower, entry);
+      for (const sentence of sentences) {
+        const tokens = String(sentence || "").match(/[A-Za-z][A-Za-z']*/g) || [];
+        for (let i = 1; i < tokens.length; i += 1) {
+          const token = tokens[i];
+          if (!token || token.length < 3) continue;
+          if (!/^[A-Z][a-z]/.test(token)) continue;
+          const lower = token.toLowerCase();
+          if (COHESION_STOP_WORDS.has(lower)) continue;
+          counts.set(lower, (counts.get(lower) || 0) + 1);
+        }
       }
 
       const stopSet = new Set();
-      for (const [token, entry] of flags.entries()) {
-        if (entry.upperStart && !entry.lowerStart) {
-          stopSet.add(token);
-        }
+      for (const [token, count] of counts.entries()) {
+        if (count >= 2) stopSet.add(token);
       }
       return stopSet;
     }
 
     function getCohesionKeyTokens(sentence, properNounStopSet, ignoredNormalized) {
-      const tokens = tokenizeWords(sentence) || [];
+      const tokens = tokenizeWords(stripQuotedText(sentence)) || [];
       const results = [];
       for (const token of tokens) {
         const raw = String(token || "").toLowerCase();
@@ -3680,24 +3758,41 @@
         detectTransitionStart("As a matter of fact, this is true.") === "as a matter of fact",
         "should detect as a matter of fact"
       );
+      console.assert(
+        detectTransitionStart("Nonetheless, it continues.") === "nonetheless",
+        "should detect nonetheless at sentence start"
+      );
+      console.assert(
+        detectTransitionStart("To put it in plain terms, this is true.") === "to put it in plain terms",
+        "should detect full plain-terms transition"
+      );
+      const quoteSample = "He says \"at every turn.\" Nonetheless, it continues.";
+      const quoteSplit = splitSentencesSimple(quoteSample);
+      console.assert(quoteSplit.length === 2, "quoted punctuation should keep sentence boundary");
+      console.assert(
+        detectTransitionStart(quoteSplit[1]) === "nonetheless",
+        "nonetheless should follow quoted sentence boundary"
+      );
+      const mlaSample = "Student Name\nTeacher\nEnglish 3\n1/24/2026\n\nTitle Line\n\nThis is a real paragraph.";
+      const mlaParas = filterCohesionParagraphs(splitParagraphsSimple(mlaSample));
+      console.assert(mlaParas.length === 1, "MLA header/title should be ignored as paragraphs");
     }
 
     function detectTransitionStart(sentence) {
       const tokens = tokenizeWords(sentence || "");
       if (tokens.length === 0) return "";
-      const windowTokens = tokens.slice(0, 7);
+      const windowTokens = tokens.slice(0, MAX_TRANSITION_TOKENS);
       if (windowTokens.length === 0) return "";
-      for (const phrase of TRANSITIONS) {
-        const phraseTokens = phrase.split(" ");
-        if (phraseTokens.length > windowTokens.length) continue;
+      for (const item of TRANSITION_ITEMS) {
+        if (item.tokens.length > windowTokens.length) continue;
         let matches = true;
-        for (let i = 0; i < phraseTokens.length; i += 1) {
-          if (windowTokens[i] !== phraseTokens[i]) {
+        for (let i = 0; i < item.tokens.length; i += 1) {
+          if (windowTokens[i] !== item.tokens[i]) {
             matches = false;
             break;
           }
         }
-        if (matches) return phrase;
+        if (matches) return item.phrase;
       }
       return "";
     }
@@ -3717,6 +3812,14 @@
       }
       const paragraphCount = paraSentences.length;
       const cleanText = normalizedParagraphs.join("\n\n");
+
+      let bodyParagraphIndices = [];
+      if (paragraphCount >= 3) {
+        bodyParagraphIndices = Array.from({ length: paragraphCount - 2 }, (_, i) => i + 1);
+      } else if (paragraphCount > 0) {
+        bodyParagraphIndices = Array.from({ length: paragraphCount }, (_, i) => i);
+      }
+      const bodyIndexSet = new Set(bodyParagraphIndices);
 
       const properNounStopSet = buildProperNounStopSet(cleanText);
       const ignoredNormalized = new Set(
@@ -3746,12 +3849,17 @@
       let sentenceBoundaryDenom = 0;
       let sentenceBoundaryHits = 0;
       const withinBoundaryHitsByParagraph = [];
+      let sentenceRequiredHits = 0;
 
       for (let p = 0; p < sentenceTokenSets.length; p += 1) {
         const sentenceSets = sentenceTokenSets[p];
         const sentCount = sentenceSets.length;
         const gaps = Math.max(0, sentCount - 1);
-        sentenceBoundaryDenom += gaps;
+        const isBody = bodyIndexSet.has(p);
+        if (isBody) {
+          sentenceBoundaryDenom += gaps;
+          sentenceRequiredHits += Math.ceil(0.5 * gaps);
+        }
         let withinHits = 0;
         for (let i = 0; i < sentCount - 1; i += 1) {
           const a = sentenceSets[i];
@@ -3764,9 +3872,11 @@
             }
           }
           if (hitToken) {
-            sentenceBoundaryHits += 1;
-            withinHits += 1;
-          } else {
+            if (isBody) {
+              sentenceBoundaryHits += 1;
+              withinHits += 1;
+            }
+          } else if (isBody) {
             sentenceBoundaryMisses.push({
               sentence: paraSentences[p][i + 1],
               paragraph_index: p,
@@ -3802,6 +3912,7 @@
       }
 
       const withinTransitionCounts = new Map();
+      const allTransitionCounts = new Map();
       let withinTransitionStarts = 0;
       let paragraphStartTransitionStarts = 0;
 
@@ -3810,6 +3921,12 @@
         for (let s = 0; s < sentences.length; s += 1) {
           const tr = detectTransitionStart(sentences[s]);
           if (!tr) continue;
+          const seenCount = allTransitionCounts.get(tr) || 0;
+          if (seenCount >= 1) {
+            addWeakIssue(sentences[s], p, `Repeated transition: ${tr}`);
+          }
+          allTransitionCounts.set(tr, seenCount + 1);
+
           const isParagraphStart = s === 0 && p >= 1;
           if (isParagraphStart) {
             paragraphStartTransitionStarts += 1;
@@ -3819,65 +3936,37 @@
           if (s === 0) continue;
           withinTransitionStarts += 1;
           const known = withinTransitionCounts.get(tr) || 0;
-          if (known >= 1) {
-            addWeakIssue(sentences[s], p, `Repeated transition: ${tr}`);
-          }
           withinTransitionCounts.set(tr, known + 1);
         }
       }
 
       const withinUniqueTransitions = withinTransitionCounts.size;
+      const weakTransitionsCount = weakIssueMap.size;
 
-      const betweenScoreNormalized = paragraphBoundaryDenom
-        ? (paragraphBoundaryHits / paragraphBoundaryDenom)
-        : 1;
+      const sentenceHits = bodyParagraphIndices.reduce(
+        (sum, pIdx) => sum + (withinBoundaryHitsByParagraph[pIdx] || 0),
+        0
+      );
 
-      let bodyParagraphIndices = [];
-      if (paragraphCount >= 3) {
-        bodyParagraphIndices = Array.from({ length: paragraphCount - 2 }, (_, i) => i + 1);
-      } else if (paragraphCount > 0) {
-        bodyParagraphIndices = Array.from({ length: paragraphCount }, (_, i) => i);
-      }
+      const paragraphScore = paragraphBoundaryDenom
+        ? 45 * (paragraphBoundaryHits / paragraphBoundaryDenom)
+        : 45;
+      const sentenceScore = sentenceRequiredHits
+        ? 45 * Math.min(sentenceHits / sentenceRequiredHits, 1)
+        : 45;
+      const transitionScore = weakTransitionsCount === 0 ? 10 : 0;
 
-      let withinScoreNormalized = 1;
-      if (bodyParagraphIndices.length) {
-        const perParagraphScores = bodyParagraphIndices.map((pIdx) => {
-          const sentCount = paraSentences[pIdx]?.length || 0;
-          const gaps = Math.max(0, sentCount - 1);
-          const required = Math.ceil(0.5 * gaps);
-          const hits = withinBoundaryHitsByParagraph[pIdx] || 0;
-          if (required === 0) return 1;
-          return Math.min(1, hits / required);
-        });
-        withinScoreNormalized = perParagraphScores.reduce((a, b) => a + b, 0) / perParagraphScores.length;
-      }
+      const isPerfect = (
+        (paragraphBoundaryDenom === 0 || paragraphBoundaryHits === paragraphBoundaryDenom)
+        && (sentenceRequiredHits === 0 || sentenceHits >= sentenceRequiredHits)
+        && weakTransitionsCount === 0
+      );
 
-      const isPeel = paragraphCount === 1;
-      const repeatsWithin = Math.max(0, withinTransitionStarts - withinUniqueTransitions);
-      let transitionBonus = 0;
-      if (!isPeel) {
-        if (paragraphStartTransitionStarts > 0) {
-          transitionBonus = 0;
-        } else if (repeatsWithin > 0) {
-          transitionBonus = 0;
-        } else {
-          transitionBonus = Math.min(10, withinUniqueTransitions * 2);
-        }
-      }
+      let cohesionScore = Math.round(paragraphScore + sentenceScore + transitionScore);
+      if (isPerfect) cohesionScore = 100;
+      cohesionScore = clamp(cohesionScore, 0, 100);
 
-      let cohesionScore = 0;
-      if (isPeel) {
-        cohesionScore = Math.round(100 * withinScoreNormalized);
-      } else {
-        const boundaryScore = Math.round(90 * (0.5 * betweenScoreNormalized + 0.5 * withinScoreNormalized));
-        cohesionScore = clamp(boundaryScore + transitionBonus, 0, 100);
-      }
-
-      const cohesionSub =
-        `Sentence boundaries: ${sentenceBoundaryHits}/${sentenceBoundaryDenom} • `
-        + `Paragraph boundaries: ${paragraphBoundaryHits}/${paragraphBoundaryDenom} • `
-        + `Transitions (within): ${withinTransitionStarts} (unique ${withinUniqueTransitions}) • `
-        + `Paragraph-start transitions: ${paragraphStartTransitionStarts}`;
+      const cohesionSub = "";
 
       const weakTransitions = Array.from(weakIssueMap.values())
         .map((entry) => ({
@@ -3892,11 +3981,15 @@
         details: {
           sentenceBoundaryHits,
           sentenceBoundaryDenom,
+          sentenceRequiredHits,
+          sentenceHits,
           paragraphBoundaryHits,
           paragraphBoundaryDenom,
+          paragraphBoundaryTotal: paragraphBoundaryDenom,
           transitionsWithinCount: withinTransitionStarts,
           transitionsWithinUnique: withinUniqueTransitions,
           paragraphStartTransitionsCount: paragraphStartTransitionStarts,
+          weakTransitionsCount,
           issues: {
             sentenceBoundaryMisses,
             paragraphBoundaryMisses,
@@ -3960,9 +4053,7 @@
     }
 
     function computeMetricsFromText(text, mode) {
-      const cleanForCohesion = stripQuotedText(
-        normalizeTypographyPreserveParagraphs(text || "")
-      );
+      const cleanForCohesion = normalizeTypographyPreserveParagraphs(text || "");
       const cleanForCounts = stripQuotedText(normalizeTypography(text || ""));
       const cleanLower = cleanForCounts.toLowerCase().replace(/\s+/g, " ").trim();
       const words = tokenizeWords(cleanLower);
@@ -4158,7 +4249,7 @@
       } else {
         renderSingleMetric(cohesionScoreText, cohesionMeterFill, cohesionSubText, metrics?.cohesion);
         updateCohesionIssueCache(metrics?.cohesion?.details, metrics?.cohesion?.details?.sourceText);
-        renderCohesionQuests(cohesionSubText, metrics?.cohesion);
+        renderCohesionDots(cohesionSubText, metrics?.cohesion);
       }
       if (metricPrecisionCard) metricPrecisionCard.style.display = "block";
     }
