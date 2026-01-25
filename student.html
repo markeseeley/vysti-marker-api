@@ -172,32 +172,29 @@
 
     :root{
       /* Techniques highlight theme (easy to tweak) */
-      --tech-block-outline: rgba(0, 230, 118, .70); /* bright green */
-      --tech-block-ring: rgba(0, 230, 118, .18);
-      --tech-device-bg: rgba(0, 230, 118, .28);
-      --tech-device-ring: rgba(0, 230, 118, .70);
+  --tech-block-outline: var(--maroon);              /* brand maroon */
+  --tech-block-ring: rgba(169, 13, 34, .18);        /* maroon halo */
+  --tech-device-bg: rgba(0, 230, 118, .40);         /* bright green (#00E676) */
+  --tech-device-ring: rgba(0, 230, 118, .90);
     }
 
     /* Techniques: outline-only paragraph focus (no full paragraph wash) */
     .vysti-preview-tech-block{
       background: transparent !important;
-      box-shadow: none !important;
-      outline: 2px solid var(--tech-block-outline) !important;
+  outline: 3px solid var(--tech-block-outline) !important;
       outline-offset: 2px;
-      border-radius: 4px !important;
-    }
-
-    /* Optional soft halo */
-    .vysti-preview-tech-block{
-      box-shadow: 0 0 0 4px var(--tech-block-ring) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 4px var(--tech-block-ring) !important;
     }
 
     /* Techniques: device hits (override generic blue hit styling) */
-    .vysti-preview-hit[data-vysti-device="1"]{
+span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       background: var(--tech-device-bg) !important;
       box-shadow: inset 0 0 0 1px var(--tech-device-ring) !important;
       border-radius: 2px !important;
       padding: 0 1px;
+  color: inherit !important;
+  font-weight: inherit !important;
     }
     @media (max-width: 980px){
       .preview-header-right{
@@ -8243,7 +8240,7 @@
           const idx = padded.indexOf(pat, from);
           if (idx === -1) break;
 
-          const start = idx + 1; // skip leading space in padded
+          const start = idx; // idx already maps to the term start in normText
           const end = start + term.length - 1;
 
           const candidate = { start, end };
