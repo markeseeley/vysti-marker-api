@@ -790,6 +790,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       to { width: 1.25em; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/compromise@14.14.5/builds/compromise.min.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -8526,7 +8527,17 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       "morning","evening" // optional: low-risk extras
     ]);
 
-    function isLikelyVerbToken(lowerTok) {
+    const POWER_JUMP_DETERMINERS = new Set([
+      "a","an","the","this","that","these","those",
+      "my","your","his","her","its","our","their"
+    ]);
+
+    const POWER_JUMP_PRONOUN_CUES = new Set([
+      "i","you","he","she","it","we","they",
+      "who","that","this","these","those","there"
+    ]);
+
+    function isLikelyVerbToken(lowerTok, prevLowerTok, prevRawTok) {
       if (!lowerTok) return false;
       if (lowerTok.length < 3) return false;
 
@@ -8540,13 +8551,120 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return true;
       }
 
-      // Past tense often signals verbs
-      if (lowerTok.endsWith("ed")) return true;
+      // Past tense often signals verbs; avoid adjective-like "the united ..." patterns
+      if (lowerTok.endsWith("ed")) {
+        if (prevLowerTok && POWER_JUMP_DETERMINERS.has(prevLowerTok)) return false;
+        return true;
+      }
 
-      // Third-person singular can be verbs, but is noisy; keep it, but rely on stopwords elsewhere
-      if (lowerTok.endsWith("s")) return true;
+      // Third-person singular can be verbs, but is noisy
+      if (lowerTok.endsWith("s")) {
+        if (prevLowerTok && POWER_JUMP_PRONOUN_CUES.has(prevLowerTok)) return true;
+        if (prevRawTok && /^[A-Z]/.test(prevRawTok)) return true;
+        return false;
+      }
 
       return false;
+    }
+
+    function getDoubleQuoteRanges(normText) {
+      if (!normText) return [];
+      const ranges = [];
+      let startIdx = null;
+      for (let i = 0; i < normText.length; i += 1) {
+        if (normText[i] !== "\"") continue;
+        if (startIdx === null) {
+          startIdx = i;
+        } else {
+          ranges.push([startIdx, i]);
+          startIdx = null;
+        }
+      }
+      return ranges;
+    }
+
+    function isIdxInsideDoubleQuotes(idx, ranges) {
+      if (!Number.isFinite(idx) || !ranges || !ranges.length) return false;
+      for (let i = 0; i < ranges.length; i += 1) {
+        const [start, end] = ranges[i];
+        if (idx > start && idx < end) return true;
+      }
+      return false;
+    }
+
+    function getVerbOffsetsFromCompromise(normText) {
+      if (!normText || !window.nlp) return null;
+      try {
+        const doc = window.nlp(normText);
+        const raw = doc.verbs().out("offsets");
+        if (!Array.isArray(raw)) return null;
+
+        const results = [];
+        const textLen = normText.length;
+
+        raw.forEach((item) => {
+          const candidates = [
+            item,
+            item?.offset,
+            item?.offsets,
+            item?.term?.offset,
+            item?.terms?.[0]?.offset
+          ];
+
+          let start = null;
+          let end = null;
+
+          for (let i = 0; i < candidates.length && start === null; i += 1) {
+            const off = candidates[i];
+            if (!off || !Number.isFinite(off.start)) continue;
+            if (Number.isFinite(off.length)) {
+              start = off.start;
+              end = off.start + off.length - 1;
+            } else if (Number.isFinite(off.end)) {
+              start = off.start;
+              const maybeEnd = off.end;
+              const inclusiveEnd = maybeEnd;
+              const exclusiveEnd = maybeEnd - 1;
+              const inclusiveToken = normText.slice(start, inclusiveEnd + 1);
+              const exclusiveToken = normText.slice(start, maybeEnd);
+              if (inclusiveToken && /^[A-Za-z]/.test(inclusiveToken)) {
+                end = inclusiveEnd;
+              } else if (exclusiveToken && /^[A-Za-z]/.test(exclusiveToken)) {
+                end = exclusiveEnd;
+              } else {
+                end = inclusiveEnd;
+              }
+            }
+          }
+
+          if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+          if (start < 0 || end < 0 || start >= textLen || end >= textLen) return;
+          if (end < start) return;
+
+          let adjStart = start;
+          let adjEnd = end;
+          while (adjStart <= adjEnd && !/[A-Za-z]/.test(normText[adjStart])) adjStart += 1;
+          while (adjEnd >= adjStart && !/[A-Za-z]/.test(normText[adjEnd])) adjEnd -= 1;
+          if (adjStart > adjEnd) return;
+
+          const token = normText.slice(adjStart, adjEnd + 1);
+          const tokenLower = token.toLowerCase();
+          results.push({ startIdx: adjStart, endIdx: adjEnd, tokenLower });
+        });
+
+        return results.length ? results : [];
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function getPrevTokenInfo(text, startIdx) {
+      if (!text || !Number.isFinite(startIdx)) return { raw: "", lower: "" };
+      const before = text.slice(0, Math.max(0, startIdx));
+      const m = before.match(/([A-Za-z]+)\s*$/);
+      if (!m) return { raw: "", lower: "" };
+      const raw = m[1];
+      return { raw, lower: raw.toLowerCase() };
     }
 
     function findNextTokenMatch(normText, startIndex, predicate) {
@@ -8650,27 +8768,47 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function findNonPowerVerbCandidate(text) {
       const re = /\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g;
       let m;
+      let lastTokRaw = "";
+      let lastTokLower = "";
 
       while ((m = re.exec(text)) !== null) {
         const tok = m[0];
         const t = tok.toLowerCase();
 
         // Skip weak verbs here; we already prefer weak verbs first
-        if (WEAK_VERBS.has(t)) continue;
+        if (WEAK_VERBS.has(t)) {
+          lastTokRaw = tok;
+          lastTokLower = t;
+          continue;
+        }
 
         // Skip if it’s already a power verb (forms set)
-        if (powerVerbFormsSet && powerVerbFormsSet.has(t)) continue;
+        if (powerVerbFormsSet && powerVerbFormsSet.has(t)) {
+          lastTokRaw = tok;
+          lastTokLower = t;
+          continue;
+        }
 
         // Skip obvious function words (reuse your cohesion stop words if available)
-        if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(t)) continue;
+        if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(t)) {
+          lastTokRaw = tok;
+          lastTokLower = t;
+          continue;
+        }
 
-        if (!isLikelyVerbToken(t)) continue;
+        if (!isLikelyVerbToken(t, lastTokLower, lastTokRaw)) {
+          lastTokRaw = tok;
+          lastTokLower = t;
+          continue;
+        }
 
         // Anchor with next word for more precise highlight
         const afterSlice = text.slice(m.index + tok.length);
         const next = afterSlice.match(/^\s+([A-Za-z]+(?:'[A-Za-z]+)?)/);
         const anchor = next ? `${tok} ${next[1]}` : tok;
 
+        lastTokRaw = tok;
+        lastTokLower = t;
         return anchor;
       }
       return null;
@@ -8714,6 +8852,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return idx >= proseStart;
       }
 
+      const proseStartCharIdx = (() => {
+        for (let i = 0; i < posMap.length; i += 1) {
+          if (isProsePos(posMap[i])) return i;
+        }
+        return 0;
+      })();
+
       // Start after the current selection so repeated clicks move forward
       const selectionEndIndex = getNormalizedIndexFromRangeEnd(preview, posMap);
       let startIndex = Number.isInteger(selectionEndIndex)
@@ -8721,60 +8866,103 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         : (Number.isFinite(lastPowerVerbJumpIndex) ? lastPowerVerbJumpIndex : 0);
 
       startIndex = Math.max(0, Math.min(startIndex, normText.length));
+      startIndex = Math.max(startIndex, proseStartCharIdx);
+
       const lowerNorm = normText.toLowerCase();
+      const quoteRanges = getDoubleQuoteRanges(normText);
+      const verbRanges = getVerbOffsetsFromCompromise(normText);
 
-      const weakMatch = findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
-        const pos = posMap[idx];
-        if (pos && !isProsePos(pos)) return false;
+      const isUseOfPattern = (idx, tokenLower) => {
+        if (tokenLower !== "use") return false;
+        const before = lowerNorm.slice(Math.max(0, idx - 6), idx);
+        const after = lowerNorm.slice(idx + tokenLower.length, idx + tokenLower.length + 6);
+        return /\bthe\s+$/.test(before) && /^\s+of\b/.test(after);
+      };
 
-        if (!WEAK_VERBS.has(lowerTok)) return false;
-        if (lowerTok === "use") {
-          const before = lowerNorm.slice(Math.max(0, idx - 6), idx);
-          const after = lowerNorm.slice(idx + lowerTok.length, idx + lowerTok.length + 6);
-          if (/\bthe\s+$/.test(before) && /^\s+of\b/.test(after)) return false;
-        }
-        return true;
-      });
+      const pickNextCandidate = (candidates) => {
+        if (!candidates || !candidates.length) return null;
+        const sorted = [...candidates].sort((a, b) => a.startIdx - b.startIdx);
+        const next = sorted.find((c) => c.startIdx >= startIndex);
+        return next || sorted[0];
+      };
 
-      const target = weakMatch || findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
-        const pos = posMap[idx];
-        if (pos && !isProsePos(pos)) return false;
+      let finalTarget = null;
 
-        if (!lowerTok) return false;
-        if (BE_VERBS.has(lowerTok)) return false;
-        if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
-        if (powerVerbFormsSet && powerVerbFormsSet.has(lowerTok)) return false;
-        if (!isLikelyVerbToken(lowerTok)) return false;
-        return true;
-      });
+      if (verbRanges) {
+        const filtered = verbRanges.filter((range) => {
+          if (!range || !Number.isFinite(range.startIdx)) return false;
+          if (range.startIdx < proseStartCharIdx) return false;
+          const pos = posMap[range.startIdx];
+          if (pos && !isProsePos(pos)) return false;
+          if (isIdxInsideDoubleQuotes(range.startIdx, quoteRanges)) return false;
+          if (!range.tokenLower) return false;
+          if (BE_VERBS.has(range.tokenLower)) return false;
+          if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(range.tokenLower)) return false;
+          if (powerVerbFormsSet && powerVerbFormsSet.has(range.tokenLower)) return false;
+          if (isUseOfPattern(range.startIdx, range.tokenLower)) return false;
+          return true;
+        });
 
-      // Wrap-around: if no target ahead, scan again from the beginning (still prose-restricted)
-      const wrappedTarget = (!target && startIndex > 0)
-        ? (findNextTokenMatch(normText, 0, (lowerTok, idx) => {
-            const pos = posMap[idx];
-            if (pos && !isProsePos(pos)) return false;
+        const weakCandidates = filtered.filter((range) => WEAK_VERBS.has(range.tokenLower));
+        finalTarget = pickNextCandidate(weakCandidates) || pickNextCandidate(filtered);
+      } else {
+        const weakMatch = findNextTokenMatch(normText, startIndex, (lowerTok, idx, rawTok) => {
+          const pos = posMap[idx];
+          if (pos && !isProsePos(pos)) return false;
+          if (idx < proseStartCharIdx) return false;
+          if (isIdxInsideDoubleQuotes(idx, quoteRanges)) return false;
 
-            if (!WEAK_VERBS.has(lowerTok)) return false;
-            if (lowerTok === "use") {
-              const before = lowerNorm.slice(Math.max(0, idx - 6), idx);
-              const after = lowerNorm.slice(idx + lowerTok.length, idx + lowerTok.length + 6);
-              if (/\bthe\s+$/.test(before) && /^\s+of\b/.test(after)) return false;
-            }
-            return true;
-          }) || findNextTokenMatch(normText, 0, (lowerTok, idx) => {
-            const pos = posMap[idx];
-            if (pos && !isProsePos(pos)) return false;
+          if (!WEAK_VERBS.has(lowerTok)) return false;
+          if (isUseOfPattern(idx, lowerTok)) return false;
+          return true;
+        });
 
-            if (!lowerTok) return false;
-            if (BE_VERBS.has(lowerTok)) return false;
-            if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
-            if (powerVerbFormsSet && powerVerbFormsSet.has(lowerTok)) return false;
-            if (!isLikelyVerbToken(lowerTok)) return false;
-            return true;
-          }))
-        : null;
+        const target = weakMatch || findNextTokenMatch(normText, startIndex, (lowerTok, idx, rawTok) => {
+          const pos = posMap[idx];
+          if (pos && !isProsePos(pos)) return false;
+          if (idx < proseStartCharIdx) return false;
+          if (isIdxInsideDoubleQuotes(idx, quoteRanges)) return false;
 
-      const finalTarget = target || wrappedTarget;
+          if (!lowerTok) return false;
+          if (BE_VERBS.has(lowerTok)) return false;
+          if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
+          if (powerVerbFormsSet && powerVerbFormsSet.has(lowerTok)) return false;
+
+          const prevInfo = getPrevTokenInfo(normText, idx);
+          if (!isLikelyVerbToken(lowerTok, prevInfo.lower, prevInfo.raw)) return false;
+          return true;
+        });
+
+        const wrappedTarget = (!target && startIndex > proseStartCharIdx)
+          ? (findNextTokenMatch(normText, proseStartCharIdx, (lowerTok, idx, rawTok) => {
+              const pos = posMap[idx];
+              if (pos && !isProsePos(pos)) return false;
+              if (idx < proseStartCharIdx) return false;
+              if (isIdxInsideDoubleQuotes(idx, quoteRanges)) return false;
+
+              if (!WEAK_VERBS.has(lowerTok)) return false;
+              if (isUseOfPattern(idx, lowerTok)) return false;
+              return true;
+            }) || findNextTokenMatch(normText, proseStartCharIdx, (lowerTok, idx, rawTok) => {
+              const pos = posMap[idx];
+              if (pos && !isProsePos(pos)) return false;
+              if (idx < proseStartCharIdx) return false;
+              if (isIdxInsideDoubleQuotes(idx, quoteRanges)) return false;
+
+              if (!lowerTok) return false;
+              if (BE_VERBS.has(lowerTok)) return false;
+              if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
+              if (powerVerbFormsSet && powerVerbFormsSet.has(lowerTok)) return false;
+
+              const prevInfo = getPrevTokenInfo(normText, idx);
+              if (!isLikelyVerbToken(lowerTok, prevInfo.lower, prevInfo.raw)) return false;
+              return true;
+            }))
+          : null;
+
+        finalTarget = target || wrappedTarget;
+      }
+
       if (!finalTarget) return false;
 
       clearPreviewHighlights();
