@@ -25,6 +25,9 @@ characterization,characterization
 # Diction / syntax / basic craft
 diction,diction
 syntax,syntax
+chiasmus,chiasmus
+chiastic,chiasmus
+chiastically,chiasmus
 tone,tone
 description,description
 classification,classification
