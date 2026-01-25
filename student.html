@@ -3142,6 +3142,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             // Ensure preview is in view
             scrollToPreviewHeader();
 
+            // Let the scroll settle before focusing/selection (prevents caret snap-to-top)
+            await new Promise((r) => requestAnimationFrame(r));
+
             // Try to highlight the next best upgrade target
             const didJump = await jumpToNextVerbToUpgradeInPreview();
             if (!didJump) {
@@ -8896,6 +8899,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const end = posMap[endIdx];
       if (!start || !end) return false;
 
+      // Focus FIRST so the browser doesn't reset selection to the start of the document.
+      try {
+        if (document.activeElement && document.activeElement !== preview) {
+          document.activeElement.blur?.();
+        }
+      } catch (_) {}
+
+      try {
+        preview.focus({ preventScroll: true });
+      } catch (_) {
+        preview.focus();
+      }
+
       const selection = window.getSelection();
       if (!selection) return false;
 
@@ -8905,8 +8921,12 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       selection.removeAllRanges();
       selection.addRange(range);
 
-      preview.focus();
-      const scrollEl = start.node && start.node.parentElement ? start.node.parentElement : preview;
+      // Scroll AFTER selection (and after focus) so the target lands centered.
+      const scrollEl =
+        (start.node && start.node.parentElement && start.node.parentElement.closest("p, li, div")) ||
+        (start.node && start.node.parentElement) ||
+        preview;
+
       if (scrollEl && scrollEl.scrollIntoView) {
         scrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
       }
