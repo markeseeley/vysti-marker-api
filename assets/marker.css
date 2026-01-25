@@ -1064,11 +1064,11 @@ input:focus, select:focus{
   background-color: transparent !important;
 }
 
-/* Find-in-preview exact sentence highlight */
+/* Find-in-preview exact sentence highlight (brand: maroon stroke only) */
 span.vysti-preview-hit[data-vysti-hit="1"] {
-  background: rgba(0, 120, 215, 0.25) !important;
-  box-shadow: inset 0 0 0 1px rgba(0, 120, 215, 0.35) !important;
-  border-radius: 2px !important;
+  background: transparent !important;
+  box-shadow: inset 0 0 0 2px rgba(169, 13, 34, 0.60) !important; /* maroon stroke */
+  border-radius: 4px !important;
 
   /* Do not change typography */
   color: inherit !important;
@@ -1082,13 +1082,15 @@ span.vysti-preview-hit[data-vysti-hit="1"].vysti-hit-brand{
     inset 0 0 0 1px rgba(169, 13, 34, 0.65) !important;
 }
 
-/* Cursor highlight in preview (selection-like) */
+/* Cursor highlight in preview (match sentence highlight; no blue fill) */
 .vysti-preview-hit.vysti-cursor-highlight {
-  background: rgba(0, 120, 215, 0.25) !important;
+  background: transparent !important;
+  box-shadow: inset 0 0 0 2px rgba(169, 13, 34, 0.60) !important;
+  border-radius: 4px !important;
+
   color: inherit !important;
   font-weight: inherit !important;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(0, 120, 215, 0.35) !important;
+  font-family: inherit !important;
 }
 
 /* Optional modifier class for old yellow-box styling (not applied by default) */
@@ -1102,12 +1104,14 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   font-weight: inherit !important;
 }
 
-/* Fallback when we can only find the paragraph, not the exact sentence */
+/* Fallback when we can only find the paragraph, not the exact sentence (brand stroke, no fill) */
 .vysti-preview-hit-block {
-  background: rgba(0, 120, 215, 0.25) !important;
-  box-shadow: inset 0 0 0 1px rgba(0, 120, 215, 0.35) !important;
-  border-radius: 2px !important;
-  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+
+  outline: 3px solid var(--maroon) !important;
+  outline-offset: 2px;
+  border-radius: 8px !important;
 
   /* Keep typography inherited */
   color: inherit !important;
