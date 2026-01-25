@@ -8524,18 +8524,32 @@
       "am","is","are","was","were","be","been","being"
     ]);
 
+    const POWER_JUMP_NONVERB_ING = new Set([
+      "anything","something","nothing","everything","thing",
+      "morning","evening" // optional: low-risk extras
+    ]);
+
     function isLikelyVerbToken(lowerTok) {
       if (!lowerTok) return false;
-      // exclude super common non-verbs
       if (lowerTok.length < 3) return false;
-      // prefer known “meh verbs”
+
+      // prefer known “meh” reporting verbs
       if (COMMON_UPGRADE_VERBS.has(lowerTok)) return true;
-      // fallback: morphology heuristic (imperfect but works decently)
-      return (
-        lowerTok.endsWith("ed") ||
-        lowerTok.endsWith("ing") ||
-        lowerTok.endsWith("s")
-      );
+
+      // Tighten the "-ing" heuristic: avoid obvious non-verbs like "anything"
+      if (lowerTok.endsWith("ing")) {
+        if (POWER_JUMP_NONVERB_ING.has(lowerTok)) return false;
+        if (lowerTok.endsWith("thing")) return false; // catches "anything/something/…"
+        return true;
+      }
+
+      // Past tense often signals verbs
+      if (lowerTok.endsWith("ed")) return true;
+
+      // Third-person singular can be verbs, but is noisy; keep it, but rely on stopwords elsewhere
+      if (lowerTok.endsWith("s")) return true;
+
+      return false;
     }
 
     function findNextTokenMatch(normText, startIndex, predicate) {
@@ -8654,6 +8668,27 @@
       const { normText, posMap } = buildNormalizedTextMap(preview);
       if (!normText || !posMap.length) return false;
 
+      // Restrict scanning to prose blocks (skip name/title/header)
+      // We already have preview blocks + a robust prose-start detector.
+      const blocks = getPreviewBlocks();
+      const proseStart = Math.max(0, getFirstProseBlockIndex(blocks));
+      const blockIndexByEl = new Map();
+      blocks.forEach((b, i) => blockIndexByEl.set(b, i));
+
+      function getBlockIndexForNode(node) {
+        let el = node?.parentElement || null;
+        while (el && !blockIndexByEl.has(el)) {
+          el = el.parentElement;
+        }
+        return blockIndexByEl.get(el) ?? -1;
+      }
+
+      function isProsePos(pos) {
+        const idx = getBlockIndexForNode(pos?.node);
+        if (idx === -1) return true; // fail open
+        return idx >= proseStart;
+      }
+
       const selectionIndex = getNormalizedIndexFromRangeStart(preview, posMap);
       const startIndex = Number.isInteger(selectionIndex)
         ? selectionIndex
@@ -8661,6 +8696,9 @@
       const lowerNorm = normText.toLowerCase();
 
       const weakMatch = findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
+        const pos = posMap[idx];
+        if (pos && !isProsePos(pos)) return false;
+
         if (!WEAK_VERBS.has(lowerTok)) return false;
         if (lowerTok === "use") {
           const before = lowerNorm.slice(Math.max(0, idx - 6), idx);
@@ -8670,7 +8708,10 @@
         return true;
       });
 
-      const target = weakMatch || findNextTokenMatch(normText, startIndex, (lowerTok) => {
+      const target = weakMatch || findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
+        const pos = posMap[idx];
+        if (pos && !isProsePos(pos)) return false;
+
         if (!lowerTok) return false;
         if (BE_VERBS.has(lowerTok)) return false;
         if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
