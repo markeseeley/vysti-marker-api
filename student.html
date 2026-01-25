@@ -3204,9 +3204,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (!issue?.sentence) return false;
 
       scrollToPreviewHeader();
-      const result = highlightAndScrollToExample(issue, null, { scroll: true, restrictToProse: true });
+      const result = highlightAndScrollToExample(issue, null, { scroll: true, restrictToProse: true, select: false });
       if (result?.hits?.length) {
-        result.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+        result.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
       }
       return result?.ok;
     }
@@ -3464,9 +3464,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               return;
             }
             scrollToPreviewHeader();
-            const res = highlightAndScrollToExample(example, null, { scroll: true });
+            const res = highlightAndScrollToExample(example, null, { scroll: true, select: false });
             if (res?.hits?.length) {
-              res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+              res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
             }
             const issueId = getIssueIdForLabel(example.label);
             if (isCommonIssueForRevisions(example.label)) {
@@ -3602,10 +3602,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             const res = highlightAndScrollToExample(
               example,
               null,
-              { scroll: true, restrictToProse: true }
+              { scroll: true, restrictToProse: true, select: false }
             );
             if (res?.hits?.length) {
-              res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+              res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
             }
           });
         }
@@ -3694,10 +3694,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           const res = highlightAndScrollToExample(
             { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex },
             null,
-            { scroll: true, restrictToProse: true }
+            { scroll: true, restrictToProse: true, select: false }
           );
           if (res?.hits?.length) {
-            res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+            res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
           }
         });
       }
@@ -3719,10 +3719,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           const res = highlightAndScrollToExample(
             { sentence: target.sentence, paragraph_index: target.paragraph_index },
             null,
-            { scroll: true, restrictToProse: true }
+            { scroll: true, restrictToProse: true, select: false }
           );
           if (res?.hits?.length) {
-            res.hits.forEach((span) => span.classList.add("vysti-cursor-highlight"));
+            res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
           }
         });
       }
@@ -9132,45 +9132,49 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         const last = hits[hits.length - 1];
 
         if (options.scroll !== false) {
-          // Scroll to first span
           first.scrollIntoView({ behavior: "smooth", block: "center" });
 
-          // Create selection range that selects the full sentence
-          try {
-            // Find first text node in first span
-            let firstTextNode = first.firstChild;
-            while (firstTextNode && firstTextNode.nodeType !== Node.TEXT_NODE) {
-              firstTextNode = firstTextNode.firstChild;
-            }
-            
-            // Find first text node in last span
-            let lastTextNode = last.firstChild;
-            while (lastTextNode && lastTextNode.nodeType !== Node.TEXT_NODE) {
-              lastTextNode = lastTextNode.firstChild;
-            }
-            
-            if (firstTextNode && lastTextNode) {
-              const range = document.createRange();
-              range.setStart(firstTextNode, 0);
-              range.setEnd(lastTextNode, lastTextNode.textContent.length);
-              
-              const sel = window.getSelection();
-              sel.removeAllRanges();
-              sel.addRange(range);
-            }
-          } catch (e) {
-            // Fallback: select all spans
+          // Only select text when explicitly requested (copy/replace workflows)
+          if (options.select !== false) {
             try {
-              const range = document.createRange();
-              range.setStartBefore(first);
-              range.setEndAfter(last);
-              const sel = window.getSelection();
-              sel.removeAllRanges();
-              sel.addRange(range);
-            } catch (e2) {}
-          }
+              let firstTextNode = first.firstChild;
+              while (firstTextNode && firstTextNode.nodeType !== Node.TEXT_NODE) {
+                firstTextNode = firstTextNode.firstChild;
+              }
 
-          if (markedPreview) markedPreview.focus();
+              let lastTextNode = last.firstChild;
+              while (lastTextNode && lastTextNode.nodeType !== Node.TEXT_NODE) {
+                lastTextNode = lastTextNode.firstChild;
+              }
+
+              if (firstTextNode && lastTextNode) {
+                const range = document.createRange();
+                range.setStart(firstTextNode, 0);
+                range.setEnd(lastTextNode, lastTextNode.textContent.length);
+
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            } catch (e) {
+              try {
+                const range = document.createRange();
+                range.setStartBefore(first);
+                range.setEndAfter(last);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              } catch (e2) {}
+            }
+
+            if (markedPreview) markedPreview.focus();
+          } else {
+            // Ensure any previous selection disappears so we only see our highlight spans
+            try {
+              const sel = window.getSelection();
+              if (sel) sel.removeAllRanges();
+            } catch (e) {}
+          }
         }
 
         if (statusDivOptional) {
