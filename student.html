@@ -189,10 +189,10 @@
     /* Techniques: outline-only paragraph focus (no full paragraph wash) */
     .vysti-preview-tech-block{
       background: transparent !important;
-  outline: 3px solid var(--tech-block-outline) !important;
+  outline: 2px solid var(--tech-block-outline) !important;  /* thinner stroke */
       outline-offset: 2px;
   border-radius: 8px !important;
-  box-shadow: none !important; /* uniform stroke */
+  box-shadow: 0 0 0 3px var(--tech-block-ring) !important;   /* slightly tighter halo */
     }
 
     /* Techniques: device hits (override generic blue hit styling) */
