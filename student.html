@@ -3601,7 +3601,26 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             // Techniques: highlight devices instead of sentence-highlighting (avoids nested spans)
             if (kind === "techniques") {
               await loadThesisDevicesLexicon();
-              if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return;
+              if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
+                showPillHintOnce(pill, "variety_techniques", {
+                  title: "Techniques",
+                  body: "Device list unavailable. Please refresh and try again."
+                });
+                return;
+              }
+
+              let deviceCount = 0;
+              try {
+                deviceCount = getCanonicalDevicesInParagraph(paraText).size || 0;
+              } catch (err) {
+                deviceCount = 0;
+              }
+              showPillHintOnce(pill, "variety_techniques", {
+                title: "Techniques",
+                body: deviceCount >= 3
+                  ? "Nice - this paragraph already has 3+ techniques. Click again to check the next paragraph."
+                  : `You have ${deviceCount} technique${deviceCount === 1 ? "" : "s"} here. Aim for 3+ unique techniques in this paragraph.`
+              });
 
               clearPreviewHighlights();
 
@@ -3614,6 +3633,16 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               highlightThesisDevicesInBlock(blockEl);
               if (markedPreview) markedPreview.focus();
               return;
+            }
+
+            if (kind === "evidence") {
+              const shortQuotes = countShortQuotesInParagraph(paraText);
+              showPillHintOnce(pill, "variety_evidence", {
+                title: "Evidence",
+                body: shortQuotes >= 2
+                  ? "Good - you have 2+ short quotes here. Click again to check the next paragraph."
+                  : "Either your quotations are too long or you need more contextualized evidence."
+              });
             }
 
             // Default behavior for other paragraph pills
@@ -3708,6 +3737,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           varietyJumpIndex.development = (idx + 1) % jumpList.length;
           const paraIndex = jumpList[idx];
           const paraText = paragraphs[paraIndex] || "";
+          const sentenceCount = splitSentencesSimple(paraText).length;
+          showPillHintOnce(developmentPill, "variety_development", {
+            title: "Development",
+            body: sentenceCount >= 4
+              ? "This paragraph is developed (4+ sentences). Click again to check the next paragraph."
+              : "Try to expand on the ideas in this paragraph."
+          });
           scrollToPreviewHeader();
           const res = highlightAndScrollToExample(
             { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex },
@@ -3733,6 +3769,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           varietyJumpIndex.structure = (idx + 1) % weakStartSentences.length;
           const target = weakStartSentences[idx];
           if (!target) return;
+          const starter = getSentenceStarterWord(target.sentence || "");
+          showPillHintOnce(structurePill, "variety_structure", {
+            title: "Structure",
+            body: starter
+              ? `This sentence probably begins with a pronoun ("${starter} ..."). Try to improve on the structure of this sentence.`
+              : "This sentence probably begins with a pronoun. Try to improve on the structure of this sentence."
+          });
           scrollToPreviewHeader();
           const res = highlightAndScrollToExample(
             { sentence: target.sentence, paragraph_index: target.paragraph_index },
@@ -5175,6 +5218,80 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (metricPrecisionCard) metricPrecisionCard.style.display = "block";
     }
 
+    function pillHintKey(key) {
+      return `${PILL_HINT_SESSION_PREFIX}${String(key || "").trim()}`;
+    }
+
+    function pillHintWasShown(key) {
+      try {
+        return sessionStorage.getItem(pillHintKey(key)) === "1";
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function setPillHintShown(key) {
+      try {
+        sessionStorage.setItem(pillHintKey(key), "1");
+      } catch (err) {
+        // ignore storage failures
+      }
+    }
+
+    function closePillHintPopover() {
+      if (!pillHintPopover) return;
+      pillHintPopover.classList.add("hidden");
+    }
+
+    function positionPillHintPopover(anchorEl) {
+      if (!pillHintPopover || !pillHintArrow || !anchorEl) return;
+
+      const gap = 10;
+      const padding = 12;
+      const rect = anchorEl.getBoundingClientRect();
+
+      pillHintPopover.classList.remove("hidden");
+      pillHintPopover.style.visibility = "hidden";
+      pillHintPopover.style.display = "block";
+
+      const popRect = pillHintPopover.getBoundingClientRect();
+      const fitsBelow = rect.bottom + gap + popRect.height <= window.innerHeight;
+
+      let top = fitsBelow ? rect.bottom + gap : rect.top - popRect.height - gap;
+      top = Math.max(padding, Math.min(top, window.innerHeight - popRect.height - padding));
+
+      let left = rect.left + rect.width / 2 - popRect.width / 2;
+      left = Math.max(padding, Math.min(left, window.innerWidth - popRect.width - padding));
+
+      pillHintPopover.style.top = `${Math.round(top)}px`;
+      pillHintPopover.style.left = `${Math.round(left)}px`;
+
+      pillHintArrow.classList.toggle("tour-arrow-down", fitsBelow);
+      pillHintArrow.classList.toggle("tour-arrow-up", !fitsBelow);
+
+      const anchorCenter = rect.left + rect.width / 2;
+      const arrowLeft = Math.max(16, Math.min(anchorCenter - left, popRect.width - 16));
+      pillHintArrow.style.left = `${Math.round(arrowLeft)}px`;
+      pillHintArrow.style.top = fitsBelow ? "-6px" : "";
+      pillHintArrow.style.bottom = fitsBelow ? "" : "-6px";
+
+      pillHintPopover.style.visibility = "visible";
+    }
+
+    function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
+      if (!pillHintPopover || !anchorEl || !key) return;
+      if (pillHintWasShown(key)) return;
+      setPillHintShown(key);
+
+      if (pillHintTitle) pillHintTitle.textContent = title || "";
+      if (pillHintBody) pillHintBody.textContent = body || "";
+
+      positionPillHintPopover(anchorEl);
+
+      if (pillHintPopover._timer) clearTimeout(pillHintPopover._timer);
+      pillHintPopover._timer = setTimeout(closePillHintPopover, 5200);
+    }
+
     function closeMetricPopover() {
       if (!metricInfoPopover) return;
       metricInfoPopover.classList.add("hidden");
@@ -5262,6 +5379,20 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     if (metricInfoClose) {
       metricInfoClose.addEventListener("click", closeMetricPopover);
     }
+
+    if (pillHintClose) {
+      pillHintClose.addEventListener("click", closePillHintPopover);
+    }
+
+    document.addEventListener("click", (e) => {
+      if (!pillHintPopover || pillHintPopover.classList.contains("hidden")) return;
+      if (e.target.closest("#pillHintPopover")) return;
+      if (e.target.closest(".quest-pill-btn")) return;
+      closePillHintPopover();
+    });
+
+    window.addEventListener("resize", closePillHintPopover);
+    window.addEventListener("scroll", closePillHintPopover, true);
 
     async function getMetricsTextSource() {
       const previewText = extractPreviewText();
