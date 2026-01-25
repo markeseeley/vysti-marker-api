@@ -3716,6 +3716,74 @@
         .trim();
     }
 
+    function uniqueList(items) {
+      const out = [];
+      const seen = new Set();
+      (items || []).forEach((x) => {
+        const v = String(x || "").trim();
+        if (!v) return;
+        if (seen.has(v)) return;
+        seen.add(v);
+        out.push(v);
+      });
+      return out;
+    }
+
+    // Generate “reasonable” morphological variants of a single token.
+    // IMPORTANT: we only count a variant if it actually exists in thesisDevicesLexicon.singleWordTermToCanonical.
+    function deviceTokenCandidates(rawToken) {
+      const t = normalizeThesisDeviceTerm(rawToken);
+      if (!t || t.includes(" ")) return [];
+      if (t.length < 3) return [t];
+
+      const cands = [t];
+
+      // plural: stories -> story, devices -> device, metaphors -> metaphor
+      if (t.endsWith("ies") && t.length > 4) cands.push(t.slice(0, -3) + "y");
+      if (t.endsWith("es") && t.length > 4) cands.push(t.slice(0, -2));
+      if (t.endsWith("s") && !t.endsWith("ss") && t.length > 3) cands.push(t.slice(0, -1));
+
+      // adverbs: Xly, Xically (metaphorically -> metaphor), symbolically -> symbol
+      if (t.endsWith("ically") && t.length > 7) cands.push(t.slice(0, -6));
+      if (t.endsWith("ly") && t.length > 4) cands.push(t.slice(0, -2));
+
+      // adjectives: Xic, Xical
+      if (t.endsWith("ical") && t.length > 6) cands.push(t.slice(0, -4));
+      if (t.endsWith("ic") && t.length > 4) cands.push(t.slice(0, -2));
+
+      // adjectives: Xive / Xively
+      if (t.endsWith("ively") && t.length > 7) cands.push(t.slice(0, -5));
+      if (t.endsWith("ive") && t.length > 5) cands.push(t.slice(0, -3));
+
+      // nominalizations: Xization / Xisation (metaphorization -> metaphor)
+      if (t.endsWith("ization") && t.length > 9) cands.push(t.slice(0, -7));
+      if (t.endsWith("isation") && t.length > 9) cands.push(t.slice(0, -7));
+
+      // verbs: Xing / Xed
+      if (t.endsWith("ing") && t.length > 6) cands.push(t.slice(0, -3));
+      if (t.endsWith("ed") && t.length > 5) cands.push(t.slice(0, -2));
+
+      // verbs: Xize / Xise
+      if (t.endsWith("ize") && t.length > 5) cands.push(t.slice(0, -3));
+      if (t.endsWith("ise") && t.length > 5) cands.push(t.slice(0, -3));
+
+      return uniqueList(cands);
+    }
+
+    function canonicalForDeviceToken(token) {
+      if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return "";
+      const map = thesisDevicesLexicon.singleWordTermToCanonical;
+      if (!map || typeof map.get !== "function") return "";
+
+      // Try token and then its variants, but ONLY count if the variant exists in the lexicon map.
+      const cands = deviceTokenCandidates(token);
+      for (const c of cands) {
+        const canonical = map.get(c);
+        if (canonical) return canonical;
+      }
+      return "";
+    }
+
     function getCanonicalDevicesInParagraph(paragraph) {
       const canonicalSet = new Set();
       if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return canonicalSet;
@@ -3723,15 +3791,14 @@
       const normalized = normalizeParagraphForPhraseMatch(paragraph);
       if (!normalized) return canonicalSet;
 
-      const tokenSet = new Set(tokenizeWords(normalized));
+      const tokens = tokenizeWords(normalized);
       const padded = ` ${normalized} `;
 
-      (thesisDevicesLexicon.singleWordKeys || []).forEach((term) => {
-        if (tokenSet.has(term)) {
-          const canonical = thesisDevicesLexicon.singleWordTermToCanonical.get(term);
-          if (canonical) canonicalSet.add(canonical);
-        }
-      });
+      // Single-word device matches (now morphology-aware)
+      for (const tok of tokens) {
+        const canonical = canonicalForDeviceToken(tok);
+        if (canonical) canonicalSet.add(canonical);
+      }
 
       (thesisDevicesLexicon.phraseTermToCanonical || []).forEach(({ phrase, canonical }) => {
         if (!phrase || !canonical) return;
@@ -4791,6 +4858,7 @@
 
         if (!techniquesAvailable) return;
         const canonicalDevices = getCanonicalDevicesInParagraph(para);
+        if (DEBUG_METRICS) console.log("[Techniques]", paraIndex, Array.from(canonicalDevices));
         if (canonicalDevices.size >= 3) {
           techniqueOkCount += 1;
         } else {
