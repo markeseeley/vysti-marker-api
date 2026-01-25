@@ -1407,7 +1407,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const pillHintArrow = document.getElementById("pillHintArrow");
     const pillHintTitle = document.getElementById("pillHintTitle");
     const pillHintBody = document.getElementById("pillHintBody");
-    const PILL_HINT_SESSION_PREFIX = "vysti_pill_hint_shown__";
+    const PILL_HINT_SESSION_PREFIX_BASE = "vysti_pill_hint_shown";
+    const PILL_HINT_SESSION_PREFIX = `${PILL_HINT_SESSION_PREFIX_BASE}_v2__`;
     let pillHintAnchorEl = null;
     let pillHintScrollRaf = null;
     const metricsDetailsToggle = document.getElementById("metricsDetailsToggle");
@@ -5246,12 +5247,22 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     window.__resetPillHints = () => {
       try {
         for (const k of Object.keys(sessionStorage)) {
-          if (k.startsWith(PILL_HINT_SESSION_PREFIX)) sessionStorage.removeItem(k);
+          if (k.startsWith(PILL_HINT_SESSION_PREFIX_BASE)) sessionStorage.removeItem(k);
         }
       } catch (err) {
         // ignore storage failures
       }
     };
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const forceReset = params.get("resetPillHints") === "1";
+      if (forceReset || DEBUG_METRICS) {
+        window.__resetPillHints?.();
+      }
+    } catch (err) {
+      // ignore URL parsing failures
+    }
 
     function closePillHintPopover() {
       if (!pillHintPopover) return;
@@ -5298,7 +5309,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
       if (!pillHintPopover || !anchorEl || !key) return;
-      if (pillHintWasShown(key)) return;
+      if (DEBUG_METRICS) console.debug("[pillHint] attempt", key);
+      if (pillHintWasShown(key)) {
+        if (DEBUG_METRICS) console.debug("[pillHint] suppressed (already shown)", key);
+        return;
+      }
 
       if (pillHintTitle) pillHintTitle.textContent = title || "";
       if (pillHintBody) pillHintBody.textContent = body || "";
