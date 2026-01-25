@@ -170,10 +170,33 @@
       line-height: 1;
     }
 
-    /* Thesis device highlight (on-demand, student mode) */
+    :root{
+      /* Techniques highlight theme (easy to tweak) */
+      --tech-block-outline: rgba(0, 230, 118, .70); /* bright green */
+      --tech-block-ring: rgba(0, 230, 118, .18);
+      --tech-device-bg: rgba(0, 230, 118, .28);
+      --tech-device-ring: rgba(0, 230, 118, .70);
+    }
+
+    /* Techniques: outline-only paragraph focus (no full paragraph wash) */
+    .vysti-preview-tech-block{
+      background: transparent !important;
+      box-shadow: none !important;
+      outline: 2px solid var(--tech-block-outline) !important;
+      outline-offset: 2px;
+      border-radius: 4px !important;
+    }
+
+    /* Optional soft halo */
+    .vysti-preview-tech-block{
+      box-shadow: 0 0 0 4px var(--tech-block-ring) !important;
+    }
+
+    /* Techniques: device hits (override generic blue hit styling) */
     .vysti-preview-hit[data-vysti-device="1"]{
-      background: rgba(57, 255, 20, 0.40) !important; /* bright green */
-      border-radius: 2px;
+      background: var(--tech-device-bg) !important;
+      box-shadow: inset 0 0 0 1px var(--tech-device-ring) !important;
+      border-radius: 2px !important;
       padding: 0 1px;
     }
     @media (max-width: 980px){
@@ -3570,7 +3593,7 @@
               const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
               if (!blockEl) return;
 
-              blockEl.classList.add("vysti-preview-hit-block");
+              blockEl.classList.add("vysti-preview-tech-block");
               blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
               highlightThesisDevicesInBlock(blockEl);
@@ -8136,9 +8159,11 @@
       highlightedSpans.forEach(unwrapNode);
       
       // Remove classes from any elements
-      const highlighted = markedPreview.querySelectorAll(".vysti-preview-hit, .vysti-preview-hit-block");
+      const highlighted = markedPreview.querySelectorAll(
+        ".vysti-preview-hit, .vysti-preview-hit-block, .vysti-preview-tech-block"
+      );
       highlighted.forEach(el => {
-        el.classList.remove("vysti-preview-hit", "vysti-preview-hit-block");
+        el.classList.remove("vysti-preview-hit", "vysti-preview-hit-block", "vysti-preview-tech-block");
       });
     }
 
