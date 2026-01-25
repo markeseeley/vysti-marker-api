@@ -1408,6 +1408,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const pillHintTitle = document.getElementById("pillHintTitle");
     const pillHintBody = document.getElementById("pillHintBody");
     const PILL_HINT_SESSION_PREFIX = "vysti_pill_hint_shown__";
+    let pillHintAnchorEl = null;
+    let pillHintScrollRaf = null;
     const metricsDetailsToggle = document.getElementById("metricsDetailsToggle");
     const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
 
@@ -5241,14 +5243,25 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
     }
 
+    window.__resetPillHints = () => {
+      try {
+        for (const k of Object.keys(sessionStorage)) {
+          if (k.startsWith(PILL_HINT_SESSION_PREFIX)) sessionStorage.removeItem(k);
+        }
+      } catch (err) {
+        // ignore storage failures
+      }
+    };
+
     function closePillHintPopover() {
       if (!pillHintPopover) return;
       pillHintPopover.classList.add("hidden");
+      pillHintAnchorEl = null;
       pillHintPopover._anchor = null;
     }
 
     function positionPillHintPopover(anchorEl) {
-      if (!pillHintPopover || !pillHintArrow || !anchorEl) return;
+      if (!pillHintPopover || !pillHintArrow || !anchorEl) return false;
 
       const gap = 10;
       const padding = 12;
@@ -5280,6 +5293,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       pillHintArrow.style.bottom = fitsBelow ? "" : "-6px";
 
       pillHintPopover.style.visibility = "visible";
+      return true;
     }
 
     function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
@@ -5289,8 +5303,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (pillHintTitle) pillHintTitle.textContent = title || "";
       if (pillHintBody) pillHintBody.textContent = body || "";
 
+      pillHintAnchorEl = anchorEl;
       pillHintPopover._anchor = anchorEl;
-      positionPillHintPopover(anchorEl);
+      const positioned = positionPillHintPopover(anchorEl);
+      if (!positioned) return;
 
       // Mark as shown only after we actually displayed it
       setPillHintShown(key);
@@ -5400,7 +5416,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function repositionPillHintPopover() {
       if (!pillHintPopover || pillHintPopover.classList.contains("hidden")) return;
-      const anchor = pillHintPopover._anchor;
+      const anchor = pillHintAnchorEl;
       if (!anchor || !anchor.isConnected) {
         closePillHintPopover();
         return;
@@ -5409,7 +5425,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     window.addEventListener("resize", repositionPillHintPopover);
-    window.addEventListener("scroll", repositionPillHintPopover, true);
+    window.addEventListener("scroll", () => {
+      if (pillHintScrollRaf) return;
+      pillHintScrollRaf = requestAnimationFrame(() => {
+        pillHintScrollRaf = null;
+        repositionPillHintPopover();
+      });
+    }, true);
 
     async function getMetricsTextSource() {
       const previewText = extractPreviewText();
