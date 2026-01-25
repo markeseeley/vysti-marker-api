@@ -114,6 +114,31 @@
       align-items: flex-end;
       gap: 8px;
     }
+    .metrics-details-toggle{
+      display:flex;
+      justify-content:flex-end;
+      margin: 6px 0 8px;
+    }
+    .metrics-toggle-btn{
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,14);
+      background: #fff;
+      color: rgba(0,0,0,75);
+      font-size: var(--fs-xs);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .metrics-toggle-btn:hover{ background: rgba(0,0,0,03); }
+    .metrics-toggle-btn:active{ transform: translateY(0.5px); }
+
+    /* Collapse all pillboxes/dots under meters, keep meters visible */
+    #metricsGrid.details-collapsed .metric-sub{
+      display:none;
+    }
     .preview-pill-btn{
       height: 32px;
       display: inline-flex;
@@ -914,6 +939,17 @@
         </div>
       </div>
       <div class="preview-metrics-wrap">
+        <div class="metrics-details-toggle">
+          <button
+            type="button"
+            id="metricsDetailsToggle"
+            class="metrics-toggle-btn"
+            aria-expanded="true"
+            aria-controls="metricsGrid"
+          >
+            Hide details
+          </button>
+        </div>
         <div class="student-metrics-grid metrics-inline" id="metricsGrid">
           <div class="metric-card" id="metricPower">
             <div class="metric-head">
@@ -1318,6 +1354,28 @@
     const metricInfoClose = document.getElementById("metricInfoClose");
     const metricInfoTitle = document.getElementById("metricInfoTitle");
     const metricInfoBody = document.getElementById("metricInfoBody");
+    const metricsDetailsToggle = document.getElementById("metricsDetailsToggle");
+    const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
+
+    function applyMetricsDetailsCollapsed(collapsed) {
+      if (metricsGrid) metricsGrid.classList.toggle("details-collapsed", !!collapsed);
+      if (metricsDetailsToggle) {
+        metricsDetailsToggle.setAttribute("aria-expanded", String(!collapsed));
+        metricsDetailsToggle.textContent = collapsed ? "Show details" : "Hide details";
+      }
+    }
+
+    if (metricsDetailsToggle) {
+      const savedCollapsed = localStorage.getItem(METRIC_DETAILS_COLLAPSE_KEY) === "1";
+      applyMetricsDetailsCollapsed(savedCollapsed);
+
+      metricsDetailsToggle.addEventListener("click", () => {
+        const currentlyCollapsed = metricsGrid?.classList.contains("details-collapsed");
+        const nextCollapsed = !currentlyCollapsed;
+        applyMetricsDetailsCollapsed(nextCollapsed);
+        localStorage.setItem(METRIC_DETAILS_COLLAPSE_KEY, nextCollapsed ? "1" : "0");
+      });
+    }
 
     let selectedFile = null;
     const buttonLoadingTimers = new Map();
