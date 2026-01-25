@@ -1065,13 +1065,26 @@ input:focus, select:focus{
   background-color: transparent !important;
 }
 
-/* Find-in-preview exact sentence highlight (brand: maroon stroke only) */
-span.vysti-preview-hit[data-vysti-hit="1"] {
-  background: transparent !important;
-  box-shadow: inset 0 0 0 2px rgba(169, 13, 34, 0.60) !important; /* maroon stroke */
-  border-radius: 4px !important;
+/* =========================
+   Preview highlighting (meter pill navigation)
+   Brand: maroon stroke + soft halo (no blue fill)
+   ========================= */
 
-  /* Do not change typography */
+:root{
+  --hit-maroon: rgba(169, 13, 34, 0.62);
+  --hit-maroon-halo: rgba(169, 13, 34, 0.18);
+}
+
+/* Exact sentence hit spans */
+span.vysti-preview-hit[data-vysti-hit="1"]{
+  background: transparent !important;
+  border-radius: 6px !important;
+
+  /* stroke + halo (Techniques-style vibe) */
+  box-shadow:
+    inset 0 0 0 2px var(--hit-maroon),
+    0 0 0 3px var(--hit-maroon-halo) !important;
+
   color: inherit !important;
   font-weight: inherit !important;
   font-family: inherit !important;
@@ -1083,11 +1096,14 @@ span.vysti-preview-hit[data-vysti-hit="1"].vysti-hit-brand{
     inset 0 0 0 1px rgba(169, 13, 34, 0.65) !important;
 }
 
-/* Cursor highlight in preview (match sentence highlight; no blue fill) */
-.vysti-preview-hit.vysti-cursor-highlight {
+/* “cursor highlight” class should look identical */
+.vysti-preview-hit.vysti-cursor-highlight{
   background: transparent !important;
-  box-shadow: inset 0 0 0 2px rgba(169, 13, 34, 0.60) !important;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
+
+  box-shadow:
+    inset 0 0 0 2px var(--hit-maroon),
+    0 0 0 3px var(--hit-maroon-halo) !important;
 
   color: inherit !important;
   font-weight: inherit !important;
@@ -1105,16 +1121,16 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   font-weight: inherit !important;
 }
 
-/* Fallback when we can only find the paragraph, not the exact sentence (brand stroke, no fill) */
-.vysti-preview-hit-block {
+/* Paragraph fallback (when sentence match fails) */
+.vysti-preview-hit-block{
   background: transparent !important;
-  box-shadow: none !important;
-
-  outline: 3px solid var(--maroon) !important;
+  outline: 2px solid var(--maroon) !important;
   outline-offset: 2px;
   border-radius: 8px !important;
 
-  /* Keep typography inherited */
+  /* match Techniques halo feel */
+  box-shadow: 0 0 0 3px var(--hit-maroon-halo) !important;
+
   color: inherit !important;
   font-weight: inherit !important;
   font-family: inherit !important;
