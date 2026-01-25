@@ -134,6 +134,11 @@
     }
     .metrics-toggle-btn:hover{ background: rgba(0,0,0,.03); }
     .metrics-toggle-btn:active{ transform: translateY(0.5px); }
+    .pill-hint-popover{
+      z-index: 95;
+      width: min(360px, calc(100vw - 24px));
+      max-width: min(360px, calc(100vw - 24px));
+    }
 
     /* Collapse pillboxes/dots under meters, but keep 100/100 success line visible */
     #metricsGrid.details-collapsed .metric-sub{
@@ -1133,6 +1138,12 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     <div id="metricInfoTitle" class="tour-title"></div>
     <div id="metricInfoBody" class="tour-body"></div>
   </div>
+  <div id="pillHintPopover" class="tour-popover pill-hint-popover hidden" role="dialog" aria-modal="false">
+    <button id="pillHintClose" class="tour-close" type="button" aria-label="Close">×</button>
+    <div id="pillHintArrow" class="tour-arrow"></div>
+    <div id="pillHintTitle" class="tour-title"></div>
+    <div id="pillHintBody" class="tour-body"></div>
+  </div>
 
   <script>
     const DEBUG_METRICS = false;
@@ -1391,6 +1402,12 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const metricInfoClose = document.getElementById("metricInfoClose");
     const metricInfoTitle = document.getElementById("metricInfoTitle");
     const metricInfoBody = document.getElementById("metricInfoBody");
+    const pillHintPopover = document.getElementById("pillHintPopover");
+    const pillHintClose = document.getElementById("pillHintClose");
+    const pillHintArrow = document.getElementById("pillHintArrow");
+    const pillHintTitle = document.getElementById("pillHintTitle");
+    const pillHintBody = document.getElementById("pillHintBody");
+    const PILL_HINT_SESSION_PREFIX = "vysti_pill_hint_shown__";
     const metricsDetailsToggle = document.getElementById("metricsDetailsToggle");
     const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
 
