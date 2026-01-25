@@ -8596,6 +8596,34 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return fallbackIndex;
     }
 
+    function getNormalizedIndexFromRangeEnd(preview, posMap) {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return null;
+      const range = selection.getRangeAt(0);
+      if (!preview.contains(range.endContainer)) return null;
+
+      let node = range.endContainer;
+      let offset = range.endOffset;
+
+      if (node.nodeType !== Node.TEXT_NODE) {
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
+        const firstText = walker.nextNode();
+        if (!firstText) return null;
+        node = firstText;
+        offset = 0;
+      }
+
+      // Find the first normalized index whose (node, offset) is at/after the range end
+      let fallbackIndex = null;
+      for (let i = 0; i < posMap.length; i += 1) {
+        const pos = posMap[i];
+        if (pos.node !== node) continue;
+        if (pos.offset >= offset) return i;
+        fallbackIndex = i + 1;
+      }
+      return fallbackIndex;
+    }
+
     function selectWordRangeFromMap(preview, posMap, startIdx, endIdx) {
       if (!posMap.length) return false;
       const start = posMap[startIdx];
@@ -8686,10 +8714,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return idx >= proseStart;
       }
 
-      const selectionIndex = getNormalizedIndexFromRangeStart(preview, posMap);
-      const startIndex = Number.isInteger(selectionIndex)
-        ? selectionIndex
+      // Start after the current selection so repeated clicks move forward
+      const selectionEndIndex = getNormalizedIndexFromRangeEnd(preview, posMap);
+      let startIndex = Number.isInteger(selectionEndIndex)
+        ? (selectionEndIndex + 1)
         : (Number.isFinite(lastPowerVerbJumpIndex) ? lastPowerVerbJumpIndex : 0);
+
+      startIndex = Math.max(0, Math.min(startIndex, normText.length));
       const lowerNorm = normText.toLowerCase();
 
       const weakMatch = findNextTokenMatch(normText, startIndex, (lowerTok, idx) => {
@@ -8717,12 +8748,39 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return true;
       });
 
-      if (!target) return false;
+      // Wrap-around: if no target ahead, scan again from the beginning (still prose-restricted)
+      const wrappedTarget = (!target && startIndex > 0)
+        ? (findNextTokenMatch(normText, 0, (lowerTok, idx) => {
+            const pos = posMap[idx];
+            if (pos && !isProsePos(pos)) return false;
+
+            if (!WEAK_VERBS.has(lowerTok)) return false;
+            if (lowerTok === "use") {
+              const before = lowerNorm.slice(Math.max(0, idx - 6), idx);
+              const after = lowerNorm.slice(idx + lowerTok.length, idx + lowerTok.length + 6);
+              if (/\bthe\s+$/.test(before) && /^\s+of\b/.test(after)) return false;
+            }
+            return true;
+          }) || findNextTokenMatch(normText, 0, (lowerTok, idx) => {
+            const pos = posMap[idx];
+            if (pos && !isProsePos(pos)) return false;
+
+            if (!lowerTok) return false;
+            if (BE_VERBS.has(lowerTok)) return false;
+            if (COHESION_STOP_WORDS && COHESION_STOP_WORDS.has(lowerTok)) return false;
+            if (powerVerbFormsSet && powerVerbFormsSet.has(lowerTok)) return false;
+            if (!isLikelyVerbToken(lowerTok)) return false;
+            return true;
+          }))
+        : null;
+
+      const finalTarget = target || wrappedTarget;
+      if (!finalTarget) return false;
 
       clearPreviewHighlights();
-      const didSelect = selectWordRangeFromMap(preview, posMap, target.startIdx, target.endIdx);
+      const didSelect = selectWordRangeFromMap(preview, posMap, finalTarget.startIdx, finalTarget.endIdx);
       if (didSelect) {
-        lastPowerVerbJumpIndex = Math.min(target.endIdx + 1, normText.length);
+        lastPowerVerbJumpIndex = Math.min(finalTarget.endIdx + 1, normText.length);
       }
       return didSelect;
     }
