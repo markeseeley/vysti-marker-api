@@ -524,6 +524,8 @@ BOOKMARK_PREFIX = "vysti_issue_"
 BOOKMARK_MAX_LEN = 40  # Word's limit for bookmark names
 
 ARTICLE_ERROR_LABEL = "Article error"
+INLINE_LABEL_ALLOWLIST = {ARTICLE_ERROR_LABEL}
+APPROVED_LABELS = None
 ARTICLE_ERROR_EXPLANATION = "Use a before consonants and an before vowels."
 ARTICLE_ERROR_GUIDANCE = "Swap the article so it matches the next word (a + consonant, an + vowel)."
 
@@ -4258,36 +4260,6 @@ def analyze_text(
                 labels_used.append(rule_note_quotation_start)
 
     # -----------------------
-    # QUOTATIONS OVER 5 WORDS (Precision Wordy)
-    # -----------------------
-    rule_note_long_quote = "Limit quotations to 5 words or fewer"
-    long_quote_labeled = rule_note_long_quote in labels_used
-
-    for q_start, q_end in spans:
-        if q_start is None or q_end is None:
-            continue
-        interior = flat_text[q_start:q_end].strip()
-        if not interior:
-            continue
-        if is_teacher_title_interior(interior):
-            continue
-        word_count = len(re.findall(r"[A-Za-z']+", interior))
-        if word_count <= 5:
-            continue
-
-        mark = {
-            "start": q_start,
-            "end": q_end,
-            "note": rule_note_long_quote,
-            "color": WD_COLOR_INDEX.GRAY_25,
-        }
-        if not long_quote_labeled:
-            mark["label"] = True
-            labels_used.append(rule_note_long_quote)
-            long_quote_labeled = True
-        marks.append(mark)
-
-    # -----------------------
     # REPEATED "AND" IN A SENTENCE
     # -----------------------
     rule_note_and = "Avoid using the word 'and' more than twice in a sentence"
@@ -5011,8 +4983,6 @@ def analyze_text(
         "to summarize",
     }
 
-    rule_description = "Remove unnecessary filler words/phrases"
-
     for match in delete_pattern.finditer(flat_text):
         match_start, match_end = match.start(1), match.end(1)
 
@@ -5027,15 +4997,9 @@ def analyze_text(
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
             continue
 
-        # Ensure this issue appears in the summary table, but we *don't*
-        # print a yellow inline label in the text.
-        if rule_description not in labels_used:
-            labels_used.append(rule_description)
-
         marks.append({
             "start": match_start,
             "end": match_end,
-            "note": rule_description,
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
             # no "label": this prevents a yellow arrow comment
@@ -5994,6 +5958,8 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
 
         # Handle labels
         if note and is_label:
+            if not mark.get("praise") and APPROVED_LABELS is not None and note not in APPROVED_LABELS:
+                continue
             # Praise labels (e.g. "Good paragraph.") get green; all others stay yellow.
             label_color = (
                 WD_COLOR_INDEX.BRIGHT_GREEN
@@ -7075,6 +7041,7 @@ def run_marker(
     print("Vysti marker: audience/use-of/red-label version loaded")
     global THESIS_DEVICE_SEQUENCE, THESIS_TOPIC_ORDER, BODY_PARAGRAPH_COUNT, BRIDGE_PARAGRAPHS, BRIDGE_DEVICE_KEYS
     global BOOKMARK_ID_COUNTER, FOUNDATION1_LABEL_TARGET
+    global APPROVED_LABELS
     global THESIS_PARAGRAPH_INDEX, THESIS_ANCHOR_POS, THESIS_ALL_DEVICE_KEYS, THESIS_TEXT_LOWER
     global DOC_EXAMPLES, DOC_EXAMPLE_COUNTS, DOC_EXAMPLE_SENT_HASHES
 
@@ -7100,6 +7067,7 @@ def run_marker(
     rules = load_rules(rules_path)
     if ARTICLE_ERROR_LABEL not in rules:
         rules[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_EXPLANATION
+    APPROVED_LABELS = set(rules.keys()) | INLINE_LABEL_ALLOWLIST
     doc = Document(essay_path)
     labels_used = []
 
@@ -7416,11 +7384,37 @@ def run_marker(
                 continue
 
             title_marks = []
+            title_note = "Essay title format"
+
+            def count_quoted_words(quote_text: str) -> int:
+                scrubbed = re.sub(r"\[[^\]]*\]", "", quote_text)
+                return len(re.findall(r"[A-Za-z']+", scrubbed))
+
+            long_title_quote = False
+            for match in re.finditer(r'"([^"]+)"|“([^”]+)”', flat_text):
+                excerpt = match.group(1) if match.group(1) is not None else match.group(2)
+                if count_quoted_words(excerpt.strip()) > 5:
+                    long_title_quote = True
+                    title_marks.append({
+                        "start": match.start(),
+                        "end": match.end(),
+                        "color": WD_COLOR_INDEX.GRAY_25,
+                    })
+
+            if long_title_quote and title_note not in labels_used:
+                anchor_pos = len(flat_text) + 1
+                title_marks.append({
+                    "start": anchor_pos,
+                    "end": anchor_pos,
+                    "note": title_note,
+                    "color": None,
+                    "label": True,
+                })
+                labels_used.append(title_note)
 
             # ------------------------------------
             # Rule A: Essay title format
             # ------------------------------------
-            title_note = "Essay title format"
             m = TITLE_PATTERN.match(title_text)
             m_no_colon = TITLE_PATTERN_NO_COLON.match(title_text)
             topic_too_thin = False
