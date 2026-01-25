@@ -135,7 +135,7 @@
     .metrics-toggle-btn:hover{ background: rgba(0,0,0,.03); }
     .metrics-toggle-btn:active{ transform: translateY(0.5px); }
     .pill-hint-popover{
-      z-index: 95;
+      z-index: 120;
       width: min(360px, calc(100vw - 24px));
       max-width: min(360px, calc(100vw - 24px));
     }
@@ -5244,6 +5244,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function closePillHintPopover() {
       if (!pillHintPopover) return;
       pillHintPopover.classList.add("hidden");
+      pillHintPopover._anchor = null;
     }
 
     function positionPillHintPopover(anchorEl) {
@@ -5284,12 +5285,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
       if (!pillHintPopover || !anchorEl || !key) return;
       if (pillHintWasShown(key)) return;
-      setPillHintShown(key);
 
       if (pillHintTitle) pillHintTitle.textContent = title || "";
       if (pillHintBody) pillHintBody.textContent = body || "";
 
+      pillHintPopover._anchor = anchorEl;
       positionPillHintPopover(anchorEl);
+
+      // Mark as shown only after we actually displayed it
+      setPillHintShown(key);
 
       if (pillHintPopover._timer) clearTimeout(pillHintPopover._timer);
       pillHintPopover._timer = setTimeout(closePillHintPopover, 5200);
@@ -5394,8 +5398,18 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       closePillHintPopover();
     });
 
-    window.addEventListener("resize", closePillHintPopover);
-    window.addEventListener("scroll", closePillHintPopover, true);
+    function repositionPillHintPopover() {
+      if (!pillHintPopover || pillHintPopover.classList.contains("hidden")) return;
+      const anchor = pillHintPopover._anchor;
+      if (!anchor || !anchor.isConnected) {
+        closePillHintPopover();
+        return;
+      }
+      positionPillHintPopover(anchor);
+    }
+
+    window.addEventListener("resize", repositionPillHintPopover);
+    window.addEventListener("scroll", repositionPillHintPopover, true);
 
     async function getMetricsTextSource() {
       const previewText = extractPreviewText();
