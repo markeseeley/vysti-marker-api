@@ -160,6 +160,13 @@
       font-size: 14px;
       line-height: 1;
     }
+
+    /* Thesis device highlight (on-demand, student mode) */
+    .vysti-preview-hit[data-vysti-device="1"]{
+      background: rgba(57, 255, 20, 0.40) !important; /* bright green */
+      border-radius: 2px;
+      padding: 0 1px;
+    }
     @media (max-width: 980px){
       .preview-header-right{
         flex-wrap: wrap;
@@ -3524,22 +3531,47 @@
           dots.appendChild(dot);
         });
 
-        const canInteract = previewReady && failures.length > 0 && bodyIndexes.length > 0 && !disabledNote;
+        const canInteract = previewReady && bodyIndexes.length > 0 && !disabledNote && (kind === "techniques" ? true : failures.length > 0);
         if (!canInteract) {
           pill.disabled = true;
           pill.title = disabledNote || (bodyIndexes.length ? "All set" : "No body paragraphs detected");
         } else {
           pill.title = "Click to jump to the next paragraph";
-          pill.addEventListener("click", () => {
-            const jumpList = failures.length ? failures : [];
+          pill.addEventListener("click", async () => {
+            const jumpList = failures.length ? failures : (kind === "techniques" ? bodyIndexes : []);
             if (!jumpList.length) return;
+
             const idx = varietyJumpIndex[kind] % jumpList.length;
             varietyJumpIndex[kind] = (idx + 1) % jumpList.length;
+
             const paraIndex = jumpList[idx];
             const paraText = paragraphs[paraIndex] || "";
+
             scrollToPreviewHeader();
+
+            const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
+
+            // Techniques: highlight devices instead of sentence-highlighting (avoids nested spans)
+            if (kind === "techniques") {
+              await loadThesisDevicesLexicon();
+              if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return;
+
+              clearPreviewHighlights();
+
+              const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+              if (!blockEl) return;
+
+              blockEl.classList.add("vysti-preview-hit-block");
+              blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+              highlightThesisDevicesInBlock(blockEl);
+              if (markedPreview) markedPreview.focus();
+              return;
+            }
+
+            // Default behavior for other paragraph pills
             const res = highlightAndScrollToExample(
-              { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex },
+              example,
               null,
               { scroll: true, restrictToProse: true }
             );
@@ -8099,6 +8131,160 @@
       highlighted.forEach(el => {
         el.classList.remove("vysti-preview-hit", "vysti-preview-hit-block");
       });
+    }
+
+    function buildDeviceMatchTextMap(rootEl) {
+      if (!rootEl) return { normText: "", posMap: [] };
+
+      const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+      const posMap = [];
+      let normText = "";
+      let lastWasSpace = true;
+
+      let node;
+      while ((node = walker.nextNode())) {
+        // Skip Vysti artifact nodes if available
+        if (typeof isVystiArtifactTextNode === "function" && isVystiArtifactTextNode(node)) continue;
+
+        const txt = node.textContent || "";
+        for (let i = 0; i < txt.length; i += 1) {
+          // Reuse your safe char normalization (quotes/dashes/NBSP/etc.)
+          const normCh = normalizeCharForMatch(txt[i]).toLowerCase();
+
+          const isAlnum = /[a-z0-9]/.test(normCh);
+          if (isAlnum) {
+            normText += normCh;
+            posMap.push({ node, offset: i });
+            lastWasSpace = false;
+          } else {
+            // Treat any non-alnum as a space (matches thesis device normalization style)
+            if (!lastWasSpace && normText.length > 0) {
+              normText += " ";
+              posMap.push({ node, offset: i });
+              lastWasSpace = true;
+            }
+          }
+        }
+      }
+
+      // Trim trailing space
+      while (normText.endsWith(" ")) {
+        normText = normText.slice(0, -1);
+        posMap.pop();
+      }
+
+      return { normText, posMap };
+    }
+
+    function collectDeviceRanges(normText, thesisDevicesLexicon) {
+      const ranges = [];
+      if (!normText || !hasThesisDevicesLexicon(thesisDevicesLexicon)) return ranges;
+
+      const padded = ` ${normText} `;
+      const matchedTerms = new Set();
+
+      // Single-word matches: scan tokens and lookup in the lexicon map
+      const tokens = normText.split(/\s+/).filter(Boolean);
+      const termMap = thesisDevicesLexicon.singleWordTermToCanonical;
+      tokens.forEach((t) => {
+        if (termMap && termMap.has(t)) matchedTerms.add(t);
+      });
+
+      // Phrase matches: same “padded includes” logic as scoring
+      (thesisDevicesLexicon.phraseTermToCanonical || []).forEach(({ phrase }) => {
+        if (!phrase) return;
+        if (padded.includes(` ${phrase} `)) matchedTerms.add(phrase);
+      });
+
+      // Prefer longer terms first to avoid nested/overlapping highlights
+      const termsSorted = Array.from(matchedTerms).sort((a, b) => b.length - a.length);
+
+      const accepted = [];
+      const overlaps = (a, b) => !(a.end < b.start || a.start > b.end);
+
+      termsSorted.forEach((term) => {
+        const pat = ` ${term} `;
+        let from = 0;
+        while (true) {
+          const idx = padded.indexOf(pat, from);
+          if (idx === -1) break;
+
+          const start = idx + 1; // skip leading space in padded
+          const end = start + term.length - 1;
+
+          const candidate = { start, end };
+          if (!accepted.some((r) => overlaps(r, candidate))) {
+            accepted.push(candidate);
+          }
+
+          from = idx + pat.length - 1;
+        }
+      });
+
+      // stable order
+      accepted.sort((a, b) => a.start - b.start);
+      return accepted;
+    }
+
+    function wrapDeviceRanges(posMap, ranges) {
+      if (!Array.isArray(ranges) || ranges.length === 0) return [];
+
+      // Build segments (node + startOffset/endOffset) across all ranges
+      const segments = [];
+      ranges.forEach(({ start, end }) => {
+        let current = null;
+
+        for (let i = start; i <= end; i += 1) {
+          const pos = posMap[i];
+          if (!pos || !pos.node) continue;
+
+          if (!current || current.node !== pos.node || pos.offset !== current.endOffset + 1) {
+            if (current) segments.push(current);
+            current = { node: pos.node, startOffset: pos.offset, endOffset: pos.offset };
+          } else {
+            current.endOffset = pos.offset;
+          }
+        }
+
+        if (current) segments.push(current);
+      });
+
+      if (!segments.length) return [];
+
+      // Group by node and wrap in reverse order per node
+      const nodeToSegments = new Map();
+      segments.forEach((seg) => {
+        if (!nodeToSegments.has(seg.node)) nodeToSegments.set(seg.node, []);
+        nodeToSegments.get(seg.node).push(seg);
+      });
+
+      const created = [];
+
+      for (const [n, segs] of nodeToSegments.entries()) {
+        segs.sort((a, b) => b.endOffset - a.endOffset);
+        segs.forEach((seg) => {
+          const span = wrapTextNodeSubstring(seg.node, seg.startOffset, seg.endOffset);
+          if (span) {
+            span.setAttribute("data-vysti-device", "1");
+            created.push(span);
+          }
+        });
+      }
+
+      return created;
+    }
+
+    function highlightThesisDevicesInBlock(blockEl) {
+      if (!blockEl) return;
+      if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return;
+
+      const { normText, posMap } = buildDeviceMatchTextMap(blockEl);
+      if (!normText || !posMap.length) return;
+
+      const ranges = collectDeviceRanges(normText, thesisDevicesLexicon);
+      wrapDeviceRanges(posMap, ranges);
+
+      if (markedPreview) markedPreview.normalize();
     }
 
     function normalizeCharForMatch(ch) {
