@@ -125,19 +125,28 @@
       align-items: center;
       padding: 0 12px;
       border-radius: 999px;
-      border: 1px solid rgba(0,0,0,14);
+      border: 1px solid rgba(0,0,0,.14);
       background: #fff;
-      color: rgba(0,0,0,75);
+      color: rgba(0,0,0,.75);
       font-size: var(--fs-xs);
       font-weight: 700;
       cursor: pointer;
     }
-    .metrics-toggle-btn:hover{ background: rgba(0,0,0,03); }
+    .metrics-toggle-btn:hover{ background: rgba(0,0,0,.03); }
     .metrics-toggle-btn:active{ transform: translateY(0.5px); }
 
-    /* Collapse all pillboxes/dots under meters, keep meters visible */
+    /* Collapse pillboxes/dots under meters, but keep 100/100 success line visible */
     #metricsGrid.details-collapsed .metric-sub{
-      display:none;
+      display: block;
+      margin-top: 0; /* cleaner when details are hidden */
+    }
+    /* Hide everything in the sub area EXCEPT the star success line */
+    #metricsGrid.details-collapsed .metric-sub > :not(.metric-success){
+      display: none !important;
+    }
+    /* If nothing remains (no success line), remove the empty sub spacing entirely */
+    #metricsGrid.details-collapsed .metric-sub:empty{
+      display: none;
     }
     .preview-pill-btn{
       height: 32px;
