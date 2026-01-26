@@ -3667,13 +3667,41 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               if (!blockEl) return;
 
               blockEl.classList.add("vysti-preview-tech-block");
-              blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
               highlightThesisDevicesInBlock(blockEl);
+
+              // Prefer anchoring AFTER the student title line (e.g., \`"Work": ...\`) if it shares a paragraph via <br>.
+              const deviceSpans = Array.from(
+                blockEl.querySelectorAll("span.vysti-preview-hit[data-vysti-hit='1'][data-vysti-device='1']")
+              );
+
+              let anchor = null;
+
+              if (deviceSpans.length) {
+                anchor = deviceSpans[0];
+
+                const blockTextWithBreaks = extractCleanTextFromElement(blockEl, { preserveLineBreaks: true });
+                const firstLine = (blockTextWithBreaks.split(/\n+/).find((x) => x.trim()) || "").trim();
+                const firstBr = blockEl.querySelector("br");
+
+                if (firstBr && firstLine && isEssayTitleHeaderLine(firstLine)) {
+                  const afterTitle = deviceSpans.find(
+                    (sp) => (firstBr.compareDocumentPosition(sp) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+                  );
+                  if (afterTitle) anchor = afterTitle;
+                }
+              }
+
+              if (!anchor) anchor = blockEl;
+
+              // Scroll to the first detected device (not the title line).
+              if (anchor && anchor.scrollIntoView) {
+                anchor.scrollIntoView({ behavior: "smooth", block: "center" });
+              } else {
+                blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+
               if (markedPreview) markedPreview.focus();
-              const firstDeviceSpan =
-                blockEl.querySelector("span.vysti-preview-hit[data-vysti-device='1']") || null;
-              const anchor = firstDeviceSpan || blockEl;
 
               const deviceSet = getCanonicalDevicesInParagraph(paraText);
               const deviceList = Array.from(deviceSet || [])
@@ -4089,6 +4117,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function looksLikeFrontMatterParagraph(p) {
       const s = String(p || "").trim();
       if (!s) return true;
+
+      if (isEssayTitleHeaderLine(s)) return true;
 
       const wc = wordCount(s);
       const hasEnd = hasSentencePunct(s);
@@ -8450,7 +8480,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return cachedFirstProseBlockIndex;
       }
       for (let i = 0; i < blocks.length; i += 1) {
-        const txt = (blocks[i].innerText || "").trim();
+        const txt = (extractCleanTextFromElement(blocks[i], { preserveLineBreaks: true }) || blocks[i].innerText || "").trim();
         if (!txt) continue;
         if (looksLikeFrontMatterParagraph(txt)) continue;
         if (looksLikeRealProseParagraph(txt)) {
@@ -8518,8 +8548,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       });
     }
 
-    function buildDeviceMatchTextMap(rootEl) {
+    function buildDeviceMatchTextMap(rootEl, opts = {}) {
       if (!rootEl) return { normText: "", posMap: [] };
+
+      const skipBeforeNode = opts && opts.skipBeforeNode ? opts.skipBeforeNode : null;
 
       const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
       const posMap = [];
@@ -8530,6 +8562,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       while ((node = walker.nextNode())) {
         // Skip Vysti artifact nodes if available
         if (typeof isVystiArtifactTextNode === "function" && isVystiArtifactTextNode(node)) continue;
+
+        if (skipBeforeNode && (skipBeforeNode.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) continue;
 
         const txt = node.textContent || "";
         for (let i = 0; i < txt.length; i += 1) {
@@ -8663,7 +8697,18 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (!blockEl) return;
       if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) return;
 
-      const { normText, posMap } = buildDeviceMatchTextMap(blockEl);
+      let mapOpts = {};
+
+      const firstBr = blockEl.querySelector("br");
+      if (firstBr) {
+        const blockTextWithBreaks = extractCleanTextFromElement(blockEl, { preserveLineBreaks: true });
+        const firstLine = (blockTextWithBreaks.split(/\n+/).find((x) => x.trim()) || "").trim();
+        if (firstLine && isEssayTitleHeaderLine(firstLine)) {
+          mapOpts.skipBeforeNode = firstBr;
+        }
+      }
+
+      const { normText, posMap } = buildDeviceMatchTextMap(blockEl, mapOpts);
       if (!normText || !posMap.length) return;
 
       const ranges = collectDeviceRanges(normText, thesisDevicesLexicon);
@@ -8768,38 +8813,60 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     // Helper: Extract clean text from an element, excluding Vysti artifacts
-    function extractCleanTextFromElement(el) {
+    function extractCleanTextFromElement(el, opts = {}) {
       if (!el) return "";
-      
+      const preserveLineBreaks = !!opts.preserveLineBreaks;
+
+      const whatToShow = preserveLineBreaks
+        ? (NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+        : NodeFilter.SHOW_TEXT;
+
       const walker = document.createTreeWalker(
         el,
-        NodeFilter.SHOW_TEXT,
+        whatToShow,
         null
       );
-      
+
       const textParts = [];
       let node;
-      
+
       while ((node = walker.nextNode())) {
+        if (preserveLineBreaks && node.nodeType === Node.ELEMENT_NODE) {
+          if (node.nodeName === "BR") {
+            // Represent <br> as a newline so title lines don't merge into prose.
+            const last = textParts.length ? String(textParts[textParts.length - 1] || "") : "";
+            if (!last.endsWith("\n")) textParts.push("\n");
+          }
+          continue;
+        }
+
+        if (node.nodeType !== Node.TEXT_NODE) continue;
+
         // Skip Vysti artifacts (arrow labels and rewrite-practice tags)
         if (isVystiArtifactTextNode(node)) continue;
-        
+
         const text = node.textContent || "";
         // IMPORTANT: do NOT drop whitespace-only nodes; docx-preview often stores spaces as their own text nodes.
         textParts.push(text);
       }
-      
-      // Concatenate all text parts
+
       let combined = textParts.join("");
-      
-      // Normalize whitespace:
+
+      // Normalize:
       // - Convert NBSP to space
       combined = combined.replace(/\u00A0/g, " ");
-      // - Collapse multiple whitespace to single spaces
-      combined = combined.replace(/\s+/g, " ");
-      // - Trim
-      combined = combined.trim();
-      
+
+      if (preserveLineBreaks) {
+        // Keep line breaks, but clean up spaces around them
+        combined = combined.replace(/[ \t]+\n/g, "\n");
+        combined = combined.replace(/\n[ \t]+/g, "\n");
+        combined = combined.replace(/[ \t]{2,}/g, " ");
+        combined = combined.replace(/\n{3,}/g, "\n\n");
+        combined = combined.trim();
+        return combined;
+      }
+
+      combined = combined.replace(/\s+/g, " ").trim();
       return combined;
     }
 
@@ -9600,7 +9667,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
         // EXTRA SAFETY: filter out header/title blocks even if slicing didn't help
         workingBlocks = workingBlocks.filter((b) => {
-          const txt = (b.innerText || "").trim();
+          const txt = (extractCleanTextFromElement(b, { preserveLineBreaks: true }) || b.innerText || "").trim();
           if (!txt) return false;
           return !looksLikeFrontMatterParagraph(txt);
         });
@@ -9624,7 +9691,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       let globalBestScore = -1;
 
       for (let i = 0; i < workingBlocks.length; i++) {
-        const score = scoreBlockMatch(sentence, workingBlocks[i].innerText || "");
+        const score = scoreBlockMatch(sentence, (extractCleanTextFromElement(workingBlocks[i], { preserveLineBreaks: true }) || workingBlocks[i].innerText || ""));
         if (score > globalBestScore) {
           globalBestScore = score;
           globalBest = workingBlocks[i];
@@ -9654,7 +9721,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         const end = Math.min(workingBlocks.length - 1, base + forward);
 
         for (let i = start; i <= end; i++) {
-          const score = scoreBlockMatch(sentence, workingBlocks[i].innerText || "");
+          const score = scoreBlockMatch(sentence, (extractCleanTextFromElement(workingBlocks[i], { preserveLineBreaks: true }) || workingBlocks[i].innerText || ""));
           candidates.push({ block: workingBlocks[i], score, index: i });
           if (score === 1.0) return workingBlocks[i];
         }
@@ -10834,22 +10901,31 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       for (const el of elements) {
         if (el.closest("table") || el.closest(".docx-table")) continue;
         // Use clean extraction that excludes Vysti artifacts
-        const text = extractCleanTextFromElement(el);
+        const text = extractCleanTextFromElement(el, { preserveLineBreaks: true });
         if (!text) continue;
-        const trimmed = text.trim();
-        if (
-          trimmed === "Issue" ||
-          trimmed === "Explanation" ||
-          trimmed === "Issue Explanation"
-        ) {
-          continue;
+
+        // Split on <br> line breaks so student title lines don't get merged into prose paragraphs.
+        const parts = String(text)
+          .split(/\n+/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (
+            trimmed === "Issue" ||
+            trimmed === "Explanation" ||
+            trimmed === "Issue Explanation"
+          ) {
+            continue;
+          }
+          paragraphs.push(part);
         }
-        paragraphs.push(text);
       }
       
       // If no paragraphs found, try getting all text (also clean)
       if (paragraphs.length === 0) {
-        const allText = extractCleanTextFromElement(markedPreview);
+        const allText = extractCleanTextFromElement(markedPreview, { preserveLineBreaks: true });
         if (allText) {
           return allText;
         }
