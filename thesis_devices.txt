@@ -9,9 +9,9 @@ metaphors,metaphor
 metaphoric,metaphor
 simile,simile
 imagery,imagery
-symbol,symbol
+symbol,symbolism
 symbolism,symbolism
-image,image
+image,imagery
 hyperbole,hyperbole
 personification,personification
 allegorical symbolism,symbolism
@@ -61,7 +61,7 @@ allusion,allusion
 repetition,repetition
 bathos,bathos
 data,data
-statistic,statistic
+statistic,statistics
 statistics,statistics
 hypophora,hypophora
 false dilemma,false dilemma
@@ -84,16 +84,14 @@ slippery slope,slippery slope
 red herring,red herring
 hypothetical situation,hypothetical situations
 hypothetical situations,hypothetical situations
-false dilemma,false dilemma
-false dilemmas,false dilemma
 straw man argument,strawman
 straw man arguments,strawman
 appeal to false authority,appeal to false authority
 appeals to false authority,appeal to false authority
 appeal to the false authority of,appeal to false authority
-appeal to authority,appeal to authority
-appeals to authority,appeal to authority
-appeal to the authority of,appeal to authority
+appeal to authority,appeal
+appeals to authority,appeal
+appeal to the authority of,appeal
 appeal to expert authority,appeal to expert authority
 appeals to expert authority,appeal to expert authority
 appeal to the expert authority of,appeal to expert authority
@@ -111,7 +109,7 @@ false equivalences,false equivalence
 petitio principii,petitio principii
 bandwagon fallacy,bandwagon fallacy
 ad populum,ad populum
-ad Hitlerum,ad Hitlerum
+ad hitlerum,ad hitlerum
 
 # Coordination / sentence-level schemes
 polysyndeton,polysyndeton
@@ -147,26 +145,22 @@ metalepsis,metalepsis
 focalization,focalization
 narrator,narrator
 direct address,direct address
-direct-address,direct address
-character,character
-characters,characters
-characterization,characterization
+characters,character
 
 # Organization / structure / time
 organization,organization
 spatial,spatial
 temporal,temporal
 duration,duration
-plot,plot
 analepsis,analepsis
 prolepsis,prolepsis
 
 # Sentential types & constructions
 exclamatory,exclamatory
 parenthesis,parenthesis
-parenthetical,parenthetical
-parentheticals,parenthetical
-parentheses,parenthetical
+parenthetical,parenthesis
+parentheticals,parenthesis
+parentheses,parenthesis
 conditional,conditional
 modal,modal
 cumulative,cumulative
@@ -182,7 +176,7 @@ hamartia,hamartia
 rebuttal,rebuttal
 counterclaim,counterclaim
 rhetorical question,rhetorical question
-rhetorical questions,rhetorical question  
+rhetorical questions,rhetorical question
 rhetorically questioning,rhetorical question
 rhetorical questioning,rhetorical question
 avoiding the question,avoiding the question
@@ -210,13 +204,13 @@ quantitative,data
 zoomorphic,zoomorphication
 zoomorphism,zoomorphication
 imageries,imagery
-images,image
+images,imagery
 imagistic,imagery
 metaphorical,metaphor
 metaphorically,metaphor
 similes,simile
-symbolic,symbol
-symbolically,symbol
+symbolic,symbolism
+symbolically,symbolism
 allegorical,allegory
 allegorically,allegory
 hyperbolic,hyperbole
@@ -228,7 +222,6 @@ personified,personification
 personifying,personification
 anthropomorphic,personification
 anthropomorphism,personification
-imagistic,imagery
 evocation,imagery
 evocative,imagery
 evocatively,imagery
@@ -338,7 +331,7 @@ limited narrator,focalization
 omniscient narrator,focalization
 free indirect discourse,focalization
 point of view,focalization
-PoV,focalization
+pov,focalization
 structure shift,structure
 framing device,organization
 frame narrative,organization
@@ -347,13 +340,12 @@ linear structure,organization
 nonlinear structure,organization
 flashback,analepsis
 flash-forward,prolepsis
-chronology,temporal
 chronological order,temporal
 in medias res,temporal
 declarative sentence,declarative
 imperative sentence,imperative
 interrogative sentence,interrogative
-exclamatory sentence,exclamation
+exclamatory sentence,exclamatory
 fragment,syntax
 catharsis,peripeteia
 tragic flaw,hamartia
@@ -376,7 +368,6 @@ witty,humor
 dramatic irony,irony
 verbal irony,irony
 situational irony,irony
-appeal to authority,appeal
 appeal to emotion,appeal
 appeal to logic,appeal
 amplification,enumeration
@@ -384,16 +375,15 @@ storyline,plot
 scenery,setting
 background,setting
 visuals,imagery
-picture,image
-pictures,image
-Hyperbolizing,hyperbole
-Hyperbolize,hyperbole
+picture,imagery
+pictures,imagery
+hyperbolizing,hyperbole
+hyperbolize,hyperbole
 # General figurative / imagistic nominalizations
 metaphorization,metaphor
 similization,simile
-symbolization,symbol
+symbolization,symbolism
 allegorization,allegory
-personification (noun already canonical),personification
 anthropomorphization,personification
 
 # Diction / syntax / craft nominalizations
@@ -402,7 +392,6 @@ tonalization,tone
 descriptional,description
 classification system,classification
 enumerative structure,enumeration
-exemplification (already added),exemplification
 narrativization,narration
 
 # Argument / logic nominalizations
@@ -450,7 +439,7 @@ duration shift,duration
 organizational structure,organization
 
 # Sentential nominalizations
-exclamatory construction,exclamation
+exclamatory construction,exclamatory
 parenthetical insertion,parenthesis
 conditional structure,conditional
 modal construction,modal
@@ -460,6 +449,3 @@ peripeteic turn,peripeteia
 anagnoristic moment,anagnorisis
 hubristic action,hubris
 hamartic failure,hamartia
-
-
-
