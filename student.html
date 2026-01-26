@@ -3612,9 +3612,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         structure: "Vysti recommends not beginning too many sentences with an unclarified pronoun (it/this/he/she). Add some variety to your sentence structure with an introductory phrase."
       };
 
-      const bodyIndexes = bodyParagraphIndices.length
-        ? bodyParagraphIndices
-        : Array.from({ length: bodyParagraphCount }, (_, i) => i);
+      const bodyIndexes = Array.isArray(bodyParagraphIndices) ? bodyParagraphIndices : [];
       const noBodyParagraphs = bodyIndexes.length === 0;
 
       subEl.innerHTML = "";
@@ -4145,6 +4143,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (!s) return true;
 
       // Always treat the student essay-title header format as front matter
+      // (used ONLY for the yellow “Essay title format” label, not Variety metrics)
       if (isEssayTitleHeaderLine(s)) return true;
 
       // Reference section headings or bibliography/citation lines
@@ -4176,7 +4175,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const titleCaseCount = toks.filter((t) => /^[A-Z][A-Za-z'’\-]*$/.test(t)).length;
       const titleCaseRatio = toks.length ? titleCaseCount / toks.length : 0;
 
-      // Keep the original short-title heuristics, but extend safely
       const isShortTitleCase = toks.length <= 6 && toks.every((t) => /^[A-Z][a-z]+$/.test(t));
       const isQuotedTitle = /^"[^"]+"\s*:\s*.+/.test(s);
 
@@ -4185,7 +4183,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (isShortTitleCase) return true;
 
       // Extended title detection for longer titles with no sentence punctuation
-      // (prevents titles from becoming "paragraph 0" in metrics)
+      // This is the key fix: long quoted / title-case titles must still be treated as front matter.
       if (wc <= 28) {
         if (hasColon) return true;
         if (hasQuotes && titleCaseRatio >= 0.45) return true;
@@ -4247,12 +4245,16 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         contentIdxs.push(i);
       }
 
+      // No content paragraphs = no body
       if (contentIdxs.length === 0) return [];
 
-      // Single-paragraph mode: treat the only real paragraph as “body”
+      // PEEL / single paragraph mode: the only content paragraph is the body
       if (contentIdxs.length === 1) return [contentIdxs[0]];
 
-      // For 2+ content paragraphs: first is Intro, last is Conclusion — body is the middle only
+      // Two content paragraphs = Intro + Conclusion (no body)
+      if (contentIdxs.length === 2) return [];
+
+      // 3+ content paragraphs: exclude first (Intro) and last (Conclusion)
       return contentIdxs.slice(1, -1);
     }
 
