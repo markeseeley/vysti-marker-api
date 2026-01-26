@@ -3716,11 +3716,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               if (!anchor) anchor = blockEl;
 
               // Scroll to the first detected device (not the title line).
-              if (anchor && anchor.scrollIntoView) {
-                anchor.scrollIntoView({ behavior: "smooth", block: "center" });
-              } else {
-                blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
+              const scrollTarget = anchor || blockEl;
+              requestAnimationFrame(() => scrollMarkedPreviewToElement(scrollTarget, { behavior: "smooth", center: true }));
 
               if (markedPreview) markedPreview.focus();
 
@@ -3751,7 +3748,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (!blockEl) return;
 
             blockEl.classList.add("vysti-preview-variety-block");
-            blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => scrollMarkedPreviewToElement(blockEl, { behavior: "smooth", center: true }));
 
             const previewAnchor = blockEl;
 
@@ -3869,7 +3866,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           if (!blockEl) return;
 
           blockEl.classList.add("vysti-preview-variety-block");
-          blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          requestAnimationFrame(() => scrollMarkedPreviewToElement(blockEl, { behavior: "smooth", center: true }));
 
           showPillHint(blockEl, {
             title: "Development",
@@ -7462,6 +7459,44 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const offset = (topbar ? topbar.getBoundingClientRect().height : 0) + 12;
       const y = header.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top: y, behavior: "smooth" });
+    }
+
+    function scrollMarkedPreviewToElement(targetEl, { behavior = "smooth", center = true } = {}) {
+      if (!targetEl) return;
+
+      const container = markedPreview || document.getElementById("markedPreview");
+      const card = markedPreviewCard || document.getElementById("markedPreviewCard");
+
+      // Ensure the Preview card is on-screen (page scroll), but DO NOT rely on it for the inner scroll.
+      if (card) {
+        const rect = card.getBoundingClientRect();
+        const outOfView = rect.top < 0 || rect.bottom > window.innerHeight;
+        if (outOfView && card.scrollIntoView) {
+          card.scrollIntoView({ behavior, block: "start" });
+        }
+      }
+
+      if (!container || !container.contains(targetEl)) {
+        // Fallback: if somehow not inside #markedPreview
+        if (targetEl.scrollIntoView) targetEl.scrollIntoView({ behavior, block: "center" });
+        return;
+      }
+
+      const cRect = container.getBoundingClientRect();
+      const tRect = targetEl.getBoundingClientRect();
+
+      // Convert viewport coords to container scroll coords
+      const current = container.scrollTop;
+      const topInContainer = (tRect.top - cRect.top) + current;
+
+      const targetTop = center
+        ? topInContainer - (container.clientHeight / 2) + (tRect.height / 2)
+        : topInContainer - 24;
+
+      const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      const nextTop = Math.max(0, Math.min(targetTop, maxTop));
+
+      container.scrollTo({ top: nextTop, behavior });
     }
 
     function canonicalizePreviewLabel(label) {
