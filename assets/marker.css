@@ -1090,10 +1090,17 @@ span.vysti-preview-hit[data-vysti-hit="1"]{
   font-family: inherit !important;
 }
 
-/* Brand-outline variant: keep blue fill, add maroon outline */
+/* Meter-pill highlight: maroon outline only (no blue wash) */
 span.vysti-preview-hit[data-vysti-hit="1"].vysti-hit-brand{
-  box-shadow:
-    inset 0 0 0 1px rgba(169, 13, 34, 0.65) !important;
+  background: transparent !important;
+  box-shadow: inset 0 0 0 2px rgba(169,13,34,.55) !important;
+  border-radius: 4px !important;
+  padding: 0 1px;
+
+  /* Keep typography inherited */
+  color: inherit !important;
+  font-weight: inherit !important;
+  font-family: inherit !important;
 }
 
 /* “cursor highlight” class should look identical */
@@ -1202,6 +1209,14 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
 .metric-popover{
   width: min(420px, calc(100vw - 24px));
   z-index: 90;
+}
+.pill-hint-popover{
+  z-index: 130; /* ensure it sits above everything */
+}
+.pill-hint-footer{
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 .metric-popover .tour-title{
   margin-bottom: 8px;
