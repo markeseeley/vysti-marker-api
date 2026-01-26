@@ -197,6 +197,15 @@
       box-shadow: 0 0 0 5px var(--tech-block-ring);
     }
 
+    /* Variety (Evidence/Development/Structure): paragraph focus style */
+    .vysti-preview-variety-block{
+      background: transparent !important;
+      outline: 2px solid var(--maroon) !important;
+      outline-offset: 3px;
+      border-radius: 8px !important;
+      box-shadow: 0 0 0 5px rgba(169, 13, 34, .18);
+    }
+
     /* Techniques: device hits (override generic blue hit styling) */
 span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       background: var(--tech-device-bg) !important;
@@ -3655,27 +3664,30 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               return;
             }
 
-            const shortQuotes = kind === "evidence" ? countShortQuotesInParagraph(paraText) : 0;
+            // Evidence (and other Variety paragraph-guidance): outline the whole paragraph
+            clearPreviewHighlights();
 
-            // Default behavior for other paragraph pills
-            const res = highlightAndScrollToExample(
-              example,
-              null,
-              { scroll: true, restrictToProse: true, select: false }
-            );
-            if (res?.hits?.length) {
-              res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
-            }
-            const previewAnchor = res?.hits?.[0] || res?.blockEl || markedPreview;
+            const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+            if (!blockEl) return;
+
+            blockEl.classList.add("vysti-preview-variety-block");
+            blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+            const previewAnchor = blockEl;
+
             if (kind === "evidence") {
+              const shortQuotes = countShortQuotesInParagraph(paraText);
+
               showPillHintOnce(previewAnchor, "variety_evidence", {
                 title: "Evidence",
                 body: shortQuotes >= 2
-                  ? "Good - you have 2+ short quotes here. Click again to check the next paragraph."
-                  : "Either your quotations are too long or you need more contextualized evidence.",
+                  ? "This paragraph has sufficiently integrated evidence. Click again to check the next paragraph."
+                  : "This paragraph needs better integrated evidence. Add a few short quotations and and contextualize them.",
                 step: "Variety • Evidence"
               });
             }
+
+            if (markedPreview) markedPreview.focus();
           });
         }
 
@@ -3755,28 +3767,33 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         developmentPill.addEventListener("click", () => {
           const jumpList = undevelopedParagraphs.length ? undevelopedParagraphs : [];
           if (!jumpList.length) return;
+
           const idx = varietyJumpIndex.development % jumpList.length;
           varietyJumpIndex.development = (idx + 1) % jumpList.length;
+
           const paraIndex = jumpList[idx];
           const paraText = paragraphs[paraIndex] || "";
           const sentenceCount = splitSentencesSimple(paraText).length;
+
           scrollToPreviewHeader();
-          const res = highlightAndScrollToExample(
-            { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex },
-            null,
-            { scroll: true, restrictToProse: true, select: false }
-          );
-          if (res?.hits?.length) {
-            res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
-          }
-          const previewAnchor = res?.hits?.[0] || res?.blockEl || markedPreview;
-          showPillHintOnce(previewAnchor, "variety_development", {
+          clearPreviewHighlights();
+
+          const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
+          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+          if (!blockEl) return;
+
+          blockEl.classList.add("vysti-preview-variety-block");
+          blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+          showPillHintOnce(blockEl, "variety_development", {
             title: "Development",
             body: sentenceCount >= 4
-              ? "This paragraph is developed (4+ sentences). Click again to check the next paragraph."
-              : "Try to expand on the ideas in this paragraph.",
+              ? "This paragraph is sufficiently developed. Click again to check the next paragraph."
+              : "This paragraph needs more development. Try to write a few more sentences and perhaps add some more evidence.",
             step: "Variety • Development"
           });
+
+          if (markedPreview) markedPreview.focus();
         });
       }
 
@@ -3789,28 +3806,34 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (structurePill && !structurePill.disabled) {
         structurePill.addEventListener("click", () => {
           if (!weakStartSentences.length) return;
+
           const idx = varietyJumpIndex.structure % weakStartSentences.length;
           varietyJumpIndex.structure = (idx + 1) % weakStartSentences.length;
+
           const target = weakStartSentences[idx];
           if (!target) return;
+
           const starter = getSentenceStarterWord(target.sentence || "");
           scrollToPreviewHeader();
-          const res = highlightAndScrollToExample(
-            { sentence: target.sentence, paragraph_index: target.paragraph_index },
-            null,
-            { scroll: true, restrictToProse: true, select: false }
-          );
-          if (res?.hits?.length) {
-            res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
-          }
-          const previewAnchor = res?.hits?.[0] || res?.blockEl || markedPreview;
-          showPillHintOnce(previewAnchor, "variety_structure", {
+          clearPreviewHighlights();
+
+          // Anchor to the paragraph that contains the weak start
+          const example = { sentence: target.sentence, paragraph_index: target.paragraph_index };
+          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+          if (!blockEl) return;
+
+          blockEl.classList.add("vysti-preview-variety-block");
+          blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+          showPillHintOnce(blockEl, "variety_structure", {
             title: "Structure",
             body: starter
-              ? `This sentence probably begins with a pronoun ("${starter} ..."). Try to improve on the structure of this sentence.`
-              : "This sentence probably begins with a pronoun. Try to improve on the structure of this sentence.",
+              ? `This paragraph opens weakly (“${starter} …”). Rewrite the opening so it starts with a concrete noun + strong verb.`
+              : "This paragraph opens weakly. Rewrite the opening so it starts with a concrete noun + strong verb.",
             step: "Variety • Structure"
           });
+
+          if (markedPreview) markedPreview.focus();
         });
       }
 
@@ -8399,10 +8422,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       
       // Remove classes from any elements
       const highlighted = markedPreview.querySelectorAll(
-        ".vysti-preview-hit, .vysti-preview-hit-block, .vysti-preview-tech-block"
+        ".vysti-preview-hit, .vysti-preview-hit-block, .vysti-preview-tech-block, .vysti-preview-variety-block"
       );
       highlighted.forEach(el => {
-        el.classList.remove("vysti-preview-hit", "vysti-preview-hit-block", "vysti-preview-tech-block");
+        el.classList.remove(
+          "vysti-preview-hit",
+          "vysti-preview-hit-block",
+          "vysti-preview-tech-block",
+          "vysti-preview-variety-block"
+        );
       });
     }
 
