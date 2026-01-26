@@ -5,6 +5,8 @@
 
 # Core figurative / imagistic devices
 metaphor,metaphor
+metaphors,metaphor
+metaphoric,metaphor
 simile,simile
 imagery,imagery
 symbol,symbol
@@ -16,6 +18,9 @@ allegorical symbolism,symbolism
 allegory,allegory
 zoomorphication,zoomorphication
 antithesis,antithesis
+antitheses,antithesis
+antithetical,antithesis
+antithetically,antithesis
 setting,setting
 action,action
 plot,plot
@@ -43,6 +48,9 @@ story,story
 definition,definition
 comparison,comparison
 contrast,contrast
+contrasts,contrast
+contrasted,contrast
+contrasting,contrast
 imperative,imperative
 declarative,declarative
 hortative,hortative
@@ -138,6 +146,8 @@ metalepsis,metalepsis
 # Pronouns / address / discourse
 focalization,focalization
 narrator,narrator
+direct address,direct address
+direct-address,direct address
 character,character
 characters,characters
 characterization,characterization
@@ -193,6 +203,7 @@ interviews,quotation
 interviewed,quotation
 describe,description
 describes,description
+described,description
 describing,description
 statistical,data
 quantitative,data
@@ -229,12 +240,12 @@ olfactory imagery,imagery
 gustatory imagery,imagery
 motif,motif
 motifs,motif
-juxtaposition,antithesis
+juxtaposition,juxtaposition
 antithetical oppositions,antithesis
-juxtapose,antithesis
-juxtaposes,antithesis
-juxtaposed,antithesis
-juxtaposing,antithesis
+juxtapose,juxtaposition
+juxtaposes,juxtaposition
+juxtaposed,juxtaposition
+juxtaposing,juxtaposition
 word choice,diction
 sentence structure,syntax
 tone shift,tone
@@ -313,6 +324,16 @@ technical language,jargon
 first-person,focalization
 second-person,focalization
 third-person,focalization
+directly address,direct address
+directly addresses,direct address
+directly addressing,direct address
+address the reader,direct address
+addresses the reader,direct address
+addressing the reader,direct address
+addresses the audience,direct address
+addressing the audience,direct address
+speaks to the reader,direct address
+speaking to the reader,direct address
 limited narrator,focalization
 omniscient narrator,focalization
 free indirect discourse,focalization
