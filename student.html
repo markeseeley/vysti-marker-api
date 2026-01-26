@@ -71,6 +71,24 @@
     .marked-preview-card {
       margin-top: 24px;
       grid-column: 1 / -1;
+      position: relative;
+    }
+    .preview-hint-dock {
+      position: absolute;
+      top: 68px;
+      left: 16px;
+      z-index: 50;
+      width: 360px;
+      max-width: calc(100% - 32px);
+      pointer-events: none;
+    }
+    .preview-hint-dock .tour-popover {
+      position: relative;
+      top: auto;
+      left: auto;
+    }
+    .preview-hint-dock .hint-card {
+      pointer-events: auto;
     }
     .preview-header {
       display: flex;
@@ -1074,6 +1092,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           </div>
         </div>
       </div>
+      <div id="previewHintDock" class="preview-hint-dock" aria-live="polite"></div>
       <div id="markedPreview" class="marked-preview-container"></div>
 
       <!-- Recheck moved here: centered under Preview + styled like primary button -->
@@ -3668,8 +3687,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (kind === "techniques") {
               await loadThesisDevicesLexicon();
               if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
-                const fallbackAnchor = markedPreview || pill;
-                showPillHint(fallbackAnchor, {
+                clearPinnedPreviewHint();
+                showPinnedPreviewHint({
                   title: "Techniques",
                   body: "Device list unavailable. Please refresh and try again."
                 });
@@ -3687,19 +3706,16 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
               if (!blockEl) return;
 
-            blockEl.classList.add("vysti-preview-tech-block");
+              blockEl.classList.add("vysti-preview-tech-block");
 
-            // Finalize DOM (spans) BEFORE calculating scroll
-            highlightThesisDevicesInBlock(blockEl);
+              // Finalize DOM (spans) BEFORE calculating scroll
+              highlightThesisDevicesInBlock(blockEl);
 
-            const firstDeviceSpan =
-              blockEl.querySelector("span.vysti-preview-hit[data-vysti-device='1']") || null;
-            const anchor = firstDeviceSpan || blockEl;
+              // Jump so the PARAGRAPH top hits the top of #markedPreview (not centered)
+              clearPinnedPreviewHint();
+              scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
 
-            // Jump so the PARAGRAPH top hits the top of #markedPreview (not centered)
-            scrollMarkedPreviewBlockToTop(blockEl, { behavior: "auto", extraOffsetPx: 0 });
-
-            if (markedPreview) markedPreview.focus();
+              if (markedPreview) markedPreview.focus();
 
               const deviceSet = getCanonicalDevicesInParagraph(paraText);
               const deviceList = Array.from(deviceSet || [])
@@ -3711,15 +3727,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 : "Current techniques: (none detected)";
 
               // Show guidance EVERY click while unresolved (i.e., while there are technique failures)
-            if (techniqueFailures.length > 0) {
-              requestAnimationFrame(() => {
-                showPillHint(anchor, {
+              if (techniqueFailures.length > 0) {
+                showPinnedPreviewHint({
                   title: "Techniques",
                   body: VARIETY_TIPS.techniques,
                   subheader
                 });
-              });
-            }
+              }
               return;
             }
 
@@ -3730,25 +3744,20 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (!blockEl) return;
 
             blockEl.classList.add("vysti-preview-variety-block");
-            scrollMarkedPreviewBlockToTop(blockEl, { behavior: "auto", extraOffsetPx: 0 });
-
-            const previewAnchor = blockEl;
+            clearPinnedPreviewHint();
+            scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
 
             if (kind === "evidence") {
-              requestAnimationFrame(() => {
-                showPillHint(previewAnchor, {
-                  title: "Evidence",
-                  body: VARIETY_TIPS.evidence
-                });
+              showPinnedPreviewHint({
+                title: "Evidence",
+                body: VARIETY_TIPS.evidence
               });
             }
 
             if (kind === "structure") {
-              requestAnimationFrame(() => {
-                showPillHint(previewAnchor, {
-                  title: "Structure",
-                  body: VARIETY_TIPS.structure
-                });
+              showPinnedPreviewHint({
+                title: "Structure",
+                body: VARIETY_TIPS.structure
               });
             }
 
@@ -3853,13 +3862,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           if (!blockEl) return;
 
           blockEl.classList.add("vysti-preview-variety-block");
-          scrollMarkedPreviewBlockToTop(blockEl, { behavior: "auto", extraOffsetPx: 0 });
-
-          requestAnimationFrame(() => {
-            showPillHint(blockEl, {
-              title: "Development",
-              body: VARIETY_TIPS.development
-            });
+          clearPinnedPreviewHint();
+          scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
+          showPinnedPreviewHint({
+            title: "Development",
+            body: VARIETY_TIPS.development
           });
 
           if (markedPreview) markedPreview.focus();
@@ -5466,6 +5473,68 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       pillHintPopover.style.visibility = "visible";
       return true;
+    }
+
+    function clearPinnedPreviewHint() {
+      const dock = document.getElementById("previewHintDock");
+      if (!dock) return;
+      dock.innerHTML = "";
+    }
+
+    function showPinnedPreviewHint({ title = "", body = "", subheader = "" } = {}) {
+      const dock = document.getElementById("previewHintDock");
+      if (!dock) return;
+
+      dock.innerHTML = "";
+
+      const card = document.createElement("div");
+      card.className = "tour-popover pill-hint-popover hint-card";
+      card.setAttribute("role", "dialog");
+      card.setAttribute("aria-modal", "false");
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "tour-close";
+      closeBtn.setAttribute("aria-label", "Close");
+      closeBtn.textContent = "×";
+      closeBtn.addEventListener("click", clearPinnedPreviewHint);
+
+      const hTitle = document.createElement("div");
+      hTitle.className = "tour-title";
+      hTitle.textContent = title || "";
+
+      const p = document.createElement("div");
+      p.className = "tour-body";
+      p.textContent = body || "";
+
+      const sub = document.createElement("div");
+      sub.className = "pill-hint-subheader";
+      const subText = String(subheader || "").trim();
+      if (subText) {
+        sub.textContent = subText;
+        sub.classList.remove("hidden");
+      } else {
+        sub.textContent = "";
+        sub.classList.add("hidden");
+      }
+
+      const footer = document.createElement("div");
+      footer.className = "pill-hint-footer";
+
+      const gotIt = document.createElement("button");
+      gotIt.type = "button";
+      gotIt.className = "tour-primary-btn";
+      gotIt.textContent = "Got it";
+      gotIt.addEventListener("click", clearPinnedPreviewHint);
+
+      footer.appendChild(gotIt);
+      card.appendChild(closeBtn);
+      card.appendChild(hTitle);
+      card.appendChild(p);
+      card.appendChild(sub);
+      card.appendChild(footer);
+
+      dock.appendChild(card);
     }
 
     function showPillHint(anchorEl, { title = "", body = "", subheader = "" } = {}) {
@@ -7454,6 +7523,44 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       const behavior = (opts && opts.behavior) ? opts.behavior : "smooth";
       window.scrollTo({ top: y, behavior });
+    }
+
+    function scrollPreviewBlockToTop(
+      blockEl,
+      { padding = 14, smooth = true, duration = 260 } = {}
+    ) {
+      const container = document.getElementById("markedPreview");
+      if (!container || !blockEl) return;
+
+      const cRect = container.getBoundingClientRect();
+      const bRect = blockEl.getBoundingClientRect();
+
+      const padTop = parseFloat(getComputedStyle(container).paddingTop) || 0;
+      const current = container.scrollTop;
+      const topInContainer = (bRect.top - cRect.top) + current;
+
+      const targetTop = Math.max(0, topInContainer - padTop - padding);
+
+      if (!smooth) {
+        container.scrollTop = targetTop;
+        return;
+      }
+
+      const startTop = container.scrollTop;
+      const delta = targetTop - startTop;
+      const startTime = performance.now();
+
+      function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
+
+      function tick(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        container.scrollTop = startTop + delta * easeInOutCubic(t);
+        if (t < 1) requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
     }
 
     function scrollMarkedPreviewBlockToTop(blockEl, opts = {}) {
