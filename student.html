@@ -3568,7 +3568,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const undevelopedParagraphs = Array.isArray(details.undevelopedParagraphs) ? details.undevelopedParagraphs : [];
       const weakStartSentences = Array.isArray(details.weakStartSentences) ? details.weakStartSentences : [];
       const weakStartCount = Number(details.weakStartCount) || weakStartSentences.length;
+      const structureFailures = Array.isArray(details.structureFailures) ? details.structureFailures : [];
       const techniquesUnavailable = !!details.techniquesUnavailable;
+
+      const VARIETY_TIPS = {
+        techniques: "Vysti recommends that body paragraphs reference at least three unique literary or rhetorical techniques.",
+        evidence: "Check your quotations to be sure they are contextualized, less than five words, and sufficiently explained.",
+        development: "This paragraph appears undeveloped. Add a few more sentences to expand on your ideas.",
+        structure: "Vysti recommends not beginning too many sentences with an unclarified pronoun (it/this/he/she). Add some variety to your sentence structure with an introductory phrase."
+      };
 
       const bodyIndexes = bodyParagraphIndices.length
         ? bodyParagraphIndices
@@ -3628,10 +3636,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               await loadThesisDevicesLexicon();
               if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
                 const fallbackAnchor = markedPreview || pill;
-                showPillHintOnce(fallbackAnchor, "variety_techniques", {
+                showPillHint(fallbackAnchor, {
                   title: "Techniques",
-                  body: "Device list unavailable. Please refresh and try again.",
-                  step: "Variety • Techniques"
+                  body: "Device list unavailable. Please refresh and try again."
                 });
                 return;
               }
@@ -3654,13 +3661,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               if (markedPreview) markedPreview.focus();
               const deviceSpans = blockEl.querySelectorAll("span.vysti-preview-hit[data-vysti-device='1']");
               const anchor = deviceSpans.length ? deviceSpans[0] : blockEl;
-              showPillHintOnce(anchor, "variety_techniques", {
-                title: "Techniques",
-                body: deviceCount >= 3
-                  ? "Nice - this paragraph already has 3+ techniques. Click again to check the next paragraph."
-                  : `You have ${deviceCount} technique${deviceCount === 1 ? "" : "s"} here. Aim for 3+ unique techniques in this paragraph.`,
-                step: "Variety • Techniques"
-              });
+              // Show guidance EVERY click while unresolved (i.e., while there are technique failures)
+              if (techniqueFailures.length > 0) {
+                showPillHint(anchor, {
+                  title: "Techniques",
+                  body: VARIETY_TIPS.techniques
+                });
+              }
               return;
             }
 
@@ -3676,14 +3683,16 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             const previewAnchor = blockEl;
 
             if (kind === "evidence") {
-              const shortQuotes = countShortQuotesInParagraph(paraText);
-
-              showPillHintOnce(previewAnchor, "variety_evidence", {
+              showPillHint(previewAnchor, {
                 title: "Evidence",
-                body: shortQuotes >= 2
-                  ? "This paragraph has sufficiently integrated evidence. Click again to check the next paragraph."
-                  : "This paragraph needs better integrated evidence. Add a few short quotations and and contextualize them.",
-                step: "Variety • Evidence"
+                body: VARIETY_TIPS.evidence
+              });
+            }
+
+            if (kind === "structure") {
+              showPillHint(previewAnchor, {
+                title: "Structure",
+                body: VARIETY_TIPS.structure
               });
             }
 
@@ -3757,6 +3766,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         kind: "evidence"
       });
 
+      addParagraphQuestRow({
+        label: "Structure",
+        failures: structureFailures,
+        kind: "structure",
+        pillClass: "weak"
+      });
+
       const developmentPill = addIssueQuestRow({
         label: "Development",
         count: undevelopedParagraphs.length,
@@ -3773,7 +3789,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           const paraIndex = jumpList[idx];
           const paraText = paragraphs[paraIndex] || "";
-          const sentenceCount = splitSentencesSimple(paraText).length;
 
           scrollToPreviewHeader();
           clearPreviewHighlights();
@@ -3785,52 +3800,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           blockEl.classList.add("vysti-preview-variety-block");
           blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
-          showPillHintOnce(blockEl, "variety_development", {
+          showPillHint(blockEl, {
             title: "Development",
-            body: sentenceCount >= 4
-              ? "This paragraph is sufficiently developed. Click again to check the next paragraph."
-              : "This paragraph needs more development. Try to write a few more sentences and perhaps add some more evidence.",
-            step: "Variety • Development"
-          });
-
-          if (markedPreview) markedPreview.focus();
-        });
-      }
-
-      const structurePill = addIssueQuestRow({
-        label: "Structure",
-        count: weakStartCount,
-        emptyTitle: "No weak starts detected",
-        activeTitle: "Click to jump to a weak sentence start"
-      });
-      if (structurePill && !structurePill.disabled) {
-        structurePill.addEventListener("click", () => {
-          if (!weakStartSentences.length) return;
-
-          const idx = varietyJumpIndex.structure % weakStartSentences.length;
-          varietyJumpIndex.structure = (idx + 1) % weakStartSentences.length;
-
-          const target = weakStartSentences[idx];
-          if (!target) return;
-
-          const starter = getSentenceStarterWord(target.sentence || "");
-          scrollToPreviewHeader();
-          clearPreviewHighlights();
-
-          // Anchor to the paragraph that contains the weak start
-          const example = { sentence: target.sentence, paragraph_index: target.paragraph_index };
-          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
-          if (!blockEl) return;
-
-          blockEl.classList.add("vysti-preview-variety-block");
-          blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
-
-          showPillHintOnce(blockEl, "variety_structure", {
-            title: "Structure",
-            body: starter
-              ? `This paragraph opens weakly (“${starter} …”). Rewrite the opening so it starts with a concrete noun + strong verb.`
-              : "This paragraph opens weakly. Rewrite the opening so it starts with a concrete noun + strong verb.",
-            step: "Variety • Structure"
+            body: VARIETY_TIPS.development
           });
 
           if (markedPreview) markedPreview.focus();
@@ -5099,20 +5071,31 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         techniqueOkCount = bodyParagraphCount;
       }
 
-      paragraphSentences.forEach((sentenceList, paraIndex) => {
+      const structureFailures = [];
+      let structureOkCount = 0;
+
+      bodyParagraphIndices.forEach((paraIndex) => {
+        const sentenceList = paragraphSentences[paraIndex] || [];
+        let weakInPara = 0;
+
         sentenceList.forEach((sentence) => {
           const starter = getSentenceStarterWord(sentence);
           if (starter && WEAK_STARTERS.has(starter)) {
+            weakInPara += 1;
             weakStartCount += 1;
             weakStartSentences.push({ sentence, paragraph_index: paraIndex });
           }
         });
+
+        // NEW RULE: only count off if more than 1 weak pronoun start in a body paragraph
+        if (weakInPara > 1) structureFailures.push(paraIndex);
+        else structureOkCount += 1;
       });
 
       const techRatio = bodyParagraphCount ? (techniqueOkCount / bodyParagraphCount) : 1;
       const evidenceRatio = bodyParagraphCount ? (evidenceOkCount / bodyParagraphCount) : 1;
       const devRatio = bodyParagraphCount ? (1 - (undevelopedCount / bodyParagraphCount)) : 1;
-      const structureRatio = totalSentenceCount ? (1 - (weakStartCount / totalSentenceCount)) : 1;
+      const structureRatio = bodyParagraphCount ? (structureOkCount / bodyParagraphCount) : 1;
       const varietyScore = clamp(
         Math.round(100 * (0.35 * techRatio + 0.35 * evidenceRatio + 0.20 * devRatio + 0.10 * structureRatio)),
         0,
@@ -5190,6 +5173,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             evidenceFailures,
             undevelopedCount,
             undevelopedParagraphs,
+            structureOkCount,
+            structureFailures,
             weakStartCount,
             weakStartSentences,
             totalSentenceCount,
@@ -5350,6 +5335,28 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       pillHintPopover.style.visibility = "visible";
       return true;
+    }
+
+    function showPillHint(anchorEl, { title = "", body = "" } = {}) {
+      if (!pillHintPopover || !anchorEl) return;
+
+      if (pillHintTitle) pillHintTitle.textContent = title || "";
+      if (pillHintBody) pillHintBody.textContent = body || "";
+
+      // IMPORTANT: this is the "always show" variant — do not set pillHintActiveKey,
+      // so closing does NOT write to sessionStorage.
+      pillHintActiveKey = null;
+
+      pillHintAnchorEl = anchorEl;
+      pillHintPopover._anchor = anchorEl;
+
+      const positioned = positionPillHintPopover(anchorEl);
+      if (!positioned) return;
+
+      requestAnimationFrame(() => {
+        positionPillHintPopover(anchorEl);
+        setTimeout(() => positionPillHintPopover(anchorEl), 350);
+      });
     }
 
     function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
