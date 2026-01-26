@@ -3664,6 +3664,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
             const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
 
+            scrollToPreviewHeader({ behavior: "auto" });
+
             // Techniques: highlight devices instead of sentence-highlighting (avoids nested spans)
             if (kind === "techniques") {
               await loadThesisDevicesLexicon();
@@ -3687,40 +3689,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
               if (!blockEl) return;
 
-              blockEl.classList.add("vysti-preview-tech-block");
+            blockEl.classList.add("vysti-preview-tech-block");
 
-              highlightThesisDevicesInBlock(blockEl);
+            // Finalize DOM (spans) BEFORE calculating scroll
+            highlightThesisDevicesInBlock(blockEl);
 
-              // Prefer anchoring AFTER the student title line (e.g., \`"Work": ...\`) if it shares a paragraph via <br>.
-              const deviceSpans = Array.from(
-                blockEl.querySelectorAll("span.vysti-preview-hit[data-vysti-hit='1'][data-vysti-device='1']")
-              );
+            const firstDeviceSpan =
+              blockEl.querySelector("span.vysti-preview-hit[data-vysti-device='1']") || null;
+            const anchor = firstDeviceSpan || blockEl;
 
-              let anchor = null;
+            // Jump so the PARAGRAPH top hits the top of #markedPreview (not centered)
+            scrollMarkedPreviewBlockToTop(blockEl, { behavior: "auto", extraOffsetPx: 0 });
 
-              if (deviceSpans.length) {
-                anchor = deviceSpans[0];
-
-                const blockTextWithBreaks = extractCleanTextFromElement(blockEl, { preserveLineBreaks: true });
-                const firstLine = (blockTextWithBreaks.split(/\n+/).find((x) => x.trim()) || "").trim();
-                const firstBr = blockEl.querySelector("br");
-
-                if (firstBr && firstLine && isEssayTitleHeaderLine(firstLine)) {
-                  const afterTitle = deviceSpans.find(
-                    (sp) => (firstBr.compareDocumentPosition(sp) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
-                  );
-                  if (afterTitle) anchor = afterTitle;
-                }
-              }
-
-              if (!anchor) anchor = blockEl;
-
-              // Scroll to the paragraph block (not the device span).
-              requestAnimationFrame(() =>
-                blockEl.scrollIntoView({ behavior: "smooth", block: "start" })
-              );
-
-              if (markedPreview) markedPreview.focus();
+            if (markedPreview) markedPreview.focus();
 
               const deviceSet = getCanonicalDevicesInParagraph(paraText);
               const deviceList = Array.from(deviceSet || [])
@@ -3732,13 +3713,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 : "Current techniques: (none detected)";
 
               // Show guidance EVERY click while unresolved (i.e., while there are technique failures)
-              if (techniqueFailures.length > 0) {
+            if (techniqueFailures.length > 0) {
+              requestAnimationFrame(() => {
                 showPillHint(anchor, {
                   title: "Techniques",
                   body: VARIETY_TIPS.techniques,
                   subheader
                 });
-              }
+              });
+            }
               return;
             }
 
@@ -3749,23 +3732,25 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (!blockEl) return;
 
             blockEl.classList.add("vysti-preview-variety-block");
-            requestAnimationFrame(() =>
-              blockEl.scrollIntoView({ behavior: "smooth", block: "start" })
-            );
+            scrollMarkedPreviewBlockToTop(blockEl, { behavior: "auto", extraOffsetPx: 0 });
 
             const previewAnchor = blockEl;
 
             if (kind === "evidence") {
-              showPillHint(previewAnchor, {
-                title: "Evidence",
-                body: VARIETY_TIPS.evidence
+              requestAnimationFrame(() => {
+                showPillHint(previewAnchor, {
+                  title: "Evidence",
+                  body: VARIETY_TIPS.evidence
+                });
               });
             }
 
             if (kind === "structure") {
-              showPillHint(previewAnchor, {
-                title: "Structure",
-                body: VARIETY_TIPS.structure
+              requestAnimationFrame(() => {
+                showPillHint(previewAnchor, {
+                  title: "Structure",
+                  body: VARIETY_TIPS.structure
+                });
               });
             }
 
@@ -3862,6 +3847,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           const paraIndex = jumpList[idx];
           const paraText = paragraphs[paraIndex] || "";
+          scrollToPreviewHeader({ behavior: "auto" });
           clearPreviewHighlights();
 
           const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
@@ -3869,13 +3855,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           if (!blockEl) return;
 
           blockEl.classList.add("vysti-preview-variety-block");
-          requestAnimationFrame(() =>
-            blockEl.scrollIntoView({ behavior: "smooth", block: "start" })
-          );
+          scrollMarkedPreviewBlockToTop(blockEl, { behavior: "auto", extraOffsetPx: 0 });
 
-          showPillHint(blockEl, {
-            title: "Development",
-            body: VARIETY_TIPS.development
+          requestAnimationFrame(() => {
+            showPillHint(blockEl, {
+              title: "Development",
+              body: VARIETY_TIPS.development
+            });
           });
 
           if (markedPreview) markedPreview.focus();
@@ -7457,13 +7443,33 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       window.scrollTo({ top: y, behavior: "smooth" });
     }
 
-    function scrollToPreviewHeader() {
+    function scrollToPreviewHeader(opts = {}) {
       const header = document.querySelector("#markedPreviewCard .preview-header");
       if (!header) return;
       const topbar = document.querySelector(".topbar");
       const offset = (topbar ? topbar.getBoundingClientRect().height : 0) + 12;
       const y = header.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top: y, behavior: "smooth" });
+
+      const behavior = (opts && opts.behavior) ? opts.behavior : "smooth";
+      window.scrollTo({ top: y, behavior });
+    }
+
+    function scrollMarkedPreviewBlockToTop(blockEl, opts = {}) {
+      const container = document.getElementById("markedPreview");
+      if (!container || !blockEl) return;
+
+      const behavior = opts.behavior || "auto";
+      const extraOffsetPx = Number(opts.extraOffsetPx) || 0;
+
+      const cRect = container.getBoundingClientRect();
+      const bRect = blockEl.getBoundingClientRect();
+
+      const padTop = parseFloat(getComputedStyle(container).paddingTop) || 0;
+
+      const delta = bRect.top - cRect.top;
+      const targetTop = container.scrollTop + delta - padTop - extraOffsetPx;
+
+      container.scrollTo({ top: Math.max(0, targetTop), behavior });
     }
 
     function scrollMarkedPreviewToElement(
