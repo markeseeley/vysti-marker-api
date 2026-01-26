@@ -144,6 +144,16 @@
       display: flex;
       justify-content: flex-end;
     }
+    .pill-hint-subheader{
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,.10);
+      font-size: var(--fs-xs);
+      color: rgba(0,0,0,.65);
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .pill-hint-subheader.hidden{ display:none; }
 
     /* Collapse pillboxes/dots under meters, but keep 100/100 success line visible */
     #metricsGrid.details-collapsed .metric-sub{
@@ -1157,6 +1167,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     <div id="pillHintArrow" class="tour-arrow"></div>
     <div id="pillHintTitle" class="tour-title"></div>
     <div id="pillHintBody" class="tour-body"></div>
+    <div id="pillHintSubheader" class="pill-hint-subheader hidden"></div>
     <div class="pill-hint-footer">
       <button id="pillHintGotIt" class="tour-primary-btn" type="button">Got it</button>
     </div>
@@ -1424,6 +1435,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const pillHintArrow = document.getElementById("pillHintArrow");
     const pillHintTitle = document.getElementById("pillHintTitle");
     const pillHintBody = document.getElementById("pillHintBody");
+    const pillHintSubheader = document.getElementById("pillHintSubheader");
     const pillHintGotIt = document.getElementById("pillHintGotIt");
     const PILL_HINT_SESSION_PREFIX_BASE = "vysti_pill_hint_shown";
     const PILL_HINT_SESSION_PREFIX = `${PILL_HINT_SESSION_PREFIX_BASE}_v3__`;
@@ -3659,13 +3671,25 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
               highlightThesisDevicesInBlock(blockEl);
               if (markedPreview) markedPreview.focus();
-              const deviceSpans = blockEl.querySelectorAll("span.vysti-preview-hit[data-vysti-device='1']");
-              const anchor = deviceSpans.length ? deviceSpans[0] : blockEl;
+              const firstDeviceSpan =
+                blockEl.querySelector("span.vysti-preview-hit[data-vysti-device='1']") || null;
+              const anchor = firstDeviceSpan || blockEl;
+
+              const deviceSet = getCanonicalDevicesInParagraph(paraText);
+              const deviceList = Array.from(deviceSet || [])
+                .map((x) => String(x || "").trim())
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b));
+              const subheader = deviceList.length
+                ? `Current techniques: ${deviceList.join(", ")}`
+                : "Current techniques: (none detected)";
+
               // Show guidance EVERY click while unresolved (i.e., while there are technique failures)
               if (techniqueFailures.length > 0) {
                 showPillHint(anchor, {
                   title: "Techniques",
-                  body: VARIETY_TIPS.techniques
+                  body: VARIETY_TIPS.techniques,
+                  subheader
                 });
               }
               return;
@@ -5337,11 +5361,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return true;
     }
 
-    function showPillHint(anchorEl, { title = "", body = "" } = {}) {
+    function showPillHint(anchorEl, { title = "", body = "", subheader = "" } = {}) {
       if (!pillHintPopover || !anchorEl) return;
 
       if (pillHintTitle) pillHintTitle.textContent = title || "";
       if (pillHintBody) pillHintBody.textContent = body || "";
+      if (pillHintSubheader) {
+        const txt = String(subheader || "").trim();
+        if (txt) {
+          pillHintSubheader.textContent = txt;
+          pillHintSubheader.classList.remove("hidden");
+        } else {
+          pillHintSubheader.textContent = "";
+          pillHintSubheader.classList.add("hidden");
+        }
+      }
 
       // IMPORTANT: this is the "always show" variant — do not set pillHintActiveKey,
       // so closing does NOT write to sessionStorage.
@@ -5359,7 +5393,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       });
     }
 
-    function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
+    function showPillHintOnce(anchorEl, key, { title = "", body = "", subheader = "" } = {}) {
       if (!pillHintPopover || !anchorEl || !key) return;
       if (DEBUG_METRICS) console.debug("[pillHint] attempt", key);
       if (pillHintWasShown(key)) {
@@ -5369,6 +5403,16 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       if (pillHintTitle) pillHintTitle.textContent = title || "";
       if (pillHintBody) pillHintBody.textContent = body || "";
+      if (pillHintSubheader) {
+        const txt = String(subheader || "").trim();
+        if (txt) {
+          pillHintSubheader.textContent = txt;
+          pillHintSubheader.classList.remove("hidden");
+        } else {
+          pillHintSubheader.textContent = "";
+          pillHintSubheader.classList.add("hidden");
+        }
+      }
 
       pillHintActiveKey = key;
 
@@ -7173,6 +7217,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
+            removeSuppressedLabelsFromPreviewDOM();
             makePreviewLabelsClickable();
             markedPreviewCard.style.display = "block";
           } else {
@@ -7308,6 +7353,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return s;
     }
 
+    function normalizeLabelForCompare(s) {
+      return String(s || "")
+        .toLowerCase()
+        .replace(/[’‘]/g, "'")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function isSuppressedStudentModeLabel(label) {
+      const t = normalizeLabelForCompare(label);
+      return t.includes("first sentence") && t.includes("author") && t.includes("full name");
+    }
+
     function extractLabelFromArrowText(text) {
       if (!text) return null;
       const m = String(text).trim().match(/^→\s*(.+?)\s*$/);
@@ -7315,6 +7373,18 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const raw = m[1].trim();
       if (!raw) return null;
       return canonicalizePreviewLabel(raw);
+    }
+
+    function removeSuppressedLabelsFromPreviewDOM() {
+      if (!markedPreview) return;
+      const spans = Array.from(markedPreview.querySelectorAll("span"));
+      spans.forEach((sp) => {
+        const txt = (sp.textContent || "").trim();
+        if (!txt.startsWith("→")) return;
+        const label = extractLabelFromArrowText(txt);
+        if (label && isSuppressedStudentModeLabel(label)) sp.remove();
+      });
+      markedPreview.normalize();
     }
 
     function onPreviewLabelClick(e) {
@@ -7910,9 +7980,16 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
         currentMarkEvent = markEvents[0];
         const rawLabelCounts = { ...(currentMarkEvent.label_counts || {}) };
-        const filteredLabelCounts = applyDismissalsToLabelCounts(rawLabelCounts);
+        const prunedLabelCounts = {};
+        Object.entries(rawLabelCounts).forEach(([label, count]) => {
+          if (isSuppressedStudentModeLabel(label)) return;
+          prunedLabelCounts[label] = count;
+        });
+        const filteredLabelCounts = applyDismissalsToLabelCounts(prunedLabelCounts);
         liveLabelCounts = { ...filteredLabelCounts };
         const labelCounts = liveLabelCounts;
+        currentMarkEvent.issues = (currentMarkEvent.issues || [])
+          .filter((it) => !isSuppressedStudentModeLabel(it?.label || ""));
         syncIssueIdMaps(currentMarkEvent?.issues || [], labelCounts);
         
         if (resultsCard) resultsCard.style.display = "block";
@@ -7966,6 +8043,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         }
         }
         
+        examplesData = (examplesData || [])
+          .filter((ex) => !isSuppressedStudentModeLabel(ex?.label || ""));
+
         const examplesByLabel = {};
         (examplesData || []).forEach((ex) => {
           const label = String(ex.label || "").trim();
@@ -8369,14 +8449,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (cachedFirstProseBlockIndex != null && cachedFirstProseBlockCount === blocks.length) {
         return cachedFirstProseBlockIndex;
       }
-
-      const minWords = 8;
       for (let i = 0; i < blocks.length; i += 1) {
-        const block = blocks[i];
-        if (!block || block.tagName !== "P") continue;
-        const text = (block.innerText || "").trim();
-        if (!text) continue;
-        if (hasSentencePunct(text) && wordCount(text) >= minWords) {
+        const txt = (blocks[i].innerText || "").trim();
+        if (!txt) continue;
+        if (looksLikeFrontMatterParagraph(txt)) continue;
+        if (looksLikeRealProseParagraph(txt)) {
           cachedFirstProseBlockIndex = i;
           cachedFirstProseBlockCount = blocks.length;
           return i;
@@ -8488,50 +8565,50 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const ranges = [];
       if (!normText || !hasThesisDevicesLexicon(thesisDevicesLexicon)) return ranges;
 
-      const padded = ` ${normText} `;
-      const matchedTerms = new Set();
-
-      // Single-word matches: scan tokens and lookup in the lexicon map
-      const tokens = normText.split(/\s+/).filter(Boolean);
-      const termMap = thesisDevicesLexicon.singleWordTermToCanonical;
-      tokens.forEach((t) => {
-        if (termMap && termMap.has(t)) matchedTerms.add(t);
-      });
-
-      // Phrase matches: same “padded includes” logic as scoring
-      (thesisDevicesLexicon.phraseTermToCanonical || []).forEach(({ phrase }) => {
-        if (!phrase) return;
-        if (padded.includes(` ${phrase} `)) matchedTerms.add(phrase);
-      });
-
-      // Prefer longer terms first to avoid nested/overlapping highlights
-      const termsSorted = Array.from(matchedTerms).sort((a, b) => b.length - a.length);
-
-      const accepted = [];
+      const candidates = [];
       const overlaps = (a, b) => !(a.end < b.start || a.start > b.end);
 
-      termsSorted.forEach((term) => {
-        const pat = ` ${term} `;
+      // 1) Single-word matches (morphology-aware, same logic as scoring)
+      const tokenRe = /\b[a-z0-9]+\b/g;
+      let m;
+      while ((m = tokenRe.exec(normText)) !== null) {
+        const tok = m[0];
+        const canonical = canonicalForDeviceToken(tok);
+        if (!canonical) continue;
+        const start = m.index;
+        const end = start + tok.length - 1;
+        candidates.push({ start, end, len: tok.length });
+      }
+
+      // 2) Phrase matches (same "padded includes" logic as scoring)
+      const padded = ` ${normText} `;
+      (thesisDevicesLexicon.phraseTermToCanonical || []).forEach(({ phrase }) => {
+        if (!phrase) return;
+        const pat = ` ${phrase} `;
         let from = 0;
         while (true) {
           const idx = padded.indexOf(pat, from);
           if (idx === -1) break;
 
-          const start = idx; // idx already maps to the term start in normText
-          const end = start + term.length - 1;
-
-          const candidate = { start, end };
-          if (!accepted.some((r) => overlaps(r, candidate))) {
-            accepted.push(candidate);
-          }
+          // IMPORTANT: idx maps to normText start index (no +1)
+          const start = idx;
+          const end = start + phrase.length - 1;
+          candidates.push({ start, end, len: phrase.length });
 
           from = idx + pat.length - 1;
         }
       });
 
-      // stable order
+      // Prefer longer candidates first to avoid nested highlights
+      candidates.sort((a, b) => b.len - a.len);
+
+      const accepted = [];
+      candidates.forEach((cand) => {
+        if (!accepted.some((r) => overlaps(r, cand))) accepted.push(cand);
+      });
+
       accepted.sort((a, b) => a.start - b.start);
-      return accepted;
+      return accepted.map(({ start, end }) => ({ start, end }));
     }
 
     function wrapDeviceRanges(posMap, ranges) {
@@ -9503,14 +9580,31 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return hits / tokens.length;
     }
 
+    function isTitleFormatLabel(label) {
+      const t = String(label || "").toLowerCase();
+      return t.includes("essay title") && t.includes("format");
+    }
+
     function findBestPreviewBlockForExample(example, options = {}) {
       const blocks = getPreviewBlocks();
       if (blocks.length === 0) return null;
 
-      const shouldRestrict = options.restrictToProse || !example?.label;
+      const shouldRestrict = options.restrictToProse || !isTitleFormatLabel(example?.label || "");
       const proseStartIdx = shouldRestrict ? getFirstProseBlockIndex(blocks) : -1;
-      const hasRestrictedBlocks = shouldRestrict && proseStartIdx > 0 && proseStartIdx < blocks.length;
-      const workingBlocks = hasRestrictedBlocks ? blocks.slice(proseStartIdx) : blocks;
+      let workingBlocks = blocks;
+
+      if (shouldRestrict) {
+        if (Number.isInteger(proseStartIdx) && proseStartIdx >= 0 && proseStartIdx < blocks.length) {
+          workingBlocks = blocks.slice(proseStartIdx);
+        }
+
+        // EXTRA SAFETY: filter out header/title blocks even if slicing didn't help
+        workingBlocks = workingBlocks.filter((b) => {
+          const txt = (b.innerText || "").trim();
+          if (!txt) return false;
+          return !looksLikeFrontMatterParagraph(txt);
+        });
+      }
 
       const sentence = stripVystiInlineArtifacts((example?.sentence || "").trim());
       const paraIndex = example?.paragraph_index;
@@ -10690,6 +10784,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
+            removeSuppressedLabelsFromPreviewDOM();
             makePreviewLabelsClickable();
           } else {
             markedPreview.innerHTML = "<p>Preview not available. Please download the file to view.</p>";
