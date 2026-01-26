@@ -4118,30 +4118,60 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const s = String(p || "").trim();
       if (!s) return true;
 
+      // Always treat the student essay-title header format as front matter
       if (isEssayTitleHeaderLine(s)) return true;
 
       const wc = wordCount(s);
       const hasEnd = hasSentencePunct(s);
       const toks = s.split(/\s+/).filter(Boolean);
 
+      // If it ends like a sentence, it's prose (not front matter)
       if (hasEnd) return false;
-      if (wc > 10) return false;
 
-      const hasDate = /\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(s)
-        || /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i.test(s);
-      const hasCourseTokens = /\b(english|ib|ap|period|block|teacher|course|class|mr\.|ms\.|mrs\.|dr\.)\b/i.test(s);
+      // Date / course / teacher header signals
+      const hasDate =
+        /\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/.test(s) ||
+        /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i.test(s);
+      const hasCourseTokens =
+        /\b(english|ib|ap|period|block|teacher|course|class|mr\.|ms\.|mrs\.|dr\.)\b/i.test(s);
+
+      // Title-like signals (allow longer than 10 words)
+      const hasQuotes = /["“”]/.test(s);
+      const hasColon = s.includes(":");
+      const titleCaseCount = toks.filter((t) => /^[A-Z][A-Za-z'’\-]*$/.test(t)).length;
+      const titleCaseRatio = toks.length ? titleCaseCount / toks.length : 0;
+
+      // Keep the original short-title heuristics, but extend safely
       const isShortTitleCase = toks.length <= 6 && toks.every((t) => /^[A-Z][a-z]+$/.test(t));
       const isQuotedTitle = /^"[^"]+"\s*:\s*.+/.test(s);
 
-      return hasDate || hasCourseTokens || isShortTitleCase || isQuotedTitle;
+      if (hasDate || hasCourseTokens) return true;
+      if (isQuotedTitle) return true;
+      if (isShortTitleCase) return true;
+
+      // Extended title detection for longer titles with no sentence punctuation
+      // (prevents titles from becoming "paragraph 0" in metrics)
+      if (wc <= 28) {
+        if (hasColon) return true;
+        if (hasQuotes && titleCaseRatio >= 0.45) return true;
+        if (titleCaseRatio >= 0.65 && toks.length >= 4) return true;
+      }
+
+      return false;
     }
 
     function looksLikeRealProseParagraph(p) {
       const s = String(p || "").trim();
       if (!s) return false;
       const wc = wordCount(s);
-      if (wc < 12) return false;
-      if (hasSentencePunct(s)) return true;
+
+      // If it has sentence punctuation and isn't tiny, treat as prose (captures short intros)
+      if (hasSentencePunct(s) && wc >= 6) return true;
+
+      // Longer lines can be prose even without clear punctuation
+      if (wc >= 12) return true;
+
+      // Multiple sentence heuristic
       return splitSentencesSimple(s).length >= 2;
     }
 
@@ -5089,7 +5119,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const sentences = paragraphSentences.flat();
       const totalSentenceCount = sentences.length;
 
-      const bodyParagraphIndices = getBodyParagraphIndices(paragraphs);
+      let bodyParagraphIndices = getBodyParagraphIndices(paragraphs);
+
+      // Guard: in multi-paragraph essays, never treat the first paragraph as a body paragraph.
+      // (Intro should not be checked for Techniques/Development/Evidence/Structure)
+      if (Array.isArray(paragraphs) && paragraphs.length >= 2) {
+        bodyParagraphIndices = bodyParagraphIndices.filter((idx) => idx !== 0);
+      }
+
       const bodyParagraphs = bodyParagraphIndices.map((idx) => paragraphs[idx] || "");
       const bodyParagraphCount = bodyParagraphs.length;
 
