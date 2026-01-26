@@ -4174,28 +4174,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function getBodyParagraphIndices(filteredParagraphs) {
       const paragraphCount = Array.isArray(filteredParagraphs) ? filteredParagraphs.length : 0;
 
-      // Standard essay (Intro + 1+ Body + Conclusion): body paragraphs are everything between first and last.
+      // Standard essay: intro + 1+ body + conclusion
       if (paragraphCount >= 3) {
         return Array.from({ length: paragraphCount - 2 }, (_, i) => i + 1);
       }
 
-      // Two-paragraph edge case: treat the first as an Introduction and only check the second as "body".
-      // This prevents Techniques/Development (and other Variety checks) from evaluating the Intro paragraph.
+      // Two-paragraph edge case: treat first as Intro, only check second as Body
       if (paragraphCount === 2) {
         return [1];
       }
 
-      // Single-paragraph mode (e.g., PEEL paragraph): the only paragraph is the "body".
+      // Single-paragraph mode (PEEL paragraph): the only paragraph is the body
       if (paragraphCount === 1) {
         return [0];
       }
 
-      return [];
-    }
-
-      if (paragraphCount > 0) {
-        return Array.from({ length: paragraphCount }, (_, i) => i);
-      }
       return [];
     }
 
