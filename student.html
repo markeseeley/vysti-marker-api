@@ -3173,22 +3173,44 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Jump to a verb to upgrade";
           pill.addEventListener("click", async () => {
-            // Ensure preview is in view
-            scrollToPreviewHeader();
+            // Guard against double-clicks while we scan the preview (can be slow on long essays)
+            if (pill._busy) return;
+            pill._busy = true;
 
-            // Let the scroll settle before focusing/selection (prevents caret snap-to-top)
-            await new Promise((r) => requestAnimationFrame(r));
+            const prevDisabled = pill.disabled;
+            const prevTitle = pill.title;
 
-            // Try to highlight the next best upgrade target
-            const didJump = await jumpToNextVerbToUpgradeInPreview();
-            if (!didJump) {
-              const prevTitle = pill.title;
-              pill.title = "No upgradeable verb found in Preview";
-              if (pill._titleTimer) clearTimeout(pill._titleTimer);
-              pill._titleTimer = setTimeout(() => {
+            try {
+              pill.disabled = true;
+              pill.title = "Finding a verb to upgrade...";
+
+              // Ensure preview is in view
+              scrollToPreviewHeader();
+
+              // Let the scroll settle before focusing/selection (prevents caret snap-to-top)
+              await new Promise((r) => requestAnimationFrame(r));
+
+              let didJump = false;
+              try {
+                didJump = !!(await jumpToNextVerbToUpgradeInPreview());
+              } catch (err) {
+                console.error("[Power verbs needed] jump failed", err);
+                didJump = false;
+              }
+
+              if (!didJump) {
+                pill.title = "No upgradeable verb found in Preview";
+                if (pill._titleTimer) clearTimeout(pill._titleTimer);
+                pill._titleTimer = setTimeout(() => {
+                  pill.title = prevTitle;
+                  pill._titleTimer = null;
+                }, 2200);
+              } else {
                 pill.title = prevTitle;
-                pill._titleTimer = null;
-              }, 2200);
+              }
+            } finally {
+              pill.disabled = prevDisabled;
+              pill._busy = false;
             }
           });
         }
@@ -3585,7 +3607,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       const VARIETY_TIPS = {
         techniques: "Vysti recommends that body paragraphs reference at least three unique literary or rhetorical techniques.",
-        evidence: "Check your quotations to be sure they are contextualized, less than five words, and sufficiently explained.",
+        evidence: "Check your quotations to be sure you have at least two quotations that are contextualized, less than five words, and sufficiently explained.",
         development: "This paragraph appears undeveloped. Add a few more sentences to expand on your ideas.",
         structure: "Vysti recommends not beginning too many sentences with an unclarified pronoun (it/this/he/she). Add some variety to your sentence structure with an introductory phrase."
       };
@@ -8576,19 +8598,34 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         parent.insertBefore(el.firstChild, el);
       }
       parent.removeChild(el);
-      parent.normalize();
+      // Intentionally skip parent.normalize() here for performance.
+      // Callers that unwrap many spans should normalize once after the batch.
     }
 
     function clearPreviewHighlights() {
-      // Unwrap any highlight spans
-      const highlightedSpans = markedPreview.querySelectorAll("span.vysti-preview-hit[data-vysti-hit='1']");
-      highlightedSpans.forEach(unwrapNode);
-      
+      if (!markedPreview) return;
+
+      // Unwrap any highlight spans (fast: normalize once at the end)
+      const highlightedSpans = markedPreview.querySelectorAll(
+        "span.vysti-preview-hit[data-vysti-hit='1']"
+      );
+
+      if (highlightedSpans && highlightedSpans.length) {
+        highlightedSpans.forEach(unwrapNode);
+
+        // Normalize once after bulk DOM surgery to merge adjacent text nodes.
+        // (Calling normalize() per-span can be O(n^2) and freeze on large essays.)
+        try {
+          markedPreview.normalize();
+        } catch (e) {}
+      }
+
       // Remove classes from any elements
       const highlighted = markedPreview.querySelectorAll(
         ".vysti-preview-hit, .vysti-preview-hit-block, .vysti-preview-tech-block, .vysti-preview-variety-block"
       );
-      highlighted.forEach(el => {
+
+      highlighted.forEach((el) => {
         el.classList.remove(
           "vysti-preview-hit",
           "vysti-preview-hit-block",
