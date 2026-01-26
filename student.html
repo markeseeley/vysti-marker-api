@@ -160,6 +160,24 @@
       width: min(360px, calc(100vw - 24px));
       max-width: min(360px, calc(100vw - 24px));
     }
+    /* Consider adding a subtle backdrop if desired */
+    .pill-hint-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.15);
+      z-index: 129; /* just below pillHintPopover (which is 130) */
+    }
+    .pill-hint-popover.is-modal{
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+    }
+    /* Modal shouldn't show the arrow */
+    .pill-hint-popover.is-modal .tour-arrow{
+      display: none !important;
+    }
     .pill-hint-footer{
       margin-top: 12px;
       display: flex;
@@ -238,7 +256,9 @@
     }
     .vysti-preview-tech-block,
     .vysti-preview-variety-block{
-      scroll-margin-top: 32px; /* tweak 24–40px to taste */
+      /* Give scrollIntoView breathing room so outline/halo aren't clipped by overflow */
+      scroll-margin-top: 40px;
+      scroll-margin-bottom: 40px;
     }
 
     /* Techniques: device hits (override generic blue hit styling) */
@@ -1190,6 +1210,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     <div id="metricInfoTitle" class="tour-title"></div>
     <div id="metricInfoBody" class="tour-body"></div>
   </div>
+  <div id="pillHintBackdrop" class="pill-hint-backdrop hidden" aria-hidden="true"></div>
   <div id="pillHintPopover" class="tour-popover pill-hint-popover hidden" role="dialog" aria-modal="false">
     <button id="pillHintClose" class="tour-close" type="button" aria-label="Close">×</button>
     <div id="pillHintArrow" class="tour-arrow"></div>
@@ -1458,6 +1479,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const metricInfoClose = document.getElementById("metricInfoClose");
     const metricInfoTitle = document.getElementById("metricInfoTitle");
     const metricInfoBody = document.getElementById("metricInfoBody");
+    const pillHintBackdrop = document.getElementById("pillHintBackdrop");
     const pillHintPopover = document.getElementById("pillHintPopover");
     const pillHintClose = document.getElementById("pillHintClose");
     const pillHintArrow = document.getElementById("pillHintArrow");
@@ -3697,7 +3719,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               await loadThesisDevicesLexicon();
               if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
                 clearPinnedPreviewHint();
-                showPinnedPreviewHint({
+                showPillHintModal({
                   title: "Techniques",
                   body: "Device list unavailable. Please refresh and try again."
                 });
@@ -3720,9 +3742,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               // Finalize DOM (spans) BEFORE calculating scroll
               highlightThesisDevicesInBlock(blockEl);
 
-              // Jump so the PARAGRAPH top hits the top of #markedPreview (not centered)
               clearPinnedPreviewHint();
-              scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
+              blockEl.scrollIntoView({ behavior: "smooth", block: "start" });
 
               setTimeout(() => {
                 try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch(e) {}
@@ -3737,14 +3758,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 ? `Current techniques: ${deviceList.join(", ")}`
                 : "Current techniques: (none detected)";
 
-              // Show guidance EVERY click while unresolved (i.e., while there are technique failures)
-              if (techniqueFailures.length > 0) {
-                showPinnedPreviewHint({
-                  title: "Techniques",
-                  body: VARIETY_TIPS.techniques,
-                  subheader
-                });
-              }
+              showPillHintModal({
+                title: "Techniques",
+                body: VARIETY_TIPS.techniques,
+                subheader
+              });
               return;
             }
 
@@ -3756,17 +3774,24 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
             blockEl.classList.add("vysti-preview-variety-block");
             clearPinnedPreviewHint();
-            scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
+            blockEl.scrollIntoView({ behavior: "smooth", block: "start" });
 
             if (kind === "evidence") {
-              showPinnedPreviewHint({
+              showPillHintModal({
                 title: "Evidence",
                 body: VARIETY_TIPS.evidence
               });
             }
 
+            if (kind === "development") {
+              showPillHintModal({
+                title: "Development",
+                body: VARIETY_TIPS.development
+              });
+            }
+
             if (kind === "structure") {
-              showPinnedPreviewHint({
+              showPillHintModal({
                 title: "Structure",
                 body: VARIETY_TIPS.structure
               });
@@ -3875,8 +3900,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           blockEl.classList.add("vysti-preview-variety-block");
           clearPinnedPreviewHint();
-          scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
-          showPinnedPreviewHint({
+          blockEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          showPillHintModal({
             title: "Development",
             body: VARIETY_TIPS.development
           });
@@ -5446,9 +5471,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (!pillHintPopover) return;
       if (markShown && pillHintActiveKey) setPillHintShown(pillHintActiveKey);
       pillHintPopover.classList.add("hidden");
+      pillHintPopover.classList.remove("is-modal");
       pillHintAnchorEl = null;
       pillHintPopover._anchor = null;
       pillHintActiveKey = null;
+      if (pillHintBackdrop) pillHintBackdrop.classList.add("hidden");
     }
 
     function positionPillHintPopover(anchorEl) {
@@ -5579,6 +5606,35 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         positionPillHintPopover(anchorEl);
         setTimeout(() => positionPillHintPopover(anchorEl), 350);
       });
+    }
+
+    function showPillHintModal({ title = "", body = "", subheader = "" } = {}) {
+      if (!pillHintPopover) return;
+
+      if (pillHintTitle) pillHintTitle.textContent = title || "";
+      if (pillHintBody) pillHintBody.textContent = body || "";
+      if (pillHintSubheader) {
+        const txt = String(subheader || "").trim();
+        if (txt) {
+          pillHintSubheader.textContent = txt;
+          pillHintSubheader.classList.remove("hidden");
+        } else {
+          pillHintSubheader.textContent = "";
+          pillHintSubheader.classList.add("hidden");
+        }
+      }
+
+      pillHintActiveKey = null;
+      pillHintAnchorEl = null;
+      pillHintPopover._anchor = null;
+
+      pillHintPopover.classList.add("is-modal");
+      pillHintPopover.style.top = "";
+      pillHintPopover.style.left = "";
+      pillHintPopover.style.visibility = "visible";
+      pillHintPopover.classList.remove("hidden");
+
+      if (pillHintBackdrop) pillHintBackdrop.classList.remove("hidden");
     }
 
     function showPillHintOnce(anchorEl, key, { title = "", body = "", subheader = "" } = {}) {
@@ -5723,6 +5779,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function repositionPillHintPopover() {
       if (!pillHintPopover || pillHintPopover.classList.contains("hidden")) return;
+      if (pillHintPopover.classList.contains("is-modal")) return;
       const anchor = pillHintAnchorEl;
       if (!anchor || !anchor.isConnected) {
         closePillHintPopover({ markShown: false });
