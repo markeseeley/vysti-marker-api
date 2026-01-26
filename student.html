@@ -73,13 +73,16 @@
       grid-column: 1 / -1;
       position: relative;
     }
+    .preview-stage{
+      position: relative;
+    }
     .preview-hint-dock {
       position: absolute;
-      top: 68px;
-      left: 16px;
+      top: 12px;
+      left: 12px;
       z-index: 50;
       width: 360px;
-      max-width: calc(100% - 32px);
+      max-width: calc(100% - 24px);
       pointer-events: none;
     }
     .preview-hint-dock .tour-popover {
@@ -232,6 +235,10 @@
       outline-offset: 3px;
       border-radius: 8px !important;
       box-shadow: 0 0 0 5px rgba(169, 13, 34, .18);
+    }
+    .vysti-preview-tech-block,
+    .vysti-preview-variety-block{
+      scroll-margin-top: 32px; /* tweak 24–40px to taste */
     }
 
     /* Techniques: device hits (override generic blue hit styling) */
@@ -1092,8 +1099,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           </div>
         </div>
       </div>
-      <div id="previewHintDock" class="preview-hint-dock" aria-live="polite"></div>
-      <div id="markedPreview" class="marked-preview-container"></div>
+      <div class="preview-stage">
+        <div id="previewHintDock" class="preview-hint-dock" aria-live="polite"></div>
+        <div id="markedPreview" class="marked-preview-container"></div>
+      </div>
 
       <!-- Recheck moved here: centered under Preview + styled like primary button -->
       <div class="preview-actions">
@@ -3715,7 +3724,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               clearPinnedPreviewHint();
               scrollPreviewBlockToTop(blockEl, { padding: 14, smooth: true, duration: 260 });
 
-              if (markedPreview) markedPreview.focus();
+              setTimeout(() => {
+                try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch(e) {}
+              }, 300);
 
               const deviceSet = getCanonicalDevicesInParagraph(paraText);
               const deviceList = Array.from(deviceSet || [])
@@ -3760,8 +3771,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 body: VARIETY_TIPS.structure
               });
             }
-
-            if (markedPreview) markedPreview.focus();
+            setTimeout(() => {
+              try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch(e) {}
+            }, 300);
           });
         }
 
@@ -7527,40 +7539,32 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function scrollPreviewBlockToTop(
       blockEl,
-      { padding = 14, smooth = true, duration = 260 } = {}
+      { padding = 14, smooth = true } = {}
     ) {
       const container = document.getElementById("markedPreview");
       if (!container || !blockEl) return;
 
-      const cRect = container.getBoundingClientRect();
-      const bRect = blockEl.getBoundingClientRect();
-
+      // Make the top offset dynamic: container padding + desired breathing room
       const padTop = parseFloat(getComputedStyle(container).paddingTop) || 0;
-      const current = container.scrollTop;
-      const topInContainer = (bRect.top - cRect.top) + current;
+      blockEl.style.scrollMarginTop = `${padTop + padding}px`;
 
-      const targetTop = Math.max(0, topInContainer - padTop - padding);
+      // Browser-native scroll: handles CSS zoom correctly
+      blockEl.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "start",
+        inline: "nearest"
+      });
 
-      if (!smooth) {
-        container.scrollTop = targetTop;
-        return;
+      // Snap pass to defeat zoom/rounding drift after smooth scrolling
+      if (smooth) {
+        setTimeout(() => {
+          blockEl.scrollIntoView({
+            behavior: "auto",
+            block: "start",
+            inline: "nearest"
+          });
+        }, 260);
       }
-
-      const startTop = container.scrollTop;
-      const delta = targetTop - startTop;
-      const startTime = performance.now();
-
-      function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      }
-
-      function tick(now) {
-        const t = Math.min(1, (now - startTime) / duration);
-        container.scrollTop = startTop + delta * easeInOutCubic(t);
-        if (t < 1) requestAnimationFrame(tick);
-      }
-
-      requestAnimationFrame(tick);
     }
 
     function scrollMarkedPreviewBlockToTop(blockEl, opts = {}) {
