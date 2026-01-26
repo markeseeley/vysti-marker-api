@@ -3717,7 +3717,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
               // Scroll to the paragraph block (not the device span).
               requestAnimationFrame(() =>
-                scrollMarkedPreviewToElement(blockEl, { behavior: "smooth", align: "start", offsetPx: 14 })
+                blockEl.scrollIntoView({ behavior: "smooth", block: "start" })
               );
 
               if (markedPreview) markedPreview.focus();
@@ -3750,7 +3750,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
             blockEl.classList.add("vysti-preview-variety-block");
             requestAnimationFrame(() =>
-              scrollMarkedPreviewToElement(blockEl, { behavior: "smooth", align: "start", offsetPx: 14 })
+              blockEl.scrollIntoView({ behavior: "smooth", block: "start" })
             );
 
             const previewAnchor = blockEl;
@@ -3870,7 +3870,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           blockEl.classList.add("vysti-preview-variety-block");
           requestAnimationFrame(() =>
-            scrollMarkedPreviewToElement(blockEl, { behavior: "smooth", align: "start", offsetPx: 14 })
+            blockEl.scrollIntoView({ behavior: "smooth", block: "start" })
           );
 
           showPillHint(blockEl, {
