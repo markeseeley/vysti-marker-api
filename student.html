@@ -135,12 +135,14 @@
     .metrics-toggle-btn:hover{ background: rgba(0,0,0,.03); }
     .metrics-toggle-btn:active{ transform: translateY(0.5px); }
     .pill-hint-popover{
-      z-index: 120;
+      z-index: 130;
       width: min(360px, calc(100vw - 24px));
       max-width: min(360px, calc(100vw - 24px));
     }
     .pill-hint-footer{
-      margin-top: 10px;
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
     }
 
     /* Collapse pillboxes/dots under meters, but keep 100/100 success line visible */
@@ -189,10 +191,10 @@
     /* Techniques: outline-only paragraph focus (no full paragraph wash) */
     .vysti-preview-tech-block{
       background: transparent !important;
-  outline: 2px solid var(--tech-block-outline) !important;  /* thinner stroke */
-      outline-offset: 2px;
-  border-radius: 8px !important;
-  box-shadow: 0 0 0 3px var(--tech-block-ring) !important;   /* slightly tighter halo */
+      outline: 2px solid var(--tech-block-outline) !important;
+      outline-offset: 3px;
+      border-radius: 8px !important;
+      box-shadow: 0 0 0 5px var(--tech-block-ring);
     }
 
     /* Techniques: device hits (override generic blue hit styling) */
@@ -1146,9 +1148,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     <div id="pillHintArrow" class="tour-arrow"></div>
     <div id="pillHintTitle" class="tour-title"></div>
     <div id="pillHintBody" class="tour-body"></div>
-
-    <div class="tour-footer pill-hint-footer">
-      <div class="tour-step" id="pillHintStep">Variety tip</div>
+    <div class="pill-hint-footer">
       <button id="pillHintGotIt" class="tour-primary-btn" type="button">Got it</button>
     </div>
   </div>
@@ -1416,12 +1416,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const pillHintTitle = document.getElementById("pillHintTitle");
     const pillHintBody = document.getElementById("pillHintBody");
     const pillHintGotIt = document.getElementById("pillHintGotIt");
-    const pillHintStep = document.getElementById("pillHintStep");
     const PILL_HINT_SESSION_PREFIX_BASE = "vysti_pill_hint_shown";
-    const PILL_HINT_SESSION_PREFIX = `${PILL_HINT_SESSION_PREFIX_BASE}_v2__`;
+    const PILL_HINT_SESSION_PREFIX = `${PILL_HINT_SESSION_PREFIX_BASE}_v3__`;
     let pillHintAnchorEl = null;
     let pillHintScrollRaf = null;
-    let pillHintPendingKey = null;
+    let pillHintActiveKey = null;
     const metricsDetailsToggle = document.getElementById("metricsDetailsToggle");
     const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
 
@@ -3644,9 +3643,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
               highlightThesisDevicesInBlock(blockEl);
               if (markedPreview) markedPreview.focus();
-              const deviceSpan =
-                blockEl.querySelector("span.vysti-preview-hit[data-vysti-hit='1'][data-vysti-device='1']") || null;
-              const anchor = deviceSpan || blockEl;
+              const deviceSpans = blockEl.querySelectorAll("span.vysti-preview-hit[data-vysti-device='1']");
+              const anchor = deviceSpans.length ? deviceSpans[0] : blockEl;
               showPillHintOnce(anchor, "variety_techniques", {
                 title: "Techniques",
                 body: deviceCount >= 3
@@ -3668,10 +3666,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (res?.hits?.length) {
               res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
             }
-            const previewAnchor =
-              (res?.hits && res.hits.length ? res.hits[0] : null) ||
-              res?.blockEl ||
-              markedPreview;
+            const previewAnchor = res?.hits?.[0] || res?.blockEl || markedPreview;
             if (kind === "evidence") {
               showPillHintOnce(previewAnchor, "variety_evidence", {
                 title: "Evidence",
@@ -3774,10 +3769,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           if (res?.hits?.length) {
             res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
           }
-          const previewAnchor =
-            (res?.hits && res.hits.length ? res.hits[0] : null) ||
-            res?.blockEl ||
-            markedPreview;
+          const previewAnchor = res?.hits?.[0] || res?.blockEl || markedPreview;
           showPillHintOnce(previewAnchor, "variety_development", {
             title: "Development",
             body: sentenceCount >= 4
@@ -3811,10 +3803,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           if (res?.hits?.length) {
             res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
           }
-          const previewAnchor =
-            (res?.hits && res.hits.length ? res.hits[0] : null) ||
-            res?.blockEl ||
-            markedPreview;
+          const previewAnchor = res?.hits?.[0] || res?.blockEl || markedPreview;
           showPillHintOnce(previewAnchor, "variety_structure", {
             title: "Structure",
             body: starter
@@ -5295,12 +5284,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       // ignore URL parsing failures
     }
 
-    function closePillHintPopover() {
+    function closePillHintPopover({ markShown = true } = {}) {
       if (!pillHintPopover) return;
+      if (markShown && pillHintActiveKey) setPillHintShown(pillHintActiveKey);
       pillHintPopover.classList.add("hidden");
       pillHintAnchorEl = null;
       pillHintPopover._anchor = null;
-      pillHintPendingKey = null;
+      pillHintActiveKey = null;
     }
 
     function positionPillHintPopover(anchorEl) {
@@ -5339,7 +5329,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return true;
     }
 
-    function showPillHintOnce(anchorEl, key, { title = "", body = "", step = "Variety tip" } = {}) {
+    function showPillHintOnce(anchorEl, key, { title = "", body = "" } = {}) {
       if (!pillHintPopover || !anchorEl || !key) return;
       if (DEBUG_METRICS) console.debug("[pillHint] attempt", key);
       if (pillHintWasShown(key)) {
@@ -5349,18 +5339,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       if (pillHintTitle) pillHintTitle.textContent = title || "";
       if (pillHintBody) pillHintBody.textContent = body || "";
-      if (pillHintStep) pillHintStep.textContent = step || "Variety tip";
 
-      pillHintPendingKey = key;
+      pillHintActiveKey = key;
 
       pillHintAnchorEl = anchorEl;
       pillHintPopover._anchor = anchorEl;
 
-      // IMPORTANT: position after a frame so scrollIntoView/highlight has landed
+      const positioned = positionPillHintPopover(anchorEl);
+      if (!positioned) return;
+
+      // Reposition after smooth scroll settles
       requestAnimationFrame(() => {
-        const positioned = positionPillHintPopover(anchorEl);
-        if (!positioned) return;
-        // Do NOT set shown here. Only set after user clicks Got it.
+        positionPillHintPopover(anchorEl);
+        setTimeout(() => positionPillHintPopover(anchorEl), 350);
       });
     }
 
@@ -5452,29 +5443,27 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       metricInfoClose.addEventListener("click", closeMetricPopover);
     }
 
-    function acknowledgePillHint() {
-      if (pillHintPendingKey) {
-        setPillHintShown(pillHintPendingKey);
-      }
-      closePillHintPopover();
-    }
-
     if (pillHintGotIt) {
-      pillHintGotIt.addEventListener("click", acknowledgePillHint);
+      pillHintGotIt.addEventListener("click", () => closePillHintPopover({ markShown: true }));
     }
 
     // Treat X as acknowledge too (so testers don't get stuck)
     if (pillHintClose) {
-      pillHintClose.addEventListener("click", acknowledgePillHint);
+      pillHintClose.addEventListener("click", () => closePillHintPopover({ markShown: true }));
     }
 
     // Do nothing on outside click. User must acknowledge with Got it / X.
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && pillHintPopover && !pillHintPopover.classList.contains("hidden")) {
+        closePillHintPopover({ markShown: true });
+      }
+    });
 
     function repositionPillHintPopover() {
       if (!pillHintPopover || pillHintPopover.classList.contains("hidden")) return;
       const anchor = pillHintAnchorEl;
       if (!anchor || !anchor.isConnected) {
-        closePillHintPopover();
+        closePillHintPopover({ markShown: false });
         return;
       }
       positionPillHintPopover(anchor);
