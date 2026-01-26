@@ -3662,8 +3662,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             const paraIndex = jumpList[idx];
             const paraText = paragraphs[paraIndex] || "";
 
-            scrollToPreviewHeader();
-
             const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
 
             // Techniques: highlight devices instead of sentence-highlighting (avoids nested spans)
@@ -3864,8 +3862,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           const paraIndex = jumpList[idx];
           const paraText = paragraphs[paraIndex] || "";
-
-          scrollToPreviewHeader();
           clearPreviewHighlights();
 
           const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
@@ -3971,6 +3967,25 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         row.appendChild(pill);
         row.appendChild(dots);
         wrap.appendChild(row);
+
+        // Move the Power Verbs dictionary button under the "Power verbs needed" pill.
+        if (previewPowerVerbsBtn) {
+          const dictRow = document.createElement("div");
+          dictRow.className = "quest-row pill-row";
+          previewPowerVerbsBtn.style.display = "";
+          dictRow.appendChild(previewPowerVerbsBtn); // appendChild MOVES the node
+          wrap.appendChild(dictRow);
+        }
+      }
+
+      // If there is no "Power verbs needed" quest (powerTarget === 0), still keep the dictionary
+      // button inside the Power meter (instead of under Zoom).
+      if (powerTarget <= 0 && previewPowerVerbsBtn) {
+        const dictRow = document.createElement("div");
+        dictRow.className = "quest-row pill-row";
+        previewPowerVerbsBtn.style.display = "";
+        dictRow.appendChild(previewPowerVerbsBtn);
+        wrap.appendChild(dictRow);
       }
 
       containerEl.appendChild(wrap);
