@@ -1036,10 +1036,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               <select id="previewZoom">
                 <option value="0.8">80%</option>
                 <option value="0.9">90%</option>
-                <option value="1">100%</option>
+                <option value="1" selected>100%</option>
                 <option value="1.1">110%</option>
                 <option value="1.25">125%</option>
-                <option value="1.5" selected>150%</option>
+                <option value="1.5">150%</option>
               </select>
             </label>
             <button type="button" class="preview-pill-btn" id="previewPowerVerbsBtn" aria-label="Open Power Verbs">
@@ -5520,6 +5520,18 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       dock.innerHTML = "";
     }
 
+    function closeAllGuidanceOverlays() {
+      // Clear pinned dock hint (Preview top-left)
+      try { clearPinnedPreviewHint?.(); } catch (e) {}
+
+      // Close Variety modal / pill hint popover + backdrop
+      try { closePillHintPopover?.({ markShown: false }); } catch (e) {}
+
+      // Optional cleanups (recommended, prevents other "stuck overlays")
+      try { closeMetricPopover?.(); } catch (e) {}
+      try { closePowerVerbsPopover?.(); } catch (e) {}
+    }
+
     function showPinnedPreviewHint({ title = "", body = "", subheader = "" } = {}) {
       const dock = document.getElementById("previewHintDock");
       if (!dock) return;
@@ -6454,6 +6466,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function clearFile() {
       // Safety: stop any in-progress button loader
       stopButtonLoading(checkBtn, () => !!selectedFile);
+      closeAllGuidanceOverlays();
+      clearPreviewHighlights();
       showMarkButtonHideRecheck();
       if (resultsCard) resultsCard.style.display = "none";
       if (form) form.classList.remove("has-results");
@@ -7285,6 +7299,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       resetRevisionPracticeUI();
+      closeAllGuidanceOverlays();
+      clearPreviewHighlights();
       if (statsPanel) statsPanel.style.display = "none";
 
       if (!selectedFile) {
@@ -11124,6 +11140,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     if (recheckDocumentBtn) {
       recheckDocumentBtn.addEventListener("click", async () => {
         resetRevisionPracticeUI();
+        closeAllGuidanceOverlays();
+        clearPreviewHighlights();
         if (!selectedFile || !markedPreview) {
           return;
         }
