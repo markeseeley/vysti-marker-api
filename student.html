@@ -1485,7 +1485,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       populateMlaFieldsIfEmpty(detectedWork);
       setRepeatTutorialEnabled(false);
-      startPostUploadTour();
+      // TEMP: tutorial disabled for debugging
     }
 
     // File selection (EARLY)
@@ -3067,11 +3067,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const STUDENT_HELPERS_DISABLED_KEY = "vysti_student_helpers_disabled";
 
     function shouldShowStudentHelpers() {
-      if (FORCE_STUDENT_HELPERS) return true;
-      const disabled = localStorage.getItem(STUDENT_HELPERS_DISABLED_KEY);
-      const completed = localStorage.getItem(TOUR_DONE_KEY);
-      const legacyHidden = localStorage.getItem(TOUR_HIDE_KEY);
-      return !disabled && !completed && !legacyHidden;
+      return false; // TEMP: tutorial disabled for debugging
     }
 
     // ===== Auth + role guard =====
@@ -3134,14 +3130,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     setRepeatTutorialEnabled(false);
     if (repeatTutorialBtn) {
-      repeatTutorialBtn.addEventListener("click", () => {
-        if (repeatTutorialBtn?.disabled) return;
-        clearStudentHelperSuppression();
-        if (tourState.active) {
-          closeTour("dismissed");
-        }
-        startTourForCurrentState({ force: true });
-      });
+      repeatTutorialBtn.disabled = true;
+      repeatTutorialBtn.setAttribute("aria-disabled", "true");
+      // TEMP: tutorial disabled for debugging
     }
 
     let repeatTutorialPopover = null;
@@ -3200,14 +3191,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       positionRepeatTutorialPopover();
     }
 
-    if (repeatTutorialBtn) {
-      repeatTutorialBtn.addEventListener("mouseenter", showRepeatTutorialPopover);
-      repeatTutorialBtn.addEventListener("focus", showRepeatTutorialPopover);
-      repeatTutorialBtn.addEventListener("mouseleave", hideRepeatTutorialPopover);
-      repeatTutorialBtn.addEventListener("blur", hideRepeatTutorialPopover);
-      window.addEventListener("resize", handleRepeatTutorialPopoverPosition, { passive: true });
-      window.addEventListener("scroll", handleRepeatTutorialPopoverPosition, true);
-    }
+    // TEMP: tutorial disabled for debugging (no repeat tutorial popover)
 
     function handleAssignmentNameFocus() {
       if (!assignmentNameInput) return;
@@ -7569,7 +7553,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         }
 
         ensurePostPreviewTourVisibility();
-        maybeStartStudentTourAfterFirstMark();
+        // TEMP: tutorial disabled for debugging
 
       } catch (error) {
         console.error("Error:", error);
@@ -11716,19 +11700,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     function startTourAt(index, { force = false, steps = preUploadTourSteps } = {}) {
-      if (!force && !shouldShowStudentHelpers()) return;
-      activeTourSteps = steps;
-      createTourElements();
-      tourState.active = true;
-      tourState.currentStepIndex = index;
-      if (force && tourHideCheckbox) {
-        tourHideCheckbox.checked = false;
-      }
-      showStep(index);
+      return; // TEMP: tutorial disabled for debugging
     }
 
     function startTour({ force = false } = {}) {
-      startTourAt(0, { force, steps: preUploadTourSteps });
+      return; // TEMP: tutorial disabled for debugging
     }
 
     function clearStudentHelperSuppression() {
