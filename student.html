@@ -8,6 +8,28 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/marker.css">
+  <script>
+    // EARLY GLOBAL DRAG/DROP GUARD
+    // Prevent the browser from navigating/opening a file when one is dropped anywhere on the page.
+    // We do NOT stop propagation — dropZone’s handler will still run.
+    (function () {
+      function isFileDrag(e) {
+        const dt = e && e.dataTransfer;
+        if (!dt) return false;
+        const types = dt.types ? Array.from(dt.types) : [];
+        return types.includes("Files") || (dt.files && dt.files.length);
+      }
+
+      function prevent(e) {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        try { e.dataTransfer.dropEffect = "copy"; } catch (_) {}
+      }
+
+      window.addEventListener("dragover", prevent, { capture: true, passive: false });
+      window.addEventListener("drop", prevent, { capture: true, passive: false });
+    })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
@@ -7183,49 +7205,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         }
         startPostUploadTour();
       }
-    });
-
-    // Global file drag/drop guard:
-    // - Prevent browser from opening/navigating to dropped files anywhere on the page.
-    // - Only allow our custom handling when the drop target is inside #dropZone.
-    // - Use capture phase so we intercept before the browser/default handlers.
-    function isFileDragEvent(e) {
-      const dt = e.dataTransfer;
-      if (!dt) return false;
-
-      // "Files" appears in types during file drag in most browsers
-      const types = dt.types ? Array.from(dt.types) : [];
-      if (types.includes("Files")) return true;
-
-      // Fallback (some browsers/devtools quirks)
-      return !!(dt.files && dt.files.length);
-    }
-
-    function isInsideDropZone(target) {
-      return dropZone && target instanceof Node && dropZone.contains(target);
-    }
-
-    function guardFileDnD(e) {
-      // Only interfere with file drags/drops (do not break text dragging inside inputs)
-      if (!isFileDragEvent(e)) return;
-
-      // Always cancel default so the browser never opens/navigates to the file
-      e.preventDefault();
-
-      // If NOT inside the dropZone, block any other handlers too
-      if (!isInsideDropZone(e.target)) {
-        e.stopPropagation();
-
-        // Optional UX hint: show "not allowed" cursor on dragover
-        if (e.type === "dragover") {
-          try { e.dataTransfer.dropEffect = "none"; } catch (_) {}
-        }
-      }
-    }
-
-    // Capture phase + passive:false so preventDefault always works.
-    ["dragenter", "dragover", "drop"].forEach((evt) => {
-      window.addEventListener(evt, guardFileDnD, { capture: true, passive: false });
     });
 
     // Drag & drop
