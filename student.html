@@ -1524,10 +1524,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
 
       populateMlaFieldsIfEmpty(detectedWork);
-    if (typeof setRepeatTutorialEnabled === "function") {
-      setRepeatTutorialEnabled(false);
-    }
-      // TEMP: tutorial disabled for debugging
+      // Tutorial ("?") is only available after the essay has been marked.
+      if (typeof setRepeatTutorialEnabled === "function") {
+        setRepeatTutorialEnabled(false);
+      }
     }
 
     // File selection (EARLY)
@@ -3109,7 +3109,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const STUDENT_HELPERS_DISABLED_KEY = "vysti_student_helpers_disabled";
 
     function shouldShowStudentHelpers() {
-      return false; // TEMP: tutorial disabled for debugging
+      if (FORCE_STUDENT_HELPERS) return true;
+      const disabled = localStorage.getItem(STUDENT_HELPERS_DISABLED_KEY);
+      const completed = localStorage.getItem(TOUR_DONE_KEY);
+      const legacyHidden = localStorage.getItem(TOUR_HIDE_KEY);
+      return !disabled && !completed && !legacyHidden;
     }
 
     // ===== Auth + role guard =====
@@ -3176,10 +3180,28 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     setRepeatTutorialEnabled(false);
+    // Repeat tutorial ("?") — enabled only after the student successfully marks an essay.
     if (repeatTutorialBtn) {
-      repeatTutorialBtn.disabled = true;
-      repeatTutorialBtn.setAttribute("aria-disabled", "true");
-      // TEMP: tutorial disabled for debugging
+      repeatTutorialBtn.addEventListener("click", () => {
+        if (repeatTutorialBtn.disabled) return;
+
+        // Clear suppression so a completed/hidden tour can still replay intentionally.
+        clearStudentHelperSuppression();
+
+        // If a tour is already open, close it first.
+        if (tourState && tourState.active) closeTour("dismissed");
+
+        // Start the tour that matches the current UI state.
+        startTourForCurrentState({ force: true });
+      });
+
+      // Tooltip behavior (optional but nice)
+      repeatTutorialBtn.addEventListener("mouseenter", showRepeatTutorialPopover);
+      repeatTutorialBtn.addEventListener("focus", showRepeatTutorialPopover);
+      repeatTutorialBtn.addEventListener("mouseleave", hideRepeatTutorialPopover);
+      repeatTutorialBtn.addEventListener("blur", hideRepeatTutorialPopover);
+      window.addEventListener("resize", handleRepeatTutorialPopoverPosition, { passive: true });
+      window.addEventListener("scroll", handleRepeatTutorialPopoverPosition, true);
     }
 
     function ensureRepeatTutorialPopover() {
@@ -3238,8 +3260,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (!repeatTutorialPopoverVisible) return;
       positionRepeatTutorialPopover();
     }
-
-    // TEMP: tutorial disabled for debugging (no repeat tutorial popover)
 
     function handleAssignmentNameFocus() {
       if (!assignmentNameInput) return;
@@ -7375,7 +7395,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
     try {
-      if (typeof setRepeatTutorialEnabled === "function") setRepeatTutorialEnabled(true);
       if (typeof resetRevisionPracticeUI === "function") resetRevisionPracticeUI();
       if (typeof closeAllGuidanceOverlays === "function") closeAllGuidanceOverlays();
       if (typeof clearPreviewHighlights === "function") clearPreviewHighlights();
@@ -7619,7 +7638,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         }
 
         ensurePostPreviewTourVisibility();
-        // TEMP: tutorial disabled for debugging
+        // Enable the "?" tutorial button and (for new users) auto-start the post-preview tour.
+        setRepeatTutorialEnabled(true);
+        maybeStartStudentTourAfterFirstMark();
 
       } catch (error) {
         console.error("Error:", error);
@@ -11356,7 +11377,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           }
           statusArea.className = "status-area success";
           ensurePostPreviewTourVisibility();
-          startPostPreviewTour();
         } catch (error) {
           console.error("Error rechecking document:", error);
           statusArea.textContent = `Error: ${error.message}`;
@@ -11552,7 +11572,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       {
         anchor: "#metricsGrid",
         title: "Meters",
-        body: "These meters track your progress. Click the pillboxes (Techniques, Evidence, etc.) to jump to the next paragraph that needs work. The dots show which body paragraphs still need attention.",
+        body:
+          "These meters score your writing. Click the pillbox buttons (like Techniques or Evidence) to jump to the paragraph that needs work. The dots show which body paragraphs still need attention.",
       },
       {
         anchor: "#recheckDocumentBtn",
@@ -11768,11 +11789,24 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     function startTourAt(index, { force = false, steps = preUploadTourSteps } = {}) {
-      return; // TEMP: tutorial disabled for debugging
+      // Do not auto-run if the user completed/disabled the tour — unless forced.
+      if (!force && !shouldShowStudentHelpers()) return;
+
+      activeTourSteps = steps;
+      createTourElements();
+      tourState.active = true;
+      tourState.currentStepIndex = index;
+
+      // If forcing a replay, uncheck “do not show again” so it can run.
+      if (force && tourHideCheckbox) {
+        tourHideCheckbox.checked = false;
+      }
+
+      showStep(index);
     }
 
     function startTour({ force = false } = {}) {
-      return; // TEMP: tutorial disabled for debugging
+      startTourAt(0, { force, steps: preUploadTourSteps });
     }
 
     function clearStudentHelperSuppression() {
