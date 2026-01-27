@@ -3163,6 +3163,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     });
 
     const repeatTutorialBtn = document.getElementById("repeatTutorialBtn");
+
+    // Declare before any function call that can touch it.
+    let repeatTutorialPopover = null;
+    let repeatTutorialPopoverVisible = false;
+
     function setRepeatTutorialEnabled(enabled) {
       if (!repeatTutorialBtn) return;
       repeatTutorialBtn.disabled = !enabled;
@@ -3176,9 +3181,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       repeatTutorialBtn.setAttribute("aria-disabled", "true");
       // TEMP: tutorial disabled for debugging
     }
-
-    let repeatTutorialPopover = null;
-    let repeatTutorialPopoverVisible = false;
 
     function ensureRepeatTutorialPopover() {
       if (repeatTutorialPopover) return repeatTutorialPopover;
@@ -3223,9 +3225,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     function hideRepeatTutorialPopover() {
-      if (!repeatTutorialPopover) return;
-      repeatTutorialPopover.style.display = "none";
-      repeatTutorialPopoverVisible = false;
+      try {
+        if (!repeatTutorialPopover) return;
+        repeatTutorialPopover.style.display = "none";
+        repeatTutorialPopoverVisible = false;
+      } catch (e) {
+        // swallow
+      }
     }
 
     function handleRepeatTutorialPopoverPosition() {
