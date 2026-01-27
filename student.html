@@ -1444,6 +1444,33 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const fileList = document.getElementById("fileList");
     const dropZone = document.getElementById("dropZone");
 
+    let __studentFatalShown = false;
+    function showStudentFatal(context, err) {
+      if (__studentFatalShown) return;
+      __studentFatalShown = true;
+
+      console.error("[Student Fatal]", context, err);
+
+      try {
+        if (resultsCard) resultsCard.style.display = "block";
+        if (statusArea) {
+          const msg = err && err.message ? err.message : String(err || "");
+          statusArea.textContent = `${context}: ${msg}`;
+          statusArea.className = "status-area error";
+        }
+      } catch (_) {
+        // Never let error reporting throw
+      }
+    }
+
+    window.addEventListener("error", (e) => {
+      showStudentFatal("Student page JS error", e.error || e.message);
+    });
+
+    window.addEventListener("unhandledrejection", (e) => {
+      showStudentFatal("Student page promise rejection", e.reason);
+    });
+
     if (form && checkBtn && !checkBtn.dataset.submitBound) {
       checkBtn.addEventListener("click", (e) => {
         // If something is overlaying or some future code messes with submission,
@@ -1497,7 +1524,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
 
       populateMlaFieldsIfEmpty(detectedWork);
+    if (typeof setRepeatTutorialEnabled === "function") {
       setRepeatTutorialEnabled(false);
+    }
       // TEMP: tutorial disabled for debugging
     }
 
@@ -7339,10 +7368,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     // ===== Form submission =====
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      setRepeatTutorialEnabled(true);
-      resetRevisionPracticeUI();
-      closeAllGuidanceOverlays();
-      clearPreviewHighlights();
+    try {
+      if (typeof setRepeatTutorialEnabled === "function") setRepeatTutorialEnabled(true);
+      if (typeof resetRevisionPracticeUI === "function") resetRevisionPracticeUI();
+      if (typeof closeAllGuidanceOverlays === "function") closeAllGuidanceOverlays();
+      if (typeof clearPreviewHighlights === "function") clearPreviewHighlights();
+    } catch (err) {
+      showStudentFatal("Error before marking (setup)", err);
+      return;
+    }
       if (statsPanel) statsPanel.style.display = "none";
 
       if (!selectedFile) {
@@ -7353,7 +7387,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
 
       // Get session
-      const { data: sessionData } = await supa.auth.getSession();
+    let sessionData;
+    try {
+      const res = await supa.auth.getSession();
+      sessionData = res?.data;
+    } catch (err) {
+      showStudentFatal("Auth session retrieval failed", err);
+      return;
+    }
       if (!sessionData || !sessionData.session) {
         statusArea.textContent = "You must be logged in.";
         statusArea.className = "status-area error";
@@ -7361,7 +7402,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return;
       }
 
-      const formData = buildMarkFormData({ includeSummaryTable: false });
+    let formData;
+    try {
+      formData = buildMarkFormData({ includeSummaryTable: false });
+    } catch (err) {
+      showStudentFatal("Failed to build FormData", err);
+      return;
+    }
       if (!formData) {
         statusArea.textContent = "Please select a .docx file.";
         statusArea.className = "status-area error";
