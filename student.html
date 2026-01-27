@@ -1443,21 +1443,60 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const downloadBtn = document.getElementById("downloadBtn");
     const fileList = document.getElementById("fileList");
     const dropZone = document.getElementById("dropZone");
-    // ---------------------------------------------------------------------------
-    // Global DnD guard (prevents browser from navigating to / downloading a file
-    // when a user drops it onto the page). This MUST exist even if later code fails.
-    // ---------------------------------------------------------------------------
-    (function installGlobalDropGuard() {
-      const prevent = (e) => {
-        // If the event is cancelable, prevent default navigation/download behavior.
-        if (e && e.cancelable) e.preventDefault();
-      };
 
-      // Capture phase + passive:false so preventDefault always works.
-      window.addEventListener("dragover", prevent, { capture: true, passive: false });
-      window.addEventListener("drop", prevent, { capture: true, passive: false });
-    })();
+    function populateMlaFieldsIfEmpty(work) {
+      if (!work) return;
+      if (mlaNameInput && !mlaNameInput.value.trim() && work.author) {
+        mlaNameInput.value = work.author;
+      }
+      if (mlaAssignmentInput && !mlaAssignmentInput.value.trim() && work.title) {
+        mlaAssignmentInput.value = work.title;
+      }
+    }
 
+    async function handleSelectedFile(file) {
+      selectedFile = file;
+      if (statsPanel) statsPanel.style.display = "none";
+      loadDismissedIssuesFromStorage();
+      updateFileUI();
+      showMarkButtonHideRecheck();
+
+      const meta = await extractMetaFromDocx(selectedFile);
+      detectedWork = null;
+      if (meta?.title && meta?.author) {
+        detectedWork = {
+          author: meta.author,
+          title: meta.title,
+          isMinor: !!meta.isMinor,
+          confidence: "high"
+        };
+      } else if (meta?.title || meta?.author) {
+        detectedWork = {
+          author: meta?.author || "",
+          title: meta?.title || "",
+          isMinor: !!meta?.isMinor,
+          confidence: "low"
+        };
+      }
+      if (meta && meta.wordCount !== undefined) {
+        currentWordCount = meta.wordCount;
+        updateStatsPanel(liveLabelCounts);
+      }
+
+      populateMlaFieldsIfEmpty(detectedWork);
+      setRepeatTutorialEnabled(false);
+      startPostUploadTour();
+    }
+
+    // File selection (EARLY)
+    if (fileInput && fileInput.dataset.changeBound !== "1") {
+      fileInput.dataset.changeBound = "1";
+      fileInput.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        await handleSelectedFile(file);
+      });
+    }
     // ---------------------------------------------------------------------------
     // Drop zone init (bind EARLY so Tour/other errors can't prevent uploads working)
     // ---------------------------------------------------------------------------
@@ -1525,16 +1564,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           const docxFile = docxFiles[0];
 
-          // Try to reuse the fileInput path, but NEVER let it break drag/drop.
+          // Always load the dropped file directly (do not rely on DataTransfer or dispatching change)
           try {
-            const dt = new DataTransfer();
-            dt.items.add(docxFile);
-            fileInput.files = dt.files;
-            fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-          } catch (err) {
-            console.warn("DnD fallback: DataTransfer/fileInput.files not supported:", err);
-            await handleSelectedFile(docxFile);
-          }
+            // Clear so re-dropping the same file still works if user later uses the picker
+            if (fileInput) fileInput.value = "";
+          } catch (e) {}
+
+          await handleSelectedFile(docxFile);
         },
         { passive: false }
       );
@@ -6697,18 +6733,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     clearFileBtn.addEventListener("click", clearFile);
 
-    if (dropZone && fileInput && dropZone.dataset.dndBound !== "1") {
-      // Click drop zone to open file picker
-      dropZone.addEventListener("click", () => fileInput.click());
-
-      dropZone.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          fileInput.click();
-        }
-      });
-    }
-
     // ===== Extract metadata from docx =====
     
     // Helper: Strip HTML tags and get plain text
@@ -7313,130 +7337,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         console.error("Error extracting metadata:", error);
         return null;
       }
-    }
-
-    function populateMlaFieldsIfEmpty(work) {
-      if (!work) return;
-      if (mlaNameInput && !mlaNameInput.value.trim() && work.author) {
-        mlaNameInput.value = work.author;
-      }
-      if (mlaAssignmentInput && !mlaAssignmentInput.value.trim() && work.title) {
-        mlaAssignmentInput.value = work.title;
-      }
-    }
-
-    async function handleSelectedFile(file) {
-      selectedFile = file;
-      if (statsPanel) statsPanel.style.display = "none";
-      loadDismissedIssuesFromStorage();
-      updateFileUI();
-      showMarkButtonHideRecheck();
-
-      const meta = await extractMetaFromDocx(selectedFile);
-      detectedWork = null;
-      if (meta?.title && meta?.author) {
-        detectedWork = {
-          author: meta.author,
-          title: meta.title,
-          isMinor: !!meta.isMinor,
-          confidence: "high"
-        };
-      } else if (meta?.title || meta?.author) {
-        detectedWork = {
-          author: meta?.author || "",
-          title: meta?.title || "",
-          isMinor: !!meta?.isMinor,
-          confidence: "low"
-        };
-      }
-      if (meta && meta.wordCount !== undefined) {
-        currentWordCount = meta.wordCount;
-        updateStatsPanel(liveLabelCounts);
-      }
-
-      populateMlaFieldsIfEmpty(detectedWork);
-      setRepeatTutorialEnabled(false);
-      startPostUploadTour();
-    }
-
-    // File selection
-    fileInput.addEventListener("change", async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      await handleSelectedFile(file);
-    });
-
-    if (dropZone && fileInput && dropZone.dataset.dndBound !== "1") {
-      // Drag & drop
-      ["dragenter", "dragover"].forEach(evt => {
-        dropZone.addEventListener(evt, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropZone.classList.add("dragover");
-        });
-      });
-
-      ["dragleave", "dragend"].forEach(evt => {
-        dropZone.addEventListener(evt, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropZone.classList.remove("dragover");
-        });
-      });
-
-      dropZone.addEventListener("drop", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove("dragover");
-
-        if (e.dataTransfer && e.dataTransfer.files) {
-          const files = Array.from(e.dataTransfer.files);
-          const docxFiles = files.filter(f => /\.docx$/i.test(f.name));
-          if (docxFiles.length > 1) {
-            statusArea.textContent = "Please drop only one .docx file.";
-            statusArea.className = "status-area error";
-            return;
-          }
-          const docxFile = docxFiles[0];
-          if (docxFile) {
-            selectedFile = docxFile;
-            if (statsPanel) statsPanel.style.display = "none";
-            loadDismissedIssuesFromStorage();
-            // Update file input programmatically
-            const dt = new DataTransfer();
-            dt.items.add(docxFile);
-            fileInput.files = dt.files;
-            updateFileUI();
-            showMarkButtonHideRecheck();
-
-            const meta = await extractMetaFromDocx(selectedFile);
-            detectedWork = null;
-            if (meta?.title && meta?.author) {
-              detectedWork = {
-                author: meta.author,
-                title: meta.title,
-                isMinor: !!meta.isMinor,
-                confidence: "high"
-              };
-            } else if (meta?.title || meta?.author) {
-              detectedWork = {
-                author: meta?.author || "",
-                title: meta?.title || "",
-                isMinor: !!meta?.isMinor,
-                confidence: "low"
-              };
-            }
-            if (meta && meta.wordCount !== undefined) {
-              currentWordCount = meta.wordCount;
-              updateStatsPanel(liveLabelCounts);
-            }
-            startPostUploadTour();
-          } else {
-            statusArea.textContent = "Please upload a .docx file.";
-            statusArea.className = "status-area error";
-          }
-        }
-      });
     }
 
     // ===== Form submission =====
