@@ -650,6 +650,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       justify-content: center;
     }
     .power-verbs-iconbtn:hover{ background: rgba(0,0,0,.03); }
+    #repeatTutorialBtn:disabled{
+      opacity: .45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
     .power-verbs-grid {
       display: flex;
       flex-wrap: wrap;
@@ -877,7 +882,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     <div class="actions">
       <button class="topbar-btn" id="progressBtn" type="button">Progress</button>
       <button class="topbar-btn" id="switchModeBtn" type="button">Teacher</button>
-      <button class="iconbtn repeat-tutorial-trigger" id="repeatTutorialBtn" type="button" aria-label="Repeat tutorial" data-tip="Repeat the tutorial">?</button>
+      <button class="iconbtn repeat-tutorial-trigger" id="repeatTutorialBtn" type="button" disabled aria-disabled="true" aria-label="Repeat tutorial" data-tip="Repeat the tutorial">?</button>
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -1036,8 +1041,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               <select id="previewZoom">
                 <option value="0.8">80%</option>
                 <option value="0.9">90%</option>
-                <option value="1" selected>100%</option>
-                <option value="1.1">110%</option>
+                <option value="1">100%</option>
+                <option value="1.1" selected>110%</option>
                 <option value="1.25">125%</option>
                 <option value="1.5">150%</option>
               </select>
@@ -2887,16 +2892,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       // Logged in as student
       form.style.display = "grid";
 
-      if (!studentHelpersStartedThisLoad && shouldShowStudentHelpers()) {
-        studentHelpersStartedThisLoad = true;
-
-        // Make sure layout is ready before positioning the helper window arrows
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            startTour({ force: FORCE_STUDENT_HELPERS });
-          }, 50);
-        });
-      }
     }
 
     // Initial auth check
@@ -2931,8 +2926,17 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     });
 
     const repeatTutorialBtn = document.getElementById("repeatTutorialBtn");
+    function setRepeatTutorialEnabled(enabled) {
+      if (!repeatTutorialBtn) return;
+      repeatTutorialBtn.disabled = !enabled;
+      repeatTutorialBtn.setAttribute("aria-disabled", String(!enabled));
+      if (!enabled) hideRepeatTutorialPopover();
+    }
+
+    setRepeatTutorialEnabled(false);
     if (repeatTutorialBtn) {
       repeatTutorialBtn.addEventListener("click", () => {
+        if (repeatTutorialBtn?.disabled) return;
         clearStudentHelperSuppression();
         if (tourState.active) {
           closeTour("dismissed");
@@ -7298,6 +7302,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     // ===== Form submission =====
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      setRepeatTutorialEnabled(true);
       resetRevisionPracticeUI();
       closeAllGuidanceOverlays();
       clearPreviewHighlights();
@@ -7524,7 +7529,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         }
 
         ensurePostPreviewTourVisibility();
-        startPostPreviewTour();
+        maybeStartStudentTourAfterFirstMark();
 
       } catch (error) {
         console.error("Error:", error);
@@ -11455,6 +11460,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         body: "Edit your document directly in this Preview. Use Zoom if you need it. Changes here aren’t finalized until you recheck.",
       },
       {
+        anchor: "#metricsGrid",
+        title: "Meters",
+        body: "These meters track your progress. Click the pillboxes (Techniques, Evidence, etc.) to jump to the next paragraph that needs work. The dots show which body paragraphs still need attention.",
+      },
+      {
         anchor: "#recheckDocumentBtn",
         title: "Recheck",
         body: "After editing the Preview, click here to regenerate your feedback. Edits can fix issues — but can also create new ones.",
@@ -11472,6 +11482,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       currentStepIndex: 0,
       active: false,
     };
+    let studentTourAutoStarted = false;
 
     let tourOverlay = null;
     let tourPopover = null;
@@ -11703,6 +11714,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         ensurePostPreviewTourVisibility();
       }
       startTourAt(0, { force, steps });
+    }
+
+    function maybeStartStudentTourAfterFirstMark() {
+      if (studentTourAutoStarted) return;
+      if (!shouldShowStudentHelpers()) return;
+      studentTourAutoStarted = true;
+      // Post-preview tour makes the most sense after the first mark
+      ensurePostPreviewTourVisibility();
+      startTourAt(0, { force: FORCE_STUDENT_HELPERS, steps: postPreviewTourSteps });
     }
 
     async function nextStep() {
