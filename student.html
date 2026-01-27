@@ -801,6 +801,18 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       margin-bottom: 8px;
       white-space: pre-wrap;
     }
+    .approved-rewrite-edit {
+      width: 100%;
+      min-height: 84px;
+      padding: 10px 12px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      border-radius: 6px;
+      font-size: var(--fs-sm);
+      font-family: inherit;
+      background: #fff;
+      margin-bottom: 8px;
+      resize: vertical;
+    }
     .approved-rewrite-actions {
       display: flex;
       gap: 8px;
@@ -6198,16 +6210,50 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         textDiv.className = "approved-rewrite-text";
         textDiv.textContent = entry.rewriteText || "";
 
+      const editTextarea = document.createElement("textarea");
+      editTextarea.className = "approved-rewrite-edit";
+      editTextarea.value = entry.rewriteText || "";
+      editTextarea.style.display = "none";
+      editTextarea.addEventListener("input", () => {
+        const nextText = editTextarea.value;
+        entry.rewriteText = nextText;
+        li.dataset.approvedRewrite = nextText;
+        textDiv.textContent = nextText;
+        autosizeTextarea(editTextarea, 260);
+      });
+
         const statusDiv = document.createElement("div");
         statusDiv.className = "rewrite-status";
 
         const actionsDiv = document.createElement("div");
         actionsDiv.className = "approved-rewrite-actions";
 
+      const editBtn = document.createElement("button");
+      editBtn.className = "example-btn";
+      editBtn.textContent = "Edit";
+      editBtn.onclick = () => {
+        const isEditing = editTextarea.style.display !== "none";
+        if (isEditing) {
+          editTextarea.style.display = "none";
+          textDiv.style.display = "";
+          editBtn.textContent = "Edit";
+          textDiv.textContent = entry.rewriteText || "";
+          return;
+        }
+        editTextarea.style.display = "block";
+        textDiv.style.display = "none";
+        editBtn.textContent = "Save";
+        autosizeTextarea(editTextarea, 260);
+        editTextarea.focus();
+      };
+
         const applyBtn = document.createElement("button");
         applyBtn.className = "example-btn apply-to-preview-btn";
         applyBtn.textContent = "Apply to Preview";
         applyBtn.onclick = () => {
+        const nextRewriteText = editTextarea ? editTextarea.value : entry.rewriteText;
+        entry.rewriteText = nextRewriteText || "";
+        li.dataset.approvedRewrite = entry.rewriteText;
           const applied = applyRewriteToPreviewByKey({
             exampleKey: entry.exampleKey,
             rewriteText: entry.rewriteText,
@@ -6222,9 +6268,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           }
         };
 
-        actionsDiv.appendChild(applyBtn);
+      actionsDiv.appendChild(editBtn);
+      actionsDiv.appendChild(applyBtn);
         li.appendChild(labelDiv);
         li.appendChild(textDiv);
+      li.appendChild(editTextarea);
         li.appendChild(statusDiv);
         li.appendChild(actionsDiv);
         approvedRewritesList.appendChild(li);
@@ -6538,6 +6586,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       } else {
         guidanceDiv.style.display = "none";
       }
+      const allApprovedForIssue = Array.isArray(currentExamplesAll)
+        && currentExamplesAll.length > 0
+        && currentExamplesAll.every((ex) => isExampleApproved(ex));
 
       const exampleMetaDiv = document.createElement("div");
       exampleMetaDiv.className = "example-meta";
@@ -6672,7 +6723,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         setApplyAttention(applyToPreviewBtn);
       }
 
-      li.appendChild(guidanceDiv);
+      if (!allApprovedForIssue) {
+        li.appendChild(guidanceDiv);
+      }
       li.appendChild(exampleMetaDiv);
       li.appendChild(rewriteTextarea);
       if (powerVerbsHelper) li.appendChild(powerVerbsHelper);
