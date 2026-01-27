@@ -10,24 +10,45 @@
   <link rel="stylesheet" href="/assets/marker.css">
   <script>
     // EARLY GLOBAL DRAG/DROP GUARD
-    // Prevent the browser from navigating/opening a file when one is dropped anywhere on the page.
-    // We do NOT stop propagation — dropZone’s handler will still run.
+    // Prevent the browser from navigating/opening/downloading a file when one is dropped anywhere on the page.
+    // Must be robust across browsers (Chrome/Edge/Safari/Firefox) and must NOT block the dropZone handler.
     (function () {
+      const opts = { capture: true, passive: false };
+
       function isFileDrag(e) {
         const dt = e && e.dataTransfer;
         if (!dt) return false;
+
+        // Best signal: DataTransferItem.kind === "file"
+        if (dt.items && dt.items.length) {
+          for (const item of dt.items) {
+            if (item && item.kind === "file") return true;
+          }
+        }
+
+        // Drop often has files populated
+        if (dt.files && dt.files.length) return true;
+
+        // Cross-browser type hints
         const types = dt.types ? Array.from(dt.types) : [];
-        return types.includes("Files") || (dt.files && dt.files.length);
+        return (
+          types.includes("Files") ||                   // Chromium/Edge
+          types.includes("application/x-moz-file") ||  // Firefox
+          types.includes("public.file-url")            // Safari
+        );
       }
 
-      function prevent(e) {
+      function preventFileNav(e) {
         if (!isFileDrag(e)) return;
         e.preventDefault();
         try { e.dataTransfer.dropEffect = "copy"; } catch (_) {}
+        // IMPORTANT: do NOT stopPropagation — dropZone must still receive the event.
       }
 
-      window.addEventListener("dragover", prevent, { capture: true, passive: false });
-      window.addEventListener("drop", prevent, { capture: true, passive: false });
+      ["dragenter", "dragover", "drop"].forEach((t) => {
+        window.addEventListener(t, preventFileNav, opts);
+        document.addEventListener(t, preventFileNav, opts);
+      });
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1462,7 +1483,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       dropZone.addEventListener(
         "drop",
-        (e) => {
+        async (e) => {
           e.preventDefault();
           e.stopPropagation();
           removeHover();
@@ -1470,30 +1491,28 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           const files = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : [];
           const docxFiles = files.filter((f) => /\.docx$/i.test(f.name));
 
-          if (docxFiles.length > 1) {
+          if (docxFiles.length !== 1) {
             if (statusArea) {
-              statusArea.textContent = "Please upload one .docx file at a time.";
+              statusArea.textContent = docxFiles.length > 1
+                ? "Please upload one .docx file at a time."
+                : "Please drop a .docx file.";
               statusArea.className = "status-area error";
             }
             return;
           }
 
           const docxFile = docxFiles[0];
-          if (!docxFile) {
-            if (statusArea) {
-              statusArea.textContent = "Please drop a .docx file.";
-              statusArea.className = "status-area error";
-            }
-            return;
+
+          // Try to reuse the fileInput path, but NEVER let it break drag/drop.
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(docxFile);
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          } catch (err) {
+            console.warn("DnD fallback: DataTransfer/fileInput.files not supported:", err);
+            await handleSelectedFile(docxFile);
           }
-
-          // Push dropped file into the <input type="file"> so the existing
-          // fileInput 'change' handler runs (and the rest of the app behaves normally).
-          const dt = new DataTransfer();
-          dt.items.add(docxFile);
-          fileInput.files = dt.files;
-
-          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
         },
         { passive: false }
       );
@@ -7274,39 +7293,55 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
     }
 
+    function populateMlaFieldsIfEmpty(work) {
+      if (!work) return;
+      if (mlaNameInput && !mlaNameInput.value.trim() && work.author) {
+        mlaNameInput.value = work.author;
+      }
+      if (mlaAssignmentInput && !mlaAssignmentInput.value.trim() && work.title) {
+        mlaAssignmentInput.value = work.title;
+      }
+    }
+
+    async function handleSelectedFile(file) {
+      selectedFile = file;
+      if (statsPanel) statsPanel.style.display = "none";
+      loadDismissedIssuesFromStorage();
+      updateFileUI();
+      showMarkButtonHideRecheck();
+
+      const meta = await extractMetaFromDocx(selectedFile);
+      detectedWork = null;
+      if (meta?.title && meta?.author) {
+        detectedWork = {
+          author: meta.author,
+          title: meta.title,
+          isMinor: !!meta.isMinor,
+          confidence: "high"
+        };
+      } else if (meta?.title || meta?.author) {
+        detectedWork = {
+          author: meta?.author || "",
+          title: meta?.title || "",
+          isMinor: !!meta?.isMinor,
+          confidence: "low"
+        };
+      }
+      if (meta && meta.wordCount !== undefined) {
+        currentWordCount = meta.wordCount;
+        updateStatsPanel(liveLabelCounts);
+      }
+
+      populateMlaFieldsIfEmpty(detectedWork);
+      setRepeatTutorialEnabled(false);
+      startPostUploadTour();
+    }
+
     // File selection
     fileInput.addEventListener("change", async (e) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        selectedFile = files[0];
-        if (statsPanel) statsPanel.style.display = "none";
-        loadDismissedIssuesFromStorage();
-        updateFileUI();
-        showMarkButtonHideRecheck();
-
-        const meta = await extractMetaFromDocx(selectedFile);
-        detectedWork = null;
-        if (meta?.title && meta?.author) {
-          detectedWork = {
-            author: meta.author,
-            title: meta.title,
-            isMinor: !!meta.isMinor,
-            confidence: "high"
-          };
-        } else if (meta?.title || meta?.author) {
-          detectedWork = {
-            author: meta?.author || "",
-            title: meta?.title || "",
-            isMinor: !!meta?.isMinor,
-            confidence: "low"
-          };
-        }
-        if (meta && meta.wordCount !== undefined) {
-          currentWordCount = meta.wordCount;
-          updateStatsPanel(liveLabelCounts);
-        }
-        startPostUploadTour();
-      }
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      await handleSelectedFile(file);
     });
 
     if (dropZone && fileInput && dropZone.dataset.dndBound !== "1") {
@@ -11588,6 +11623,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       tourPopover.className = "tour-popover";
       tourPopover.setAttribute("role", "dialog");
       tourPopover.setAttribute("aria-live", "polite");
+
+      tourOverlay.style.pointerEvents = "none";
+      tourPopover.style.pointerEvents = "auto";
 
       tourCloseBtn = document.createElement("button");
       tourCloseBtn.className = "tour-close";
