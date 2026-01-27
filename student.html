@@ -1444,6 +1444,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const fileList = document.getElementById("fileList");
     const dropZone = document.getElementById("dropZone");
 
+    if (form && checkBtn && !checkBtn.dataset.submitBound) {
+      checkBtn.addEventListener("click", (e) => {
+        // If something is overlaying or some future code messes with submission,
+        // force a real submit event.
+        if (checkBtn.disabled) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof form.requestSubmit === "function") form.requestSubmit();
+        else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+      checkBtn.dataset.submitBound = "1";
+    }
+
     function populateMlaFieldsIfEmpty(work) {
       if (!work) return;
       if (mlaNameInput && !mlaNameInput.value.trim() && work.author) {
@@ -11531,7 +11544,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       tourPopover.setAttribute("aria-live", "polite");
 
       tourOverlay.style.pointerEvents = "none";
+      tourOverlay.style.display = "none";
       tourPopover.style.pointerEvents = "auto";
+      tourPopover.style.display = "none";
 
       tourCloseBtn = document.createElement("button");
       tourCloseBtn.className = "tour-close";
