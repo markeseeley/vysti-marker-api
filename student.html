@@ -5468,18 +5468,31 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           const tr = detectTransitionStart(sentences[s]);
           if (!tr) continue;
           const seenCount = allTransitionCounts.get(tr) || 0;
-          if (seenCount >= 1) {
-            addWeakIssue(sentences[s], p, `Repeated transition: ${tr}`);
-          }
           allTransitionCounts.set(tr, seenCount + 1);
 
-          const isParagraphStart = s === 0 && p >= 1;
+          // Weak transitions should ONLY apply to paragraph-start transitions in body/conclusion.
+          // We do NOT flag transitions inside paragraphs, and we ignore the first paragraph entirely.
+          const isParagraphStart = (s === 0 && p >= 1);
+
           if (isParagraphStart) {
             paragraphStartTransitionStarts += 1;
+
+            // Always flag paragraph-start transitions as weak
             addWeakIssue(sentences[s], p, "Paragraph starts with transition");
+
+            // Optional: keep repeat info ONLY when it occurs at paragraph start
+            if (seenCount >= 1) {
+              addWeakIssue(sentences[s], p, `Repeated transition: ${tr}`);
+            }
+
+            // Paragraph-start transitions are tracked but not rewarded as "within" transitions
             continue;
           }
+
+          // Not paragraph start: do not treat as weak, and do not count as paragraph-start transition.
+          // Still allow within-paragraph transition counting/repetition tracking.
           if (s === 0) continue;
+
           withinTransitionStarts += 1;
           const known = withinTransitionCounts.get(tr) || 0;
           withinTransitionCounts.set(tr, known + 1);
