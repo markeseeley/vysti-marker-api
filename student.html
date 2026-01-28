@@ -948,6 +948,37 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     .tour-popover {
       pointer-events: auto;
     }
+
+    /* Soft popover entrance */
+    .tour-popover,
+    .pill-hint-popover,
+    .metric-popover,
+    .power-verbs-popover,
+    .repeat-tutorial-popover {
+      opacity: 0;
+      transform: translateY(6px);
+      transition: none;
+      will-change: opacity, transform;
+    }
+
+    /* When shown, popovers become visible */
+    .tour-popover:not(.hidden),
+    .pill-hint-popover:not(.hidden),
+    .metric-popover:not(.hidden),
+    .power-verbs-popover:not(.hidden),
+    .repeat-tutorial-popover[style*="display: block"] {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Avoid animating on first paint */
+    body.popovers-ready .tour-popover,
+    body.popovers-ready .pill-hint-popover,
+    body.popovers-ready .metric-popover,
+    body.popovers-ready .power-verbs-popover,
+    body.popovers-ready .repeat-tutorial-popover {
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/compromise@14.14.5/builds/compromise.min.js"></script>
 </head>
@@ -970,6 +1001,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
   <main class="page student-page">
     <form id="studentForm" class="marker-grid" style="display:none;">
       <section class="card form-card">
+        <div class="assignment-tracker-title" style="margin-bottom: 8px;">
+          Select the writing type
+        </div>
         <label>
           <span class="label-row mode-select-label-row">
             <span class="visually-hidden">Assignment type</span>
@@ -12121,6 +12155,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function startPostPreviewTour() {
       startTourAt(0, { force: FORCE_STUDENT_HELPERS, steps: postPreviewTourSteps });
     }
+
+    requestAnimationFrame(() => {
+      document.body.classList.add("popovers-ready");
+    });
 
     // Initial state
     showMarkButtonHideRecheck();
