@@ -3634,9 +3634,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     function updateCohesionIssueCache(details, sourceText) {
-      const paragraphIssues = Array.isArray(details?.issues?.paragraphBoundaryMisses)
-        ? details.issues.paragraphBoundaryMisses
+      let paragraphIssues = Array.isArray(details?.issues?.paragraphBoundaryMisses)
+        ? details.issues.paragraphBoundaryMisses.map((i) => ({ ...i, __metric: "cohesion:paragraph" }))
         : [];
+      const essayFirstSentence = getEssayFirstSentenceFromPreview();
+      const firstKey = sentenceMatchKey(essayFirstSentence);
+      if (firstKey) {
+        paragraphIssues = paragraphIssues.filter((it) => sentenceMatchKey(it?.sentence) !== firstKey);
+      }
       const sentenceIssues = Array.isArray(details?.issues?.sentenceBoundaryMisses)
         ? details.issues.sentenceBoundaryMisses
         : [];
@@ -3772,9 +3777,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         wrap.appendChild(row);
       };
 
-      const paragraphMisses = Array.isArray(issues.paragraphBoundaryMisses)
-        ? issues.paragraphBoundaryMisses.length
-        : Math.max(0, paragraphTotal - paragraphHits);
+      const essayFirstSentence = getEssayFirstSentenceFromPreview();
+      const firstKey = sentenceMatchKey(essayFirstSentence);
+      const rawParagraphMisses = (issues.paragraphBoundaryMisses || []);
+      const filteredParagraphMisses = firstKey
+        ? rawParagraphMisses.filter((it) => sentenceMatchKey(it?.sentence) !== firstKey)
+        : rawParagraphMisses;
+      const paragraphMisses = filteredParagraphMisses.length;
       const sentenceMisses = Array.isArray(issues.sentenceBoundaryMisses)
         ? issues.sentenceBoundaryMisses.length
         : Math.max(0, sentenceRequired - sentenceHits);
@@ -3960,7 +3969,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
               if (fallbackLabel) {
                 const fallbackIssueId = getIssueIdForLabel(fallbackLabel);
-                if (isCommonIssueForRevisions(fallbackLabel)) {
+                if (key !== "unnecessary" && isCommonIssueForRevisions(fallbackLabel)) {
                   await openRevisionExampleFromIssueId(fallbackIssueId, fallbackLabel);
                 }
                 updatePrecisionIssueCache();
@@ -3976,6 +3985,12 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             const res = highlightAndScrollToExample(example, null, { scroll: true, select: false });
             if (res?.hits?.length) {
               res.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
+            }
+            if (key === "unnecessary") {
+              const template = "Vysti recommends avoiding unnecessary terms like {FOUND}. You can probably just delete them from your writing.";
+              const body = resolveStudentGuidance(template, example?.sentence || "", example?.label || "");
+              showPillHintModal({ title: "Unnecessary", body });
+              return;
             }
             const issueId = getIssueIdForLabel(example.label);
             if (isCommonIssueForRevisions(example.label)) {
@@ -6539,54 +6554,45 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     function findFoundTerms(sentence, labelText) {
-      const s = String(sentence || "");
-      const candidates = extractQuotedTerms(labelText);
+      const sRaw = String(sentence || "");
+      const s = normalizeTypography(sRaw).toLowerCase();
 
-      // If label has no quoted terms but this is the weak-verbs issue,
-      // infer the "FOUND" term(s) directly from the sentence.
-      if (candidates.length === 0 && isAvoidWeakVerbsLabel(labelText)) {
-        const hits = [];
-        const seen = new Set();
-        const tokens = tokenizeWords(sentence);
+      let candidates = extractQuotedTerms(labelText);
 
-        for (const w of tokens) {
-          if (WEAK_VERBS.has(w) && !seen.has(w)) {
-            seen.add(w);
-            hits.push(w);
+      // If we have candidates, prefer the subset that truly appears in the sentence.
+      if (candidates.length) {
+        const hits = candidates.filter((t) => {
+          const tt = normalizeTypography(String(t || "")).toLowerCase();
+          if (!tt) return false;
+          if (tt.includes(" ")) return s.includes(tt);
+          try {
+            return new RegExp("\\b" + tt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(sRaw);
+          } catch {
+            return s.includes(tt);
           }
-        }
-        return hits; // e.g., ["showed"] or ["use", "make"]
+        });
+        if (hits.length) return hits;
+        return candidates;
       }
 
-      const found = [];
-      const seen = new Set();
-
-      for (const term of candidates) {
-        if (!term) continue;
-
-        let matchText = null;
-
-        // If it's a simple word, prefer word-boundary match
-        if (/^[A-Za-z0-9_]+$/.test(term)) {
-          const re = new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
-          const m = re.exec(s);
-          if (m) matchText = m[0];
-        } else {
-          // Otherwise do a case-insensitive substring match
-          const idx = s.toLowerCase().indexOf(term.toLowerCase());
-          if (idx !== -1) matchText = s.slice(idx, idx + term.length);
+      // Special case: reader/audience label has no quotes
+      if (/reader|audience/i.test(labelText || "")) {
+        const toks = tokenizeWords(sRaw).map((w) => w.replace(/'s$/i, ""));
+        const keep = [];
+        for (const w of toks) {
+          if (w === "reader" || w === "readers" || w === "audience" || w === "audiences") keep.push(w);
         }
-
-        if (matchText) {
-          const key = matchText.toLowerCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            found.push(matchText);
-          }
-        }
+        return Array.from(new Set(keep));
       }
 
-      return found;
+      // Existing weak verbs inference
+      if (isAvoidWeakVerbsLabel(labelText)) {
+        const toks = tokenizeWords(sRaw);
+        const hits = toks.filter((w) => WEAK_VERBS.has(w));
+        return Array.from(new Set(hits));
+      }
+
+      return [];
     }
 
     function formatFound(foundTerms) {
@@ -9162,6 +9168,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       // Normalize whitespace
       s = s.replace(/\s+/g, " ").trim();
       return s;
+    }
+
+    function getEssayFirstSentenceFromPreview() {
+      const blocks = getPreviewBlocks();
+      const firstIdx = getFirstProseBlockIndex(blocks);
+      if (firstIdx < 0) return "";
+      const firstText = extractCleanTextFromElement(blocks[firstIdx], { preserveLineBreaks: true }).trim();
+      return getFirstSentence(firstText);
+    }
+
+    function sentenceMatchKey(s) {
+      const cleaned = stripVystiInlineArtifacts(normalizeTypography(String(s || "")));
+      return normalizeForMatch(cleaned).toLowerCase().replace(/\s+/g, " ").trim();
     }
 
     function unwrapNode(el) {
