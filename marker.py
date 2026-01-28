@@ -958,7 +958,7 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_topic_thesis_alignment = False
         cfg.enforce_off_topic = False
         cfg.enforce_essay_title_format = False
-        cfg.enforce_essay_title_capitalization = False
+        cfg.enforce_essay_title_capitalization = True
         # Keep:
         #   - enforce_closed_thesis = True  (we'll use it for a simple "no questions" check)
         #   - enforce_specific_thesis_topics = True (harmless; we won't run the big thesis logic)
@@ -3410,6 +3410,11 @@ def analyze_text(
         # This handles cases like "When describing the grandeur of the mall, Guterson contrasts..."
         # where spaCy might split at a colon, but we want the entire first sentence.
         topic_start, topic_end = compute_topic_sentence_span(flat_text, spans)
+        topic_sentence_text = flat_text[topic_start:topic_end]
+        last_sentence_text = ""
+        if 0 <= last_idx < len(sentences):
+            last_start, last_end = sentences[last_idx]
+            last_sentence_text = flat_text[last_start:last_end]
 
         for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices):
             if sent_idx is None:
@@ -3425,6 +3430,8 @@ def analyze_text(
                 interior = flat_text[q_start:q_end].strip()
                 if is_teacher_title_interior(interior):
                     continue
+                if is_probable_title_quote(interior, topic_sentence_text):
+                    continue
 
                 add_structural_mark(
                     q_start,
@@ -3435,6 +3442,8 @@ def analyze_text(
                 # Skip if this quotation is the teacher-supplied title
                 interior = flat_text[q_start:q_end].strip()
                 if is_teacher_title_interior(interior):
+                    continue
+                if is_probable_title_quote(interior, last_sentence_text):
                     continue
 
                 add_structural_mark(
@@ -5262,6 +5271,44 @@ def analyze_text(
 
     rule_note_number = "Write out the numbers one through ten"
 
+    MONTH_RE = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?"
+    DATE_RE = re.compile(rf"\b{MONTH_RE}\s+(?:[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?\b")
+    LINE_REF_RE = re.compile(r"\b[Ll]ines?\s+\d+(?:\s*[-–—]\s*\d+)?\b")
+    PAREN_CITE_RE = re.compile(r"\(\s*\d+(?:\s*[-–—]\s*\d+)?\s*\)")
+
+    def _match_span_contains(abs_start: int, abs_end: int, m_start: int, m_end: int) -> bool:
+        return m_start <= abs_start and abs_end <= m_end
+
+    def is_exempt_one_through_ten(text: str, start: int, end: int) -> bool:
+        # Look in a small window around the match for patterns,
+        # but make sure the pattern match actually contains THIS number span.
+        left = max(0, start - 25)
+        right = min(len(text), end + 25)
+        window = text[left:right]
+
+        # Check date spans
+        for m in DATE_RE.finditer(window):
+            m_start = left + m.start()
+            m_end = left + m.end()
+            if _match_span_contains(start, end, m_start, m_end):
+                return True
+
+        # Check poetry line references
+        for m in LINE_REF_RE.finditer(window):
+            m_start = left + m.start()
+            m_end = left + m.end()
+            if _match_span_contains(start, end, m_start, m_end):
+                return True
+
+        # Check parenthetical numeric citations
+        for m in PAREN_CITE_RE.finditer(window):
+            m_start = left + m.start()
+            m_end = left + m.end()
+            if _match_span_contains(start, end, m_start, m_end):
+                return True
+
+        return False
+
     def is_parenthetical_citation(flat: str, start: int, end: int) -> bool:
         """
         Return True if the number at [start:end) is part of a parenthetical
@@ -5321,12 +5368,39 @@ def analyze_text(
 
         return True
 
+    if os.getenv("VYSTI_SELF_CHECK_ONE_THROUGH_TEN") == "1":
+        checks = [
+            ("I have 5 reasons.", True),
+            ("January 5, we left.", False),
+            ("Jan. 5 we left.", False),
+            ("Lines 3-5 show the shift.", False),
+            ("Line 4 shows the shift.", False),
+            ("This is supported (5).", False),
+        ]
+        for sample_text, should_flag in checks:
+            flagged = False
+            for m in number_regex.finditer(sample_text):
+                if is_exempt_one_through_ten(sample_text, m.start(), m.end()):
+                    continue
+                if is_parenthetical_citation(sample_text, m.start(), m.end()):
+                    continue
+                flagged = True
+                break
+            status = "OK" if flagged == should_flag else "FAIL"
+            print(
+                f"[self-check 1-10] {status}: {sample_text!r} -> {flagged}",
+                file=sys.stderr,
+            )
+
     for match in number_regex.finditer(flat_text):
         match_start = match.start()
         match_end = match.end()
 
         # Skip numbers inside direct quotations
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
+            continue
+
+        if is_exempt_one_through_ten(flat_text, match_start, match_end):
             continue
 
         # Skip parenthetical citations like (1) or (1-3)
