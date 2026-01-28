@@ -2856,6 +2856,65 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
     }
 
+    function getApprovedRewritesSessionKey() {
+      // Requires selectedFile; getLocalRunKey already handles missing mark event gracefully
+      return `vysti_student_approved_rewrites__${getLocalRunKey()}`;
+    }
+
+    function saveApprovedRewritesToSession() {
+      try {
+        const key = getApprovedRewritesSessionKey();
+        const payload = {
+          v: 1,
+          approvedRewritesCollapsed: !!approvedRewritesCollapsed,
+          approvedRewrites: approvedRewrites || []
+        };
+        sessionStorage.setItem(key, JSON.stringify(payload));
+      } catch (error) {
+        console.warn("Failed to save approved rewrites to sessionStorage:", error);
+      }
+    }
+
+    function restoreApprovedRewritesFromSession() {
+      try {
+        const key = getApprovedRewritesSessionKey();
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.v !== 1) return;
+
+        approvedRewrites.length = 0;
+        (parsed.approvedRewrites || []).forEach((entry) => {
+          if (entry && entry.exampleKey) approvedRewrites.push(entry);
+        });
+
+        approvedRewriteByKey.clear();
+        approvedExampleKeys.clear();
+        exampleDataByKey.clear();
+
+        approvedRewrites.forEach((entry) => {
+          if (entry.exampleKey) {
+            approvedExampleKeys.add(entry.exampleKey);
+            if (entry.rewriteText) approvedRewriteByKey.set(entry.exampleKey, entry.rewriteText);
+            if (entry.examplePayload) exampleDataByKey.set(entry.exampleKey, entry.examplePayload);
+          }
+        });
+
+        setApprovedRewritesCollapsed(!!parsed.approvedRewritesCollapsed);
+        renderApprovedRewritesList();
+        updateApplyAllUI();
+      } catch (error) {
+        console.warn("Failed to restore approved rewrites from sessionStorage:", error);
+      }
+    }
+
+    function clearApprovedRewritesFromSession() {
+      try {
+        const key = getApprovedRewritesSessionKey();
+        sessionStorage.removeItem(key);
+      } catch (error) {}
+    }
+
     function normalizeLabelForMatch(label) {
       return normalizeForMatch(String(label || "")).toLowerCase();
     }
@@ -6150,6 +6209,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       } else {
         approvedRewrites.push(entry);
       }
+      saveApprovedRewritesToSession();
     }
 
     function removeApprovedRewriteByKey(exampleKey) {
@@ -6158,6 +6218,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (idx >= 0) {
         approvedRewrites.splice(idx, 1);
       }
+      saveApprovedRewritesToSession();
     }
 
     function setApprovedRewritesCollapsed(collapsed) {
@@ -6168,6 +6229,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (approvedRewritesToggle) {
         approvedRewritesToggle.setAttribute("aria-expanded", String(!approvedRewritesCollapsed));
       }
+      saveApprovedRewritesToSession();
     }
 
     function updateApprovedRewritesToggle(visibleCount) {
@@ -6237,6 +6299,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             editTextarea.style.display = "none";
             textDiv.style.display = "";
             editBtn.textContent = "Edit";
+            saveApprovedRewritesToSession();
             return;
           }
           editTextarea.value = entry.rewriteText || "";
@@ -6308,6 +6371,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       draftRewriteByKey.clear();
       exampleDataByKey.clear();
       examplesByIssueId.clear();
+      clearApprovedRewritesFromSession();
       if (applyAllToPreviewBtn) {
         applyAllToPreviewBtn.style.display = "none";
         applyAllToPreviewBtn.disabled = true;
@@ -6823,6 +6887,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       exampleDataByKey.clear();
       examplesByIssueId.clear();
       approvedRewrites.length = 0;
+      clearApprovedRewritesFromSession();
       precisionIssueCache = {
         sourceKey: "",
         unnecessary: [],
@@ -7701,6 +7766,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         // recompute the meters so Precision is accurate on first mark.
         updateStatsPanel(liveLabelCounts);
         await refreshStudentMetrics();
+        restoreApprovedRewritesFromSession();
+        restoreApprovedRewritesFromSession();
 
         const totalIssues = totalIssuesFromLabelCounts(liveLabelCounts);
         if (totalIssues === 0) {
@@ -7741,11 +7808,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       issueSelect.value = "";
       if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       examplesList.innerHTML = "";
-      if (approvedRewritesList) approvedRewritesList.innerHTML = "";
-      if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
       downloadRevisionNotesBtn.style.display = "none";
-      approvedRewriteByKey.clear();
-      approvedExampleKeys.clear();
+      renderApprovedRewritesList();
       updateApplyAllUI();
       
       // Repopulate issueSelect with labels in selected section
@@ -8069,18 +8133,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           examplesEmptyState.style.display = "block";
           examplesEmptyState.textContent = getPreviewOnlyMessage(label, "");
         }
-        if (approvedRewritesList) approvedRewritesList.innerHTML = "";
-        if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
         if (downloadRevisionNotesBtn) downloadRevisionNotesBtn.style.display = "none";
         if (exampleNavRow) exampleNavRow.style.display = "none";
-        if (applyAllToPreviewBtn) {
-          applyAllToPreviewBtn.style.display = "none";
-          applyAllToPreviewBtn.disabled = true;
-          applyAllToPreviewBtn.classList.remove("apply-attention");
-        }
-        approvedRewrites.length = 0;
-        approvedRewriteByKey.clear();
-        approvedExampleKeys.clear();
+        renderApprovedRewritesList();
         updateApplyAllUI();
         requestAnimationFrame(() => {
           void jumpToPreviewForTopicSentenceIssue();
@@ -8104,16 +8159,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
         examplesList.innerHTML = "";
         if (allApprovedBanner) allApprovedBanner.style.display = "none";
-        if (approvedRewritesList) approvedRewritesList.innerHTML = "";
-        if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
-        approvedRewrites.length = 0;
-        if (applyAllToPreviewBtn) {
-          applyAllToPreviewBtn.style.display = "none";
-          applyAllToPreviewBtn.disabled = true;
-          applyAllToPreviewBtn.classList.remove("apply-attention");
-        }
-        approvedRewriteByKey.clear();
-        approvedExampleKeys.clear();
         if (exampleNavRow) exampleNavRow.style.display = "none";
         currentLabel = null;
         currentExamplesAll = [];
@@ -8121,6 +8166,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         currentGuidance = "";
         currentLabelText = "";
         downloadRevisionNotesBtn.style.display = "none";
+        renderApprovedRewritesList();
         updateApplyAllUI();
         return;
       }
@@ -8790,16 +8836,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       try {
         if (examplesList) examplesList.innerHTML = "";
         if (examplesList) examplesList.style.display = "";
-        if (approvedRewritesList) approvedRewritesList.innerHTML = "";
-        if (approvedRewritesWrap) approvedRewritesWrap.style.display = "none";
-        approvedRewrites.length = 0;
-        if (applyAllToPreviewBtn) {
-          applyAllToPreviewBtn.style.display = "none";
-          applyAllToPreviewBtn.disabled = true;
-          applyAllToPreviewBtn.classList.remove("apply-attention");
-        }
-        approvedRewriteByKey.clear();
-        approvedExampleKeys.clear();
 
         // Get explanation from issues array
         const issueData = updateIssueMetadataForLabel(label);
@@ -8874,6 +8910,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           if (exampleNavRow) exampleNavRow.style.display = "none";
           currentExamplesAll = [];
           currentIndex = 0;
+          renderApprovedRewritesList();
+          updateApplyAllUI();
           return;
         }
 
@@ -8948,12 +8986,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           updateAllApprovedBanner([]);
           if (exampleNavRow) exampleNavRow.style.display = "none";
           downloadRevisionNotesBtn.style.display = "none";
+          renderApprovedRewritesList();
           updateApplyAllUI();
           return;
         }
 
         hideExamplesEmptyState();
         updateAllApprovedBanner(currentExamplesAll);
+        renderApprovedRewritesList();
+        updateApplyAllUI();
         renderCurrentExample();
 
         downloadRevisionNotesBtn.style.display = "block";
@@ -11273,6 +11314,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         if (resolvedKey) {
           removeApprovedRewriteByKey(resolvedKey);
           renderApprovedRewritesList();
+          saveApprovedRewritesToSession();
         }
         if (label) {
           liveLabelCounts[label] = Math.max(0, (liveLabelCounts[label] || 0) - 1);
