@@ -216,6 +216,15 @@
       width: min(360px, calc(100vw - 24px));
       max-width: min(360px, calc(100vw - 24px));
     }
+    .morph-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 100000;
+      transform-origin: top left;
+    }
+    .pill-hint-popover.morphing {
+      transition: none !important;
+    }
     /* Consider adding a subtle backdrop if desired */
     .pill-hint-backdrop{
       position: fixed;
@@ -3620,7 +3629,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 }, 2200);
               } else {
                 clearPinnedPreviewHint();
-                showPillHintModal({
+                showPillHintModalFromPill(pill, {
                   title: "Power verbs needed",
                   body: "Select from the Power Verbs list to strengthen the highlighted verbs."
                 });
@@ -3786,7 +3795,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               key === "paragraph"
                 ? "Repeat a key term from the end of the preceding paragraph to smoothly transition into this topic sentence."
                 : "Repeat a key term from the previous sentence to help it connect with this sentence.";
-            showPillHintModal({ title: label, body });
+            showPillHintModalFromPill(pill, { title: label, body });
           });
         }
 
@@ -3859,7 +3868,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             clearPinnedPreviewHint();
 
             const foundDisplay = found ? `"${found}"` : "the transitional phrase";
-            showPillHintModal({
+            showPillHintModalFromPill(pill, {
               title: "Weak transitions",
               body: `Vysti recommends avoiding beginning a paragraph with a transitional phrase. Just delete ${foundDisplay}.`
             });
@@ -4023,7 +4032,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (key === "unnecessary") {
               const template = "Vysti recommends avoiding unnecessary terms like {FOUND}. You can probably just delete them from your writing.";
               const body = resolveStudentGuidance(template, example?.sentence || "", example?.label || "");
-              showPillHintModal({ title: "Unnecessary", body });
+              showPillHintModalFromPill(pill, { title: "Unnecessary", body });
               return;
             }
             const issueId = getIssueIdForLabel(example.label);
@@ -4150,7 +4159,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
               await loadThesisDevicesLexicon();
               if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
                 clearPinnedPreviewHint();
-                showPillHintModal({
+                showPillHintModalFromPill(pill, {
                   title: "Techniques",
                   body: "Device list unavailable. Please refresh and try again."
                 });
@@ -4189,7 +4198,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 ? `Current techniques: ${deviceList.join(", ")}`
                 : "Current techniques: (none detected)";
 
-              showPillHintModal({
+              showPillHintModalFromPill(pill, {
                 title: "Techniques",
                 body: VARIETY_TIPS.techniques,
                 subheader
@@ -4208,21 +4217,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
 
             if (kind === "evidence") {
-              showPillHintModal({
+              showPillHintModalFromPill(pill, {
                 title: "Evidence",
                 body: VARIETY_TIPS.evidence
               });
             }
 
             if (kind === "development") {
-              showPillHintModal({
+              showPillHintModalFromPill(pill, {
                 title: "Development",
                 body: VARIETY_TIPS.development
               });
             }
 
             if (kind === "structure") {
-              showPillHintModal({
+              showPillHintModalFromPill(pill, {
                 title: "Structure",
                 body: VARIETY_TIPS.structure
               });
@@ -4332,7 +4341,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           blockEl.classList.add("vysti-preview-variety-block");
           clearPinnedPreviewHint();
           slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
-          showPillHintModal({
+          showPillHintModalFromPill(developmentPill, {
             title: "Development",
             body: VARIETY_TIPS.development
           });
@@ -7943,6 +7952,104 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function prefersReducedMotion() {
       return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    var ENABLE_PILLBOX_MORPH = true;
+    var MORPH_DURATION_MS = 280;
+    var MORPH_EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
+
+    function createMorphGhostFromPill(pillEl, startRect) {
+      const cs = getComputedStyle(pillEl);
+
+      const ghost = document.createElement("div");
+      ghost.className = "morph-ghost";
+
+      ghost.style.left = `${startRect.left}px`;
+      ghost.style.top = `${startRect.top}px`;
+      ghost.style.width = `${startRect.width}px`;
+      ghost.style.height = `${startRect.height}px`;
+
+      ghost.style.borderRadius = cs.borderRadius || "999px";
+      ghost.style.border = cs.border || "1px solid rgba(0,0,0,.14)";
+      ghost.style.background = cs.backgroundColor || "#fff";
+      ghost.style.boxShadow = cs.boxShadow || "none";
+
+      return ghost;
+    }
+
+    function runPillboxMorph(pillEl, popoverEl) {
+      if (!ENABLE_PILLBOX_MORPH) return;
+      if (prefersReducedMotion()) return;
+      if (!pillEl || !popoverEl) return;
+      if (!popoverEl.isConnected) return;
+
+      const startRect = pillEl.getBoundingClientRect();
+      const endRect = popoverEl.getBoundingClientRect();
+
+      if (startRect.width < 2 || startRect.height < 2) return;
+      if (endRect.width < 2 || endRect.height < 2) return;
+
+      const ghost = createMorphGhostFromPill(pillEl, startRect);
+      document.body.appendChild(ghost);
+
+      const dx = endRect.left - startRect.left;
+      const dy = endRect.top - startRect.top;
+      const sx = endRect.width / startRect.width;
+      const sy = endRect.height / startRect.height;
+
+      const ghostAnim = ghost.animate(
+        [
+          { transform: "translate(0px, 0px) scale(1, 1)", opacity: 1 },
+          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 0.12 }
+        ],
+        { duration: MORPH_DURATION_MS, easing: MORPH_EASING, fill: "forwards" }
+      );
+
+      ghostAnim.onfinish = () => {
+        try { ghost.remove(); } catch (e) {}
+      };
+    }
+
+    function showPillHintModalFromPill(pillEl, { title = "", body = "", subheader = "" } = {}) {
+      if (!pillHintPopover) {
+        showPillHintModal({ title, body, subheader });
+        return;
+      }
+
+      if (!ENABLE_PILLBOX_MORPH || prefersReducedMotion() || !pillEl) {
+        showPillHintModal({ title, body, subheader });
+        return;
+      }
+
+      pillHintPopover.classList.add("morphing");
+      const prevOpacity = pillHintPopover.style.opacity;
+      const prevPointer = pillHintPopover.style.pointerEvents;
+      pillHintPopover.style.opacity = "0";
+      pillHintPopover.style.pointerEvents = "none";
+
+      showPillHintModal({ title, body, subheader });
+
+      requestAnimationFrame(() => {
+        try {
+          runPillboxMorph(pillEl, pillHintPopover);
+        } catch (e) {}
+
+        try {
+          const fade = pillHintPopover.animate(
+            [{ opacity: 0 }, { opacity: 1 }],
+            { duration: 160, delay: 90, easing: "ease-out", fill: "forwards" }
+          );
+          fade.onfinish = () => {
+            pillHintPopover.style.opacity = prevOpacity || "";
+            pillHintPopover.style.pointerEvents = prevPointer || "";
+            pillHintPopover.classList.remove("morphing");
+          };
+        } catch (e) {
+          pillHintPopover.style.opacity = prevOpacity || "";
+          pillHintPopover.style.pointerEvents = prevPointer || "";
+          pillHintPopover.classList.remove("morphing");
+        }
+      });
     }
 
     function easeInOutQuad(t) {
