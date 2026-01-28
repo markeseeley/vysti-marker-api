@@ -110,6 +110,17 @@
       opacity: 0.25;
     }
 
+    @keyframes dotPop {
+      from { transform: scale(0.6); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .recheck-dot-pop .quest-dot {
+      animation: dotPop 220ms ease-out both;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .recheck-dot-pop .quest-dot { animation: none !important; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .recheck-xfade-target {
         transition: none !important;
@@ -7983,7 +7994,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     var ENABLE_PILLBOX_MORPH = true;
-    var MORPH_DURATION_MS = 280;
+    var MORPH_DURATION_MS = 420;
     var MORPH_EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
     function createMorphGhostFromPill(pillEl, startRect) {
@@ -7999,8 +8010,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       ghost.style.borderRadius = cs.borderRadius || "999px";
       ghost.style.border = cs.border || "1px solid rgba(0,0,0,.14)";
-      ghost.style.background = cs.backgroundColor || "#fff";
-      ghost.style.boxShadow = cs.boxShadow || "none";
+      const bg = cs.backgroundColor;
+      ghost.style.background = (!bg || bg === "transparent" || bg === "rgba(0, 0, 0, 0)") ? "#fff" : bg;
+      ghost.style.boxShadow = (cs.boxShadow && cs.boxShadow !== "none") ? cs.boxShadow : "0 10px 26px rgba(0,0,0,.18)";
 
       return ghost;
     }
@@ -8028,7 +8040,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const ghostAnim = ghost.animate(
         [
           { transform: "translate(0px, 0px) scale(1, 1)", opacity: 1 },
-          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 0.12 }
+          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 0.2 }
         ],
         { duration: MORPH_DURATION_MS, easing: MORPH_EASING, fill: "forwards" }
       );
@@ -8065,7 +8077,12 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         try {
           const fade = pillHintPopover.animate(
             [{ opacity: 0 }, { opacity: 1 }],
-            { duration: 160, delay: 90, easing: "ease-out", fill: "forwards" }
+            {
+              duration: Math.round(MORPH_DURATION_MS * 0.35),
+              delay: Math.round(MORPH_DURATION_MS * 0.55),
+              easing: "ease-out",
+              fill: "forwards"
+            }
           );
           fade.onfinish = () => {
             pillHintPopover.style.opacity = prevOpacity || "";
@@ -11726,6 +11743,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     var _recheckXfadeTargets = [];
+    var _recheckInteractionTargets = [];
+    var _recheckDotPopTimer = null;
 
     function prefersReducedMotionSafe() {
       try {
@@ -11738,33 +11757,37 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function getRecheckCrossfadeTargets() {
       const els = [];
+      const preview = (typeof markedPreview !== "undefined" && markedPreview) || document.getElementById("markedPreview");
+      if (preview && preview.style && preview.style.display !== "none") {
+        els.push(preview);
+      }
+      return els;
+    }
 
-      // Prefer existing DOM refs if they exist; fallback to getElementById.
-      const mpCard = (typeof markedPreviewCard !== "undefined" && markedPreviewCard) || document.getElementById("markedPreviewCard");
+    function getRecheckInteractionLockTargets() {
+      const els = [];
       const metrics = document.getElementById("metricsGrid");
-      const chart = (typeof mostCommonIssuesWrap !== "undefined" && mostCommonIssuesWrap) || document.getElementById("mostCommonIssuesWrap");
-      const rev = (typeof revisionPracticeCard !== "undefined" && revisionPracticeCard) || document.getElementById("revisionPracticeCard");
-
-      [metrics, chart, mpCard, rev].forEach((el) => {
-        if (!el) return;
-        // Only fade things that are currently on screen
-        if (el.style && el.style.display === "none") return;
-        els.push(el);
-      });
-
+      const chart = document.getElementById("mostCommonIssuesWrap");
+      const mpCard = document.getElementById("markedPreviewCard");
+      const rev = document.getElementById("revisionPracticeCard");
+      [metrics, chart, mpCard, rev].forEach(el => { if (el && el.style.display !== "none") els.push(el); });
       return els;
     }
 
     function beginRecheckCrossfade() {
-      if (prefersReducedMotionSafe()) return;
-      const targets = getRecheckCrossfadeTargets();
+      const reduceMotion = prefersReducedMotionSafe();
+      const targets = reduceMotion ? [] : getRecheckCrossfadeTargets();
       _recheckXfadeTargets = targets;
 
       targets.forEach((el) => {
         // Add base class once, then toggle state
         el.classList.add("recheck-xfade-target");
         el.classList.add("is-rechecking");
+      });
 
+      const interactionTargets = getRecheckInteractionLockTargets();
+      _recheckInteractionTargets = interactionTargets;
+      interactionTargets.forEach((el) => {
         // Disable interaction while rechecking (prevents editing during swap)
         el.dataset.prevPointerEvents = el.style.pointerEvents || "";
         el.style.pointerEvents = "none";
@@ -11774,10 +11797,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function endRecheckCrossfade() {
       const targets = Array.isArray(_recheckXfadeTargets) ? _recheckXfadeTargets : [];
       _recheckXfadeTargets = [];
+      const interactionTargets = Array.isArray(_recheckInteractionTargets) ? _recheckInteractionTargets : [];
+      _recheckInteractionTargets = [];
 
       targets.forEach((el) => {
         el.classList.remove("is-rechecking");
+      });
 
+      interactionTargets.forEach((el) => {
         // Restore pointer events
         const prev = el.dataset.prevPointerEvents || "";
         el.style.pointerEvents = prev;
@@ -11897,6 +11924,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
           updateStatsPanel(liveLabelCounts);
           await refreshStudentMetrics();
+          if (metricsGrid) {
+            metricsGrid.classList.remove("recheck-dot-pop");
+            if (_recheckDotPopTimer) clearTimeout(_recheckDotPopTimer);
+            metricsGrid.classList.add("recheck-dot-pop");
+            _recheckDotPopTimer = setTimeout(() => {
+              metricsGrid.classList.remove("recheck-dot-pop");
+            }, 300);
+          }
 
           const totalIssues = totalIssuesFromLabelCounts(liveLabelCounts);
           if (totalIssues === 0) {
