@@ -6349,6 +6349,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function resetRevisionPracticeUI() {
       if (revisionPracticeCard) revisionPracticeCard.style.display = "none";
+      if (revisionPracticeCard) revisionPracticeCard.classList.remove("all-examples-approved");
       if (issueExplanationBlock) issueExplanationBlock.style.display = "none";
       if (examplesList) examplesList.innerHTML = "";
       if (allApprovedBanner) allApprovedBanner.style.display = "none";
@@ -6454,11 +6455,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     function updateAllApprovedBanner(examples) {
       if (!allApprovedBanner) return;
+
       const list = Array.isArray(examples) ? examples : [];
       const hasExamples = list.length > 0;
       const allApproved = hasExamples && list.every((ex) => isExampleApproved(ex));
       const allApplied = hasExamples && list.every((ex) => isExampleApplied(ex));
-      allApprovedBanner.style.display = allApproved && !allApplied ? "block" : "none";
+
+      const showBanner = allApproved && !allApplied;
+      allApprovedBanner.style.display = showBanner ? "block" : "none";
+
+      // When the banner is showing, hide the STUDENT GUIDANCE block
+      if (revisionPracticeCard) {
+        revisionPracticeCard.classList.toggle("all-examples-approved", showBanner);
+      }
     }
 
     function escapeRegExp(str) {
