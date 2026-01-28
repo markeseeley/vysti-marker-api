@@ -188,6 +188,9 @@
       align-items: flex-end;
       gap: 8px;
     }
+    .preview-tools #previewPowerVerbsBtn{
+      display: none;
+    }
     .metrics-details-toggle{
       display:flex;
       justify-content:flex-end;
@@ -253,7 +256,7 @@
       margin-top: 0; /* cleaner when details are hidden */
     }
     /* Hide everything in the sub area EXCEPT the star success line */
-    #metricsGrid.details-collapsed .metric-sub > :not(.metric-success){
+    #metricsGrid.details-collapsed .metric-sub > :not(.metric-success):not(.metric-persistent){
       display: none !important;
     }
     /* If nothing remains (no success line), remove the empty sub spacing entirely */
@@ -3613,6 +3616,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         wrap.appendChild(row);
       }
 
+      // Move the Power Verbs dictionary button into the Power meter (under the pillboxes)
+      if (previewPowerVerbsBtn) {
+        const dictRow = document.createElement("div");
+        dictRow.className = "quest-row pill-row metric-persistent";
+        previewPowerVerbsBtn.style.display = "";
+        dictRow.appendChild(previewPowerVerbsBtn); // appendChild MOVES the node
+        wrap.appendChild(dictRow);
+      }
+
       subEl.appendChild(wrap);
     }
 
@@ -4323,25 +4335,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         row.appendChild(pill);
         row.appendChild(dots);
         wrap.appendChild(row);
-
-        // Move the Power Verbs dictionary button under the "Power verbs needed" pill.
-        if (previewPowerVerbsBtn) {
-          const dictRow = document.createElement("div");
-          dictRow.className = "quest-row pill-row";
-          previewPowerVerbsBtn.style.display = "";
-          dictRow.appendChild(previewPowerVerbsBtn); // appendChild MOVES the node
-          wrap.appendChild(dictRow);
-        }
-      }
-
-      // If there is no "Power verbs needed" quest (powerTarget === 0), still keep the dictionary
-      // button inside the Power meter (instead of under Zoom).
-      if (powerTarget <= 0 && previewPowerVerbsBtn) {
-        const dictRow = document.createElement("div");
-        dictRow.className = "quest-row pill-row";
-        previewPowerVerbsBtn.style.display = "";
-        dictRow.appendChild(previewPowerVerbsBtn);
-        wrap.appendChild(dictRow);
       }
 
       containerEl.appendChild(wrap);
