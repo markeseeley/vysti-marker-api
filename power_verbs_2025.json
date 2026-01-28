@@ -1,11 +1,67 @@
 [
   {
+    "verb": "actualizes",
+    "definition": "brings into reality; makes actual"
+  },
+  {
+    "verb": "admits",
+    "definition": "confess to be true or to be the case, typically with reluctance"
+  },
+  {
+    "verb": "advises",
+    "definition": "offer suggestions about the best course of action to someone"
+  },
+  {
     "verb": "aestheticizes",
     "definition": "treats as primarily aesthetic; emphasizes beauty over other concerns"
   },
   {
+    "verb": "amplifies",
+    "definition": "increases or enlarges upon"
+  },
+  {
+    "verb": "answers",
+    "definition": "a thing said, written, or done to deal with or as a reaction to a question, statement, or situation"
+  },
+  {
+    "verb": "anticipates",
+    "definition": "regard as probable; expect or predict"
+  },
+  {
+    "verb": "articulates",
+    "definition": "express (an idea or feeling) fluently and coherently"
+  },
+  {
+    "verb": "asserts",
+    "definition": "states a claim with force"
+  },
+  {
+    "verb": "attacks",
+    "definition": "criticize or oppose fiercely and publicly"
+  },
+  {
+    "verb": "attempts",
+    "definition": "make an effort to achieve or complete"
+  },
+  {
+    "verb": "bastardizes",
+    "definition": "change (something) in such a way as to lower its quality or value, typically by adding new elements"
+  },
+  {
+    "verb": "bowdlerizes",
+    "definition": "remove material that is considered improper or offensive from (a text or account), especially with the result that the text becomes weaker or less effective"
+  },
+  {
+    "verb": "buffets",
+    "definition": "to strike sharply as in an attack"
+  },
+  {
     "verb": "caricatures",
     "definition": "portrays with exaggerated features for comic or critical effect"
+  },
+  {
+    "verb": "casts",
+    "definition": "throw (something) forcefully in a specified direction"
   },
   {
     "verb": "catalyzes",
@@ -22,6 +78,10 @@
   {
     "verb": "classifies",
     "definition": "arrange in classes or categories according to shared qualities or characteristics"
+  },
+  {
+    "verb": "commits",
+    "definition": "pledge or bind (a person or an organization) to a certain course or policy; or carry out or perpetrate (a mistake, crime, or immoral act)"
   },
   {
     "verb": "commodifies",
@@ -112,6 +172,10 @@
     "definition": "strips away idealized framing; portrays more realistically or critically"
   },
   {
+    "verb": "describes",
+    "definition": "gie an account in words of (someone or something), including all the relevant characteristics, qualities, or events"
+  },
+  {
     "verb": "destabilizes",
     "definition": "undermines what seems stable, natural, or obvious"
   },
@@ -124,12 +188,20 @@
     "definition": "reduces importance"
   },
   {
+    "verb": "discusses",
+    "definition": "talk about (something) with another person or group of people"
+  },
+  {
     "verb": "disentangles",
     "definition": "free (something or someone) from an entanglement; extricate"
   },
   {
     "verb": "disrupts",
     "definition": "breaks expected patterns"
+  },
+  {
+    "verb": "draws a picture of",
+    "definition": "another way to say 'describes'"
   },
   {
     "verb": "draws attention to",
@@ -150,6 +222,10 @@
   {
     "verb": "enumerates",
     "definition": "lists items one by one"
+  },
+  {
+    "verb": "envision",
+    "definition": "imagine as a future possibility; visualize"
   },
   {
     "verb": "envisions",
@@ -192,12 +268,20 @@
     "definition": "presents as strange or alluringly foreign"
   },
   {
+    "verb": "explains",
+    "definition": "make (an idea, situation, or problem) clear to someone by describing it in more detail or revealing relevant facts or ideas"
+  },
+  {
     "verb": "expresses",
     "definition": "convey (a thought or feeling) in words or by gestures and conduct"
   },
   {
     "verb": "extrapolates upon",
     "definition": "extend the application of (a method or conclusion, especially one based on statistics) to an unknown situation by assuming that existing trends will continue or similar methods will be applicable"
+  },
+  {
+    "verb": "extricate",
+    "definition": "another way to say 'disentangles'"
   },
   {
     "verb": "extricates",
@@ -218,6 +302,22 @@
   {
     "verb": "genderizes",
     "definition": "represents or interprets through gender as an organizing category"
+  },
+  {
+    "verb": "gives",
+    "definition": "communicate or impart (a message) to"
+  },
+  {
+    "verb": "grants",
+    "definition": "agree or admit to (someone) that (something) is true"
+  },
+  {
+    "verb": "gushes",
+    "definition": "speak or write with effusiveness or exaggerated enthusiasm"
+  },
+  {
+    "verb": "hashes out",
+    "definition": "come to agreement on something after lengthy and vigorous discussion"
   },
   {
     "verb": "highlights",
@@ -302,6 +402,10 @@
   {
     "verb": "lessens",
     "definition": "make or become less; diminish"
+  },
+  {
+    "verb": "lists",
+    "definition": "make a list of"
   },
   {
     "verb": "manipulates",
@@ -392,6 +496,14 @@
     "definition": "puts forward a theory or claim confidently"
   },
   {
+    "verb": "prepares",
+    "definition": "make (something) ready for use or consideration"
+  },
+  {
+    "verb": "presents",
+    "definition": "represent (someone or something) to others in a particular way"
+  },
+  {
     "verb": "problematizes",
     "definition": "make into or regard as a problem requiring a solution"
   },
@@ -424,6 +536,14 @@
     "definition": "respond or behave in a particular way in response to something"
   },
   {
+    "verb": "recalls",
+    "definition": "bring (a fact, event, or situation) back into one's mind; remember"
+  },
+  {
+    "verb": "recounts",
+    "definition": "another way of saying \"gives an account of\""
+  },
+  {
     "verb": "reevaluates",
     "definition": "evaluate again or differently"
   },
@@ -450,6 +570,14 @@
   {
     "verb": "relegates",
     "definition": "consign or dismiss to an inferior rank or position"
+  },
+  {
+    "verb": "reminisces upon",
+    "definition": "indulge in enjoyable recollection of past events"
+  },
+  {
+    "verb": "repeats",
+    "definition": "say again something one has already said"
   },
   {
     "verb": "resolves",
@@ -482,6 +610,10 @@
   {
     "verb": "satirizes",
     "definition": "uses satire to expose"
+  },
+  {
+    "verb": "satisfies",
+    "definition": "meet the expectations, needs, or desires of (someone)"
   },
   {
     "verb": "scrutinizes",
@@ -520,6 +652,10 @@
     "definition": "undermines from within; reverses expected meaning or hierarchy"
   },
   {
+    "verb": "suggests",
+    "definition": "state or express indirectly"
+  },
+  {
     "verb": "theorizes",
     "definition": "frames something through a conceptual lens"
   },
@@ -548,8 +684,16 @@
     "definition": "cause disorder in (something); disrupt"
   },
   {
+    "verb": "values",
+    "definition": "the regard that something is held to deserve; the importance, worth, or usefulness of something"
+  },
+  {
     "verb": "vilifies",
     "definition": "describes in an extremely negative way; attacks character"
+  },
+  {
+    "verb": "wallows in",
+    "definition": "(of a person) indulge in an unrestrained way in (something that creates a pleasurable sensation)"
   },
   {
     "verb": "whitewashes",
