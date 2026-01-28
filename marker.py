@@ -5211,6 +5211,8 @@ def analyze_text(
 
         rule_note_weak_verbs = "Avoid weak verbs"
 
+        # Regression: "Not only does Selzer compare..." should not flag "does";
+        # control "Selzer does compare..." should still flag "does".
         for match in weak_verbs_regex.finditer(flat_text):
             match_start = match.start()
             match_end = match.end()
@@ -5224,6 +5226,11 @@ def analyze_text(
                 if phrase_start >= 0 and phrase_end <= len(flat_text):
                     if flat_text[phrase_start:phrase_end].lower() == "the use of":
                         continue
+            # Allow the set phrase "not only does/do/did"
+            if word_lower in ("do", "does", "did"):
+                before = flat_text[max(0, match_start - 30):match_start]
+                if re.search(r"\bnot\s+only\s*$", before, re.IGNORECASE):
+                    continue
 
             # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
             if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
