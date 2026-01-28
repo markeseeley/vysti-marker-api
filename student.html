@@ -101,6 +101,21 @@
       opacity: 0.95; /* keep readable even while disabled */
     }
 
+    .recheck-xfade-target {
+      transition: opacity 180ms ease;
+      will-change: opacity;
+    }
+
+    .recheck-xfade-target.is-rechecking {
+      opacity: 0.25;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .recheck-xfade-target {
+        transition: none !important;
+      }
+    }
+
     /* Loading indicator: blinking cursor (optional; controlled in JS) */
     @keyframes vysti-caret-blink {
       0%, 49% { opacity: 1; }
@@ -11697,6 +11712,66 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       URL.revokeObjectURL(url);
     }
 
+    var _recheckXfadeTargets = [];
+
+    function prefersReducedMotionSafe() {
+      try {
+        if (typeof prefersReducedMotion === "function") return prefersReducedMotion();
+        return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function getRecheckCrossfadeTargets() {
+      const els = [];
+
+      // Prefer existing DOM refs if they exist; fallback to getElementById.
+      const mpCard = (typeof markedPreviewCard !== "undefined" && markedPreviewCard) || document.getElementById("markedPreviewCard");
+      const metrics = document.getElementById("metricsGrid");
+      const chart = (typeof mostCommonIssuesWrap !== "undefined" && mostCommonIssuesWrap) || document.getElementById("mostCommonIssuesWrap");
+      const rev = (typeof revisionPracticeCard !== "undefined" && revisionPracticeCard) || document.getElementById("revisionPracticeCard");
+
+      [metrics, chart, mpCard, rev].forEach((el) => {
+        if (!el) return;
+        // Only fade things that are currently on screen
+        if (el.style && el.style.display === "none") return;
+        els.push(el);
+      });
+
+      return els;
+    }
+
+    function beginRecheckCrossfade() {
+      if (prefersReducedMotionSafe()) return;
+      const targets = getRecheckCrossfadeTargets();
+      _recheckXfadeTargets = targets;
+
+      targets.forEach((el) => {
+        // Add base class once, then toggle state
+        el.classList.add("recheck-xfade-target");
+        el.classList.add("is-rechecking");
+
+        // Disable interaction while rechecking (prevents editing during swap)
+        el.dataset.prevPointerEvents = el.style.pointerEvents || "";
+        el.style.pointerEvents = "none";
+      });
+    }
+
+    function endRecheckCrossfade() {
+      const targets = Array.isArray(_recheckXfadeTargets) ? _recheckXfadeTargets : [];
+      _recheckXfadeTargets = [];
+
+      targets.forEach((el) => {
+        el.classList.remove("is-rechecking");
+
+        // Restore pointer events
+        const prev = el.dataset.prevPointerEvents || "";
+        el.style.pointerEvents = prev;
+        delete el.dataset.prevPointerEvents;
+      });
+    }
+
     // Recheck document button handler
     if (recheckDocumentBtn) {
       recheckDocumentBtn.addEventListener("click", async () => {
@@ -11734,6 +11809,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         statusArea.textContent = "Rechecking document...";
         statusArea.className = "status-area";
         startButtonLoading(recheckDocumentBtn, "Recheck my essay");
+        beginRecheckCrossfade();
 
         try {
           const API_BASE = "https://vysti-rules.onrender.com";
@@ -11821,12 +11897,15 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             statusArea.textContent = "Document rechecked. Preview updated.";
           }
           statusArea.className = "status-area success";
+          endRecheckCrossfade();
           ensurePostPreviewTourVisibility();
         } catch (error) {
           console.error("Error rechecking document:", error);
+          endRecheckCrossfade();
           statusArea.textContent = `Error: ${error.message}`;
           statusArea.className = "status-area error";
         } finally {
+          endRecheckCrossfade();
           stopButtonLoading(
             recheckDocumentBtn,
             () => !!selectedFile
