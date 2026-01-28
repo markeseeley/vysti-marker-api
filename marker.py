@@ -756,7 +756,7 @@ class MarkerConfig:
     forbid_personal_pronouns: bool = True  # "No 'I', 'we', 'us', 'our' or 'you'..."
 
     enforce_essay_title_format: bool = True  # "Essay title format"
-    enforce_essay_title_capitalization: bool = True  # "Capitalize the words in titles"
+    enforce_essay_title_capitalization: bool = True  # "Capitalize the words in the title"
 
     # Intro quotation behavior
     # If True, allow direct quotations in *introductory summary* sentences
@@ -7548,9 +7548,9 @@ def run_marker(
                     labels_used.append(title_note)
 
             # ------------------------------------
-            # Rule B: Capitalize the words in titles
+            # Rule B: Capitalize the words in the title
             # ------------------------------------
-            cap_note = "Capitalize the words in titles"
+            cap_note = "Capitalize the words in the title"
 
             # Only bother with capitalization if there IS a real topic segment.
             if (
