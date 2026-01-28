@@ -3585,6 +3585,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                   pill._titleTimer = null;
                 }, 2200);
               } else {
+                clearPinnedPreviewHint();
+                showPillHintModal({
+                  title: "Power verbs needed",
+                  body: "Select from the Power Verbs list to strengthen the highlighted verbs."
+                });
                 pill.title = prevTitle;
               }
             } finally {
@@ -3676,6 +3681,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return result?.ok;
     }
 
+    function extractWeakTransitionFound(sentence) {
+      const tr = detectTransitionStart(sentence);
+      if (!tr) return "";
+
+      const tokens = tr.split(/\s+/).filter(Boolean).map(escapeRegExp);
+      const rx = new RegExp(
+        '^\\s*["“”\\(\\[]*\\s*(' + tokens.join("\\s+") + ')(\\s*[,;:]?)',
+        "i"
+      );
+
+      const m = String(sentence).match(rx);
+      if (!m) return tr;
+      return (m[1] + (m[2] || "")).trim();
+    }
+
     function renderCohesionDots(subEl, cohesionMetric) {
       if (!subEl) return;
       if (!cohesionMetric || typeof cohesionMetric.score !== "number") {
@@ -3720,7 +3740,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Click to jump to the next sentence";
           pill.addEventListener("click", () => {
-            jumpToNextCohesionIssue(key);
+            const ok = jumpToNextCohesionIssue(key);
+            if (!ok) return;
+            clearPinnedPreviewHint();
+            const body =
+              key === "paragraph"
+                ? "Repeat a key term from the end of the preceding paragraph to smoothly transition into this topic sentence."
+                : "Repeat a key term from the previous sentence to help it connect with this sentence.";
+            showPillHintModal({ title: label, body });
           });
         }
 
@@ -3775,7 +3802,24 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Click to jump to the next sentence";
           pill.addEventListener("click", () => {
-            jumpToNextCohesionIssue("weak");
+            const list = cohesionIssueCache?.weak || [];
+            let found = "";
+            if (list.length) {
+              const idx = cohesionJumpIndex.weak % list.length;
+              const issue = list[idx];
+              found = extractWeakTransitionFound(issue?.sentence || "");
+            }
+
+            const ok = jumpToNextCohesionIssue("weak");
+            if (!ok) return;
+
+            clearPinnedPreviewHint();
+
+            const foundDisplay = found ? `"${found}"` : "the transitional phrase";
+            showPillHintModal({
+              title: "Weak transitions",
+              body: `Vysti recommends avoiding beginning a paragraph with a transitional phrase. Just delete ${foundDisplay}.`
+            });
           });
         }
 
