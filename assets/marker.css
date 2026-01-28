@@ -1168,8 +1168,8 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.06);
-  z-index: 60;
-  pointer-events: none;
+  z-index: 9998;
+  pointer-events: none !important;
 }
 
 .tour-popover{
@@ -1182,8 +1182,9 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   border-radius: 14px;
   box-shadow: 0 18px 40px rgba(0,0,0,.18);
   padding: 16px 16px 14px;
-  z-index: 70;
+  z-index: 9999;
   color: var(--text);
+  pointer-events: auto;
 }
 
 .tour-arrow{
@@ -1571,4 +1572,9 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   margin-top: 10px;
   background: #fff;
   border-top: 1px solid rgba(0,0,0,.08);
+}
+
+/* When all examples are approved (banner shown), student guidance is no longer needed */
+.revision-practice-card.all-examples-approved .example-guidance {
+  display: none !important;
 }
