@@ -4699,6 +4699,13 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     const WEAK_VERBS = new Set(Array.from(WEAK_VERB_FORM_TO_BASE.keys()));
 
+    function isNotOnlyAuxDo(words, i) {
+      if (!Array.isArray(words) || i < 2) return false;
+      const w0 = words[i];
+      if (w0 !== "do" && w0 !== "does" && w0 !== "did") return false;
+      return words[i - 2] === "not" && words[i - 1] === "only";
+    }
+
     const WEAK_STARTERS = new Set([
       "it","this","these","those","there",
       "he","she","they","we","i","you",
@@ -5546,6 +5553,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         const w = words[i];
         if (!WEAK_VERBS.has(w)) continue;
         if (isTheUseOf(words, i)) continue;
+        // NEW: allow the set phrase "not only does/do/did"
+        if (isNotOnlyAuxDo(words, i)) continue;
 
         weakCount += 1;
         const base = WEAK_VERB_FORM_TO_BASE.get(w);
@@ -9590,6 +9599,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         const t = tok.toLowerCase();
 
         if (!WEAK_VERBS.has(t)) continue;
+        // NEW: allow "Not only does/do/did" (set phrase)
+        if (t === "do" || t === "does" || t === "did") {
+          const before = lowerText.slice(Math.max(0, m.index - 30), m.index);
+          if (/\bnot\s+only\s+$/i.test(before)) continue;
+        }
 
         // Skip "the use of" (Precision-only)
         // Simple window check in raw text
