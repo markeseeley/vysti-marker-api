@@ -7939,7 +7939,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       });
     });
 
-    const SLOW_SCROLL_DURATION_MS = 600;
+    const SLOW_SCROLL_DURATION_MS = 480;
 
     function prefersReducedMotion() {
       return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -8198,7 +8198,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         }
 
         const nextTop2 = Math.max(0, Math.min(targetTop2, maxTop));
-        container.scrollTo({ top: nextTop2, behavior: "auto" });
+        setScrollTop(container, nextTop2);
       }, snapDelay);
     }
 
