@@ -1217,7 +1217,19 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
 .pill-hint-footer{
   margin-top: 12px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pill-hint-nav{
+  display: flex;
+  gap: 10px;
+}
+.pill-hint-actions{
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
 }
 .metric-popover .tour-title{
   margin-bottom: 8px;
@@ -1505,10 +1517,9 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   margin-top: 6px;
   flex: 1 1 auto;
   min-height: 0; /* allow grid to shrink so footer stays visible */
-  overflow-y: auto;
+  overflow: hidden;
   padding-bottom: 8px;
-  padding-right: 4px;
-  scrollbar-gutter: stable;
+  padding-right: 0;
 }
 .power-verb-card{
   width: 100%;
@@ -1550,9 +1561,12 @@ span.vysti-preview-hit[data-vysti-hit="1"].boxed {
   color: rgba(0,0,0,.68);
   line-height: 1.35;
   white-space: normal;
-  overflow: visible;
-  text-overflow: initial;
   word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 .power-verb-def,
 .power-verbs-popover-grid .definition,
