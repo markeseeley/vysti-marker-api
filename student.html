@@ -101,6 +101,11 @@
       opacity: 0.95; /* keep readable even while disabled */
     }
 
+    #downloadBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .recheck-xfade-target {
       transition: opacity 180ms ease;
       will-change: opacity;
@@ -1108,8 +1113,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       <section class="card rules-card" id="resultsCard" style="display:none;">
         <div id="statusArea" class="status-area" role="status" aria-live="polite"></div>
 
-        <button id="downloadBtn" class="secondary-btn" type="button" style="display:none; margin-top:12px;">
-          Download marked essay
+        <button id="downloadBtn" class="secondary-btn" type="button" style="display:none; margin-top:12px;" disabled>
+          Download revised essay
         </button>
 
         <div id="mostCommonIssuesWrap" style="margin-top: 20px; display:none;">
@@ -1855,6 +1860,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     let currentTechniques = [];
     let detectedWork = null;
     let hasStartedRevising = false;
+    let hasRevisedSinceMark = false;
     let liveLabelCounts = {};
     let dismissedIssues = [];
     let lastStudentMetrics = null;
@@ -1872,6 +1878,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     };
 
     let previewWordCountTimer = null;
+
+    function setDownloadRevisedEnabled(enabled) {
+      if (!downloadBtn) return;
+      downloadBtn.disabled = !enabled;
+      downloadBtn.title = enabled
+        ? "Download your revised essay"
+        : "Make at least one change in the Preview to enable download";
+    }
+
+    function markPreviewAsRevised() {
+      hasRevisedSinceMark = true;
+      setDownloadRevisedEnabled(true);
+    }
 
     function updateWordCountFromPreviewDebounced(delayMs = 350) {
       if (!markedPreview) return;
@@ -3107,6 +3126,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     if (markedPreview) {
       markedPreview.addEventListener("input", () => {
         hasStartedRevising = true;
+        markPreviewAsRevised(); // NEW
         updateWordCountFromPreviewDebounced(350);
       }, true);
     }
@@ -7010,9 +7030,11 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       if (form) form.classList.remove("has-results");
       selectedFile = null;
       hasStartedRevising = false;
+      hasRevisedSinceMark = false;
       fileInput.value = "";
       downloadUrl = null;
       markedBlob = null;
+      setDownloadRevisedEnabled(false);
       downloadBtn.style.display = "none";
       statusArea.textContent = "";
       statusArea.className = "status-area";
@@ -7769,8 +7791,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         const blob = await response.blob();
         markedBlob = blob;
         downloadUrl = URL.createObjectURL(blob);
-        
-        const baseName = selectedFile.name.replace(/\.docx$/i, "");
         downloadBtn.onclick = async () => {
           if (!selectedFile || !markedPreview) return;
 
@@ -7803,60 +7823,55 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             textForDownload = mlaHeader + cleanBodyText;
           }
 
-          startButtonLoading(downloadBtn, "Download marked essay");
+          startButtonLoading(downloadBtn, "Download revised essay");
           try {
             const { data: sessionData } = await supa.auth.getSession();
-            if (!sessionData || !sessionData.session) {
-              throw new Error("You must be logged in.");
-            }
+            if (!sessionData || !sessionData.session) throw new Error("You must be logged in.");
 
-            const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
+            // Prevent download if no revisions have been made
+            if (!hasRevisedSinceMark) return;
+
             const API_BASE = "https://vysti-rules.onrender.com";
-            const markTextPayload = {
-              file_name: selectedFile.name,
+
+            const baseName = (selectedFile?.name || "essay").replace(/\.docx$/i, "");
+            const outputName = `${baseName}_revised.docx`;
+
+            const exportPayload = {
+              file_name: outputName,
               text: textForDownload,
-              mode: currentMode,
-              highlight_thesis_devices: false,
-              include_summary_table: true,
-              student_mode: true,
             };
-            if (detectedWork && detectedWork.confidence === "high") {
-              markTextPayload.titles = [{
-                author: detectedWork.author,
-                title: detectedWork.title,
-                is_minor: detectedWork.isMinor
-              }];
-            }
-            const response = await fetch(`${API_BASE}/mark_text`, {
+
+            const response = await fetch(`${API_BASE}/export_docx`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${sessionData.session.access_token}`,
               },
-              body: JSON.stringify(markTextPayload),
+              body: JSON.stringify(exportPayload),
             });
 
             if (!response.ok) {
               const text = await response.text();
-              throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+              throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
             }
 
-            const downloadBlob = await response.blob();
-            const tempUrl = URL.createObjectURL(downloadBlob);
+            const blob = await response.blob();
+            const tempUrl = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = tempUrl;
-            a.download = `${baseName}_marked.docx`;
+            a.download = outputName;
             document.body.appendChild(a);
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(tempUrl), 0);
           } catch (error) {
-            console.error("Error generating download:", error);
+            console.error("Error generating revised download:", error);
             statusArea.textContent = `Error: ${error.message}`;
             statusArea.className = "status-area error";
             if (resultsCard) resultsCard.style.display = "block";
           } finally {
-            stopButtonLoading(downloadBtn, () => true);
+            // IMPORTANT: restore disabled state correctly
+            stopButtonLoading(downloadBtn, () => hasRevisedSinceMark);
           }
         };
 
@@ -7897,9 +7912,12 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         hideMarkButtonShowRecheck();
 
         hasStartedRevising = false;
+        // NEW: reset revised-state for a fresh mark
+        hasRevisedSinceMark = false;
         statusArea.textContent = "";
         statusArea.className = "status-area success";
         downloadBtn.style.display = "block";
+        setDownloadRevisedEnabled(false);
         if (resultsCard) resultsCard.style.display = "block";
         
         // Load revision practice data
@@ -11601,6 +11619,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return false;
       }
       hasStartedRevising = true;
+      markPreviewAsRevised();
 
       const resolvedExampleData = exampleData || exampleRow?._exampleData || exampleDataByKey.get(exampleKey);
       const resolvedKey = exampleKey || getExampleKey(resolvedExampleData);
