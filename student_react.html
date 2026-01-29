@@ -4,6 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="app-build-id" content="__APP_BUILD_ID__" />
     <title>Vysti Marker — Student (React)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,10 +13,19 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/marker.css" />
-    <link rel="stylesheet" href="/assets/student-react/assets/index.css" />
+    <link
+      rel="stylesheet"
+      href="/assets/student-react/assets/index.css?v=__APP_BUILD_ID__"
+    />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/assets/student-react/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
+    <script
+      type="module"
+      src="/assets/student-react/main.js?v=__APP_BUILD_ID__"
+    ></script>
   </body>
 </html>
