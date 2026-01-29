@@ -1309,6 +1309,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       </div>
       <div class="modal-actions">
         <button id="dismissCancelBtn" class="secondary-btn">Cancel</button>
+        <button id="dismissNoAskBtn" class="secondary-btn">Do not ask me again</button>
         <button id="dismissConfirmBtn" class="primary-btn">Dismiss issue</button>
       </div>
     </div>
@@ -1377,7 +1378,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     <div id="pillHintBody" class="tour-body"></div>
     <div id="pillHintSubheader" class="pill-hint-subheader hidden"></div>
     <div class="pill-hint-footer">
-      <button id="pillHintGotIt" class="tour-primary-btn" type="button">Got it</button>
+      <div class="pill-hint-nav">
+        <button id="pillHintPrev" class="example-btn" type="button">← Prev</button>
+        <button id="pillHintNext" class="example-btn" type="button">Next →</button>
+      </div>
+      <div class="pill-hint-actions">
+        <button id="pillHintDontTell" class="example-btn" type="button">Do not tell me again</button>
+        <button id="pillHintGotIt" class="tour-primary-btn" type="button">Got it</button>
+      </div>
     </div>
   </div>
 
@@ -1740,6 +1748,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const dismissCharCount = document.getElementById("dismissCharCount");
     const dismissError = document.getElementById("dismissError");
     const dismissCancelBtn = document.getElementById("dismissCancelBtn");
+    const dismissNoAskBtn = document.getElementById("dismissNoAskBtn");
     const dismissConfirmBtn = document.getElementById("dismissConfirmBtn");
     const mlaHeaderOverlay = document.getElementById("mlaHeaderOverlay");
     const mlaNameInput = document.getElementById("mlaName");
@@ -1821,12 +1830,17 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const pillHintTitle = document.getElementById("pillHintTitle");
     const pillHintBody = document.getElementById("pillHintBody");
     const pillHintSubheader = document.getElementById("pillHintSubheader");
+    const pillHintPrev = document.getElementById("pillHintPrev");
+    const pillHintNext = document.getElementById("pillHintNext");
+    const pillHintDontTell = document.getElementById("pillHintDontTell");
     const pillHintGotIt = document.getElementById("pillHintGotIt");
     const PILL_HINT_SESSION_PREFIX_BASE = "vysti_pill_hint_shown";
     const PILL_HINT_SESSION_PREFIX = `${PILL_HINT_SESSION_PREFIX_BASE}_v3__`;
     let pillHintAnchorEl = null;
     let pillHintScrollRaf = null;
     let pillHintActiveKey = null;
+    let activePillHintNav = null; // { count:number, go: async (delta)=>({title,body,subheader}|null), canPrev?:()=>bool, canNext?:()=>bool }
+    let activePillHintDismissKey = null;
     const metricsDetailsToggle = document.getElementById("metricsDetailsToggle");
     const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
 
@@ -1868,6 +1882,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     let cohesionJumpIndex = { paragraph: 0, sentence: 0, weak: 0 };
     let lastCohesionSource = "";
     let lastPowerVerbJumpIndex = 0;
+    let powerVerbSelectionHistory = [];
+    let powerVerbSelectionIndex = -1;
     let varietyJumpIndex = { techniques: 0, evidence: 0, development: 0, structure: 0 };
     let precisionIssueCache = {
       sourceKey: "",
@@ -2915,6 +2931,26 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
     }
 
+    const DISMISS_NOASK_PREFIX = "vysti_dismiss_noask_v1__";
+    function dismissNoAskKey(label) {
+      return `${DISMISS_NOASK_PREFIX}${normalizeIssueId(label || "")}`;
+    }
+    function loadDismissNoAsk(label) {
+      try {
+        return JSON.parse(localStorage.getItem(dismissNoAskKey(label)) || "null");
+      } catch (e) {
+        return null;
+      }
+    }
+    function saveDismissNoAsk(label, reason, other_text) {
+      try {
+        localStorage.setItem(
+          dismissNoAskKey(label),
+          JSON.stringify({ reason, other_text: other_text || null })
+        );
+      } catch (e) {}
+    }
+
     function getAppliedStorageKey(label, exampleKey) {
       if (!exampleKey) return "";
       const safeLabel = String(label || "nolabel").trim();
@@ -3584,6 +3620,100 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
 
+      async function goVariety(kind, delta = +1) {
+        let jumpList = [];
+        if (kind === "techniques") {
+          jumpList = techniqueFailures.length ? techniqueFailures : bodyIndexes;
+        } else if (kind === "evidence") {
+          jumpList = evidenceFailures.length ? evidenceFailures : [];
+        } else if (kind === "structure") {
+          jumpList = structureFailures.length ? structureFailures : [];
+        } else if (kind === "development") {
+          jumpList = undevelopedParagraphs.length ? undevelopedParagraphs : [];
+        }
+        if (!jumpList.length) return null;
+
+        if (delta === -1) {
+          varietyJumpIndex[kind] = (varietyJumpIndex[kind] - 2 + jumpList.length * 1000) % jumpList.length;
+        }
+        const idx = varietyJumpIndex[kind] % jumpList.length;
+        varietyJumpIndex[kind] = (idx + 1) % jumpList.length;
+
+        const paraIndex = jumpList[idx];
+        const paraText = paragraphs[paraIndex] || "";
+        const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
+
+        scrollToPreviewHeader({ behavior: "auto" });
+
+        if (kind === "techniques") {
+          await loadThesisDevicesLexicon();
+          if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
+            clearPinnedPreviewHint();
+            return {
+              title: "Techniques",
+              body: "Device list unavailable. Please refresh and try again.",
+              subheader: "",
+              count: jumpList.length
+            };
+          }
+
+          let deviceCount = 0;
+          try {
+            deviceCount = getCanonicalDevicesInParagraph(paraText).size || 0;
+          } catch (err) {
+            deviceCount = 0;
+          }
+          clearPreviewHighlights();
+
+          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+          if (!blockEl) return null;
+
+          blockEl.classList.add("vysti-preview-tech-block");
+
+          // Finalize DOM (spans) BEFORE calculating scroll
+          highlightThesisDevicesInBlock(blockEl);
+
+          clearPinnedPreviewHint();
+          slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
+
+          setTimeout(() => {
+            try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch (e) {}
+          }, 300);
+
+          const deviceSet = getCanonicalDevicesInParagraph(paraText);
+          const deviceList = Array.from(deviceSet || [])
+            .map((x) => String(x || "").trim())
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b));
+          const subheader = deviceList.length
+            ? `Current techniques: ${deviceList.join(", ")}`
+            : "Current techniques: (none detected)";
+
+          return { title: "Techniques", body: VARIETY_TIPS.techniques, subheader, count: jumpList.length };
+        }
+
+        // Evidence/Development/Structure: outline the whole paragraph
+        clearPreviewHighlights();
+        const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+        if (!blockEl) return null;
+
+        blockEl.classList.add("vysti-preview-variety-block");
+        clearPinnedPreviewHint();
+        slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
+
+        setTimeout(() => {
+          try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch (e) {}
+        }, 300);
+
+        if (kind === "evidence") {
+          return { title: "Evidence", body: VARIETY_TIPS.evidence, subheader: "", count: jumpList.length };
+        }
+        if (kind === "development") {
+          return { title: "Development", body: VARIETY_TIPS.development, subheader: "", count: jumpList.length };
+        }
+        return { title: "Structure", body: VARIETY_TIPS.structure, subheader: "", count: jumpList.length };
+      }
+
       {
         const row = document.createElement("div");
         row.className = "quest-row";
@@ -3660,7 +3790,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
               let didJump = false;
               try {
-                didJump = !!(await jumpToNextVerbToUpgradeInPreview());
+                didJump = !!(await jumpPowerVerb(+1));
               } catch (err) {
                 console.error("[Power verbs needed] jump failed", err);
                 didJump = false;
@@ -3677,7 +3807,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                 clearPinnedPreviewHint();
                 showPillHintModalFromPill(pill, {
                   title: "Power verbs needed",
-                  body: "Select from the Power Verbs list to strengthen the highlighted verbs."
+                  body: "Select from the Power Verbs list to strengthen the highlighted verbs.",
+                  dismissKey: "power:verbs_needed",
+                  nav: {
+                    count: Math.max(0, (powerTarget - powerCount)),
+                    canPrev: () => powerVerbSelectionIndex > 0,
+                    canNext: () => true,
+                    go: async (d) => {
+                      const ok = await jumpPowerVerb(d);
+                      if (!ok) return null;
+                      return {
+                        title: "Power verbs needed",
+                        body: "Select from the Power Verbs list to strengthen the highlighted verbs."
+                      };
+                    }
+                  }
                 });
                 pill.title = prevTitle;
               }
@@ -3759,20 +3903,27 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       });
     }
 
-    function jumpToNextCohesionIssue(kind) {
+    function pickCohesionIssue(kind, delta = +1) {
       const list = cohesionIssueCache?.[kind] || [];
-      if (!list.length) return false;
+      if (!list.length) return null;
+      if (delta === -1) {
+        cohesionJumpIndex[kind] = (cohesionJumpIndex[kind] - 2 + list.length * 1000) % list.length;
+      }
       const idx = cohesionJumpIndex[kind] % list.length;
       const issue = list[idx];
       cohesionJumpIndex[kind] = (idx + 1) % list.length;
-      if (!issue?.sentence) return false;
+      return issue;
+    }
 
+    function goCohesion(kind, delta = +1) {
+      const issue = pickCohesionIssue(kind, delta);
+      if (!issue?.sentence) return null;
       scrollToPreviewHeader();
       const result = highlightAndScrollToExample(issue, null, { scroll: true, restrictToProse: true, select: false });
       if (result?.hits?.length) {
         result.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
       }
-      return result?.ok;
+      return issue;
     }
 
     function extractWeakTransitionFound(sentence) {
@@ -3834,14 +3985,25 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Click to jump to the next sentence";
           pill.addEventListener("click", () => {
-            const ok = jumpToNextCohesionIssue(key);
-            if (!ok) return;
+            const issue = goCohesion(key, +1);
+            if (!issue) return;
             clearPinnedPreviewHint();
             const body =
               key === "paragraph"
                 ? "Repeat a key term from the end of the preceding paragraph to smoothly transition into this topic sentence."
                 : "Repeat a key term from the previous sentence to help it connect with this sentence.";
-            showPillHintModalFromPill(pill, { title: label, body });
+            showPillHintModalFromPill(pill, {
+              title: label,
+              body,
+              dismissKey: `cohesion:${key}`,
+              nav: {
+                count: cohesionIssueCache?.[key]?.length || 0,
+                go: (d) => {
+                  const nextIssue = goCohesion(key, d);
+                  return nextIssue ? { title: label, body } : null;
+                }
+              }
+            });
           });
         }
 
@@ -3900,23 +4062,30 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Click to jump to the next sentence";
           pill.addEventListener("click", () => {
-            const list = cohesionIssueCache?.weak || [];
-            let found = "";
-            if (list.length) {
-              const idx = cohesionJumpIndex.weak % list.length;
-              const issue = list[idx];
-              found = extractWeakTransitionFound(issue?.sentence || "");
-            }
-
-            const ok = jumpToNextCohesionIssue("weak");
-            if (!ok) return;
-
+            const issue = goCohesion("weak", +1);
+            if (!issue) return;
             clearPinnedPreviewHint();
 
+            const found = extractWeakTransitionFound(issue?.sentence || "");
             const foundDisplay = found ? `"${found}"` : "the transitional phrase";
+            const body = `Vysti recommends avoiding beginning a paragraph with a transitional phrase. Just delete ${foundDisplay}.`;
             showPillHintModalFromPill(pill, {
               title: "Weak transitions",
-              body: `Vysti recommends avoiding beginning a paragraph with a transitional phrase. Just delete ${foundDisplay}.`
+              body,
+              dismissKey: "cohesion:weak",
+              nav: {
+                count: cohesionIssueCache?.weak?.length || 0,
+                go: (d) => {
+                  const nextIssue = goCohesion("weak", d);
+                  if (!nextIssue) return null;
+                  const nextFound = extractWeakTransitionFound(nextIssue?.sentence || "");
+                  const nextDisplay = nextFound ? `"${nextFound}"` : "the transitional phrase";
+                  return {
+                    title: "Weak transitions",
+                    body: `Vysti recommends avoiding beginning a paragraph with a transitional phrase. Just delete ${nextDisplay}.`
+                  };
+                }
+              }
             });
           });
         }
@@ -3995,6 +4164,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       };
     }
 
+    function jumpToPrecisionIssue(kind, delta = +1) {
+      updatePrecisionIssueCache();
+      const list = precisionIssueCache?.[kind] || [];
+      if (!list.length) return null;
+      if (delta === -1) {
+        precisionIssueCache.idx[kind] = (precisionIssueCache.idx[kind] - 2 + list.length * 1000) % list.length;
+      }
+      const idx = precisionIssueCache.idx[kind] % list.length;
+      const issue = list[idx];
+      precisionIssueCache.idx[kind] = (idx + 1) % list.length;
+      return issue || null;
+    }
+
     function jumpToNextPrecisionIssue(kind) {
       updatePrecisionIssueCache();
       const list = precisionIssueCache?.[kind] || [];
@@ -4045,7 +4227,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Click to jump to the next issue";
           pill.addEventListener("click", async () => {
-            let example = jumpToNextPrecisionIssue(key);
+            let example = key === "unnecessary"
+              ? jumpToPrecisionIssue(key, +1)
+              : jumpToNextPrecisionIssue(key);
             if (!example) {
               let fallbackLabel = "";
               if (key === "wordy") {
@@ -4062,7 +4246,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
                   await openRevisionExampleFromIssueId(fallbackIssueId, fallbackLabel);
                 }
                 updatePrecisionIssueCache();
-                example = jumpToNextPrecisionIssue(key);
+                example = key === "unnecessary"
+                  ? jumpToPrecisionIssue(key, +1)
+                  : jumpToNextPrecisionIssue(key);
               }
             }
 
@@ -4078,7 +4264,25 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             if (key === "unnecessary") {
               const template = "Vysti recommends avoiding unnecessary terms like {FOUND}. You can probably just delete them from your writing.";
               const body = resolveStudentGuidance(template, example?.sentence || "", example?.label || "");
-              showPillHintModalFromPill(pill, { title: "Unnecessary", body });
+              showPillHintModalFromPill(pill, {
+                title: "Unnecessary",
+                body,
+                dismissKey: "precision:unnecessary",
+                nav: {
+                  count: precisionIssueCache?.unnecessary?.length || 0,
+                  go: (d) => {
+                    const nextIssue = jumpToPrecisionIssue("unnecessary", d);
+                    if (!nextIssue) return null;
+                    scrollToPreviewHeader();
+                    const nextRes = highlightAndScrollToExample(nextIssue, null, { scroll: true, select: false });
+                    if (nextRes?.hits?.length) {
+                      nextRes.hits.forEach((span) => span.classList.add("vysti-hit-brand"));
+                    }
+                    const nextBody = resolveStudentGuidance(template, nextIssue?.sentence || "", nextIssue?.label || "");
+                    return { title: "Unnecessary", body: nextBody };
+                  }
+                }
+              });
               return;
             }
             const issueId = getIssueIdForLabel(example.label);
@@ -4187,104 +4391,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         } else {
           pill.title = "Click to jump to the next paragraph";
           pill.addEventListener("click", async () => {
-            const jumpList = failures.length ? failures : (kind === "techniques" ? bodyIndexes : []);
-            if (!jumpList.length) return;
-
-            const idx = varietyJumpIndex[kind] % jumpList.length;
-            varietyJumpIndex[kind] = (idx + 1) % jumpList.length;
-
-            const paraIndex = jumpList[idx];
-            const paraText = paragraphs[paraIndex] || "";
-
-            const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
-
-            scrollToPreviewHeader({ behavior: "auto" });
-
-            // Techniques: highlight devices instead of sentence-highlighting (avoids nested spans)
-            if (kind === "techniques") {
-              await loadThesisDevicesLexicon();
-              if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
-                clearPinnedPreviewHint();
-                showPillHintModalFromPill(pill, {
-                  title: "Techniques",
-                  body: "Device list unavailable. Please refresh and try again."
-                });
-                return;
+            const first = await goVariety(kind, +1);
+            if (!first) return;
+            showPillHintModalFromPill(pill, {
+              title: first.title,
+              body: first.body,
+              subheader: first.subheader,
+              dismissKey: `variety:${kind}`,
+              nav: {
+                count: first.count,
+                go: async (d) => {
+                  const upd = await goVariety(kind, d);
+                  return upd ? { title: upd.title, body: upd.body, subheader: upd.subheader } : null;
+                }
               }
-
-              let deviceCount = 0;
-              try {
-                deviceCount = getCanonicalDevicesInParagraph(paraText).size || 0;
-              } catch (err) {
-                deviceCount = 0;
-              }
-              clearPreviewHighlights();
-
-              const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
-              if (!blockEl) return;
-
-              blockEl.classList.add("vysti-preview-tech-block");
-
-              // Finalize DOM (spans) BEFORE calculating scroll
-              highlightThesisDevicesInBlock(blockEl);
-
-              clearPinnedPreviewHint();
-              slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
-
-              setTimeout(() => {
-                try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch(e) {}
-              }, 300);
-
-              const deviceSet = getCanonicalDevicesInParagraph(paraText);
-              const deviceList = Array.from(deviceSet || [])
-                .map((x) => String(x || "").trim())
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b));
-              const subheader = deviceList.length
-                ? `Current techniques: ${deviceList.join(", ")}`
-                : "Current techniques: (none detected)";
-
-              showPillHintModalFromPill(pill, {
-                title: "Techniques",
-                body: VARIETY_TIPS.techniques,
-                subheader
-              });
-              return;
-            }
-
-            // Evidence (and other Variety paragraph-guidance): outline the whole paragraph
-            clearPreviewHighlights();
-
-            const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
-            if (!blockEl) return;
-
-            blockEl.classList.add("vysti-preview-variety-block");
-            clearPinnedPreviewHint();
-            slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
-
-            if (kind === "evidence") {
-              showPillHintModalFromPill(pill, {
-                title: "Evidence",
-                body: VARIETY_TIPS.evidence
-              });
-            }
-
-            if (kind === "development") {
-              showPillHintModalFromPill(pill, {
-                title: "Development",
-                body: VARIETY_TIPS.development
-              });
-            }
-
-            if (kind === "structure") {
-              showPillHintModalFromPill(pill, {
-                title: "Structure",
-                body: VARIETY_TIPS.structure
-              });
-            }
-            setTimeout(() => {
-              try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch(e) {}
-            }, 300);
+            });
           });
         }
 
@@ -4368,31 +4489,22 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         activeTitle: "Click to jump to an undeveloped paragraph"
       });
       if (developmentPill && !developmentPill.disabled) {
-        developmentPill.addEventListener("click", () => {
-          const jumpList = undevelopedParagraphs.length ? undevelopedParagraphs : [];
-          if (!jumpList.length) return;
-
-          const idx = varietyJumpIndex.development % jumpList.length;
-          varietyJumpIndex.development = (idx + 1) % jumpList.length;
-
-          const paraIndex = jumpList[idx];
-          const paraText = paragraphs[paraIndex] || "";
-          scrollToPreviewHeader({ behavior: "auto" });
-          clearPreviewHighlights();
-
-          const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
-          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
-          if (!blockEl) return;
-
-          blockEl.classList.add("vysti-preview-variety-block");
-          clearPinnedPreviewHint();
-          slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
+        developmentPill.addEventListener("click", async () => {
+          const first = await goVariety("development", +1);
+          if (!first) return;
           showPillHintModalFromPill(developmentPill, {
-            title: "Development",
-            body: VARIETY_TIPS.development
+            title: first.title,
+            body: first.body,
+            subheader: first.subheader,
+            dismissKey: "variety:development",
+            nav: {
+              count: first.count,
+              go: async (d) => {
+                const upd = await goVariety("development", d);
+                return upd ? { title: upd.title, body: upd.body, subheader: upd.subheader } : null;
+              }
+            }
           });
-
-          if (markedPreview) markedPreview.focus();
         });
       }
 
@@ -5936,6 +6048,28 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
     }
 
+    const PILL_POPOVER_DISMISS_PREFIX = "vysti_pill_popover_dismiss_v1__";
+    function pillPopoverDismissStorageKey(key) {
+      const k = normalizeIssueId(String(key || ""));
+      return `${PILL_POPOVER_DISMISS_PREFIX}${k}`;
+    }
+    function isPillPopoverDismissed(key) {
+      if (!key) return false;
+      try {
+        return localStorage.getItem(pillPopoverDismissStorageKey(key)) === "1";
+      } catch (e) {
+        return false;
+      }
+    }
+    function setPillPopoverDismissed(key, value = true) {
+      if (!key) return;
+      try {
+        const storageKey = pillPopoverDismissStorageKey(key);
+        if (value) localStorage.setItem(storageKey, "1");
+        else localStorage.removeItem(storageKey);
+      } catch (e) {}
+    }
+
     window.__resetPillHints = () => {
       try {
         for (const k of Object.keys(sessionStorage)) {
@@ -5956,6 +6090,39 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       // ignore URL parsing failures
     }
 
+    function setPillHintFooterState({ nav = null, dismissKey = null } = {}) {
+      activePillHintNav = nav || null;
+      activePillHintDismissKey = dismissKey || null;
+
+      const showNav = !!(activePillHintNav && Number(activePillHintNav.count) > 1);
+      if (pillHintPrev) pillHintPrev.style.display = showNav ? "inline-flex" : "none";
+      if (pillHintNext) pillHintNext.style.display = showNav ? "inline-flex" : "none";
+
+      if (pillHintPrev) {
+        pillHintPrev.disabled = !showNav || (typeof activePillHintNav?.canPrev === "function" ? !activePillHintNav.canPrev() : false);
+      }
+      if (pillHintNext) {
+        pillHintNext.disabled = !showNav || (typeof activePillHintNav?.canNext === "function" ? !activePillHintNav.canNext() : false);
+      }
+
+      if (pillHintDontTell) pillHintDontTell.style.display = activePillHintDismissKey ? "inline-flex" : "none";
+    }
+
+    function updatePillHintContent({ title = "", body = "", subheader = "" } = {}) {
+      if (pillHintTitle) pillHintTitle.textContent = title || "";
+      if (pillHintBody) pillHintBody.textContent = body || "";
+      if (pillHintSubheader) {
+        const txt = String(subheader || "").trim();
+        if (txt) {
+          pillHintSubheader.textContent = txt;
+          pillHintSubheader.classList.remove("hidden");
+        } else {
+          pillHintSubheader.textContent = "";
+          pillHintSubheader.classList.add("hidden");
+        }
+      }
+    }
+
     function closePillHintPopover({ markShown = true } = {}) {
       if (!pillHintPopover) return;
       if (markShown && pillHintActiveKey) setPillHintShown(pillHintActiveKey);
@@ -5964,6 +6131,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       pillHintAnchorEl = null;
       pillHintPopover._anchor = null;
       pillHintActiveKey = null;
+      activePillHintNav = null;
+      activePillHintDismissKey = null;
+      setPillHintFooterState({ nav: null, dismissKey: null });
       if (pillHintBackdrop) pillHintBackdrop.classList.add("hidden");
     }
 
@@ -6080,18 +6250,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function showPillHint(anchorEl, { title = "", body = "", subheader = "" } = {}) {
       if (!pillHintPopover || !anchorEl) return;
 
-      if (pillHintTitle) pillHintTitle.textContent = title || "";
-      if (pillHintBody) pillHintBody.textContent = body || "";
-      if (pillHintSubheader) {
-        const txt = String(subheader || "").trim();
-        if (txt) {
-          pillHintSubheader.textContent = txt;
-          pillHintSubheader.classList.remove("hidden");
-        } else {
-          pillHintSubheader.textContent = "";
-          pillHintSubheader.classList.add("hidden");
-        }
-      }
+      updatePillHintContent({ title, body, subheader });
 
       // IMPORTANT: this is the "always show" variant — do not set pillHintActiveKey,
       // so closing does NOT write to sessionStorage.
@@ -6112,18 +6271,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     function showPillHintModal({ title = "", body = "", subheader = "" } = {}) {
       if (!pillHintPopover) return;
 
-      if (pillHintTitle) pillHintTitle.textContent = title || "";
-      if (pillHintBody) pillHintBody.textContent = body || "";
-      if (pillHintSubheader) {
-        const txt = String(subheader || "").trim();
-        if (txt) {
-          pillHintSubheader.textContent = txt;
-          pillHintSubheader.classList.remove("hidden");
-        } else {
-          pillHintSubheader.textContent = "";
-          pillHintSubheader.classList.add("hidden");
-        }
-      }
+      updatePillHintContent({ title, body, subheader });
 
       pillHintActiveKey = null;
       pillHintAnchorEl = null;
@@ -6146,18 +6294,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         return;
       }
 
-      if (pillHintTitle) pillHintTitle.textContent = title || "";
-      if (pillHintBody) pillHintBody.textContent = body || "";
-      if (pillHintSubheader) {
-        const txt = String(subheader || "").trim();
-        if (txt) {
-          pillHintSubheader.textContent = txt;
-          pillHintSubheader.classList.remove("hidden");
-        } else {
-          pillHintSubheader.textContent = "";
-          pillHintSubheader.classList.add("hidden");
-        }
-      }
+      updatePillHintContent({ title, body, subheader });
 
       pillHintActiveKey = key;
 
@@ -6264,6 +6401,42 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     if (pillHintGotIt) {
       pillHintGotIt.addEventListener("click", () => closePillHintPopover({ markShown: true }));
+    }
+
+    if (pillHintPrev) {
+      pillHintPrev.addEventListener("click", async () => {
+        if (!activePillHintNav?.go) return;
+        pillHintPrev.disabled = true;
+        if (pillHintNext) pillHintNext.disabled = true;
+        try {
+          const upd = await activePillHintNav.go(-1);
+          if (upd) updatePillHintContent(upd);
+        } finally {
+          setPillHintFooterState({ nav: activePillHintNav, dismissKey: activePillHintDismissKey });
+        }
+      });
+    }
+
+    if (pillHintNext) {
+      pillHintNext.addEventListener("click", async () => {
+        if (!activePillHintNav?.go) return;
+        pillHintNext.disabled = true;
+        if (pillHintPrev) pillHintPrev.disabled = true;
+        try {
+          const upd = await activePillHintNav.go(1);
+          if (upd) updatePillHintContent(upd);
+        } finally {
+          setPillHintFooterState({ nav: activePillHintNav, dismissKey: activePillHintDismissKey });
+        }
+      });
+    }
+
+    if (pillHintDontTell) {
+      pillHintDontTell.addEventListener("click", () => {
+        if (!activePillHintDismissKey) return;
+        setPillPopoverDismissed(activePillHintDismissKey, true);
+        closePillHintPopover({ markShown: true });
+      });
     }
 
     // Treat X as acknowledge too (so testers don't get stuck)
@@ -7887,6 +8060,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
             lastPowerVerbJumpIndex = 0;
+            powerVerbSelectionHistory = [];
+            powerVerbSelectionIndex = -1;
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
@@ -8068,14 +8243,19 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       };
     }
 
-    function showPillHintModalFromPill(pillEl, { title = "", body = "", subheader = "" } = {}) {
+    function showPillHintModalFromPill(pillEl, { title = "", body = "", subheader = "", nav = null, dismissKey = null } = {}) {
+      if (dismissKey && isPillPopoverDismissed(dismissKey)) return;
       if (!pillHintPopover) {
+        setPillHintFooterState({ nav, dismissKey });
         showPillHintModal({ title, body, subheader });
+        setPillHintFooterState({ nav, dismissKey });
         return;
       }
 
       if (!ENABLE_PILLBOX_MORPH || prefersReducedMotion() || !pillEl) {
+        setPillHintFooterState({ nav, dismissKey });
         showPillHintModal({ title, body, subheader });
+        setPillHintFooterState({ nav, dismissKey });
         return;
       }
 
@@ -8085,7 +8265,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       pillHintPopover.style.opacity = "0";
       pillHintPopover.style.pointerEvents = "none";
 
+      setPillHintFooterState({ nav, dismissKey });
       showPillHintModal({ title, body, subheader });
+      setPillHintFooterState({ nav, dismissKey });
 
       requestAnimationFrame(() => {
         try {
@@ -10411,6 +10593,17 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const didSelect = selectWordRangeFromMap(preview, posMap, finalTarget.startIdx, finalTarget.endIdx);
       if (didSelect) {
         lastPowerVerbJumpIndex = Math.min(finalTarget.endIdx + 1, normText.length);
+        if (powerVerbSelectionIndex < powerVerbSelectionHistory.length - 1) {
+          powerVerbSelectionHistory = powerVerbSelectionHistory.slice(0, powerVerbSelectionIndex + 1);
+        }
+        const nextRange = { start: finalTarget.startIdx, end: finalTarget.endIdx };
+        const lastRange = powerVerbSelectionHistory[powerVerbSelectionHistory.length - 1];
+        if (!lastRange || lastRange.start !== nextRange.start || lastRange.end !== nextRange.end) {
+          powerVerbSelectionHistory.push(nextRange);
+          powerVerbSelectionIndex = powerVerbSelectionHistory.length - 1;
+        } else {
+          powerVerbSelectionIndex = powerVerbSelectionHistory.length - 1;
+        }
       }
       return didSelect;
     }
@@ -10444,6 +10637,34 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
 
       return { normText, posMap };
+    }
+
+    function selectPowerVerbRange(range) {
+      const preview = markedPreview;
+      if (!preview) return false;
+      const { normText, posMap } = buildNormalizedTextMap(preview);
+      if (!normText || !posMap.length) return false;
+      const start = Math.max(0, Math.min(range.start, normText.length - 1));
+      const end = Math.max(0, Math.min(range.end, normText.length - 1));
+      clearPreviewHighlights();
+      const did = selectWordRangeFromMap(preview, posMap, start, end);
+      if (did) lastPowerVerbJumpIndex = Math.min(end + 1, normText.length);
+      return did;
+    }
+
+    async function jumpPowerVerb(delta = +1) {
+      if (delta === -1) {
+        if (powerVerbSelectionIndex > 0) {
+          powerVerbSelectionIndex -= 1;
+          return selectPowerVerbRange(powerVerbSelectionHistory[powerVerbSelectionIndex]);
+        }
+        return false;
+      }
+      if (powerVerbSelectionIndex < powerVerbSelectionHistory.length - 1) {
+        powerVerbSelectionIndex += 1;
+        return selectPowerVerbRange(powerVerbSelectionHistory[powerVerbSelectionIndex]);
+      }
+      return !!(await jumpToNextVerbToUpgradeInPreview());
     }
 
     // Helper: Wrap a substring of a single Text node by splitting it
@@ -11244,8 +11465,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     async function openDismissIssueModal() {
-      if (!dismissIssueOverlay || !dismissConfirmBtn || !dismissCancelBtn) {
-        return { confirmed: false, reason: null, other_text: null };
+      if (!dismissIssueOverlay || !dismissConfirmBtn || !dismissCancelBtn || !dismissNoAskBtn) {
+        return { confirmed: false, reason: null, other_text: null, dontAskAgain: false };
       }
 
       const reasonInputs = Array.from(
@@ -11261,17 +11482,18 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           dismissIssueOverlay.removeEventListener("click", onOverlayClick);
           dismissCancelBtn.removeEventListener("click", onCancel);
           dismissConfirmBtn.removeEventListener("click", onConfirm);
+          dismissNoAskBtn.removeEventListener("click", onNoAsk);
           reasonInputs.forEach((input) => input.removeEventListener("change", onReasonChange));
           if (dismissOtherText) {
             dismissOtherText.removeEventListener("input", onOtherInput);
           }
         };
 
-        const finish = (confirmed, reason = null, otherText = null) => {
+        const finish = (confirmed, reason = null, otherText = null, dontAskAgain = false) => {
           if (resolved) return;
           resolved = true;
           cleanup();
-          resolve({ confirmed, reason, other_text: otherText });
+          resolve({ confirmed, reason, other_text: otherText, dontAskAgain });
         };
 
         const getSelectedReason = () => {
@@ -11313,6 +11535,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           const otherText = dismissOtherText ? dismissOtherText.value.trim() : "";
           const valid = reason && (!isOther || otherText.length > 0);
           dismissConfirmBtn.disabled = !valid;
+          dismissNoAskBtn.disabled = !valid;
         };
 
         const onReasonChange = () => {
@@ -11328,7 +11551,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           updateConfirmState();
         };
 
-        const onCancel = () => finish(false, null, null);
+        const onCancel = () => finish(false, null, null, false);
 
         const onConfirm = () => {
           const reason = getSelectedReason();
@@ -11343,19 +11566,35 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             return;
           }
           setError("");
-          finish(true, reason, isOther ? otherText : null);
+          finish(true, reason, isOther ? otherText : null, false);
+        };
+
+        const onNoAsk = () => {
+          const reason = getSelectedReason();
+          if (!reason) {
+            setError("Please select a reason to continue.");
+            return;
+          }
+          const isOther = reason === "other";
+          const otherText = dismissOtherText ? dismissOtherText.value.trim() : "";
+          if (isOther && !otherText) {
+            setError("Please add a brief explanation for “Other.”");
+            return;
+          }
+          setError("");
+          finish(true, reason, isOther ? otherText : null, true);
         };
 
         const onOverlayClick = (event) => {
           if (event.target === dismissIssueOverlay) {
-            finish(false, null, null);
+            finish(false, null, null, false);
           }
         };
 
         const onKeyDown = (event) => {
           if (event.key === "Escape") {
             event.preventDefault();
-            finish(false, null, null);
+            finish(false, null, null, false);
           }
         };
 
@@ -11366,6 +11605,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         updateCharCount();
         setError("");
         dismissConfirmBtn.disabled = true;
+        dismissNoAskBtn.disabled = true;
 
         dismissIssueOverlay.classList.remove("hidden");
         dismissCancelBtn.focus();
@@ -11374,6 +11614,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         dismissIssueOverlay.addEventListener("click", onOverlayClick);
         dismissCancelBtn.addEventListener("click", onCancel);
         dismissConfirmBtn.addEventListener("click", onConfirm);
+        dismissNoAskBtn.addEventListener("click", onNoAsk);
         reasonInputs.forEach((input) => input.addEventListener("change", onReasonChange));
         if (dismissOtherText) {
           dismissOtherText.addEventListener("input", onOtherInput);
@@ -11382,8 +11623,22 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     }
 
     async function dismissIssue(label, example, statusDiv, btn) {
-      const modalResult = await openDismissIssueModal();
-      if (!modalResult.confirmed) return;
+      const pref = loadDismissNoAsk(label);
+      let modalResult;
+      if (pref?.reason) {
+        modalResult = {
+          confirmed: true,
+          reason: pref.reason,
+          other_text: pref.other_text || null,
+          dontAskAgain: true
+        };
+      } else {
+        modalResult = await openDismissIssueModal();
+        if (!modalResult.confirmed) return;
+        if (modalResult.dontAskAgain) {
+          saveDismissNoAsk(label, modalResult.reason, modalResult.other_text);
+        }
+      }
 
       const fileName = selectedFile?.name || "nofile";
       const record = {
@@ -11928,6 +12183,8 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             markedPreview.spellcheck = true;
             markedPreview.classList.add("preview-editable");
             lastPowerVerbJumpIndex = 0;
+            powerVerbSelectionHistory = [];
+            powerVerbSelectionIndex = -1;
             applyPreviewZoom();
             updateStatsPanel(liveLabelCounts);
             applyDismissalsToPreviewDOM();
