@@ -3620,100 +3620,6 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const wrap = document.createElement("div");
       wrap.className = "power-quests";
 
-      async function goVariety(kind, delta = +1) {
-        let jumpList = [];
-        if (kind === "techniques") {
-          jumpList = techniqueFailures.length ? techniqueFailures : bodyIndexes;
-        } else if (kind === "evidence") {
-          jumpList = evidenceFailures.length ? evidenceFailures : [];
-        } else if (kind === "structure") {
-          jumpList = structureFailures.length ? structureFailures : [];
-        } else if (kind === "development") {
-          jumpList = undevelopedParagraphs.length ? undevelopedParagraphs : [];
-        }
-        if (!jumpList.length) return null;
-
-        if (delta === -1) {
-          varietyJumpIndex[kind] = (varietyJumpIndex[kind] - 2 + jumpList.length * 1000) % jumpList.length;
-        }
-        const idx = varietyJumpIndex[kind] % jumpList.length;
-        varietyJumpIndex[kind] = (idx + 1) % jumpList.length;
-
-        const paraIndex = jumpList[idx];
-        const paraText = paragraphs[paraIndex] || "";
-        const example = { sentence: splitSentencesSimple(paraText)[0] || paraText, paragraph_index: paraIndex };
-
-        scrollToPreviewHeader({ behavior: "auto" });
-
-        if (kind === "techniques") {
-          await loadThesisDevicesLexicon();
-          if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
-            clearPinnedPreviewHint();
-            return {
-              title: "Techniques",
-              body: "Device list unavailable. Please refresh and try again.",
-              subheader: "",
-              count: jumpList.length
-            };
-          }
-
-          let deviceCount = 0;
-          try {
-            deviceCount = getCanonicalDevicesInParagraph(paraText).size || 0;
-          } catch (err) {
-            deviceCount = 0;
-          }
-          clearPreviewHighlights();
-
-          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
-          if (!blockEl) return null;
-
-          blockEl.classList.add("vysti-preview-tech-block");
-
-          // Finalize DOM (spans) BEFORE calculating scroll
-          highlightThesisDevicesInBlock(blockEl);
-
-          clearPinnedPreviewHint();
-          slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
-
-          setTimeout(() => {
-            try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch (e) {}
-          }, 300);
-
-          const deviceSet = getCanonicalDevicesInParagraph(paraText);
-          const deviceList = Array.from(deviceSet || [])
-            .map((x) => String(x || "").trim())
-            .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b));
-          const subheader = deviceList.length
-            ? `Current techniques: ${deviceList.join(", ")}`
-            : "Current techniques: (none detected)";
-
-          return { title: "Techniques", body: VARIETY_TIPS.techniques, subheader, count: jumpList.length };
-        }
-
-        // Evidence/Development/Structure: outline the whole paragraph
-        clearPreviewHighlights();
-        const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
-        if (!blockEl) return null;
-
-        blockEl.classList.add("vysti-preview-variety-block");
-        clearPinnedPreviewHint();
-        slowScrollIntoView(blockEl, { behavior: "smooth", block: "start" });
-
-        setTimeout(() => {
-          try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch (e) {}
-        }, 300);
-
-        if (kind === "evidence") {
-          return { title: "Evidence", body: VARIETY_TIPS.evidence, subheader: "", count: jumpList.length };
-        }
-        if (kind === "development") {
-          return { title: "Development", body: VARIETY_TIPS.development, subheader: "", count: jumpList.length };
-        }
-        return { title: "Structure", body: VARIETY_TIPS.structure, subheader: "", count: jumpList.length };
-      }
-
       {
         const row = document.createElement("div");
         row.className = "quest-row";
@@ -4354,6 +4260,115 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       const bodyIndexes = Array.isArray(bodyParagraphIndices) ? bodyParagraphIndices : [];
       const noBodyParagraphs = bodyIndexes.length === 0;
+
+      async function goVariety(kind, delta = +1) {
+        let jumpList = [];
+        if (kind === "techniques") {
+          jumpList = techniqueFailures.length ? techniqueFailures : bodyIndexes;
+        } else if (kind === "evidence") {
+          jumpList = evidenceFailures.length ? evidenceFailures : [];
+        } else if (kind === "structure") {
+          jumpList = structureFailures.length ? structureFailures : [];
+        } else if (kind === "development") {
+          jumpList = undevelopedParagraphs.length ? undevelopedParagraphs : [];
+        }
+        if (!jumpList.length) return null;
+
+        // prev support (delta = -1)
+        if (delta === -1) {
+          varietyJumpIndex[kind] =
+            (varietyJumpIndex[kind] - 2 + jumpList.length * 1000) % jumpList.length;
+        }
+        const idx = varietyJumpIndex[kind] % jumpList.length;
+        varietyJumpIndex[kind] = (idx + 1) % jumpList.length;
+
+        const paraIndex = jumpList[idx];
+        const paraText = paragraphs[paraIndex] || "";
+        const example = {
+          sentence: splitSentencesSimple(paraText)[0] || paraText,
+          paragraph_index: paraIndex
+        };
+
+        if (kind === "techniques") {
+          await loadThesisDevicesLexicon();
+          if (!hasThesisDevicesLexicon(thesisDevicesLexicon)) {
+            clearPinnedPreviewHint();
+            return {
+              title: "Techniques",
+              body: "Device list unavailable. Please refresh and try again.",
+              subheader: "",
+              count: jumpList.length
+            };
+          }
+
+          clearPreviewHighlights();
+
+          const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+          if (!blockEl) return null;
+
+          blockEl.classList.add("vysti-preview-tech-block");
+
+          // IMPORTANT: wrap spans before scroll so geometry is final
+          highlightThesisDevicesInBlock(blockEl);
+
+          clearPinnedPreviewHint();
+
+          // Use the robust scroll helper (brings Preview into view + anchors paragraph at top)
+          scrollMarkedPreviewToElement(blockEl, {
+            behavior: "smooth",
+            align: "start",
+            offsetPx: 12
+          });
+
+          setTimeout(() => {
+            try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch (e) {}
+          }, 300);
+
+          const deviceSet = getCanonicalDevicesInParagraph(paraText);
+          const deviceList = Array.from(deviceSet || [])
+            .map((x) => String(x || "").trim())
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b));
+
+          const subheader = deviceList.length
+            ? `Current techniques: ${deviceList.join(", ")}`
+            : "Current techniques: (none detected)";
+
+          return {
+            title: "Techniques",
+            body: VARIETY_TIPS.techniques,
+            subheader,
+            count: jumpList.length
+          };
+        }
+
+        // Evidence / Development / Structure
+        clearPreviewHighlights();
+
+        const blockEl = findBestPreviewBlockForExample(example, { restrictToProse: true });
+        if (!blockEl) return null;
+
+        blockEl.classList.add("vysti-preview-variety-block");
+        clearPinnedPreviewHint();
+
+        scrollMarkedPreviewToElement(blockEl, {
+          behavior: "smooth",
+          align: "start",
+          offsetPx: 12
+        });
+
+        setTimeout(() => {
+          try { markedPreview && markedPreview.focus({ preventScroll: true }); } catch (e) {}
+        }, 300);
+
+        if (kind === "evidence") {
+          return { title: "Evidence", body: VARIETY_TIPS.evidence, subheader: "", count: jumpList.length };
+        }
+        if (kind === "development") {
+          return { title: "Development", body: VARIETY_TIPS.development, subheader: "", count: jumpList.length };
+        }
+        return { title: "Structure", body: VARIETY_TIPS.structure, subheader: "", count: jumpList.length };
+      }
 
       subEl.innerHTML = "";
       if (varietyMetric.score === 100) {
@@ -7065,7 +7080,21 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
           rewriteStatusDiv.classList.remove("ok", "bad");
           return;
         }
-        highlightAndScrollToExample(ex, rewriteStatusDiv);
+        const res = highlightAndScrollToExample(ex, rewriteStatusDiv, { scroll: false });
+        const target =
+          (res && res.hits && res.hits[0]) ? res.hits[0] :
+          (res ? res.blockEl : null);
+
+        if (target) {
+          scrollMarkedPreviewToElement(target, {
+            behavior: "smooth",
+            align: "start",
+            offsetPx: 12
+          });
+        } else {
+          // at minimum, bring Preview into view
+          scrollToPreviewHeader({ behavior: "smooth" });
+        }
       };
 
       const checkRewriteBtn = document.createElement("button");
