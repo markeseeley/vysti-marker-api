@@ -1,13 +1,6 @@
 (function () {
   const META_BUILD_ID = "app-build-id";
-  const META_VERSION = "app-version";
-  const BUILD_ID_KEYS = [
-    "APP_BUILD_ID",
-    "NEXT_PUBLIC_BUILD_ID",
-    "VITE_APP_VERSION",
-    "__APP_BUILD_ID__",
-    "__APP_VERSION__"
-  ];
+  const BUILD_ID_KEYS = ["APP_BUILD_ID", "__APP_BUILD_ID__"];
 
   function readMetaContent(name) {
     if (typeof document === "undefined") return "";
@@ -25,7 +18,7 @@
       }
     }
 
-    const metaValue = readMetaContent(META_BUILD_ID) || readMetaContent(META_VERSION);
+    const metaValue = readMetaContent(META_BUILD_ID);
     if (metaValue) return metaValue;
 
     if (typeof document !== "undefined" && document.lastModified) {

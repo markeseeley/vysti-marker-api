@@ -45,7 +45,13 @@ async function main() {
   const targets = [
     path.resolve(repoRoot, "student_react.html"),
     path.resolve(repoRoot, "assets", "student-react", "main.js"),
-    path.resolve(repoRoot, "assets", "student-react", "main.css")
+    path.resolve(
+      repoRoot,
+      "assets",
+      "student-react",
+      "assets",
+      "index.css"
+    )
   ];
 
   let updatedCount = 0;
