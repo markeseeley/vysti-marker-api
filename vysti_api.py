@@ -96,6 +96,11 @@ class MarkTextRequest(BaseModel):
     include_summary_table: bool | None = False
 
 
+class ExportDocxRequest(BaseModel):
+    file_name: str
+    text: str
+
+
 
 async def get_current_user(
     cred: HTTPAuthorizationCredentials = Depends(auth_scheme),
@@ -437,6 +442,32 @@ async def mark_essay(
         io.BytesIO(marked_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+    )
+
+
+@app.post("/export_docx")
+async def export_docx(
+    request: ExportDocxRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Export a clean .docx from plain text.
+    This is for Student mode "Download revised essay" — no Vysti marks, no summary table.
+    """
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="Missing text")
+
+    # Build a clean document (NO marking)
+    docx_bytes = build_doc_from_text(request.text)
+
+    safe_name = request.file_name.strip() if request.file_name else "essay_revised.docx"
+    if not safe_name.lower().endswith(".docx"):
+        safe_name += ".docx"
+
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )
 
 
