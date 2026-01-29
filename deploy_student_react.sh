@@ -272,7 +272,7 @@ if [ -f package-lock.json ]; then
 else
   npm install
 fi
-APP_BUILD_ID="${APP_BUILD_ID}" npm run build
+VITE_APP_BUILD_ID="${APP_BUILD_ID}" npm run build
 popd >/dev/null
 
 echo "==> Verifying expected outputs..."

@@ -13,6 +13,8 @@ const DEFAULT_ZOOM = "1.1";
 const API_URL = "https://vysti-rules.onrender.com/mark";
 
 function App() {
+  const buildId = import.meta.env.VITE_APP_BUILD_ID || "dev";
+  const appMode = import.meta.env.MODE;
   const [supa, setSupa] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [mode, setMode] = useState("textual_analysis");
@@ -28,6 +30,11 @@ function App() {
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    console.info("[Vysti Student React] build", buildId);
+    console.info("[Vysti Student React] mode", appMode);
+  }, [buildId, appMode]);
 
   useEffect(() => {
     const client = getSupaClient();
@@ -272,6 +279,7 @@ function App() {
         </div>
         <nav></nav>
         <div className="actions">
+          <span className="build-stamp">Build: {buildId}</span>
           <button className="topbar-btn" type="button" onClick={handleSignOut}>
             Sign Out
           </button>
