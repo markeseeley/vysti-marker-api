@@ -94,6 +94,11 @@ function App() {
   const fileInputRef = useRef(null);
   const tourRef = useRef(null);
 
+  const redirectToSignIn = () => {
+    const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.replace(`/signin.html?redirect=${encodeURIComponent(next)}`);
+  };
+
   const modeExplainer = useMemo(
     () => MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis,
     [mode]
@@ -104,7 +109,7 @@ function App() {
     const { data: subscription } = supa.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         localStorage.removeItem("vysti_role");
-        window.location.replace("/signin.html");
+        redirectToSignIn();
       }
     });
     return () => {
@@ -205,7 +210,7 @@ function App() {
       const { data, error } = await supa.auth.getSession();
       if (error || !data?.session) {
         localStorage.removeItem("vysti_role");
-        window.location.replace("/signin.html");
+        redirectToSignIn();
         return;
       }
 
@@ -254,7 +259,7 @@ function App() {
     const { data, error } = await supa.auth.getSession();
     if (error || !data?.session) {
       localStorage.removeItem("vysti_role");
-      window.location.replace("/signin.html");
+      redirectToSignIn();
       return null;
     }
     return data.session.access_token;
@@ -360,7 +365,7 @@ function App() {
 
   const handleSignOut = async () => {
     if (!supa) {
-      window.location.replace("/signin.html");
+      redirectToSignIn();
       return;
     }
 
@@ -368,7 +373,7 @@ function App() {
       await supa.auth.signOut();
     } finally {
       localStorage.removeItem("vysti_role");
-      window.location.replace("/signin.html");
+      redirectToSignIn();
     }
   };
 
