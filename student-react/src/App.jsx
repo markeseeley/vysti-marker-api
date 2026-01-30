@@ -1,75 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { useRequireAuth } from "./hooks/useRequireAuth";
 import Footer from "./components/Footer";
+import ModeSelect from "./components/ModeSelect";
 import ModeCard from "./components/ModeCard";
-import PreviewCard from "./components/PreviewCard";
-import ResultsCard from "./components/ResultsCard";
+import PreviewPanel from "./components/PreviewPanel";
 import StudentTour from "./components/StudentTour";
 import Topbar from "./components/Topbar";
-import UploadCard from "./components/UploadCard";
+import AssignmentTracker from "./components/AssignmentTracker";
+import DropZone from "./components/DropZone";
+import TechniquesPanel from "./components/TechniquesPanel";
+import { useAuthSession } from "./hooks/useAuthSession";
 import { extractPreviewText } from "./lib/previewText";
-
-const MODES = [
-  { value: "textual_analysis", label: "Analytic essay" },
-  { value: "peel_paragraph", label: "Mini-essay paragraph" },
-  { value: "reader_response", label: "Reader response" },
-  { value: "argumentation", label: "Argumentation" }
-];
-
-const MODE_RULE_DEFAULTS = {
-  textual_analysis: {
-    description: "A formal and academic essay of analysis with all Vysti Rules running.",
-    details: [
-      "No first-person allowed or personal pronouns",
-      "First sentence should state the author, genre, title, and summary.",
-      "Requires a closed thesis statement.",
-      "Requires quoted evidence in body paragraphs.",
-      "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-      "Red strikethroughs forbidden terms."
-    ]
-  },
-  peel_paragraph: {
-    description: "One focused analytical paragraph following the Vysti Rules.",
-    details: [
-      "The first sentence should state the author, genre, title, and summary.",
-      "The first sentence should include devices and/or strategies like a closed thesis",
-      "No first-person allowed or personal pronouns",
-      "Requires quoted evidence in the body of the paragraph.",
-      "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-      "Red strikethroughs forbidden terms."
-    ]
-  },
-  reader_response: {
-    description: "More personal voice allowed, but still needs argument + evidence.",
-    details: [
-      "Allows first-person and personal pronouns",
-      "Allows contractions and 'which'",
-      "First sentence should state the author, genre, title, and summary.",
-      "Requires a closed thesis statement.",
-      "Requires quoted evidence in body paragraphs.",
-      "Strict requirements on organization, evidence, and language.",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-      "Red strikethroughs forbidden terms."
-    ]
-  },
-  argumentation: {
-    description: "Argumentation is more open mode beyond textual analysis.",
-    details: [
-      "Allows for past tense.",
-      "Allows first-person and personal pronouns",
-      "Aqua-blue highlights repetitive 'and', weak verbs, and unclarified antecedents",
-      "Red strikethroughs forbidden terms."
-    ]
-  }
-};
-
-const API_BASE = "https://vysti-rules.onrender.com";
-const MARK_URL = `${API_BASE}/mark`;
-const MARK_TEXT_URL = `${API_BASE}/mark_text`;
-const DEFAULT_ZOOM = 1.5;
+import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES } from "./config";
+import { markEssay, markText } from "./services/markEssay";
 
 const TOUR_KEYS = [
   "vysti_student_helpers_disabled",
@@ -78,26 +21,21 @@ const TOUR_KEYS = [
 ];
 
 function App() {
-  const { supa, isChecking, authError } = useRequireAuth();
+  const { supa, isChecking, authError, redirectToSignIn } = useAuthSession();
   const [mode, setMode] = useState("textual_analysis");
   const [assignmentName, setAssignmentName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isRechecking, setIsRechecking] = useState(false);
   const [status, setStatus] = useState({ message: "", kind: "info" });
   const [markedBlob, setMarkedBlob] = useState(null);
+  const [techniques, setTechniques] = useState(null);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
   const tourRef = useRef(null);
-
-  const redirectToSignIn = () => {
-    const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/signin.html?redirect=${encodeURIComponent(next)}`);
-  };
 
   const modeExplainer = useMemo(
     () => MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis,
@@ -115,7 +53,7 @@ function App() {
     return () => {
       subscription?.subscription?.unsubscribe();
     };
-  }, [supa]);
+  }, [redirectToSignIn, supa]);
 
   const setError = (message) => {
     setStatus({ message, kind: "error" });
@@ -127,6 +65,34 @@ function App() {
 
   const clearStatus = () => {
     setStatus({ message: "", kind: "info" });
+  };
+
+  const parseTechniquesHeader = (header) => {
+    if (!header) return null;
+    try {
+      return JSON.parse(header);
+    } catch (err) {
+      console.warn("Failed to parse techniques header:", err);
+      return header;
+    }
+  };
+
+  const sanitizeLabel = (value) => {
+    if (!value) return "";
+    return String(value)
+      .trim()
+      .replace(/[^a-z0-9]+/gi, "_")
+      .replace(/^_+|_+$/g, "");
+  };
+
+  const buildMarkedFilename = () => {
+    const rawName = selectedFile?.name || "essay.docx";
+    const baseName = rawName.replace(/\.docx$/i, "");
+    const assignmentLabel = sanitizeLabel(assignmentName);
+    if (assignmentLabel) {
+      return `${assignmentLabel}_${baseName}_marked.docx`;
+    }
+    return `${baseName}_marked.docx`;
   };
 
   const isDocx = (file) => {
@@ -146,6 +112,7 @@ function App() {
       }
       setSelectedFile(null);
       setMarkedBlob(null);
+      setTechniques(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -155,6 +122,7 @@ function App() {
     clearStatus();
     setSelectedFile(file);
     setMarkedBlob(null);
+    setTechniques(null);
   };
 
   const handleBrowseClick = () => {
@@ -187,6 +155,7 @@ function App() {
   const handleClearFile = () => {
     setSelectedFile(null);
     setMarkedBlob(null);
+    setTechniques(null);
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -198,52 +167,24 @@ function App() {
       setError("Please select a .docx file first.");
       return;
     }
-    if (!supa) {
-      setError("Supabase is not available.");
-      return;
-    }
-
     setIsProcessing(true);
     setStatus({ message: "Processing...", kind: "info" });
 
     try {
-      const { data, error } = await supa.auth.getSession();
-      if (error || !data?.session) {
-        localStorage.removeItem("vysti_role");
-        redirectToSignIn();
-        return;
-      }
-
-      const token = data.session.access_token;
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("mode", mode);
-      formData.append("include_summary_table", "false");
-      formData.append("highlight_thesis_devices", "false");
-      formData.append("student_mode", "true");
-
-      if (assignmentName.trim()) {
-        formData.append("assignment_name", assignmentName.trim());
-      }
-
-      const response = await fetch(MARK_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: formData
+      const { blob, techniquesHeader } = await markEssay({
+        supa,
+        file: selectedFile,
+        mode,
+        assignmentName,
+        onSessionExpired: redirectToSignIn
       });
-
-      if (!response.ok) {
-        throw new Error(`Mark failed (${response.status})`);
-      }
-
-      const blob = await response.blob();
       setMarkedBlob(blob);
+      setTechniques(parseTechniquesHeader(techniquesHeader));
       setSuccess("Marked successfully. Scroll down to Preview.");
     } catch (err) {
       console.error("Mark failed", err);
-      setError("Failed to mark essay. Please try again.");
+      const message = err?.message || "Failed to mark essay. Please try again.";
+      setError(message);
     } finally {
       setIsProcessing(false);
     }
@@ -252,17 +193,6 @@ function App() {
   const handleSubmit = (event) => {
     event.preventDefault();
     handleMark();
-  };
-
-  const getToken = async () => {
-    if (!supa) return null;
-    const { data, error } = await supa.auth.getSession();
-    if (error || !data?.session) {
-      localStorage.removeItem("vysti_role");
-      redirectToSignIn();
-      return null;
-    }
-    return data.session.access_token;
   };
 
   const buildMarkTextPayload = (text) => ({
@@ -275,52 +205,24 @@ function App() {
     assignment_name: assignmentName.trim() || undefined
   });
 
-  const handleDownload = async () => {
-    if (!markedBlob || !selectedFile) return;
-    const text = extractPreviewText(previewRef.current);
-    if (!text) {
-      setError("Please add text to the preview before downloading.");
-      return;
-    }
+  const handleDownload = () => {
+    if (!markedBlob) return;
+    const url = URL.createObjectURL(markedBlob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildMarkedFilename();
+    anchor.rel = "noopener";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
 
-    setIsDownloading(true);
-    setStatus({ message: "Preparing download...", kind: "info" });
-
-    try {
-      const token = await getToken();
-      if (!token) return;
-
-      const response = await fetch(MARK_TEXT_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          ...buildMarkTextPayload(text),
-          include_summary_table: true
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed (${response.status})`);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      const baseName = selectedFile.name.replace(/\.docx$/i, "");
-      anchor.href = url;
-      anchor.download = `${baseName}_marked.docx`;
-      anchor.rel = "noopener";
-      anchor.click();
-      URL.revokeObjectURL(url);
-      setSuccess("Download started.");
-    } catch (err) {
-      console.error("Download failed", err);
-      setError("Failed to download marked essay. Please try again.");
-    } finally {
-      setIsDownloading(false);
+  const handleClearAll = () => {
+    setSelectedFile(null);
+    setMarkedBlob(null);
+    setTechniques(null);
+    clearStatus();
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -336,28 +238,17 @@ function App() {
     setStatus({ message: "Rechecking...", kind: "info" });
 
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const response = await fetch(MARK_TEXT_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(buildMarkTextPayload(text))
+      const blob = await markText({
+        supa,
+        payload: buildMarkTextPayload(text),
+        onSessionExpired: redirectToSignIn
       });
-
-      if (!response.ok) {
-        throw new Error(`Recheck failed (${response.status})`);
-      }
-
-      const blob = await response.blob();
       setMarkedBlob(blob);
       setSuccess("Preview updated.");
     } catch (err) {
       console.error("Recheck failed", err);
-      setError("Failed to recheck essay. Please try again.");
+      const message = err?.message || "Failed to recheck essay. Please try again.";
+      setError(message);
     } finally {
       setIsRechecking(false);
     }
@@ -404,6 +295,8 @@ function App() {
 
   const authReady = !isChecking && !authError;
   const hasResults = Boolean(status.message) || Boolean(markedBlob);
+  const statusClass =
+    status.kind === "success" ? " success" : status.kind === "error" ? " error" : "";
 
   return (
     <div className="student-react-shell">
@@ -429,23 +322,7 @@ function App() {
       <main className="page student-page">
         <form className="marker-grid" onSubmit={handleSubmit}>
           <section className="card form-card">
-            <label>
-              <span className="label-row mode-select-label-row">
-                <span className="visually-hidden">Assignment type</span>
-              </span>
-              <select
-                id="mode"
-                value={mode}
-                onChange={(event) => setMode(event.target.value)}
-                aria-label="Assignment type"
-              >
-                {MODES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ModeSelect mode={mode} onChange={setMode} />
 
             <ModeCard
               label={
@@ -455,22 +332,10 @@ function App() {
               details={modeExplainer.details}
             />
 
-            <div className="assignment-tracker-block">
-              <div className="assignment-tracker-title">
-                <span className="label-row">Assignment Tracker</span>
-              </div>
-              <label className="visually-hidden" htmlFor="assignmentName">
-                Assignment name (optional)
-              </label>
-              <input
-                type="text"
-                id="assignmentName"
-                value={assignmentName}
-                onChange={(event) => setAssignmentName(event.target.value)}
-                placeholder="Assignment 01"
-                aria-label="Assignment name (optional)"
-              />
-            </div>
+            <AssignmentTracker
+              assignmentName={assignmentName}
+              onChange={setAssignmentName}
+            />
 
             <button
               className={`primary-btn${isProcessing ? " is-loading loading-cursor" : ""}`}
@@ -482,7 +347,7 @@ function App() {
             </button>
           </section>
 
-          <UploadCard
+          <DropZone
             selectedFile={selectedFile}
             isDragOver={isDragOver}
             onBrowseClick={handleBrowseClick}
@@ -494,15 +359,38 @@ function App() {
             fileInputRef={fileInputRef}
           />
 
-          <ResultsCard
-            status={status}
-            showDownload={Boolean(markedBlob)}
-            onDownload={handleDownload}
-            isDownloading={isDownloading}
-          />
+          <section className="card rules-card" id="resultsCard">
+            <div
+              id="statusArea"
+              className={`status-area${statusClass}`}
+              role="status"
+              aria-live="polite"
+            >
+              {status.message}
+            </div>
+            <div className="results-actions">
+              <button
+                id="downloadBtn"
+                className="secondary-btn"
+                type="button"
+                style={{ display: markedBlob ? "inline-flex" : "none" }}
+                onClick={handleDownload}
+              >
+                Download marked file
+              </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                style={{ display: selectedFile ? "inline-flex" : "none" }}
+                onClick={handleClearAll}
+              >
+                Clear / Start over
+              </button>
+            </div>
+          </section>
         </form>
 
-        <PreviewCard
+        <PreviewPanel
           markedBlob={markedBlob}
           zoom={zoom}
           onZoomChange={setZoom}
@@ -510,6 +398,8 @@ function App() {
           onRecheck={handleRecheck}
           isRechecking={isRechecking}
         />
+
+        <TechniquesPanel techniques={techniques} />
 
         <Footer />
       </main>

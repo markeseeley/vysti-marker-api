@@ -97,6 +97,58 @@ button.loading-cursor::after {
   gap: 12px;
 }
 
+.results-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.techniques-panel {
+  margin-top: 16px;
+}
+
+.techniques-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.techniques-content {
+  margin-top: 12px;
+}
+
+.techniques-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.techniques-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.techniques-table th,
+.techniques-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.techniques-text {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
 .build-stamp {
   font-size: 11px;
   color: var(--muted);
