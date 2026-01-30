@@ -7,7 +7,9 @@ export default function PreviewPanel({
   previewRef,
   onRecheck,
   isRechecking,
+  isProcessing,
   onEdit,
+  onDownloadMarked,
   onDownloadRevised,
   isDownloading,
   hasRevisedSinceMark
@@ -55,21 +57,37 @@ export default function PreviewPanel({
           className={`primary-btn${isRechecking ? " is-loading loading-cursor" : ""}`}
           id="recheckDocumentBtn"
           onClick={onRecheck}
-          disabled={!markedBlob || isRechecking}
+          disabled={!markedBlob || isRechecking || isProcessing}
         >
           {isRechecking ? "Processing" : "Recheck my essay"}
         </button>
         <button
           type="button"
+          className="secondary-btn"
+          id="downloadBtn"
+          onClick={onDownloadMarked}
+          disabled={!markedBlob || isProcessing}
+        >
+          Download marked essay
+        </button>
+        <button
+          type="button"
           className={`secondary-btn${isDownloading ? " is-loading loading-cursor" : ""}`}
           onClick={() => onDownloadRevised?.()}
-          disabled={!markedBlob || !hasRevisedSinceMark || isDownloading}
+          disabled={!markedBlob || !hasRevisedSinceMark || isDownloading || isProcessing}
+          title={
+            !hasRevisedSinceMark && markedBlob
+              ? "Make at least one change in Preview to enable download"
+              : ""
+          }
         >
           {isDownloading ? "Preparing" : "Download revised essay"}
         </button>
       </div>
       {!hasRevisedSinceMark && markedBlob ? (
-        <p className="helper-text">Make an edit in the preview to enable download.</p>
+        <p className="helper-text">
+          Make at least one change in Preview to enable download.
+        </p>
       ) : null}
     </section>
   );
