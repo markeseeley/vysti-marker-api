@@ -9,7 +9,11 @@
     "debugRevisionPractice": false,
     "practiceNavigationReact": false,
     "practiceHighlightReact": false,
-    "debugPracticeNavigation": false
+    "debugPracticeNavigation": false,
+    "autosaveDraftReact": false,
+    "revisionHistoryReact": false,
+    "debugAutosave": false,
+    "debugHistory": false
   },
   "rollout": {
     "studentReact": {
