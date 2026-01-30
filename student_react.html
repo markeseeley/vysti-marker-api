@@ -17,8 +17,250 @@
       rel="stylesheet"
       href="/assets/student-react/assets/index.css?v=20260129-1855"
     />
+    <style>
+      .ph-preflight {
+        position: sticky;
+        top: 0;
+        z-index: 9999;
+        background: rgba(20, 20, 20, 0.96);
+        color: #f3f3f3;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        padding: 10px 12px;
+      }
+      .ph-preflight__row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      .ph-preflight__actions {
+        display: flex;
+        gap: 8px;
+      }
+      .ph-preflight button {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        border-radius: 10px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .ph-preflight__grid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .ph-preflight__card {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 10px;
+        overflow: auto;
+        max-height: 180px;
+      }
+      .ph-preflight__label {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .ph-preflight pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+    </style>
   </head>
   <body>
+    <div id="ph-preflight" class="ph-preflight" hidden>
+      <div class="ph-preflight__row">
+        <strong>Project Headache — Proof of Life</strong>
+        <span id="ph-preflight-mini"></span>
+        <div class="ph-preflight__actions">
+          <button id="ph-copy" type="button">Copy debug info</button>
+          <button id="ph-hide" type="button">Hide</button>
+        </div>
+      </div>
+      <div class="ph-preflight__grid">
+        <div class="ph-preflight__card">
+          <div class="ph-preflight__label">Build</div>
+          <div id="ph-build"></div>
+        </div>
+        <div class="ph-preflight__card">
+          <div class="ph-preflight__label">Runtime config</div>
+          <pre id="ph-config"></pre>
+        </div>
+        <div class="ph-preflight__card">
+          <div class="ph-preflight__label">Shared core</div>
+          <pre id="ph-shared"></pre>
+        </div>
+        <div class="ph-preflight__card">
+          <div class="ph-preflight__label">Bundle status</div>
+          <pre id="ph-bundle"></pre>
+        </div>
+        <div class="ph-preflight__card">
+          <div class="ph-preflight__label">Audit</div>
+          <pre id="ph-audit"></pre>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const HIDE_KEY = "ph_preflight_hidden";
+        const $ = (id) => document.getElementById(id);
+
+        const preflight = $("ph-preflight");
+        if (!preflight) return;
+
+        const params = new URLSearchParams(location.search);
+        const forced = params.get("preflight") === "1";
+
+        let hidden = false;
+        try {
+          hidden = localStorage.getItem(HIDE_KEY) === "1";
+        } catch (_) {}
+
+        if (!hidden || forced) preflight.hidden = false;
+
+        const buildId =
+          document.querySelector('meta[name="app-build-id"]')?.content || "dev";
+        $("ph-build").textContent = `app-build-id: ${buildId}`;
+
+        const debug = {
+          buildId,
+          href: location.href,
+          time: new Date().toISOString(),
+          config: null,
+          shared: {},
+          bundle: {},
+          audit: null
+        };
+
+        const setPre = (id, obj) => {
+          const el = $(id);
+          if (!el) return;
+          el.textContent =
+            typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+        };
+
+        const safeFetch = async (url, opts) => {
+          try {
+            const res = await fetch(
+              url,
+              Object.assign({ cache: "no-store" }, opts || {})
+            );
+            return res;
+          } catch (e) {
+            return null;
+          }
+        };
+
+        const run = async () => {
+          const cfgRes = await safeFetch("/student-react-config.json");
+          if (cfgRes && cfgRes.ok) {
+            const cfg = await cfgRes.json();
+            debug.config = cfg;
+            setPre("ph-config", {
+              apiBaseUrl: cfg.apiBaseUrl,
+              featureFlags: cfg.featureFlags,
+              rollout: cfg.rollout?.studentReact
+            });
+          } else {
+            setPre("ph-config", "❌ Could not load /student-react-config.json");
+          }
+
+          const sharedFiles = [
+            "/shared/runtimeConfig.js",
+            "/shared/auth.js",
+            "/shared/markingApi.js",
+            "/shared/download.js"
+          ];
+          const sharedStatus = {};
+          for (const f of sharedFiles) {
+            const res = await safeFetch(f, { method: "HEAD" });
+            sharedStatus[f] = res ? res.status : "FETCH_FAILED";
+          }
+          debug.shared = sharedStatus;
+          setPre("ph-shared", sharedStatus);
+
+          const mainRes = await safeFetch("/assets/student-react/main.js");
+          if (mainRes && mainRes.ok) {
+            const text = await mainRes.text();
+            const isPlaceholder =
+              text.includes("UI shell only") || text.includes("Dropzone goes here");
+            debug.bundle = {
+              mainJsStatus: mainRes.status,
+              placeholderDetected: isPlaceholder,
+              hint: isPlaceholder
+                ? "🚨 You are still serving the OLD placeholder bundle. Run: cd student-react && npm install && npm run build"
+                : "✅ Bundle does not look like placeholder."
+            };
+            setPre("ph-bundle", debug.bundle);
+          } else {
+            debug.bundle = {
+              mainJsStatus: mainRes ? mainRes.status : "FETCH_FAILED"
+            };
+            setPre("ph-bundle", debug.bundle);
+          }
+
+          const auditRes = await safeFetch("/docs/merge-audit.md");
+          if (auditRes && auditRes.ok) {
+            const md = await auditRes.text();
+            const onlyA = md.match(/Only in original \(A\): \*\*(\d+)\*\*/);
+            const onlyB = md.match(/Only in clean \(B\): \*\*(\d+)\*\*/);
+            const diff = md.match(/In both but different: \*\*(\d+)\*\*/);
+            debug.audit = {
+              onlyInOriginal: onlyA ? Number(onlyA[1]) : null,
+              onlyInClean: onlyB ? Number(onlyB[1]) : null,
+              different: diff ? Number(diff[1]) : null
+            };
+            setPre("ph-audit", debug.audit);
+          } else {
+            setPre("ph-audit", "(audit not available at /docs/merge-audit.md)");
+          }
+
+          const mini = [];
+          if (debug.config) mini.push("config✅");
+          else mini.push("config❌");
+          const anySharedFail = Object.values(debug.shared).some(
+            (v) => v !== 200
+          );
+          mini.push(anySharedFail ? "shared❌" : "shared✅");
+          if (debug.bundle.placeholderDetected) mini.push("bundle🚨");
+          else mini.push("bundle✅");
+          $("ph-preflight-mini").textContent = mini.join(" · ");
+        };
+
+        $("ph-hide")?.addEventListener("click", () => {
+          try {
+            localStorage.setItem(HIDE_KEY, "1");
+          } catch (_) {}
+          preflight.hidden = true;
+        });
+
+        $("ph-copy")?.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(JSON.stringify(debug, null, 2));
+            $("ph-copy").textContent = "Copied!";
+            setTimeout(
+              () => ($("ph-copy").textContent = "Copy debug info"),
+              900
+            );
+          } catch (e) {
+            alert("Could not copy to clipboard.");
+          }
+        });
+
+        run();
+      })();
+    </script>
     <div id="root"></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
