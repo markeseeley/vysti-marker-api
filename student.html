@@ -9,6 +9,183 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/marker.css">
   <script>
+    (function () {
+      if (window.location.pathname.includes("student_react.html")) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const forceClassicParam = params.get("classic") === "1";
+      const forceReactParam = params.get("react") === "1";
+      let uiMode = null;
+
+      try {
+        uiMode = localStorage.getItem("uiMode");
+      } catch (err) {
+        uiMode = null;
+      }
+
+      const forceClassic = forceClassicParam || uiMode === "classic";
+      const forceReact = !forceClassicParam && (forceReactParam || uiMode === "react");
+
+      const logDecision = (decision, reason, details = {}) => {
+        const parts = [`decision=${decision}`, `reason=${reason}`];
+        if (details.user) parts.push(`user=${details.user}`);
+        if (typeof details.bucket === "number") parts.push(`bucket=${details.bucket}`);
+        if (typeof details.percentage === "number") parts.push(`percentage=${details.percentage}`);
+        console.log(`[rollout] ${parts.join(" ")}`);
+      };
+
+      const buildTargetUrl = () => {
+        const nextParams = new URLSearchParams(params);
+        nextParams.delete("classic");
+        nextParams.delete("react");
+        const query = nextParams.toString();
+        return `/student_react.html${query ? `?${query}` : ""}`;
+      };
+
+      const checkHealthcheck = async (enabled) => {
+        if (!enabled) return true;
+        try {
+          const head = await fetch("/assets/student-react/main.js", {
+            method: "HEAD",
+            cache: "no-store"
+          });
+          if (head.ok) return true;
+        } catch (err) {}
+        try {
+          const get = await fetch("/assets/student-react/main.js", { cache: "no-store" });
+          return get.ok;
+        } catch (err) {
+          return false;
+        }
+      };
+
+      const hashToBucket = async (value) => {
+        if (window.crypto?.subtle && window.TextEncoder) {
+          try {
+            const data = new TextEncoder().encode(value);
+            const digest = await window.crypto.subtle.digest("SHA-256", data);
+            const bytes = new Uint8Array(digest);
+            const prefix = (bytes[0] << 8) | bytes[1];
+            return prefix % 100;
+          } catch (err) {}
+        }
+        let hash = 2166136261;
+        for (let i = 0; i < value.length; i += 1) {
+          hash ^= value.charCodeAt(i);
+          hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        return Math.abs(hash) % 100;
+      };
+
+      const rolloutState = { ran: false };
+
+      const maybeRedirect = async (session) => {
+        if (rolloutState.ran) return;
+        rolloutState.ran = true;
+
+        if (!session) {
+          logDecision("classic", "no-session");
+          return;
+        }
+
+        if (forceClassic) {
+          logDecision("classic", "override-classic");
+          return;
+        }
+
+        let config;
+        try {
+          const res = await fetch("/student-react-config.json", { cache: "no-store" });
+          if (!res.ok) throw new Error("config");
+          config = await res.json();
+        } catch (err) {
+          logDecision("classic", "config-failed");
+          return;
+        }
+
+        const rollout = (config && config.rollout && config.rollout.studentReact) || {};
+
+        if (rollout.killSwitch) {
+          logDecision("classic", "killswitch");
+          return;
+        }
+
+        const user = session.user || {};
+        const email = String(user.email || "").toLowerCase();
+        const userId = user.id || "";
+        const denyEmails = (rollout.denyEmails || []).map((item) =>
+          String(item || "").toLowerCase()
+        );
+
+        if (email && denyEmails.includes(email)) {
+          logDecision("classic", "denied");
+          return;
+        }
+
+        const allowEmails = (rollout.allowEmails || []).map((item) =>
+          String(item || "").toLowerCase()
+        );
+        const allowUserIds = rollout.allowUserIds || [];
+        const enabled = Boolean(rollout.enabled);
+        const percentage = Number(rollout.percentage || 0);
+
+        let eligible = false;
+        let reason = "bucket";
+        let bucket = null;
+
+        if (forceReact) {
+          eligible = true;
+          reason = "override-react";
+        } else if (email && allowEmails.includes(email)) {
+          eligible = true;
+          reason = "allowlist";
+        } else if (userId && allowUserIds.includes(userId)) {
+          eligible = true;
+          reason = "allowlist";
+        } else if (!enabled || percentage <= 0) {
+          logDecision("classic", "rollout-disabled");
+          return;
+        } else {
+          const hashSource = userId || email;
+          if (!hashSource) {
+            logDecision("classic", "no-identifier");
+            return;
+          }
+          bucket = await hashToBucket(hashSource);
+          if (bucket < percentage) {
+            eligible = true;
+            reason = "bucket";
+          } else {
+            logDecision("classic", "bucket", { bucket, percentage });
+            return;
+          }
+        }
+
+        if (!eligible) {
+          logDecision("classic", "ineligible");
+          return;
+        }
+
+        const healthOk = await checkHealthcheck(rollout.minBuildHealthcheck !== false);
+        if (!healthOk) {
+          logDecision("classic", "healthcheck-failed", { bucket, percentage });
+          return;
+        }
+
+        logDecision("react", reason, {
+          user: email || userId || "unknown",
+          bucket,
+          percentage
+        });
+        window.location.replace(buildTargetUrl());
+      };
+
+      window.__studentReactRollout = {
+        maybeRedirect
+      };
+    })();
+  </script>
+  <script>
     // EARLY GLOBAL DRAG/DROP GUARD
     // Prevent the browser from navigating/opening/downloading a file when one is dropped anywhere on the page.
     // Must be robust across browsers (Chrome/Edge/Safari/Firefox) and must NOT block the dropZone handler.
@@ -3332,6 +3509,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       // Logged in as student
       form.style.display = "grid";
 
+      if (window.__studentReactRollout?.maybeRedirect) {
+        window.__studentReactRollout.maybeRedirect(session);
+      }
+
     }
 
     // Initial auth check
@@ -3363,6 +3544,40 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       await supa.auth.signOut();
       localStorage.removeItem("vysti_role");
       window.location.replace("/signin.html");
+    });
+
+    function setUiMode(value) {
+      try {
+        if (!value) {
+          localStorage.removeItem("uiMode");
+          console.log("[rollout] uiMode cleared");
+          return;
+        }
+        localStorage.setItem("uiMode", value);
+        console.log(`[rollout] uiMode set=${value}`);
+      } catch (err) {
+        console.warn("[rollout] uiMode storage failed");
+      }
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (!event.altKey || !event.shiftKey) return;
+      if (String(event.key || "").toLowerCase() !== "u") return;
+      const target = event.target;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      event.preventDefault();
+      const next = window
+        .prompt("UI mode: react, classic, or clear", localStorage.getItem("uiMode") || "")
+        ?.trim()
+        .toLowerCase();
+      if (!next) return;
+      if (next === "clear") {
+        setUiMode("");
+        return;
+      }
+      if (next === "react" || next === "classic") {
+        setUiMode(next);
+      }
     });
 
     const repeatTutorialBtn = document.getElementById("repeatTutorialBtn");
