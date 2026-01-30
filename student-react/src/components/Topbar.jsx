@@ -13,6 +13,7 @@ export default function Topbar({
       <nav></nav>
 
       <div className="actions">
+        <div className="ph-badge">Project Headache ✅</div>
         <button className="topbar-btn" type="button" onClick={onProgress}>
           Progress
         </button>
