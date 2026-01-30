@@ -15,6 +15,7 @@ import { useAuthSession } from "./hooks/useAuthSession";
 import { extractPreviewText } from "./lib/previewText";
 import { logEvent, logError } from "./lib/logger";
 import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getApiUrls, getConfig, getConfigError } from "./config";
+import { buildMarkTextPayload as buildMarkTextPayloadShared, parseTechniquesHeader as parseTechniquesHeaderShared } from "@shared/markingApi";
 import { markEssay, markText } from "./services/markEssay";
 
 const TOUR_KEYS = [
@@ -127,35 +128,33 @@ function App() {
     if (!header) {
       return { type: "none", items: [], raw: "", error: "" };
     }
-    try {
-      const parsed = JSON.parse(header);
-      if (Array.isArray(parsed)) {
-        const allStrings = parsed.every((item) => typeof item === "string");
-        const allObjects = parsed.every(
-          (item) => item && typeof item === "object" && !Array.isArray(item)
-        );
-        if (allStrings) {
-          return { type: "strings", items: parsed, raw: header, error: "" };
-        }
-        if (allObjects) {
-          return { type: "objects", items: parsed, raw: header, error: "" };
-        }
+    const parsed = parseTechniquesHeaderShared(header);
+    if (Array.isArray(parsed)) {
+      const allStrings = parsed.every((item) => typeof item === "string");
+      const allObjects = parsed.every(
+        (item) => item && typeof item === "object" && !Array.isArray(item)
+      );
+      if (allStrings) {
+        return { type: "strings", items: parsed, raw: header, error: "" };
       }
+      if (allObjects) {
+        return { type: "objects", items: parsed, raw: header, error: "" };
+      }
+    }
+    if (typeof parsed === "string") {
       return {
         type: "invalid",
         items: [],
-        raw: header,
-        error: "Techniques header present but invalid JSON"
-      };
-    } catch (err) {
-      console.warn("Failed to parse techniques header:", err);
-      return {
-        type: "invalid",
-        items: [],
-        raw: header,
+        raw: parsed,
         error: "Techniques header present but invalid JSON"
       };
     }
+    return {
+      type: "invalid",
+      items: [],
+      raw: header,
+      error: "Techniques header present but invalid JSON"
+    };
   };
 
   const buildMarkedFilename = () => {
@@ -277,15 +276,12 @@ function App() {
     handleMark();
   };
 
-  const buildMarkTextPayload = (text) => ({
-    file_name: selectedFile?.name || "essay.docx",
-    text,
-    mode,
-    highlight_thesis_devices: false,
-    include_summary_table: false,
-    student_mode: true,
-    assignment_name: assignmentName.trim() || undefined
-  });
+  const buildMarkTextPayload = (text) =>
+    buildMarkTextPayloadShared({
+      fileName: selectedFile?.name || "essay.docx",
+      text,
+      mode
+    });
 
   const handleDownload = () => {
     if (!markedBlob) return;

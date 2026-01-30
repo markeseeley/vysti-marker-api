@@ -1,4 +1,5 @@
-import { getApiUrls } from "../config";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
+import { markDocx, markText as markTextShared } from "@shared/markingApi";
 import { logError, logEvent } from "../lib/logger";
 
 export async function markEssay({
@@ -20,50 +21,32 @@ export async function markEssay({
     throw new Error("Session expired. Please sign in again.");
   }
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("mode", mode);
-  formData.append("include_summary_table", "false");
-  formData.append("highlight_thesis_devices", "false");
-  formData.append("student_mode", "true");
-
-  if (assignmentName?.trim()) {
-    formData.append("assignment_name", assignmentName.trim());
-  }
-
-  const { markUrl } = getApiUrls();
-  if (!markUrl) {
+  const apiBaseUrl = getApiBaseUrl();
+  if (!apiBaseUrl) {
     logError("Mark URL missing from config");
     throw new Error("Missing API configuration. Please refresh.");
   }
-  const response = await fetch(markUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${data.session.access_token}`
-    },
-    body: formData
-  });
 
-  if (response.status === 401 || response.status === 403) {
-    if (onSessionExpired) onSessionExpired();
-    logError("Session expired during mark", { status: response.status });
-    throw new Error("Session expired. Please sign in again.");
-  }
-
-  if (!response.ok) {
-    const text = await response.text();
-    const snippet = text ? `: ${text.substring(0, 140)}` : "";
-    logError("Mark failed", { status: response.status, snippet });
-    const err = new Error(`Mark failed (${response.status})${snippet}`);
-    err.status = response.status;
+  try {
+    const { blob, techniquesHeaderRaw, status } = await markDocx({
+      apiBaseUrl,
+      token: data.session.access_token,
+      file,
+      mode,
+      includeSummaryTable: false,
+      assignmentName
+    });
+    logEvent("mark_success", { size: blob.size });
+    return { blob, techniquesHeader: techniquesHeaderRaw, status };
+  } catch (err) {
+    if (err?.code === "SESSION_EXPIRED") {
+      if (onSessionExpired) onSessionExpired();
+      logError("Session expired during mark");
+      throw new Error("Session expired. Please sign in again.");
+    }
+    logError("Mark failed", { error: err?.message });
     throw err;
   }
-
-  const techniquesHeader = response.headers.get("X-Vysti-Techniques");
-  const blob = await response.blob();
-  logEvent("mark_success", { size: blob.size });
-
-  return { blob, techniquesHeader, status: response.status };
 }
 
 export async function markText({
@@ -83,35 +66,27 @@ export async function markText({
     throw new Error("Session expired. Please sign in again.");
   }
 
-  const { markTextUrl } = getApiUrls();
-  if (!markTextUrl) {
+  const apiBaseUrl = getApiBaseUrl();
+  if (!apiBaseUrl) {
     logError("Recheck URL missing from config");
     throw new Error("Missing API configuration. Please refresh.");
   }
-  const response = await fetch(markTextUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${data.session.access_token}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (response.status === 401 || response.status === 403) {
-    if (onSessionExpired) onSessionExpired();
-    logError("Session expired during recheck", { status: response.status });
-    throw new Error("Session expired. Please sign in again.");
-  }
-
-  if (!response.ok) {
-    const text = await response.text();
-    const snippet = text ? `: ${text.substring(0, 140)}` : "";
-    logError("Recheck failed", { status: response.status, snippet });
-    const err = new Error(`Recheck failed (${response.status})${snippet}`);
-    err.status = response.status;
+  try {
+    const response = await markTextShared({
+      apiBaseUrl,
+      token: data.session.access_token,
+      payload
+    });
+    const blob = await response.blob();
+    logEvent("recheck_success", { size: blob.size });
+    return blob;
+  } catch (err) {
+    if (err?.code === "SESSION_EXPIRED") {
+      if (onSessionExpired) onSessionExpired();
+      logError("Session expired during recheck");
+      throw new Error("Session expired. Please sign in again.");
+    }
+    logError("Recheck failed", { error: err?.message });
     throw err;
   }
-  const blob = await response.blob();
-  logEvent("recheck_success", { size: blob.size });
-  return blob;
 }

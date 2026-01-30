@@ -1,7 +1,9 @@
-const readBuildId = () => {
-  const meta = document.querySelector('meta[name="app-build-id"]');
-  return meta?.content?.trim() || "";
-};
+import {
+  getApiBaseUrl,
+  getBuildId,
+  getConfig as getSharedConfig,
+  initConfig as initSharedConfig
+} from "@shared/runtimeConfig";
 
 const DEFAULT_CONFIG = {
   apiBaseUrl: "",
@@ -26,7 +28,7 @@ const normalizeConfig = (incoming) => {
     }
   };
   if (!merged.buildId) {
-    merged.buildId = readBuildId() || "dev";
+    merged.buildId = getBuildId() || "dev";
   }
   return merged;
 };
@@ -43,12 +45,9 @@ export const DEFAULT_ZOOM = 1.5;
 export async function initConfig() {
   if (runtimeConfig) return runtimeConfig;
   try {
-    const response = await fetch("/student-react-config.json", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Config load failed (${response.status})`);
-    }
-    const json = await response.json();
-    runtimeConfig = normalizeConfig(json);
+    await initSharedConfig();
+    const shared = getSharedConfig();
+    runtimeConfig = normalizeConfig(shared);
   } catch (err) {
     configError = err;
     runtimeConfig = normalizeConfig();
@@ -70,7 +69,8 @@ export function getConfigError() {
 
 export const getApiUrls = () => {
   const { apiBaseUrl } = getConfig();
-  const normalizedBase = apiBaseUrl ? apiBaseUrl.replace(/\/$/, "") : "";
+  const base = apiBaseUrl || getApiBaseUrl("");
+  const normalizedBase = base ? String(base).replace(/\/$/, "") : "";
   return {
     markUrl: normalizedBase ? `${normalizedBase}/mark` : "",
     markTextUrl: normalizedBase ? `${normalizedBase}/mark_text` : ""
