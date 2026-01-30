@@ -56,3 +56,17 @@ If missing or non-200, the user stays in classic.
 - Console logs show decisions:
   - `[rollout] decision=react reason=allowlist user=... bucket=... percentage=...`
   - `[rollout] decision=classic reason=killswitch|denied|bucket|no-session|healthcheck-failed`
+
+## Phase 5 (Student React)
+
+### What changed
+- Student React reads `/student-react-config.json` for API + Supabase config.
+- Auth redirects to `/signin.html?redirect=/student_react.html` when logged out.
+- React adds Beta banner, Techniques panel, download button, and diagnostics panel.
+
+### Build steps
+1) `./deploy_student_react.sh`
+2) Or run: `APP_BUILD_ID=YYYYMMDD-HHMM node student-react/scripts/build-student-react.mjs`
+
+The build script stamps `student_react.html` with the build ID and updates asset
+query strings, while ensuring `assets/student-react/main.js` exists.
