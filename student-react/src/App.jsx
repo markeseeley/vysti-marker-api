@@ -13,6 +13,8 @@ import DropZone from "./components/DropZone";
 import TechniquesPanel from "./components/TechniquesPanel";
 import MlaModal from "./components/MlaModal";
 import RevisionPracticePanel from "./components/RevisionPracticePanel";
+import DraftRestoreBanner from "./components/DraftRestoreBanner";
+import AttemptHistoryPanel from "./components/AttemptHistoryPanel";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { logEvent, logError } from "./lib/logger";
 import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getConfig, getConfigError } from "./config";
@@ -34,6 +36,14 @@ import {
   scrollAndFlash
 } from "./lib/previewNavigator";
 import { markEssay, markText } from "./services/markEssay";
+import { fetchAttemptHistory } from "./services/attemptHistory";
+import {
+  deleteDraft,
+  loadDraft,
+  saveDraft,
+  shouldAutosave,
+  throttle
+} from "./services/draftStore";
 
 const TOUR_KEYS = [
   "vysti_student_helpers_disabled",
@@ -60,6 +70,7 @@ function App() {
   const [markedBlob, setMarkedBlob] = useState(null);
   const [techniques, setTechniques] = useState(EMPTY_TECHNIQUES);
   const [techniquesParsed, setTechniquesParsed] = useState(null);
+  const [userId, setUserId] = useState("");
   const [showTechniques, setShowTechniques] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [lastMarkStatus, setLastMarkStatus] = useState(null);
@@ -74,6 +85,13 @@ function App() {
   const [showMlaModal, setShowMlaModal] = useState(false);
   const [markedFilenameBase, setMarkedFilenameBase] = useState("");
   const [showRevisionPractice, setShowRevisionPractice] = useState(false);
+  const [draftMeta, setDraftMeta] = useState(null);
+  const [draftDismissed, setDraftDismissed] = useState(false);
+  const [selectedAttempt, setSelectedAttempt] = useState(null);
+  const [attempts, setAttempts] = useState([]);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+  const [attemptsError, setAttemptsError] = useState("");
+  const lastExtractedRef = useRef("");
 
   const config = getConfig();
   const configError = getConfigError();
@@ -105,6 +123,22 @@ function App() {
       localStorage.getItem("vysti_practice_hl") === "1"
     );
   }, [config.featureFlags?.practiceHighlightReact]);
+  const autosaveEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.autosaveDraftReact) ||
+      params.get("autosave") === "1" ||
+      localStorage.getItem("vysti_autosave") === "1"
+    );
+  }, [config.featureFlags?.autosaveDraftReact]);
+  const historyEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.revisionHistoryReact) ||
+      params.get("history") === "1" ||
+      localStorage.getItem("vysti_history") === "1"
+    );
+  }, [config.featureFlags?.revisionHistoryReact]);
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -120,6 +154,29 @@ function App() {
       setShowRevisionPractice(true);
     }
   }, [practiceEnabled]);
+
+  useEffect(() => {
+    if (!supa) return undefined;
+    let isActive = true;
+    const loadUser = async () => {
+      try {
+        const { data } = await supa.auth.getSession();
+        if (!isActive) return;
+        setUserId(data?.session?.user?.id || "");
+      } catch (err) {
+        if (!isActive) return;
+        setUserId("");
+      }
+    };
+    loadUser();
+    const { data: subscription } = supa.auth.onAuthStateChange(() => {
+      loadUser();
+    });
+    return () => {
+      isActive = false;
+      subscription?.subscription?.unsubscribe();
+    };
+  }, [supa]);
 
   useEffect(() => {
     if (!supa) return undefined;
@@ -342,6 +399,10 @@ function App() {
       setHasRevisedSinceMark(false);
       const baseName = (selectedFile?.name || "essay.docx").replace(/\.docx$/i, "") || "essay";
       setMarkedFilenameBase(baseName);
+      setSelectedAttempt(null);
+      if (historyEnabled) {
+        refreshAttemptHistory();
+      }
       setLastMarkStatus({ status: markStatus, ok: true });
       setSuccess("Marked successfully. Scroll down to Preview.");
     } catch (err) {
@@ -386,6 +447,10 @@ function App() {
     setLastMarkError("");
     setHasRevisedSinceMark(false);
     setMarkedFilenameBase("");
+    setDraftMeta(null);
+    setDraftDismissed(false);
+    setSelectedAttempt(null);
+    setAttempts([]);
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -414,6 +479,10 @@ function App() {
       const parsed = parseTechniquesHeaderShared(techniquesHeader);
       setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
+      setSelectedAttempt(null);
+      if (historyEnabled) {
+        refreshAttemptHistory();
+      }
       setSuccess("Rechecked ✅");
     } catch (err) {
       console.error("Recheck failed", err);
@@ -426,6 +495,57 @@ function App() {
 
   const handlePreviewEdited = () => {
     setHasRevisedSinceMark(true);
+  };
+
+  const restoreDraft = async (draftText) => {
+    if (!draftText) return;
+    if (!supa) {
+      setError("Supabase is not available.");
+      return;
+    }
+    if (!apiBase) {
+      setError("Missing API configuration. Please refresh.");
+      return;
+    }
+    try {
+      const { data, error } = await supa.auth.getSession();
+      if (error || !data?.session) {
+        handleSessionExpired();
+        return;
+      }
+      const outputName = buildRevisedFilename();
+      const blob = await exportDocx({
+        apiBaseUrl: apiBase,
+        token: data.session.access_token,
+        fileName: outputName,
+        text: draftText
+      });
+      setMarkedBlob(blob);
+      setHasRevisedSinceMark(true);
+      setStatus({ kind: "success", message: "Draft restored into preview." });
+      setDraftMeta(null);
+      setDraftDismissed(true);
+    } catch (err) {
+      console.error("Draft restore failed", err);
+      setError(err?.message || "Failed to restore draft.");
+    }
+  };
+
+  const handleRestoreDraft = () => {
+    if (!draftMeta?.text) return;
+    restoreDraft(draftMeta.text);
+  };
+
+  const handleDismissDraft = () => {
+    setDraftDismissed(true);
+  };
+
+  const handleDeleteDraft = () => {
+    if (!selectedFile || !userId) return;
+    deleteDraft({ userId, fileName: selectedFile.name, mode });
+    setDraftMeta(null);
+    setDraftDismissed(true);
+    setStatus({ kind: "info", message: "Draft deleted." });
   };
 
   const handleNavigateToExample = (sentence) => {
@@ -466,6 +586,83 @@ function App() {
     clearHighlights(container);
     setStatus({ kind: "info", message: "Highlights cleared." });
   };
+
+  useEffect(() => {
+    if (!autosaveEnabled || !userId || !selectedFile || !previewRef.current) return;
+    const container = previewRef.current;
+    const saveNow = () => {
+      const text = extractPreviewTextFromContainer(container);
+      if (!shouldAutosave(text)) return;
+      if (text === lastExtractedRef.current) return;
+      lastExtractedRef.current = text;
+      const payload = saveDraft({ userId, fileName: selectedFile.name, mode, text });
+      if (payload) {
+        setDraftMeta(payload);
+      }
+      if (config.featureFlags?.debugAutosave) {
+        console.log("[autosave] saved", {
+          length: text.length,
+          savedAt: payload?.savedAt || ""
+        });
+      }
+    };
+    const throttledSave = throttle(saveNow, 2500);
+    container.addEventListener("input", throttledSave);
+    container.addEventListener("paste", throttledSave);
+    return () => {
+      container.removeEventListener("input", throttledSave);
+      container.removeEventListener("paste", throttledSave);
+    };
+  }, [
+    autosaveEnabled,
+    userId,
+    selectedFile,
+    mode,
+    previewRef,
+    config.featureFlags?.debugAutosave
+  ]);
+
+  useEffect(() => {
+    if (!autosaveEnabled || !userId || !selectedFile) return;
+    const draft = loadDraft({ userId, fileName: selectedFile.name, mode });
+    if (draft?.text) {
+      setDraftMeta(draft);
+      setDraftDismissed(false);
+    } else {
+      setDraftMeta(null);
+    }
+  }, [autosaveEnabled, userId, selectedFile, mode]);
+
+  async function refreshAttemptHistory() {
+    if (!historyEnabled || !supa || !userId || !selectedFile) return;
+    setAttemptsLoading(true);
+    setAttemptsError("");
+    try {
+      const attemptRows = await fetchAttemptHistory({
+        supa,
+        userId,
+        fileName: selectedFile.name,
+        limit: 10
+      });
+      setAttempts(attemptRows);
+      if (config.featureFlags?.debugHistory) {
+        console.log("[history] attempts", attemptRows.map((row) => row.id));
+      }
+    } catch (err) {
+      setAttemptsError(err?.message || "Failed to load history.");
+    } finally {
+      setAttemptsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!historyEnabled || !userId || !selectedFile) {
+      setAttempts([]);
+      setAttemptsError("");
+      return;
+    }
+    refreshAttemptHistory();
+  }, [historyEnabled, userId, selectedFile]);
 
   const handleOpenDownloadModal = () => {
     if (!markedBlob || !hasRevisedSinceMark) return;
@@ -620,6 +817,13 @@ function App() {
       />
 
       <main className="page student-page">
+        <DraftRestoreBanner
+          visible={autosaveEnabled && !draftDismissed && Boolean(draftMeta?.text)}
+          savedAt={draftMeta?.savedAt}
+          onRestore={handleRestoreDraft}
+          onDismiss={handleDismissDraft}
+          onDelete={handleDeleteDraft}
+        />
         <form className="marker-grid" onSubmit={handleSubmit}>
           <section className="card form-card">
             <ModeSelect mode={mode} onChange={setMode} />
@@ -710,6 +914,8 @@ function App() {
             enabled={practiceEnabled}
             practiceNavEnabled={practiceNavEnabled}
             practiceHighlightEnabled={practiceHighlightEnabled}
+            externalAttempt={selectedAttempt}
+            onClearExternalAttempt={() => setSelectedAttempt(null)}
             supa={supa}
             selectedFile={selectedFile}
             markedBlob={markedBlob}
@@ -719,6 +925,18 @@ function App() {
             onNavigateToExample={handleNavigateToExample}
             onHighlightExamples={handleHighlightExamples}
             onClearHighlights={handleClearHighlights}
+          />
+        ) : null}
+
+        {historyEnabled ? (
+          <AttemptHistoryPanel
+            enabled={historyEnabled}
+            attempts={attempts}
+            selectedAttemptId={selectedAttempt?.id || null}
+            onSelectAttempt={(attempt) => setSelectedAttempt(attempt)}
+            onRefresh={refreshAttemptHistory}
+            isLoading={attemptsLoading}
+            error={attemptsError}
           />
         ) : null}
 
