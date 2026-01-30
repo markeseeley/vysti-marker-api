@@ -195,6 +195,46 @@ button.loading-cursor::after {
   padding: 6px 10px;
 }
 
+.practice-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.example-jump {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0b62d6;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.ph-highlight {
+  outline: 2px solid rgba(0, 140, 255, 0.45);
+  background: rgba(0, 140, 255, 0.1);
+  border-radius: 6px;
+}
+
+.ph-flash {
+  animation: phFlash 1.2s ease-out 1;
+}
+
+@keyframes phFlash {
+  0% {
+    outline: 3px solid rgba(255, 193, 7, 0.85);
+    background: rgba(255, 193, 7, 0.18);
+  }
+  100% {
+    outline: 2px solid rgba(0, 140, 255, 0.45);
+    background: rgba(0, 140, 255, 0.1);
+  }
+}
+
 .error-text {
   color: #b00020;
 }

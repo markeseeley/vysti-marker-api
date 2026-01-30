@@ -27,6 +27,12 @@ import {
   extractPreviewTextFromContainer,
   stripStudentHeaderBeforeTitleForDownload
 } from "./lib/previewText";
+import {
+  clearHighlights,
+  findBestMatchBlock,
+  highlightAllMatches,
+  scrollAndFlash
+} from "./lib/previewNavigator";
 import { markEssay, markText } from "./services/markEssay";
 
 const TOUR_KEYS = [
@@ -83,6 +89,22 @@ function App() {
       localStorage.getItem("vysti_practice") === "1"
     );
   }, [config.featureFlags?.revisionPracticeReact]);
+  const practiceNavEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.practiceNavigationReact) ||
+      params.get("practiceNav") === "1" ||
+      localStorage.getItem("vysti_practice_nav") === "1"
+    );
+  }, [config.featureFlags?.practiceNavigationReact]);
+  const practiceHighlightEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.practiceHighlightReact) ||
+      params.get("practiceHL") === "1" ||
+      localStorage.getItem("vysti_practice_hl") === "1"
+    );
+  }, [config.featureFlags?.practiceHighlightReact]);
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -406,6 +428,45 @@ function App() {
     setHasRevisedSinceMark(true);
   };
 
+  const handleNavigateToExample = (sentence) => {
+    if (!practiceNavEnabled) return;
+    const container = previewRef.current;
+    if (!container) {
+      setStatus({ kind: "error", message: "Preview is not ready yet." });
+      return;
+    }
+    const match = findBestMatchBlock(container, sentence);
+    if (!match || !match.el) {
+      setStatus({
+        kind: "error",
+        message: "Couldn’t find that sentence in the preview (docx HTML mismatch)."
+      });
+      return;
+    }
+    if (config.featureFlags?.debugPracticeNavigation) {
+      console.log("[practiceNav] match score:", match.score, "sentence:", sentence);
+    }
+    scrollAndFlash(match.el);
+  };
+
+  const handleHighlightExamples = (examples) => {
+    if (!practiceHighlightEnabled) return;
+    const container = previewRef.current;
+    if (!container) return;
+    const count = highlightAllMatches(container, examples);
+    setStatus({
+      kind: "info",
+      message: `Highlighted ${count} matching paragraphs in the preview.`
+    });
+  };
+
+  const handleClearHighlights = () => {
+    const container = previewRef.current;
+    if (!container) return;
+    clearHighlights(container);
+    setStatus({ kind: "info", message: "Highlights cleared." });
+  };
+
   const handleOpenDownloadModal = () => {
     if (!markedBlob || !hasRevisedSinceMark) return;
     setShowMlaModal(true);
@@ -647,12 +708,17 @@ function App() {
         {practiceEnabled && showRevisionPractice ? (
           <RevisionPracticePanel
             enabled={practiceEnabled}
+            practiceNavEnabled={practiceNavEnabled}
+            practiceHighlightEnabled={practiceHighlightEnabled}
             supa={supa}
             selectedFile={selectedFile}
             markedBlob={markedBlob}
             previewRef={previewRef}
             techniques={techniques}
             onOpenDiagnostics={() => setShowDiagnostics(true)}
+            onNavigateToExample={handleNavigateToExample}
+            onHighlightExamples={handleHighlightExamples}
+            onClearHighlights={handleClearHighlights}
           />
         ) : null}
 

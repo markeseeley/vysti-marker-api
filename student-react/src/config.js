@@ -13,7 +13,10 @@ const DEFAULT_CONFIG = {
   featureFlags: {
     reactBeta: false,
     revisionPracticeReact: false,
-    debugRevisionPractice: false
+    debugRevisionPractice: false,
+    practiceNavigationReact: false,
+    practiceHighlightReact: false,
+    debugPracticeNavigation: false
   }
 };
 
