@@ -34,6 +34,7 @@ export function useDocxPreview({ blob, zoom, containerRef, onError, onEdit }) {
             const handler = () => onEdit();
             editHandlerRef.current = handler;
             container.addEventListener("input", handler);
+            container.addEventListener("paste", handler);
           }
         } else {
           container.innerHTML =
@@ -53,6 +54,7 @@ export function useDocxPreview({ blob, zoom, containerRef, onError, onEdit }) {
     return () => {
       if (editHandlerRef.current) {
         container.removeEventListener("input", editHandlerRef.current);
+        container.removeEventListener("paste", editHandlerRef.current);
         editHandlerRef.current = null;
       }
       renderIdRef.current += 1;
