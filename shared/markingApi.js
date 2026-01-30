@@ -78,7 +78,8 @@ export async function markDocx({
   return {
     blob,
     techniquesHeaderRaw,
-    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw)
+    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw),
+    status: response.status
   };
 }
 
