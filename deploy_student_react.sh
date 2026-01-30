@@ -272,8 +272,9 @@ if [ -f package-lock.json ]; then
 else
   npm install
 fi
-VITE_APP_BUILD_ID="${APP_BUILD_ID}" npm run build
 popd >/dev/null
+
+APP_BUILD_ID="${APP_BUILD_ID}" node "${ROOT}/student-react/scripts/build-student-react.mjs"
 
 echo "==> Verifying expected outputs..."
 test -f "${ROOT}/assets/student-react/main.js"
