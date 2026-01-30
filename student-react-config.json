@@ -6,7 +6,10 @@
     "reactBeta": true,
     "useSharedCore": false,
     "revisionPracticeReact": false,
-    "debugRevisionPractice": false
+    "debugRevisionPractice": false,
+    "practiceNavigationReact": false,
+    "practiceHighlightReact": false,
+    "debugPracticeNavigation": false
   },
   "rollout": {
     "studentReact": {
