@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { redirectToSignIn } from "../lib/auth";
+import { logError, logEvent } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
 
 export function useRequireAuth() {
@@ -13,6 +15,7 @@ export function useRequireAuth() {
     if (!client) {
       setAuthError("Supabase client not available.");
       setIsChecking(false);
+      logError("Supabase client not available");
       return undefined;
     }
 
@@ -20,21 +23,25 @@ export function useRequireAuth() {
 
     const runGuard = async () => {
       try {
+        logEvent("auth_check_start");
         const { data } = await client.auth.getSession();
         if (!data?.session) {
-          window.location.replace("/signin.html");
+          logEvent("auth_session_missing");
+          redirectToSignIn();
           return;
         }
         localStorage.setItem("vysti_role", "student");
         if (isActive) {
           setIsChecking(false);
         }
+        logEvent("auth_session_valid");
       } catch (err) {
         console.error("Failed to read session", err);
         if (isActive) {
           setAuthError("Unable to verify session. Please refresh.");
           setIsChecking(false);
         }
+        logError("Auth check failed", { error: err?.message });
       }
     };
 

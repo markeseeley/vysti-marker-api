@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import Footer from "./components/Footer";
+import BetaBanner from "./components/BetaBanner";
+import DiagnosticsPanel from "./components/DiagnosticsPanel";
 import ModeSelect from "./components/ModeSelect";
 import ModeCard from "./components/ModeCard";
 import PreviewPanel from "./components/PreviewPanel";
@@ -11,6 +13,7 @@ import DropZone from "./components/DropZone";
 import TechniquesPanel from "./components/TechniquesPanel";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { extractPreviewText } from "./lib/previewText";
+import { logEvent, logError } from "./lib/logger";
 import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES } from "./config";
 import { markEssay, markText } from "./services/markEssay";
 
@@ -67,6 +70,14 @@ function App() {
     setStatus({ message: "", kind: "info" });
   };
 
+  const handleSessionExpired = () => {
+    setStatus({ message: "Session expired. Please sign in again.", kind: "error" });
+    logEvent("session_expired");
+    window.setTimeout(() => {
+      redirectToSignIn();
+    }, 150);
+  };
+
   const parseTechniquesHeader = (header) => {
     if (!header) return null;
     try {
@@ -109,6 +120,7 @@ function App() {
     if (!file || !isDocx(file)) {
       if (file) {
         setError("Please upload a .docx file.");
+        logError("Invalid file type selected", { fileName: file?.name || "" });
       }
       setSelectedFile(null);
       setMarkedBlob(null);
@@ -123,6 +135,7 @@ function App() {
     setSelectedFile(file);
     setMarkedBlob(null);
     setTechniques(null);
+    logEvent("file_selected", { fileName: file?.name || "" });
   };
 
   const handleBrowseClick = () => {
@@ -176,7 +189,7 @@ function App() {
         file: selectedFile,
         mode,
         assignmentName,
-        onSessionExpired: redirectToSignIn
+        onSessionExpired: handleSessionExpired
       });
       setMarkedBlob(blob);
       setTechniques(parseTechniquesHeader(techniquesHeader));
@@ -214,6 +227,7 @@ function App() {
     anchor.rel = "noopener";
     anchor.click();
     URL.revokeObjectURL(url);
+    logEvent("download_started", { fileName: buildMarkedFilename() });
   };
 
   const handleClearAll = () => {
@@ -241,7 +255,7 @@ function App() {
       const blob = await markText({
         supa,
         payload: buildMarkTextPayload(text),
-        onSessionExpired: redirectToSignIn
+        onSessionExpired: handleSessionExpired
       });
       setMarkedBlob(blob);
       setSuccess("Preview updated.");
@@ -300,6 +314,7 @@ function App() {
 
   return (
     <div className="student-react-shell">
+      <BetaBanner />
       <Topbar
         onProgress={() => window.location.assign("/student_progress.html")}
         onTeacher={() => {
@@ -401,6 +416,7 @@ function App() {
 
         <TechniquesPanel techniques={techniques} />
 
+        <DiagnosticsPanel />
         <Footer />
       </main>
     </div>
