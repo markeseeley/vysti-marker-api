@@ -98,6 +98,7 @@
           const res = await fetch("/student-react-config.json", { cache: "no-store" });
           if (!res.ok) throw new Error("config");
           config = await res.json();
+          window.__vystiRuntimeConfig = config;
         } catch (err) {
           logDecision("classic", "config-failed");
           return;
@@ -1708,6 +1709,28 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     const { createClient } = supabase;
     const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const DEFAULT_API_BASE = "https://vysti-rules.onrender.com";
+
+    function getApiBase() {
+      return (window.__vystiRuntimeConfig?.apiBaseUrl || DEFAULT_API_BASE).replace(/\/$/, "");
+    }
+
+    (async () => {
+      try {
+        const cfg = window.__vystiRuntimeConfig;
+        const enabled = !!cfg?.featureFlags?.useSharedCore;
+        if (!enabled) return;
+        window.__vystiSharedCore = {
+          runtime: await import("/shared/runtimeConfig.js"),
+          auth: await import("/shared/auth.js"),
+          api: await import("/shared/markingApi.js"),
+          dl: await import("/shared/download.js"),
+        };
+        console.log("[shared-core] enabled");
+      } catch (e) {
+        console.warn("[shared-core] failed to load; staying classic", e);
+      }
+    })();
     const form = document.getElementById("studentForm");
     const fileInput = document.getElementById("fileInput");
     const checkBtn = document.getElementById("checkBtn");
@@ -3499,7 +3522,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       const session = data.session;
 
       if (!session) {
-        window.location.replace("/signin.html");
+        window.location.replace(
+          `/signin.html?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`
+        );
         return;
       }
 
@@ -3543,7 +3568,9 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     logoutBtn.addEventListener("click", async () => {
       await supa.auth.signOut();
       localStorage.removeItem("vysti_role");
-      window.location.replace("/signin.html");
+      window.location.replace(
+        `/signin.html?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`
+      );
     });
 
     function setUiMode(value) {
@@ -8178,7 +8205,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       try {
         // Call API
-        const API_URL = "https://vysti-rules.onrender.com/mark";
+        const API_URL = `${getApiBase()}/mark`;
         const response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -8248,7 +8275,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             // Prevent download if no revisions have been made
             if (!hasRevisedSinceMark) return;
 
-            const API_BASE = "https://vysti-rules.onrender.com";
+            const API_BASE = getApiBase();
 
             const baseName = (selectedFile?.name || "essay").replace(/\.docx$/i, "");
             const outputName = `${baseName}_revised.docx`;
@@ -12006,7 +12033,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
 
       try {
-        const API_BASE = "https://vysti-rules.onrender.com";
+        const API_BASE = getApiBase();
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
@@ -12370,7 +12397,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         beginRecheckCrossfade();
 
         try {
-          const API_BASE = "https://vysti-rules.onrender.com";
+          const API_BASE = getApiBase();
           const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
           const markTextPayload = {
             file_name: selectedFile.name,
