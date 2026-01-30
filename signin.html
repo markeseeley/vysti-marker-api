@@ -53,6 +53,25 @@
     const passEl = document.getElementById("password");
     const btn = document.getElementById("signinBtn");
     const statusEl = document.getElementById("status");
+    const redirectKey = "post_login_redirect";
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectParam = searchParams.get("redirect");
+    if (redirectParam) {
+      sessionStorage.setItem(redirectKey, redirectParam);
+    } else {
+      sessionStorage.removeItem(redirectKey);
+    }
+
+    const getSafeRedirectTarget = () => {
+      let target = "/index.html";
+      const raw = sessionStorage.getItem(redirectKey);
+      if (raw && raw.startsWith("/") && !raw.startsWith("//")) {
+        target = raw;
+      }
+      sessionStorage.removeItem(redirectKey);
+      return target;
+    };
 
     btn.addEventListener("click", async () => {
       const email = emailEl.value.trim();
@@ -67,15 +86,16 @@
       }
 
       statusEl.textContent = "Signed in. Redirecting…";
-      // redirect to your existing marker UI
-      window.location.href = "/index.html";
+      const target = getSafeRedirectTarget();
+      window.location.assign(target);
     });
 
     // If already logged in, skip sign-in page
     (async () => {
       const { data } = await supa.auth.getSession();
       if (data.session) {
-        window.location.href = "/index.html";
+        const target = getSafeRedirectTarget();
+        window.location.assign(target);
       }
     })();
   </script>
