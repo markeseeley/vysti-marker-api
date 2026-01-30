@@ -14,12 +14,17 @@ const getWordCount = (text) => {
 
 export default function RevisionPracticePanel({
   enabled,
+  practiceNavEnabled = false,
+  practiceHighlightEnabled = false,
   supa,
   selectedFile,
   markedBlob,
   previewRef,
   techniques,
-  onOpenDiagnostics
+  onOpenDiagnostics,
+  onNavigateToExample,
+  onHighlightExamples,
+  onClearHighlights
 }) {
   const [loading, setLoading] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
@@ -218,6 +223,12 @@ export default function RevisionPracticePanel({
     }
   };
 
+  const renderSentenceText = (sentence) => {
+    const raw = String(sentence || "");
+    if (raw.length <= 140) return raw;
+    return `${raw.slice(0, 140)}…`;
+  };
+
   if (!enabled) return null;
 
   return (
@@ -279,6 +290,24 @@ export default function RevisionPracticePanel({
 
             <div className="examples-panel">
               <h4>{selectedLabel || "Examples"}</h4>
+              {practiceHighlightEnabled && examples.length ? (
+                <div className="practice-action-row">
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={() => onHighlightExamples?.(examples)}
+                  >
+                    Highlight examples
+                  </button>
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={() => onClearHighlights?.()}
+                  >
+                    Clear highlights
+                  </button>
+                </div>
+              ) : null}
               {examplesLoading ? (
                 <p className="helper-text">Loading examples…</p>
               ) : examples.length ? (
@@ -287,7 +316,18 @@ export default function RevisionPracticePanel({
                     <div className="example-meta">
                       <span>Paragraph {ex.paragraph_index ?? 0}</span>
                     </div>
-                    <p>{ex.sentence}</p>
+                    {practiceNavEnabled ? (
+                      <button
+                        type="button"
+                        className="example-jump"
+                        onClick={() => onNavigateToExample?.(ex.sentence)}
+                        title={ex.sentence || ""}
+                      >
+                        {renderSentenceText(ex.sentence)}
+                      </button>
+                    ) : (
+                      <p>{renderSentenceText(ex.sentence)}</p>
+                    )}
                     <button
                       className="secondary-btn copy-btn"
                       type="button"
