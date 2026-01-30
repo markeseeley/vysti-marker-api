@@ -79,6 +79,126 @@ button.loading-cursor::after {
   margin-top: 0;
 }
 
+.practice-card {
+  margin-top: 24px;
+}
+
+.practice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.practice-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.practice-stat-card {
+  background: #f8f9fa;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.practice-stat-card h3 {
+  margin: 0;
+  font-size: var(--fs-h3);
+}
+
+.practice-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--fs-sm);
+}
+
+.practice-techniques h4 {
+  margin: 8px 0 0;
+  font-size: var(--fs-sm);
+}
+
+.practice-techniques ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.practice-techniques li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-xs);
+}
+
+.practice-issues h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-h3);
+}
+
+.issue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.issue-chip {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.issue-chip.is-active {
+  background: rgba(0, 140, 255, 0.12);
+  border-color: rgba(0, 140, 255, 0.35);
+  color: #0b66c3;
+  font-weight: 700;
+}
+
+.examples-panel h4 {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+}
+
+.example-row {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 10px;
+  background: #fff;
+}
+
+.example-row p {
+  margin: 8px 0;
+  font-size: var(--fs-sm);
+}
+
+.example-meta {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.copy-btn {
+  font-size: var(--fs-xs);
+  padding: 6px 10px;
+}
+
+.error-text {
+  color: #b00020;
+}
+
 .helper-text {
   margin: 8px 0 0;
   color: var(--muted);

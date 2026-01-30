@@ -11,7 +11,9 @@ const DEFAULT_CONFIG = {
   supabaseAnonKey: "",
   buildId: "",
   featureFlags: {
-    reactBeta: false
+    reactBeta: false,
+    revisionPracticeReact: false,
+    debugRevisionPractice: false
   }
 };
 

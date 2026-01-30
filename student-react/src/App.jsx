@@ -11,16 +11,22 @@ import Topbar from "./components/Topbar";
 import AssignmentTracker from "./components/AssignmentTracker";
 import DropZone from "./components/DropZone";
 import TechniquesPanel from "./components/TechniquesPanel";
+import MlaModal from "./components/MlaModal";
+import RevisionPracticePanel from "./components/RevisionPracticePanel";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { logEvent, logError } from "./lib/logger";
-import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getApiUrls, getConfig, getConfigError } from "./config";
+import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getConfig, getConfigError } from "./config";
 import {
   buildMarkTextPayload as buildMarkTextPayloadShared,
   exportDocx,
   parseTechniquesHeader as parseTechniquesHeaderShared
 } from "@shared/markingApi";
 import { downloadBlob } from "@shared/download";
-import { extractPreviewText } from "@shared/previewText";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
+import {
+  extractPreviewTextFromContainer,
+  stripStudentHeaderBeforeTitleForDownload
+} from "./lib/previewText";
 import { markEssay, markText } from "./services/markEssay";
 
 const TOUR_KEYS = [
@@ -47,6 +53,7 @@ function App() {
   const [status, setStatus] = useState({ message: "", kind: "info" });
   const [markedBlob, setMarkedBlob] = useState(null);
   const [techniques, setTechniques] = useState(EMPTY_TECHNIQUES);
+  const [techniquesParsed, setTechniquesParsed] = useState(null);
   const [showTechniques, setShowTechniques] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [lastMarkStatus, setLastMarkStatus] = useState(null);
@@ -59,14 +66,23 @@ function App() {
   const [hasRevisedSinceMark, setHasRevisedSinceMark] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showMlaModal, setShowMlaModal] = useState(false);
-  const [mlaName, setMlaName] = useState("");
-  const [mlaTeacher, setMlaTeacher] = useState("");
-  const [mlaDate, setMlaDate] = useState("");
-  const [mlaAssignment, setMlaAssignment] = useState("");
+  const [markedFilenameBase, setMarkedFilenameBase] = useState("");
+  const [showRevisionPractice, setShowRevisionPractice] = useState(false);
 
   const config = getConfig();
   const configError = getConfigError();
-  const apiUrls = getApiUrls();
+  const apiBase = getApiBaseUrl();
+  const markUrl = apiBase ? `${apiBase}/mark` : "";
+  const markTextUrl = apiBase ? `${apiBase}/mark_text` : "";
+  const exportUrl = apiBase ? `${apiBase}/export_docx` : "";
+  const practiceEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.revisionPracticeReact) ||
+      params.get("practice") === "1" ||
+      localStorage.getItem("vysti_practice") === "1"
+    );
+  }, [config.featureFlags?.revisionPracticeReact]);
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -76,6 +92,12 @@ function App() {
     () => MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis,
     [mode]
   );
+
+  useEffect(() => {
+    if (practiceEnabled) {
+      setShowRevisionPractice(true);
+    }
+  }, [practiceEnabled]);
 
   useEffect(() => {
     if (!supa) return undefined;
@@ -169,21 +191,24 @@ function App() {
     };
   };
 
-  const buildMarkedFilename = () => {
+  const getFilenameBase = () => {
+    if (markedFilenameBase) return markedFilenameBase;
     const rawName = selectedFile?.name || "essay.docx";
-    const baseName = rawName.replace(/\.docx$/i, "");
-    return `${baseName}_marked.docx`;
+    return rawName.replace(/\.docx$/i, "") || "essay";
   };
 
-  const buildRevisedFilename = () => {
-    const rawName = selectedFile?.name || "essay.docx";
-    const baseName = rawName.replace(/\.docx$/i, "");
-    return `${baseName}_revised.docx`;
-  };
+  const buildMarkedFilename = () => `${getFilenameBase()}_marked.docx`;
 
-  const buildMlaHeader = () => {
-    const lines = [mlaName, mlaTeacher, mlaAssignment, mlaDate];
-    return `${lines.join("\n")}\n\n`;
+  const buildRevisedFilename = () => `${getFilenameBase()}_revised.docx`;
+
+  const buildMlaHeader = (fields) => {
+    const lines = [
+      fields?.name?.trim(),
+      fields?.teacher?.trim(),
+      fields?.assignment?.trim(),
+      fields?.date?.trim()
+    ].filter(Boolean);
+    return lines.length ? `${lines.join("\n")}\n\n` : "";
   };
 
   const isDocx = (file) => {
@@ -205,9 +230,11 @@ function App() {
       setSelectedFile(null);
       setMarkedBlob(null);
       setTechniques(EMPTY_TECHNIQUES);
+      setTechniquesParsed(null);
       setLastMarkStatus(null);
       setLastMarkError("");
       setHasRevisedSinceMark(false);
+      setMarkedFilenameBase("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -218,9 +245,11 @@ function App() {
     setSelectedFile(file);
     setMarkedBlob(null);
     setTechniques(EMPTY_TECHNIQUES);
+    setTechniquesParsed(null);
     setLastMarkStatus(null);
     setLastMarkError("");
     setHasRevisedSinceMark(false);
+    setMarkedFilenameBase("");
     logEvent("file_selected", { fileName: file?.name || "" });
   };
 
@@ -255,9 +284,11 @@ function App() {
     setSelectedFile(null);
     setMarkedBlob(null);
     setTechniques(EMPTY_TECHNIQUES);
+    setTechniquesParsed(null);
     setLastMarkStatus(null);
     setLastMarkError("");
     setHasRevisedSinceMark(false);
+    setMarkedFilenameBase("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -284,7 +315,11 @@ function App() {
       });
       setMarkedBlob(blob);
       setTechniques(parseTechniquesHeader(techniquesHeader));
+      const parsed = parseTechniquesHeaderShared(techniquesHeader);
+      setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
+      const baseName = (selectedFile?.name || "essay.docx").replace(/\.docx$/i, "") || "essay";
+      setMarkedFilenameBase(baseName);
       setLastMarkStatus({ status: markStatus, ok: true });
       setSuccess("Marked successfully. Scroll down to Preview.");
     } catch (err) {
@@ -304,31 +339,31 @@ function App() {
   };
 
   const buildMarkTextPayload = (text) =>
-    buildMarkTextPayloadShared({
-      fileName: selectedFile?.name || "essay.docx",
-      text,
-      mode
+    ({
+      ...buildMarkTextPayloadShared({
+        fileName: selectedFile?.name || "essay.docx",
+        text,
+        mode
+      }),
+      include_summary_table: false
     });
 
   const handleDownload = () => {
     if (!markedBlob) return;
-    const url = URL.createObjectURL(markedBlob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = buildMarkedFilename();
-    anchor.rel = "noopener";
-    anchor.click();
-    URL.revokeObjectURL(url);
-    logEvent("download_started", { fileName: buildMarkedFilename() });
+    const filename = buildMarkedFilename();
+    downloadBlob(markedBlob, filename);
+    logEvent("download_started", { fileName: filename });
   };
 
   const handleClearAll = () => {
     setSelectedFile(null);
     setMarkedBlob(null);
     setTechniques(EMPTY_TECHNIQUES);
+    setTechniquesParsed(null);
     setLastMarkStatus(null);
     setLastMarkError("");
     setHasRevisedSinceMark(false);
+    setMarkedFilenameBase("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -337,7 +372,7 @@ function App() {
 
   const handleRecheck = async () => {
     if (!markedBlob) return;
-    const text = extractPreviewText(previewRef.current);
+    const text = extractPreviewTextFromContainer(previewRef.current);
     if (!text) {
       setError("Please add text to the preview before rechecking.");
       return;
@@ -354,8 +389,10 @@ function App() {
       });
       setMarkedBlob(blob);
       setTechniques(parseTechniquesHeader(techniquesHeader));
+      const parsed = parseTechniquesHeaderShared(techniquesHeader);
+      setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
-      setSuccess("Preview updated.");
+      setSuccess("Rechecked ✅");
     } catch (err) {
       console.error("Recheck failed", err);
       const message = err?.message || "Failed to recheck essay. Please try again.";
@@ -374,13 +411,13 @@ function App() {
     setShowMlaModal(true);
   };
 
-  const handleDownloadRevised = async ({ includeMla }) => {
+  const handleDownloadRevised = async ({ includeMla, fields }) => {
     if (!markedBlob) return;
     if (!supa) {
       setError("Supabase is not available.");
       return;
     }
-    const text = extractPreviewText(previewRef.current);
+    const text = extractPreviewTextFromContainer(previewRef.current);
     if (!text) {
       setError("Could not extract text from preview.");
       return;
@@ -396,16 +433,17 @@ function App() {
         return;
       }
 
-      const apiBaseUrl = config.apiBaseUrl;
-      if (!apiBaseUrl) {
+      if (!apiBase) {
         setError("Missing API configuration. Please refresh.");
         return;
       }
 
       const outputName = buildRevisedFilename();
-      const finalText = includeMla ? `${buildMlaHeader()}${text}` : text;
+      const finalText = includeMla
+        ? `${buildMlaHeader(fields)}${stripStudentHeaderBeforeTitleForDownload(text)}`
+        : text;
       const blob = await exportDocx({
-        apiBaseUrl,
+        apiBaseUrl: apiBase,
         token: data.session.access_token,
         fileName: outputName,
         text: finalText
@@ -480,8 +518,11 @@ function App() {
         return "";
       }
     })(),
-    apiBaseUrl: config.apiBaseUrl,
-    markUrl: apiUrls.markUrl,
+    apiBaseUrl: apiBase,
+    markUrl,
+    markTextUrl,
+    exportUrl,
+    techniquesParsedCount: Array.isArray(techniquesParsed) ? techniquesParsed.length : null,
     supabaseUrl: config.supabaseUrl,
     auth: {
       hasSession: authSnapshot.hasSession,
@@ -567,15 +608,15 @@ function App() {
               {status.message}
             </div>
             <div className="results-actions">
-              <button
-                id="downloadBtn"
-                className="secondary-btn"
-                type="button"
-                style={{ display: markedBlob ? "inline-flex" : "none" }}
-                onClick={handleDownload}
-              >
-                Download marked essay
-              </button>
+              {practiceEnabled ? (
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={() => setShowRevisionPractice((prev) => !prev)}
+                >
+                  Revision practice
+                </button>
+              ) : null}
               <button
                 className="secondary-btn"
                 type="button"
@@ -595,11 +636,25 @@ function App() {
           previewRef={previewRef}
           onRecheck={handleRecheck}
           isRechecking={isRechecking}
+          isProcessing={isProcessing}
           onEdit={handlePreviewEdited}
+          onDownloadMarked={handleDownload}
           onDownloadRevised={handleOpenDownloadModal}
           isDownloading={isDownloading}
           hasRevisedSinceMark={hasRevisedSinceMark}
         />
+
+        {practiceEnabled && showRevisionPractice ? (
+          <RevisionPracticePanel
+            enabled={practiceEnabled}
+            supa={supa}
+            selectedFile={selectedFile}
+            markedBlob={markedBlob}
+            previewRef={previewRef}
+            techniques={techniques}
+            onOpenDiagnostics={() => setShowDiagnostics(true)}
+          />
+        ) : null}
 
         <TechniquesPanel
           isOpen={showTechniques}
@@ -615,71 +670,16 @@ function App() {
         <Footer />
       </main>
 
-      {showMlaModal ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card">
-            <h3>Download revised essay</h3>
-            <label>
-              <span>Name</span>
-              <input
-                type="text"
-                value={mlaName}
-                onChange={(event) => setMlaName(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Teacher</span>
-              <input
-                type="text"
-                value={mlaTeacher}
-                onChange={(event) => setMlaTeacher(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Date</span>
-              <input
-                type="text"
-                value={mlaDate}
-                onChange={(event) => setMlaDate(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Assignment</span>
-              <input
-                type="text"
-                value={mlaAssignment}
-                onChange={(event) => setMlaAssignment(event.target.value)}
-              />
-            </label>
-            <div className="modal-actions">
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={() => setShowMlaModal(false)}
-                disabled={isDownloading}
-              >
-                Cancel
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={() => handleDownloadRevised({ includeMla: false })}
-                disabled={isDownloading}
-              >
-                Download plain
-              </button>
-              <button
-                className="primary-btn"
-                type="button"
-                onClick={() => handleDownloadRevised({ includeMla: true })}
-                disabled={isDownloading}
-              >
-                Download MLA
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <MlaModal
+        isOpen={showMlaModal}
+        initialAssignmentName={assignmentName}
+        isBusy={isDownloading}
+        onCancel={() => setShowMlaModal(false)}
+        onDownloadAsIs={() => handleDownloadRevised({ includeMla: false })}
+        onDownloadMla={(fields) =>
+          handleDownloadRevised({ includeMla: true, fields })
+        }
+      />
     </div>
   );
 }
