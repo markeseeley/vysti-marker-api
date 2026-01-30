@@ -17,12 +17,16 @@ export function buildMarkFormData({
   }
 
   if (detectedWork?.confidence === "high") {
+    const isMinor =
+      typeof detectedWork.text_is_minor_work === "boolean"
+        ? detectedWork.text_is_minor_work
+        : detectedWork.isMinor;
     if (detectedWork.author) formData.append("author", detectedWork.author);
     if (detectedWork.title) formData.append("title", detectedWork.title);
-    if (typeof detectedWork.text_is_minor_work === "boolean") {
+    if (typeof isMinor === "boolean") {
       formData.append(
         "text_is_minor_work",
-        detectedWork.text_is_minor_work ? "true" : "false"
+        isMinor ? "true" : "false"
       );
     }
   }
@@ -78,8 +82,7 @@ export async function markDocx({
   return {
     blob,
     techniquesHeaderRaw,
-    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw),
-    status: response.status
+    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw)
   };
 }
 
@@ -93,11 +96,15 @@ export function buildMarkTextPayload({ fileName, text, mode, detectedWork = null
   };
 
   if (detectedWork?.confidence === "high") {
+    const isMinor =
+      typeof detectedWork.text_is_minor_work === "boolean"
+        ? detectedWork.text_is_minor_work
+        : detectedWork.isMinor;
     payload.titles = [
       {
         author: detectedWork.author || "",
         title: detectedWork.title || "",
-        is_minor: Boolean(detectedWork.text_is_minor_work)
+        is_minor: Boolean(isMinor)
       }
     ];
   }
@@ -124,6 +131,64 @@ export async function markText({ apiBaseUrl, token, payload }) {
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Mark text failed (${response.status}): ${text.substring(0, 120)}`);
+  }
+
+  return response;
+}
+
+export async function exportDocx({ apiBaseUrl, token, fileName, text }) {
+  const response = await fetch(`${apiBaseUrl}/export_docx`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      file_name: fileName,
+      text
+    })
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    const err = new Error("Session expired");
+    err.code = "SESSION_EXPIRED";
+    throw err;
+  }
+
+  if (!response.ok) {
+    const textResp = await response.text();
+    throw new Error(
+      `Export docx failed (${response.status}): ${textResp.substring(0, 120)}`
+    );
+  }
+
+  return response.blob();
+}
+
+export async function exportDocx({ apiBaseUrl, token, fileName, text }) {
+  const response = await fetch(`${apiBaseUrl}/export_docx`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      file_name: fileName,
+      text
+    })
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    const err = new Error("Session expired");
+    err.code = "SESSION_EXPIRED";
+    throw err;
+  }
+
+  if (!response.ok) {
+    const textBody = await response.text();
+    throw new Error(
+      `Export docx failed (${response.status}): ${textBody.substring(0, 120)}`
+    );
   }
 
   return response;
