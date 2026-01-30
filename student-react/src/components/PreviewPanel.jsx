@@ -6,12 +6,17 @@ export default function PreviewPanel({
   onZoomChange,
   previewRef,
   onRecheck,
-  isRechecking
+  isRechecking,
+  onEdit,
+  onDownloadRevised,
+  isDownloading,
+  hasRevisedSinceMark
 }) {
   useDocxPreview({
     blob: markedBlob,
     zoom,
-    containerRef: previewRef
+    containerRef: previewRef,
+    onEdit
   });
 
   return (
@@ -54,7 +59,18 @@ export default function PreviewPanel({
         >
           {isRechecking ? "Processing" : "Recheck my essay"}
         </button>
+        <button
+          type="button"
+          className={`secondary-btn${isDownloading ? " is-loading loading-cursor" : ""}`}
+          onClick={() => onDownloadRevised?.()}
+          disabled={!markedBlob || !hasRevisedSinceMark || isDownloading}
+        >
+          {isDownloading ? "Preparing" : "Download revised essay"}
+        </button>
       </div>
+      {!hasRevisedSinceMark && markedBlob ? (
+        <p className="helper-text">Make an edit in the preview to enable download.</p>
+      ) : null}
     </section>
   );
 }
