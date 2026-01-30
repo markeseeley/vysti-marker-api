@@ -1,14 +1,16 @@
 import { logEvent } from "./logger";
 
-export const buildRedirectTarget = (next) => {
-  const target =
-    next ||
-    `${window.location.pathname}${window.location.search}${window.location.hash}`;
+export const buildReturnTo = () => {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+};
+
+export const buildSigninUrl = (returnTo) => {
+  const target = returnTo || buildReturnTo();
   return `/signin.html?redirect=${encodeURIComponent(target)}`;
 };
 
-export const redirectToSignIn = (next) => {
-  const redirectUrl = buildRedirectTarget(next);
+export const redirectToSignin = (returnTo) => {
+  const redirectUrl = buildSigninUrl(returnTo);
   logEvent("auth_redirect", { redirectUrl });
   window.location.replace(redirectUrl);
 };

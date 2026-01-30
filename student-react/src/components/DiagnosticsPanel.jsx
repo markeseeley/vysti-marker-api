@@ -1,3 +1,23 @@
+export default function DiagnosticsPanel({ isOpen, onToggle, data }) {
+  const payload = data || {};
+  return (
+    <section className="card rules-card">
+      <button
+        className="secondary-btn"
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        Diagnostics ({isOpen ? "hide" : "show"})
+      </button>
+      {isOpen ? (
+        <pre style={{ marginTop: "12px", whiteSpace: "pre-wrap" }}>
+          {JSON.stringify(payload, null, 2)}
+        </pre>
+      ) : null}
+    </section>
+  );
+}
 import { useState } from "react";
 import { getDebugInfo } from "../lib/logger";
 

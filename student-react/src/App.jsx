@@ -14,7 +14,7 @@ import TechniquesPanel from "./components/TechniquesPanel";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { extractPreviewText } from "./lib/previewText";
 import { logEvent, logError } from "./lib/logger";
-import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES } from "./config";
+import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getApiUrls, getConfig, getConfigError } from "./config";
 import { markEssay, markText } from "./services/markEssay";
 
 const TOUR_KEYS = [
@@ -23,8 +23,15 @@ const TOUR_KEYS = [
   "vysti_student_tour_hide"
 ];
 
+const EMPTY_TECHNIQUES = {
+  type: "none",
+  items: [],
+  raw: "",
+  error: ""
+};
+
 function App() {
-  const { supa, isChecking, authError, redirectToSignIn } = useAuthSession();
+  const { supa, isChecking, authError, redirectToSignin } = useAuthSession();
   const [mode, setMode] = useState("textual_analysis");
   const [assignmentName, setAssignmentName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -33,8 +40,20 @@ function App() {
   const [isRechecking, setIsRechecking] = useState(false);
   const [status, setStatus] = useState({ message: "", kind: "info" });
   const [markedBlob, setMarkedBlob] = useState(null);
-  const [techniques, setTechniques] = useState(null);
+  const [techniques, setTechniques] = useState(EMPTY_TECHNIQUES);
+  const [showTechniques, setShowTechniques] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [lastMarkStatus, setLastMarkStatus] = useState(null);
+  const [lastMarkError, setLastMarkError] = useState("");
+  const [authSnapshot, setAuthSnapshot] = useState({
+    hasSession: false,
+    email: ""
+  });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+
+  const config = getConfig();
+  const configError = getConfigError();
+  const apiUrls = getApiUrls();
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -50,13 +69,39 @@ function App() {
     const { data: subscription } = supa.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         localStorage.removeItem("vysti_role");
-        redirectToSignIn();
+        redirectToSignin();
       }
     });
     return () => {
       subscription?.subscription?.unsubscribe();
     };
-  }, [redirectToSignIn, supa]);
+  }, [redirectToSignin, supa]);
+
+  useEffect(() => {
+    if (!supa) return undefined;
+    let isActive = true;
+    const refreshSnapshot = async () => {
+      try {
+        const { data } = await supa.auth.getSession();
+        if (!isActive) return;
+        setAuthSnapshot({
+          hasSession: Boolean(data?.session),
+          email: data?.session?.user?.email || ""
+        });
+      } catch (err) {
+        if (!isActive) return;
+        setAuthSnapshot({ hasSession: false, email: "" });
+      }
+    };
+    refreshSnapshot();
+    const { data: subscription } = supa.auth.onAuthStateChange(() => {
+      refreshSnapshot();
+    });
+    return () => {
+      isActive = false;
+      subscription?.subscription?.unsubscribe();
+    };
+  }, [supa]);
 
   const setError = (message) => {
     setStatus({ message, kind: "error" });
@@ -74,35 +119,48 @@ function App() {
     setStatus({ message: "Session expired. Please sign in again.", kind: "error" });
     logEvent("session_expired");
     window.setTimeout(() => {
-      redirectToSignIn();
+      redirectToSignin();
     }, 150);
   };
 
   const parseTechniquesHeader = (header) => {
-    if (!header) return null;
+    if (!header) {
+      return { type: "none", items: [], raw: "", error: "" };
+    }
     try {
-      return JSON.parse(header);
+      const parsed = JSON.parse(header);
+      if (Array.isArray(parsed)) {
+        const allStrings = parsed.every((item) => typeof item === "string");
+        const allObjects = parsed.every(
+          (item) => item && typeof item === "object" && !Array.isArray(item)
+        );
+        if (allStrings) {
+          return { type: "strings", items: parsed, raw: header, error: "" };
+        }
+        if (allObjects) {
+          return { type: "objects", items: parsed, raw: header, error: "" };
+        }
+      }
+      return {
+        type: "invalid",
+        items: [],
+        raw: header,
+        error: "Techniques header present but invalid JSON"
+      };
     } catch (err) {
       console.warn("Failed to parse techniques header:", err);
-      return header;
+      return {
+        type: "invalid",
+        items: [],
+        raw: header,
+        error: "Techniques header present but invalid JSON"
+      };
     }
-  };
-
-  const sanitizeLabel = (value) => {
-    if (!value) return "";
-    return String(value)
-      .trim()
-      .replace(/[^a-z0-9]+/gi, "_")
-      .replace(/^_+|_+$/g, "");
   };
 
   const buildMarkedFilename = () => {
     const rawName = selectedFile?.name || "essay.docx";
     const baseName = rawName.replace(/\.docx$/i, "");
-    const assignmentLabel = sanitizeLabel(assignmentName);
-    if (assignmentLabel) {
-      return `${assignmentLabel}_${baseName}_marked.docx`;
-    }
     return `${baseName}_marked.docx`;
   };
 
@@ -124,7 +182,9 @@ function App() {
       }
       setSelectedFile(null);
       setMarkedBlob(null);
-      setTechniques(null);
+      setTechniques(EMPTY_TECHNIQUES);
+      setLastMarkStatus(null);
+      setLastMarkError("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -134,7 +194,9 @@ function App() {
     clearStatus();
     setSelectedFile(file);
     setMarkedBlob(null);
-    setTechniques(null);
+    setTechniques(EMPTY_TECHNIQUES);
+    setLastMarkStatus(null);
+    setLastMarkError("");
     logEvent("file_selected", { fileName: file?.name || "" });
   };
 
@@ -168,7 +230,9 @@ function App() {
   const handleClearFile = () => {
     setSelectedFile(null);
     setMarkedBlob(null);
-    setTechniques(null);
+    setTechniques(EMPTY_TECHNIQUES);
+    setLastMarkStatus(null);
+    setLastMarkError("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -182,9 +246,11 @@ function App() {
     }
     setIsProcessing(true);
     setStatus({ message: "Processing...", kind: "info" });
+    setLastMarkStatus(null);
+    setLastMarkError("");
 
     try {
-      const { blob, techniquesHeader } = await markEssay({
+      const { blob, techniquesHeader, status: markStatus } = await markEssay({
         supa,
         file: selectedFile,
         mode,
@@ -193,10 +259,13 @@ function App() {
       });
       setMarkedBlob(blob);
       setTechniques(parseTechniquesHeader(techniquesHeader));
+      setLastMarkStatus({ status: markStatus, ok: true });
       setSuccess("Marked successfully. Scroll down to Preview.");
     } catch (err) {
       console.error("Mark failed", err);
       const message = err?.message || "Failed to mark essay. Please try again.";
+      setLastMarkStatus({ status: err?.status ?? null, ok: false });
+      setLastMarkError(message);
       setError(message);
     } finally {
       setIsProcessing(false);
@@ -233,7 +302,9 @@ function App() {
   const handleClearAll = () => {
     setSelectedFile(null);
     setMarkedBlob(null);
-    setTechniques(null);
+    setTechniques(EMPTY_TECHNIQUES);
+    setLastMarkStatus(null);
+    setLastMarkError("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -270,7 +341,7 @@ function App() {
 
   const handleSignOut = async () => {
     if (!supa) {
-      redirectToSignIn();
+      redirectToSignin();
       return;
     }
 
@@ -278,7 +349,7 @@ function App() {
       await supa.auth.signOut();
     } finally {
       localStorage.removeItem("vysti_role");
-      redirectToSignIn();
+      redirectToSignin();
     }
   };
 
@@ -311,10 +382,34 @@ function App() {
   const hasResults = Boolean(status.message) || Boolean(markedBlob);
   const statusClass =
     status.kind === "success" ? " success" : status.kind === "error" ? " error" : "";
+  const diagnosticsData = {
+    buildId: config.buildId,
+    url: window.location.href,
+    uiMode: (() => {
+      try {
+        return localStorage.getItem("uiMode") || "";
+      } catch (err) {
+        return "";
+      }
+    })(),
+    apiBaseUrl: config.apiBaseUrl,
+    markUrl: apiUrls.markUrl,
+    supabaseUrl: config.supabaseUrl,
+    auth: {
+      hasSession: authSnapshot.hasSession,
+      email: authSnapshot.email
+    },
+    lastMark: {
+      status: lastMarkStatus?.status ?? null,
+      ok: lastMarkStatus?.ok ?? null,
+      error: lastMarkError
+    },
+    configError: configError ? configError.message || String(configError) : ""
+  };
 
   return (
     <div className="student-react-shell">
-      <BetaBanner />
+      {config.featureFlags?.reactBeta ? <BetaBanner /> : null}
       <Topbar
         onProgress={() => window.location.assign("/student_progress.html")}
         onTeacher={() => {
@@ -391,7 +486,7 @@ function App() {
                 style={{ display: markedBlob ? "inline-flex" : "none" }}
                 onClick={handleDownload}
               >
-                Download marked file
+                Download marked essay
               </button>
               <button
                 className="secondary-btn"
@@ -414,9 +509,17 @@ function App() {
           isRechecking={isRechecking}
         />
 
-        <TechniquesPanel techniques={techniques} />
+        <TechniquesPanel
+          isOpen={showTechniques}
+          onToggle={() => setShowTechniques((prev) => !prev)}
+          data={techniques}
+        />
 
-        <DiagnosticsPanel />
+        <DiagnosticsPanel
+          isOpen={showDiagnostics}
+          onToggle={() => setShowDiagnostics((prev) => !prev)}
+          data={diagnosticsData}
+        />
         <Footer />
       </main>
     </div>

@@ -4,13 +4,12 @@ const readBuildId = () => {
 };
 
 const DEFAULT_CONFIG = {
-  apiBaseUrl: "https://vysti-rules.onrender.com",
-  supabaseUrl: "https://divdfodsdtfbdwoqvsfy.supabase.co",
-  supabaseAnonKey:
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock",
-  buildId: readBuildId(),
+  apiBaseUrl: "",
+  supabaseUrl: "",
+  supabaseAnonKey: "",
+  buildId: "",
   featureFlags: {
-    reactBeta: true
+    reactBeta: false
   }
 };
 
@@ -27,7 +26,7 @@ const normalizeConfig = (incoming) => {
     }
   };
   if (!merged.buildId) {
-    merged.buildId = readBuildId();
+    merged.buildId = readBuildId() || "dev";
   }
   return merged;
 };
@@ -71,9 +70,10 @@ export function getConfigError() {
 
 export const getApiUrls = () => {
   const { apiBaseUrl } = getConfig();
+  const normalizedBase = apiBaseUrl ? apiBaseUrl.replace(/\/$/, "") : "";
   return {
-    markUrl: `${apiBaseUrl}/mark`,
-    markTextUrl: `${apiBaseUrl}/mark_text`
+    markUrl: normalizedBase ? `${normalizedBase}/mark` : "",
+    markTextUrl: normalizedBase ? `${normalizedBase}/mark_text` : ""
   };
 };
 

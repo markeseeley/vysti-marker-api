@@ -32,6 +32,10 @@ export async function markEssay({
   }
 
   const { markUrl } = getApiUrls();
+  if (!markUrl) {
+    logError("Mark URL missing from config");
+    throw new Error("Missing API configuration. Please refresh.");
+  }
   const response = await fetch(markUrl, {
     method: "POST",
     headers: {
@@ -50,14 +54,16 @@ export async function markEssay({
     const text = await response.text();
     const snippet = text ? `: ${text.substring(0, 140)}` : "";
     logError("Mark failed", { status: response.status, snippet });
-    throw new Error(`Mark failed (${response.status})${snippet}`);
+    const err = new Error(`Mark failed (${response.status})${snippet}`);
+    err.status = response.status;
+    throw err;
   }
 
   const techniquesHeader = response.headers.get("X-Vysti-Techniques");
   const blob = await response.blob();
   logEvent("mark_success", { size: blob.size });
 
-  return { blob, techniquesHeader };
+  return { blob, techniquesHeader, status: response.status };
 }
 
 export async function markText({
@@ -78,6 +84,10 @@ export async function markText({
   }
 
   const { markTextUrl } = getApiUrls();
+  if (!markTextUrl) {
+    logError("Recheck URL missing from config");
+    throw new Error("Missing API configuration. Please refresh.");
+  }
   const response = await fetch(markTextUrl, {
     method: "POST",
     headers: {
@@ -97,7 +107,9 @@ export async function markText({
     const text = await response.text();
     const snippet = text ? `: ${text.substring(0, 140)}` : "";
     logError("Recheck failed", { status: response.status, snippet });
-    throw new Error(`Recheck failed (${response.status})${snippet}`);
+    const err = new Error(`Recheck failed (${response.status})${snippet}`);
+    err.status = response.status;
+    throw err;
   }
   const blob = await response.blob();
   logEvent("recheck_success", { size: blob.size });

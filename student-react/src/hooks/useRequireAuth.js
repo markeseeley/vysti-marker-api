@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { redirectToSignIn } from "../lib/auth";
+import { redirectToSignin } from "../lib/auth";
 import { logError, logEvent } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
 
@@ -27,7 +27,7 @@ export function useRequireAuth() {
         const { data } = await client.auth.getSession();
         if (!data?.session) {
           logEvent("auth_session_missing");
-          redirectToSignIn();
+          redirectToSignin();
           return;
         }
         localStorage.setItem("vysti_role", "student");

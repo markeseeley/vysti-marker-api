@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getApiUrls } from "../config";
 import { useRequireAuth } from "../hooks/useRequireAuth";
+import { redirectToSignin } from "../lib/auth";
 
 const MODES = [
   { value: "textual_analysis", label: "Analytic essay" },
@@ -23,7 +25,6 @@ const MODE_EXPLAINER = {
   }
 };
 
-const API_URL = "https://vysti-rules.onrender.com/mark";
 const DEFAULT_ZOOM = "1.5";
 
 export default function StudentPage() {
@@ -205,7 +206,7 @@ export default function StudentPage() {
     try {
       const { data, error } = await supa.auth.getSession();
       if (error || !data?.session) {
-        window.location.replace("/signin.html");
+        redirectToSignin();
         return;
       }
 
@@ -221,7 +222,11 @@ export default function StudentPage() {
         formData.append("assignment_name", assignmentName.trim());
       }
 
-      const response = await fetch(API_URL, {
+      const { markUrl } = getApiUrls();
+      if (!markUrl) {
+        throw new Error("Missing API configuration.");
+      }
+      const response = await fetch(markUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
@@ -260,7 +265,7 @@ export default function StudentPage() {
 
   const handleSignOut = async () => {
     if (!supa) {
-      window.location.replace("/signin.html");
+      redirectToSignin();
       return;
     }
 
@@ -268,7 +273,7 @@ export default function StudentPage() {
       await supa.auth.signOut();
     } finally {
       localStorage.removeItem("vysti_role");
-      window.location.replace("/signin.html");
+      redirectToSignin();
     }
   };
 

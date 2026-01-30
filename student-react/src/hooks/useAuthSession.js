@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { redirectToSignIn } from "../lib/auth";
+import { redirectToSignin } from "../lib/auth";
 import { logEvent, logError } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
 
@@ -27,7 +27,7 @@ export function useAuthSession() {
         const { data } = await client.auth.getSession();
         if (!data?.session) {
           logEvent("auth_session_missing");
-          redirectToSignIn();
+          redirectToSignin();
           return;
         }
         localStorage.setItem("vysti_role", "student");
@@ -61,6 +61,6 @@ export function useAuthSession() {
     supa,
     isChecking,
     authError,
-    redirectToSignIn
+    redirectToSignin
   };
 }
