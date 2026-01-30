@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 
-export function useDocxPreview({ blob, zoom, containerRef, onError }) {
+export function useDocxPreview({ blob, zoom, containerRef, onError, onEdit }) {
   const renderIdRef = useRef(0);
+  const editHandlerRef = useRef(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -29,6 +30,11 @@ export function useDocxPreview({ blob, zoom, containerRef, onError }) {
           container.spellcheck = true;
           container.classList.add("preview-editable");
           container.style.zoom = zoom;
+          if (typeof onEdit === "function") {
+            const handler = () => onEdit();
+            editHandlerRef.current = handler;
+            container.addEventListener("input", handler);
+          }
         } else {
           container.innerHTML =
             "<p>Preview not available. Please download the file to view.</p>";
@@ -45,7 +51,11 @@ export function useDocxPreview({ blob, zoom, containerRef, onError }) {
     render();
 
     return () => {
+      if (editHandlerRef.current) {
+        container.removeEventListener("input", editHandlerRef.current);
+        editHandlerRef.current = null;
+      }
       renderIdRef.current += 1;
     };
-  }, [blob, containerRef, onError, zoom]);
+  }, [blob, containerRef, onError, onEdit, zoom]);
 }
