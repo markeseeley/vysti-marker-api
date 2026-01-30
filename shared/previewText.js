@@ -1,7 +1,3 @@
-function isInTable(el) {
-  return Boolean(el.closest("table, .docx-table"));
-}
-
 function splitText(text) {
   return text
     .split("\n")
@@ -16,8 +12,7 @@ export function extractPreviewText(containerEl) {
   const parts = [];
 
   for (const node of nodes) {
-    if (isInTable(node)) continue;
-
+    if (node.closest("table, .docx-table")) continue;
     const text = node.innerText || node.textContent || "";
     const lines = splitText(text);
     if (lines.length === 0) continue;

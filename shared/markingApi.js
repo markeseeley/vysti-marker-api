@@ -82,7 +82,8 @@ export async function markDocx({
   return {
     blob,
     techniquesHeaderRaw,
-    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw)
+    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw),
+    status: response.status
   };
 }
 
@@ -163,33 +164,4 @@ export async function exportDocx({ apiBaseUrl, token, fileName, text }) {
   }
 
   return response.blob();
-}
-
-export async function exportDocx({ apiBaseUrl, token, fileName, text }) {
-  const response = await fetch(`${apiBaseUrl}/export_docx`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify({
-      file_name: fileName,
-      text
-    })
-  });
-
-  if (response.status === 401 || response.status === 403) {
-    const err = new Error("Session expired");
-    err.code = "SESSION_EXPIRED";
-    throw err;
-  }
-
-  if (!response.ok) {
-    const textBody = await response.text();
-    throw new Error(
-      `Export docx failed (${response.status}): ${textBody.substring(0, 120)}`
-    );
-  }
-
-  return response;
 }
