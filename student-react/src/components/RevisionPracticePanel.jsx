@@ -16,6 +16,8 @@ export default function RevisionPracticePanel({
   enabled,
   practiceNavEnabled = false,
   practiceHighlightEnabled = false,
+  externalAttempt = null,
+  onClearExternalAttempt,
   supa,
   selectedFile,
   markedBlob,
@@ -72,6 +74,26 @@ export default function RevisionPracticePanel({
 
   useEffect(() => {
     if (!enabled) return;
+    if (externalAttempt) {
+      const counts = externalAttempt.labelCounts || {};
+      const entries = Object.entries(counts)
+        .map(([label, count]) => ({ label, count: Number(count) || 0 }))
+        .filter((entry) => entry.label && entry.count > 0)
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+        .slice(0, 10);
+
+      setLabelCounts(counts);
+      setTopLabels(entries);
+      setLastMarkEventId(externalAttempt.id || null);
+      setSelectedLabel((prev) => {
+        if (prev && entries.some((entry) => entry.label === prev)) return prev;
+        return entries[0]?.label || "";
+      });
+      setNoData(false);
+      setError("");
+      setLoading(false);
+      return;
+    }
     if (!supa || !selectedFile || !markedBlob) {
       setError("");
       setNoData(false);
@@ -151,7 +173,7 @@ export default function RevisionPracticePanel({
     return () => {
       isActive = false;
     };
-  }, [enabled, markedBlob, selectedFile, supa, debugEnabled]);
+  }, [enabled, markedBlob, selectedFile, supa, debugEnabled, externalAttempt]);
 
   useEffect(() => {
     if (!enabled || !selectedLabel || !supa || !selectedFile) {
@@ -253,6 +275,23 @@ export default function RevisionPracticePanel({
       {error ? <p className="helper-text error-text">{error}</p> : null}
 
       {loading ? <p className="helper-text">Loading revision data…</p> : null}
+
+      {externalAttempt ? (
+        <div className="helper-text practice-note">
+          Viewing attempt from{" "}
+          {externalAttempt?.createdAt
+            ? new Date(externalAttempt.createdAt).toLocaleString()
+            : "earlier"}{" "}
+          —{" "}
+          <button
+            type="button"
+            className="diagnostics-link"
+            onClick={() => onClearExternalAttempt?.()}
+          >
+            Back to latest
+          </button>
+        </div>
+      ) : null}
 
       {noData && !loading ? (
         <p className="helper-text">No revision data yet (mark again).</p>
