@@ -13,6 +13,8 @@ import DropZone from "./components/DropZone";
 import TechniquesPanel from "./components/TechniquesPanel";
 import MlaModal from "./components/MlaModal";
 import RevisionPracticePanel from "./components/RevisionPracticePanel";
+import StatusToasts from "./components/StatusToasts";
+import ErrorBoundary from "./components/ErrorBoundary";
 import DraftRestoreBanner from "./components/DraftRestoreBanner";
 import AttemptHistoryPanel from "./components/AttemptHistoryPanel";
 import { useAuthSession } from "./hooks/useAuthSession";
@@ -20,7 +22,6 @@ import { logEvent, logError } from "./lib/logger";
 import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getConfig, getConfigError } from "./config";
 import {
   buildMarkTextPayload as buildMarkTextPayloadShared,
-  exportDocx,
   parseTechniquesHeader as parseTechniquesHeaderShared
 } from "@shared/markingApi";
 import { downloadBlob } from "@shared/download";
@@ -35,6 +36,12 @@ import {
   highlightAllMatches,
   scrollAndFlash
 } from "./lib/previewNavigator";
+import {
+  extractErrorMessage,
+  fetchWithTimeout,
+  isAuthExpired,
+  makeAbortableTimeout
+} from "./lib/request";
 import { markEssay, markText } from "./services/markEssay";
 import { fetchAttemptHistory } from "./services/attemptHistory";
 import {
@@ -57,6 +64,8 @@ const EMPTY_TECHNIQUES = {
   raw: "",
   error: ""
 };
+
+const MAX_DOCX_BYTES = 15 * 1024 * 1024;
 
 function App() {
   const { supa, isChecking, authError, redirectToSignin } = useAuthSession();
@@ -91,6 +100,10 @@ function App() {
   const [attempts, setAttempts] = useState([]);
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [attemptsError, setAttemptsError] = useState("");
+  const [activeRequest, setActiveRequest] = useState(null);
+  const [toastQueue, setToastQueue] = useState([]);
+  const [fileValidationError, setFileValidationError] = useState("");
+  const [dragMessage, setDragMessage] = useState("");
   const lastExtractedRef = useRef("");
 
   const config = getConfig();
@@ -123,6 +136,38 @@ function App() {
       localStorage.getItem("vysti_practice_hl") === "1"
     );
   }, [config.featureFlags?.practiceHighlightReact]);
+  const hardeningEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.hardeningReact) ||
+      params.get("hardening") === "1" ||
+      localStorage.getItem("vysti_hardening") === "1"
+    );
+  }, [config.featureFlags?.hardeningReact]);
+  const cancelRequestsEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.cancelRequestsReact) ||
+      params.get("cancel") === "1" ||
+      localStorage.getItem("vysti_cancel") === "1"
+    );
+  }, [config.featureFlags?.cancelRequestsReact]);
+  const strictFileValidationEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.strictFileValidationReact) ||
+      params.get("strict") === "1" ||
+      localStorage.getItem("vysti_strict_files") === "1"
+    );
+  }, [config.featureFlags?.strictFileValidationReact]);
+  const statusToastsEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      Boolean(config.featureFlags?.statusToastsReact) ||
+      params.get("statusToasts") === "1" ||
+      localStorage.getItem("vysti_status_toasts") === "1"
+    );
+  }, [config.featureFlags?.statusToastsReact]);
   const autosaveEnabled = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return (
@@ -217,23 +262,50 @@ function App() {
     };
   }, [supa]);
 
-  const setError = (message) => {
+  const pushToast = (toast) => {
+    if (!statusToastsEnabled) return;
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToastQueue((prev) => [...prev, { id, ...toast }]);
+  };
+
+  const dismissToast = (id) => {
+    setToastQueue((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  const setError = (message, details = null) => {
     setStatus({ message, kind: "error" });
+    if (statusToastsEnabled) {
+      pushToast({ kind: "error", title: "Error", message, details });
+    }
   };
 
   const setSuccess = (message) => {
     setStatus({ message, kind: "success" });
+    if (statusToastsEnabled) {
+      pushToast({ kind: "success", title: "Success", message });
+    }
   };
 
   const clearStatus = () => {
     setStatus({ message: "", kind: "info" });
   };
 
+  const startRequest = (kind) => {
+    const abortable = makeAbortableTimeout(0);
+    setActiveRequest({ kind, cancel: abortable.cancel });
+    return abortable;
+  };
+
+  const endRequest = () => {
+    setActiveRequest(null);
+  };
+
   const handleSessionExpired = () => {
-    setStatus({ message: "Session expired. Please sign in again.", kind: "error" });
+    setStatus({ message: "Session expired—signing you back in…", kind: "error" });
     logEvent("session_expired");
     window.setTimeout(() => {
-      redirectToSignin();
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      redirectToSignin(returnTo);
     }, 150);
   };
 
@@ -300,8 +372,46 @@ function App() {
     );
   };
 
+  const validateFile = (file) => {
+    if (!file) return { ok: false, message: "No file selected." };
+    if (!isDocx(file)) {
+      return { ok: false, message: "Only .docx files are allowed." };
+    }
+    if (file.size > MAX_DOCX_BYTES) {
+      return {
+        ok: false,
+        message: "File is too large (max 15MB)."
+      };
+    }
+    return { ok: true, message: "" };
+  };
+
   const updateSelectedFile = (file) => {
-    if (!file || !isDocx(file)) {
+    if (strictFileValidationEnabled) {
+      const validation = validateFile(file);
+      if (!validation.ok) {
+        if (file) {
+          logError("Invalid file selected", {
+            fileName: file?.name || "",
+            reason: validation.message
+          });
+        }
+        setFileValidationError(validation.message);
+        setError(validation.message);
+        setSelectedFile(null);
+        setMarkedBlob(null);
+        setTechniques(EMPTY_TECHNIQUES);
+        setTechniquesParsed(null);
+        setLastMarkStatus(null);
+        setLastMarkError("");
+        setHasRevisedSinceMark(false);
+        setMarkedFilenameBase("");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+    } else if (!file || !isDocx(file)) {
       if (file) {
         setError("Please upload a .docx file.");
         logError("Invalid file type selected", { fileName: file?.name || "" });
@@ -321,6 +431,7 @@ function App() {
     }
 
     clearStatus();
+    setFileValidationError("");
     setSelectedFile(file);
     setMarkedBlob(null);
     setTechniques(EMPTY_TECHNIQUES);
@@ -338,6 +449,7 @@ function App() {
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
+    setDragMessage("");
     updateSelectedFile(file);
   };
 
@@ -345,6 +457,7 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
     setIsDragOver(false);
+    setDragMessage("");
     const file = event.dataTransfer?.files?.[0];
     updateSelectedFile(file);
   };
@@ -353,10 +466,23 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
     setIsDragOver(true);
+    if (!strictFileValidationEnabled) {
+      setDragMessage("Drop to upload");
+      return;
+    }
+    const item = event.dataTransfer?.items?.[0];
+    const file = item?.getAsFile?.() || event.dataTransfer?.files?.[0];
+    if (!file) {
+      setDragMessage("Drop to upload");
+      return;
+    }
+    const validation = validateFile(file);
+    setDragMessage(validation.ok ? "Drop to upload" : validation.message);
   };
 
   const handleDragLeave = () => {
     setIsDragOver(false);
+    setDragMessage("");
   };
 
   const handleClearFile = () => {
@@ -368,6 +494,7 @@ function App() {
     setLastMarkError("");
     setHasRevisedSinceMark(false);
     setMarkedFilenameBase("");
+    setFileValidationError("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -379,10 +506,18 @@ function App() {
       setError("Please select a .docx file first.");
       return;
     }
+    if (requestActive) return;
     setIsProcessing(true);
-    setStatus({ message: "Processing...", kind: "info" });
+    setStatus({
+      message: hardeningEnabled ? "Uploading..." : "Processing...",
+      kind: "info"
+    });
+    if (statusToastsEnabled) {
+      pushToast({ kind: "info", title: "Marking", message: "Uploading essay..." });
+    }
     setLastMarkStatus(null);
     setLastMarkError("");
+    const abortable = hardeningEnabled || cancelRequestsEnabled ? startRequest("mark") : null;
 
     try {
       const { blob, techniquesHeader, status: markStatus } = await markEssay({
@@ -390,7 +525,13 @@ function App() {
         file: selectedFile,
         mode,
         assignmentName,
-        onSessionExpired: handleSessionExpired
+        onSessionExpired: handleSessionExpired,
+        signal: abortable?.signal,
+        timeoutMs: hardeningEnabled ? 90000 : undefined
+      });
+      setStatus({
+        message: hardeningEnabled ? "Rendering preview..." : "Marked successfully. Scroll down to Preview.",
+        kind: "info"
       });
       setMarkedBlob(blob);
       setTechniques(parseTechniquesHeader(techniquesHeader));
@@ -407,11 +548,19 @@ function App() {
       setSuccess("Marked successfully. Scroll down to Preview.");
     } catch (err) {
       console.error("Mark failed", err);
-      const message = err?.message || "Failed to mark essay. Please try again.";
-      setLastMarkStatus({ status: err?.status ?? null, ok: false });
-      setLastMarkError(message);
-      setError(message);
+      if (err?.code === "TIMEOUT") {
+        setError("This took too long. Try again (or check connection).", err);
+      } else if (err?.code === "ABORTED") {
+        setStatus({ message: "Canceled.", kind: "info" });
+      } else {
+        const message = err?.message || "Failed to mark essay. Please try again.";
+        setLastMarkStatus({ status: err?.status ?? null, ok: false });
+        setLastMarkError(message);
+        setError(message, err);
+      }
     } finally {
+      abortable?.clear?.();
+      if (abortable) endRequest();
       setIsProcessing(false);
     }
   };
@@ -447,6 +596,7 @@ function App() {
     setLastMarkError("");
     setHasRevisedSinceMark(false);
     setMarkedFilenameBase("");
+    setFileValidationError("");
     setDraftMeta(null);
     setDraftDismissed(false);
     setSelectedAttempt(null);
@@ -459,6 +609,7 @@ function App() {
 
   const handleRecheck = async () => {
     if (!markedBlob) return;
+    if (requestActive) return;
     const text = extractPreviewTextFromContainer(previewRef.current);
     if (!text) {
       setError("Please add text to the preview before rechecking.");
@@ -467,12 +618,18 @@ function App() {
 
     setIsRechecking(true);
     setStatus({ message: "Rechecking...", kind: "info" });
+    if (statusToastsEnabled) {
+      pushToast({ kind: "info", title: "Rechecking", message: "Rechecking essay..." });
+    }
+    const abortable = hardeningEnabled || cancelRequestsEnabled ? startRequest("recheck") : null;
 
     try {
       const { blob, techniquesHeader } = await markText({
         supa,
         payload: buildMarkTextPayload(text),
-        onSessionExpired: handleSessionExpired
+        onSessionExpired: handleSessionExpired,
+        signal: abortable?.signal,
+        timeoutMs: hardeningEnabled ? 60000 : undefined
       });
       setMarkedBlob(blob);
       setTechniques(parseTechniquesHeader(techniquesHeader));
@@ -486,15 +643,31 @@ function App() {
       setSuccess("Rechecked ✅");
     } catch (err) {
       console.error("Recheck failed", err);
-      const message = err?.message || "Failed to recheck essay. Please try again.";
-      setError(message);
+      if (err?.code === "TIMEOUT") {
+        setError("This took too long. Try again (or check connection).", err);
+      } else if (err?.code === "ABORTED") {
+        setStatus({ message: "Canceled.", kind: "info" });
+      } else {
+        const message = err?.message || "Failed to recheck essay. Please try again.";
+        setError(message, err);
+      }
     } finally {
+      abortable?.clear?.();
+      if (abortable) endRequest();
       setIsRechecking(false);
     }
   };
 
   const handlePreviewEdited = () => {
     setHasRevisedSinceMark(true);
+  };
+
+  const handleCancelRequest = () => {
+    if (!cancelRequestsEnabled) return;
+    if (!activeRequest?.cancel) return;
+    activeRequest.cancel();
+    pushToast({ kind: "warn", title: "Canceled", message: "Request canceled." });
+    setStatus({ message: "Canceled.", kind: "info" });
   };
 
   const restoreDraft = async (draftText) => {
@@ -514,12 +687,29 @@ function App() {
         return;
       }
       const outputName = buildRevisedFilename();
-      const blob = await exportDocx({
-        apiBaseUrl: apiBase,
-        token: data.session.access_token,
-        fileName: outputName,
-        text: draftText
-      });
+      const response = await fetchWithTimeout(
+        `${apiBase}/export_docx`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.session.access_token}`
+          },
+          body: JSON.stringify({ file_name: outputName, text: draftText })
+        },
+        { timeoutMs: 60000 }
+      );
+
+      if (isAuthExpired(response)) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await extractErrorMessage(response));
+      }
+
+      const blob = await response.blob();
       setMarkedBlob(blob);
       setHasRevisedSinceMark(true);
       setStatus({ kind: "success", message: "Draft restored into preview." });
@@ -671,6 +861,7 @@ function App() {
 
   const handleDownloadRevised = async ({ includeMla, fields }) => {
     if (!markedBlob) return;
+    if (requestActive) return;
     if (!supa) {
       setError("Supabase is not available.");
       return;
@@ -683,6 +874,10 @@ function App() {
 
     setIsDownloading(true);
     setStatus({ message: "Preparing download...", kind: "info" });
+    if (statusToastsEnabled) {
+      pushToast({ kind: "info", title: "Exporting", message: "Preparing download..." });
+    }
+    const abortable = hardeningEnabled || cancelRequestsEnabled ? startRequest("export") : null;
 
     try {
       const { data, error } = await supa.auth.getSession();
@@ -700,24 +895,46 @@ function App() {
       const finalText = includeMla
         ? `${buildMlaHeader(fields)}${stripStudentHeaderBeforeTitleForDownload(text)}`
         : text;
-      const blob = await exportDocx({
-        apiBaseUrl: apiBase,
-        token: data.session.access_token,
-        fileName: outputName,
-        text: finalText
-      });
+      const response = await fetchWithTimeout(
+        `${apiBase}/export_docx`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.session.access_token}`
+          },
+          body: JSON.stringify({ file_name: outputName, text: finalText }),
+          signal: abortable?.signal
+        },
+        { timeoutMs: hardeningEnabled ? 60000 : undefined }
+      );
+
+      if (isAuthExpired(response)) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await extractErrorMessage(response));
+      }
+
+      const blob = await response.blob();
       downloadBlob(blob, outputName);
       setHasRevisedSinceMark(false);
       setSuccess("Revised essay downloaded.");
     } catch (err) {
       console.error("Download revised failed", err);
-      if (err?.code === "SESSION_EXPIRED") {
-        handleSessionExpired();
-        return;
+      if (err?.code === "TIMEOUT") {
+        setError("This took too long. Try again (or check connection).", err);
+      } else if (err?.code === "ABORTED") {
+        setStatus({ message: "Canceled.", kind: "info" });
+      } else {
+        const message = err?.message || "Failed to download revised essay.";
+        setError(message, err);
       }
-      const message = err?.message || "Failed to download revised essay.";
-      setError(message);
     } finally {
+      abortable?.clear?.();
+      if (abortable) endRequest();
       setIsDownloading(false);
       setShowMlaModal(false);
     }
@@ -764,38 +981,58 @@ function App() {
 
   const authReady = !isChecking && !authError;
   const hasResults = Boolean(status.message) || Boolean(markedBlob);
+  const requestActive = hardeningEnabled || cancelRequestsEnabled ? Boolean(activeRequest) : false;
   const statusClass =
     status.kind === "success" ? " success" : status.kind === "error" ? " error" : "";
-  const diagnosticsData = {
-    buildId: config.buildId,
-    url: window.location.href,
-    uiMode: (() => {
-      try {
-        return localStorage.getItem("uiMode") || "";
-      } catch (err) {
-        return "";
-      }
-    })(),
-    apiBaseUrl: apiBase,
-    markUrl,
-    markTextUrl,
+  const diagnosticsData = useMemo(() => {
+    if (!showDiagnostics) return null;
+    return {
+      buildId: config.buildId,
+      url: window.location.href,
+      uiMode: (() => {
+        try {
+          return localStorage.getItem("uiMode") || "";
+        } catch (err) {
+          return "";
+        }
+      })(),
+      apiBaseUrl: apiBase,
+      markUrl,
+      markTextUrl,
+      exportUrl,
+      techniquesParsedCount: Array.isArray(techniquesParsed) ? techniquesParsed.length : null,
+      supabaseUrl: config.supabaseUrl,
+      auth: {
+        hasSession: authSnapshot.hasSession,
+        email: authSnapshot.email
+      },
+      lastMark: {
+        status: lastMarkStatus?.status ?? null,
+        ok: lastMarkStatus?.ok ?? null,
+        error: lastMarkError
+      },
+      configError: configError ? configError.message || String(configError) : ""
+    };
+  }, [
+    apiBase,
+    authSnapshot,
+    config.buildId,
+    config.supabaseUrl,
+    configError,
     exportUrl,
-    techniquesParsedCount: Array.isArray(techniquesParsed) ? techniquesParsed.length : null,
-    supabaseUrl: config.supabaseUrl,
-    auth: {
-      hasSession: authSnapshot.hasSession,
-      email: authSnapshot.email
-    },
-    lastMark: {
-      status: lastMarkStatus?.status ?? null,
-      ok: lastMarkStatus?.ok ?? null,
-      error: lastMarkError
-    },
-    configError: configError ? configError.message || String(configError) : ""
-  };
+    lastMarkError,
+    lastMarkStatus,
+    markTextUrl,
+    markUrl,
+    showDiagnostics,
+    techniquesParsed
+  ]);
 
   return (
     <div className="student-react-shell">
+      {statusToastsEnabled ? (
+        <StatusToasts toasts={toastQueue} onDismiss={dismissToast} />
+      ) : null}
       {config.featureFlags?.reactBeta ? <BetaBanner /> : null}
       <Topbar
         onProgress={() => window.location.assign("/student_progress.html")}
@@ -845,7 +1082,7 @@ function App() {
               className={`primary-btn${isProcessing ? " is-loading loading-cursor" : ""}`}
               id="checkBtn"
               type="submit"
-              disabled={!selectedFile || isProcessing}
+              disabled={!selectedFile || isProcessing || requestActive}
             >
               {isProcessing ? "Processing" : "Mark my essay"}
             </button>
@@ -854,6 +1091,8 @@ function App() {
           <DropZone
             selectedFile={selectedFile}
             isDragOver={isDragOver}
+            dragMessage={dragMessage}
+            validationError={fileValidationError}
             onBrowseClick={handleBrowseClick}
             onFileChange={handleFileChange}
             onDrop={handleDrop}
@@ -873,6 +1112,15 @@ function App() {
               {status.message}
             </div>
             <div className="results-actions">
+              {cancelRequestsEnabled && activeRequest ? (
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={handleCancelRequest}
+                >
+                  Cancel {activeRequest.kind}
+                </button>
+              ) : null}
               {practiceEnabled ? (
                 <button
                   className="secondary-btn"
@@ -894,38 +1142,50 @@ function App() {
           </section>
         </form>
 
-        <PreviewPanel
-          markedBlob={markedBlob}
-          zoom={zoom}
-          onZoomChange={setZoom}
-          previewRef={previewRef}
-          onRecheck={handleRecheck}
-          isRechecking={isRechecking}
-          isProcessing={isProcessing}
-          onEdit={handlePreviewEdited}
-          onDownloadMarked={handleDownload}
-          onDownloadRevised={handleOpenDownloadModal}
-          isDownloading={isDownloading}
-          hasRevisedSinceMark={hasRevisedSinceMark}
-        />
+        <ErrorBoundary
+          inline
+          title="Something broke while rendering the preview."
+          message="Try reloading or use the classic view."
+        >
+          <PreviewPanel
+            markedBlob={markedBlob}
+            zoom={zoom}
+            onZoomChange={setZoom}
+            previewRef={previewRef}
+            onRecheck={handleRecheck}
+            isRechecking={isRechecking}
+            isProcessing={isProcessing || requestActive}
+            onEdit={handlePreviewEdited}
+            onDownloadMarked={handleDownload}
+            onDownloadRevised={handleOpenDownloadModal}
+            isDownloading={isDownloading}
+            hasRevisedSinceMark={hasRevisedSinceMark}
+          />
+        </ErrorBoundary>
 
         {practiceEnabled && showRevisionPractice ? (
-          <RevisionPracticePanel
-            enabled={practiceEnabled}
-            practiceNavEnabled={practiceNavEnabled}
-            practiceHighlightEnabled={practiceHighlightEnabled}
-            externalAttempt={selectedAttempt}
-            onClearExternalAttempt={() => setSelectedAttempt(null)}
-            supa={supa}
-            selectedFile={selectedFile}
-            markedBlob={markedBlob}
-            previewRef={previewRef}
-            techniques={techniques}
-            onOpenDiagnostics={() => setShowDiagnostics(true)}
-            onNavigateToExample={handleNavigateToExample}
-            onHighlightExamples={handleHighlightExamples}
-            onClearHighlights={handleClearHighlights}
-          />
+          <ErrorBoundary
+            inline
+            title="Something broke while rendering revision practice."
+            message="Try reloading or continue without this panel."
+          >
+            <RevisionPracticePanel
+              enabled={practiceEnabled}
+              practiceNavEnabled={practiceNavEnabled}
+              practiceHighlightEnabled={practiceHighlightEnabled}
+              externalAttempt={selectedAttempt}
+              onClearExternalAttempt={() => setSelectedAttempt(null)}
+              supa={supa}
+              selectedFile={selectedFile}
+              markedBlob={markedBlob}
+              previewRef={previewRef}
+              techniques={techniques}
+              onOpenDiagnostics={() => setShowDiagnostics(true)}
+              onNavigateToExample={handleNavigateToExample}
+              onHighlightExamples={handleHighlightExamples}
+              onClearHighlights={handleClearHighlights}
+            />
+          </ErrorBoundary>
         ) : null}
 
         {historyEnabled ? (
@@ -946,11 +1206,17 @@ function App() {
           data={techniques}
         />
 
-        <DiagnosticsPanel
-          isOpen={showDiagnostics}
-          onToggle={() => setShowDiagnostics((prev) => !prev)}
-          data={diagnosticsData}
-        />
+        <ErrorBoundary
+          inline
+          title="Something broke while rendering diagnostics."
+          message="Try reloading or continue without diagnostics."
+        >
+          <DiagnosticsPanel
+            isOpen={showDiagnostics}
+            onToggle={() => setShowDiagnostics((prev) => !prev)}
+            data={diagnosticsData}
+          />
+        </ErrorBoundary>
         <Footer />
       </main>
 

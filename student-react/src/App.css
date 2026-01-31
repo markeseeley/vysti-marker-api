@@ -79,6 +79,72 @@ button.loading-cursor::after {
   margin-top: 0;
 }
 
+.drop-zone {
+  position: relative;
+}
+
+.dropzone-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  font-weight: 700;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.dropzone-error {
+  margin-top: 8px;
+  color: #b00020;
+  font-size: var(--fs-xs);
+}
+
+.status-toasts {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  gap: 12px;
+  z-index: 60;
+  width: min(360px, 90vw);
+}
+
+.toast {
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  display: grid;
+  gap: 8px;
+}
+
+.toast-info {
+  border-left: 4px solid #0b62d6;
+}
+
+.toast-success {
+  border-left: 4px solid #1a7f37;
+}
+
+.toast-warn {
+  border-left: 4px solid #b76b00;
+}
+
+.toast-error {
+  border-left: 4px solid #b00020;
+}
+
+.toast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .practice-card {
   margin-top: 24px;
 }
