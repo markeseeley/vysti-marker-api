@@ -2,7 +2,10 @@ export default function Topbar({
   onProgress,
   onTeacher,
   onRepeatTutorial,
-  onSignOut
+  onSignOut,
+  onBackToClassic,
+  onSwitchToReact,
+  showReactSwitch
 }) {
   return (
     <header className="topbar">
@@ -14,6 +17,14 @@ export default function Topbar({
 
       <div className="actions">
         <div className="ph-badge">Project Headache ✅</div>
+        <button className="topbar-btn" type="button" onClick={onBackToClassic}>
+          Back to classic
+        </button>
+        {showReactSwitch ? (
+          <button className="topbar-btn" type="button" onClick={onSwitchToReact}>
+            Switch to React (beta)
+          </button>
+        ) : null}
         <button className="topbar-btn" type="button" onClick={onProgress}>
           Progress
         </button>
