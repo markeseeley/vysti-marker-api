@@ -96,6 +96,7 @@ function App() {
   const [showRevisionPractice, setShowRevisionPractice] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorStack, setPreviewErrorStack] = useState("");
+  const [uiMode, setUiModeState] = useState("");
   const [draftMeta, setDraftMeta] = useState(null);
   const [draftDismissed, setDraftDismissed] = useState(false);
   const [selectedAttempt, setSelectedAttempt] = useState(null);
@@ -123,6 +124,18 @@ function App() {
       localStorage.getItem("vysti_practice") === "1"
     );
   }, [config.featureFlags?.revisionPracticeReact]);
+  const rolloutConfig = config.rollout?.studentReact || {};
+  const allowEmails = (rolloutConfig.allowEmails || []).map((item) =>
+    String(item || "").toLowerCase()
+  );
+  const allowUserIds = rolloutConfig.allowUserIds || [];
+  const isAllowlisted =
+    (authSnapshot.email && allowEmails.includes(authSnapshot.email.toLowerCase())) ||
+    (userId && allowUserIds.includes(userId));
+  const canShowReactSwitch = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return isAllowlisted || params.get("react") === "1";
+  }, [isAllowlisted]);
   const practiceNavEnabled = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return (
@@ -196,6 +209,24 @@ function App() {
     () => MODE_RULE_DEFAULTS[mode] || MODE_RULE_DEFAULTS.textual_analysis,
     [mode]
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("react") === "1") {
+      try {
+        localStorage.setItem("uiMode", "react");
+        setUiModeState("react");
+      } catch (err) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setUiModeState(localStorage.getItem("uiMode") || "");
+    } catch (err) {
+      setUiModeState("");
+    }
+  }, []);
 
   useEffect(() => {
     if (practiceEnabled) {
@@ -995,6 +1026,30 @@ function App() {
     }
   };
 
+  const setUiMode = (value) => {
+    try {
+      localStorage.setItem("uiMode", value);
+      setUiModeState(value);
+    } catch (err) {}
+  };
+
+  const clearUiMode = () => {
+    try {
+      localStorage.removeItem("uiMode");
+      setUiModeState("");
+    } catch (err) {}
+  };
+
+  const handleBackToClassic = () => {
+    setUiMode("classic");
+    window.location.replace("/student.html?classic=1");
+  };
+
+  const handleSwitchToReact = () => {
+    setUiMode("react");
+    window.location.replace("/student_react.html?react=1");
+  };
+
   const handleRepeatTutorial = () => {
     TOUR_KEYS.forEach((key) => localStorage.removeItem(key));
     tourRef.current?.restartTour({ force: true });
@@ -1084,6 +1139,9 @@ function App() {
         }}
         onRepeatTutorial={handleRepeatTutorial}
         onSignOut={handleSignOut}
+        onBackToClassic={handleBackToClassic}
+        onSwitchToReact={handleSwitchToReact}
+        showReactSwitch={canShowReactSwitch}
       />
 
       <StudentTour
@@ -1262,6 +1320,11 @@ function App() {
             isOpen={showDiagnostics}
             onToggle={() => setShowDiagnostics((prev) => !prev)}
             data={diagnosticsData}
+            rolloutConfig={rolloutConfig}
+            uiMode={uiMode}
+            buildId={config.buildId}
+            onSetUiMode={setUiMode}
+            onClearUiMode={clearUiMode}
           />
         </ErrorBoundary>
         <Footer />

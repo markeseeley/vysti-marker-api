@@ -599,3 +599,15 @@ button.loading-cursor::after {
   white-space: pre-wrap;
   color: var(--text);
 }
+
+.diagnostics-controls {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}

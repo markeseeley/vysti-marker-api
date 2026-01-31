@@ -22,7 +22,10 @@ const renderLoading = () => {
 
 const searchParams = new URLSearchParams(window.location.search);
 if (searchParams.get("classic") === "1") {
-  window.location.replace("/student.html");
+  try {
+    localStorage.setItem("uiMode", "classic");
+  } catch (err) {}
+  window.location.replace("/student.html?classic=1");
 } else {
   renderLoading();
   (async () => {
