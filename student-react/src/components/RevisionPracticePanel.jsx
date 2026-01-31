@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { extractPreviewText } from "@shared/previewText";
 import { getConfig } from "../config";
 import {
@@ -39,6 +39,8 @@ export default function RevisionPracticePanel({
   const [wordCount, setWordCount] = useState(null);
   const [userId, setUserId] = useState("");
   const [noData, setNoData] = useState(false);
+  const wordCountTimerRef = useRef(0);
+  const lastExtractedRef = useRef("");
 
   const debugEnabled = Boolean(getConfig()?.featureFlags?.debugRevisionPractice);
 
@@ -59,8 +61,13 @@ export default function RevisionPracticePanel({
     if (!container) return undefined;
 
     const update = () => {
-      const text = extractPreviewText(container);
-      setWordCount(getWordCount(text));
+      window.clearTimeout(wordCountTimerRef.current);
+      wordCountTimerRef.current = window.setTimeout(() => {
+        const text = extractPreviewText(container);
+        if (text === lastExtractedRef.current) return;
+        lastExtractedRef.current = text;
+        setWordCount(getWordCount(text));
+      }, 900);
     };
 
     update();
@@ -69,6 +76,7 @@ export default function RevisionPracticePanel({
     return () => {
       container.removeEventListener("input", update);
       container.removeEventListener("paste", update);
+      window.clearTimeout(wordCountTimerRef.current);
     };
   }, [enabled, markedBlob, previewRef]);
 
