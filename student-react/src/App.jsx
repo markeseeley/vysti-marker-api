@@ -1014,7 +1014,9 @@ function App() {
 
   const handleSignOut = async () => {
     if (!supa) {
-      redirectToSignin();
+      window.location.replace(
+        `/signin.html?redirect=${encodeURIComponent("/student_react.html")}`
+      );
       return;
     }
 
@@ -1022,7 +1024,9 @@ function App() {
       await supa.auth.signOut();
     } finally {
       localStorage.removeItem("vysti_role");
-      redirectToSignin();
+      window.location.replace(
+        `/signin.html?redirect=${encodeURIComponent("/student_react.html")}`
+      );
     }
   };
 
