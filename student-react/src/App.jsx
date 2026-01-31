@@ -13,6 +13,7 @@ import DropZone from "./components/DropZone";
 import TechniquesPanel from "./components/TechniquesPanel";
 import MlaModal from "./components/MlaModal";
 import RevisionPracticePanel from "./components/RevisionPracticePanel";
+import MostCommonIssuesChart from "./components/MostCommonIssuesChart";
 import StatusToasts from "./components/StatusToasts";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DraftRestoreBanner from "./components/DraftRestoreBanner";
@@ -44,6 +45,7 @@ import {
 } from "./lib/request";
 import { markEssay, markText } from "./services/markEssay";
 import { fetchAttemptHistory } from "./services/attemptHistory";
+import { fetchLatestMarkEvent } from "./services/revisionPractice";
 import {
   deleteDraft,
   loadDraft,
@@ -94,6 +96,12 @@ function App() {
   const [showMlaModal, setShowMlaModal] = useState(false);
   const [markedFilenameBase, setMarkedFilenameBase] = useState("");
   const [showRevisionPractice, setShowRevisionPractice] = useState(false);
+  const [mciLabelCounts, setMciLabelCounts] = useState({});
+  const [mciIssues, setMciIssues] = useState([]);
+  const [mciLoading, setMciLoading] = useState(false);
+  const [mciError, setMciError] = useState("");
+  const [mciSelectedLabel, setMciSelectedLabel] = useState("");
+  const [mciMarkEventId, setMciMarkEventId] = useState(null);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorStack, setPreviewErrorStack] = useState("");
   const [uiMode, setUiModeState] = useState("");
@@ -233,6 +241,77 @@ function App() {
       setShowRevisionPractice(true);
     }
   }, [practiceEnabled]);
+
+  useEffect(() => {
+    if (!practiceEnabled || !supa || !selectedFile || !markedBlob) {
+      setMciLabelCounts({});
+      setMciIssues([]);
+      setMciError("");
+      setMciLoading(false);
+      setMciMarkEventId(null);
+      return;
+    }
+
+    if (selectedAttempt) {
+      const counts = selectedAttempt.labelCounts || {};
+      const issues = selectedAttempt.issues || [];
+      setMciLabelCounts(counts);
+      setMciIssues(issues);
+      setMciError("");
+      setMciLoading(false);
+      setMciMarkEventId(selectedAttempt.id || null);
+      if (!mciSelectedLabel) {
+        const firstLabel = Object.keys(counts || {})[0] || "";
+        setMciSelectedLabel(firstLabel);
+      }
+      return;
+    }
+
+    let isActive = true;
+    const load = async () => {
+      setMciLoading(true);
+      setMciError("");
+      try {
+        const { data, error } = await supa.auth.getSession();
+        if (error || !data?.session?.user?.id) {
+          throw new Error("Session expired. Please sign in again.");
+        }
+        const { markEvent, labelCountsFiltered, issuesFiltered } =
+          await fetchLatestMarkEvent({
+            supa,
+            userId: data.session.user.id,
+            fileName: selectedFile.name
+          });
+        if (!isActive) return;
+        setMciLabelCounts(labelCountsFiltered || {});
+        setMciIssues(issuesFiltered || []);
+        setMciMarkEventId(markEvent?.id || null);
+        if (!mciSelectedLabel) {
+          const firstLabel = Object.keys(labelCountsFiltered || {})[0] || "";
+          setMciSelectedLabel(firstLabel);
+        }
+      } catch (err) {
+        if (!isActive) return;
+        setMciError(err?.message || "Failed to load issue data.");
+        setMciLabelCounts({});
+        setMciIssues([]);
+        setMciMarkEventId(null);
+      } finally {
+        if (isActive) setMciLoading(false);
+      }
+    };
+    load();
+    return () => {
+      isActive = false;
+    };
+  }, [
+    practiceEnabled,
+    supa,
+    selectedFile,
+    markedBlob,
+    selectedAttempt,
+    mciSelectedLabel
+  ]);
 
   useEffect(() => {
     if (!markedBlob) {
@@ -1252,6 +1331,23 @@ function App() {
                 Clear / Start over
               </button>
             </div>
+            {practiceEnabled ? (
+              <>
+                {mciLoading ? (
+                  <p className="helper-text">Loading issue data…</p>
+                ) : null}
+                {mciError ? <p className="helper-text error-text">{mciError}</p> : null}
+                <MostCommonIssuesChart
+                  labelCounts={mciLabelCounts}
+                  issues={mciIssues}
+                  markEventId={mciMarkEventId}
+                  onSelectLabel={(label) => {
+                    setMciSelectedLabel(label);
+                    setShowRevisionPractice(true);
+                  }}
+                />
+              </>
+            ) : null}
           </section>
         </form>
 
@@ -1298,6 +1394,8 @@ function App() {
               markedBlob={markedBlob}
               previewRef={previewRef}
               techniques={techniques}
+              selectedLabelOverride={mciSelectedLabel}
+              onSelectedLabelChange={(label) => setMciSelectedLabel(label)}
               onOpenDiagnostics={() => setShowDiagnostics(true)}
               onNavigateToExample={handleNavigateToExample}
               onHighlightExamples={handleHighlightExamples}
