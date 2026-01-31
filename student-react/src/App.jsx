@@ -140,10 +140,14 @@ function App() {
   const isAllowlisted =
     (authSnapshot.email && allowEmails.includes(authSnapshot.email.toLowerCase())) ||
     (userId && allowUserIds.includes(userId));
+  const rolloutDebugEnabled = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("rolloutDebug") === "1";
+  }, []);
   const canShowReactSwitch = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
-    return isAllowlisted || params.get("react") === "1";
-  }, [isAllowlisted]);
+    return isAllowlisted || params.get("react") === "1" || rolloutDebugEnabled;
+  }, [isAllowlisted, rolloutDebugEnabled]);
   const practiceNavEnabled = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return (
@@ -220,13 +224,13 @@ function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("react") === "1") {
+    if (params.get("react") === "1" && (isAllowlisted || rolloutDebugEnabled)) {
       try {
         localStorage.setItem("uiMode", "react");
         setUiModeState("react");
       } catch (err) {}
     }
-  }, []);
+  }, [isAllowlisted, rolloutDebugEnabled]);
 
   useEffect(() => {
     try {
@@ -1129,6 +1133,13 @@ function App() {
   };
 
   const handleSwitchToReact = () => {
+    if (!isAllowlisted && !rolloutDebugEnabled) {
+      setStatus({
+        message: "React beta is currently allowlist-only. Ask a teacher for access.",
+        kind: "error"
+      });
+      return;
+    }
     setUiMode("react");
     window.location.replace("/student_react.html?react=1");
   };
