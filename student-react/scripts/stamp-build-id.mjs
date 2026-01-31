@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
-const PLACEHOLDER = "__APP_BUILD_ID__";
+const PLACEHOLDER = "APP_BUILD_ID_PLACEHOLDER";
 
 function getBuildId() {
   const envValue = (process.env.APP_BUILD_ID || "").trim();
