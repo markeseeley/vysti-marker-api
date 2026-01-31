@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getDebugInfo } from "../lib/logger";
+import { redactDebugPayload } from "../lib/redactDebug";
 
 export default function DiagnosticsPanel({
   data,
@@ -34,7 +35,8 @@ export default function DiagnosticsPanel({
   const debugPayload = useMemo(() => {
     if (!isVisible) return "";
     const info = data || getDebugInfo();
-    return JSON.stringify(info, null, 2);
+    const redacted = redactDebugPayload(info);
+    return JSON.stringify(redacted, null, 2);
   }, [data, isVisible]);
 
   const handleCopy = async () => {
