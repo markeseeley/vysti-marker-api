@@ -30,7 +30,8 @@
       ],
       "allowUserIds": [],
       "denyEmails": [],
-      "minBuildHealthcheck": true
+      "minBuildHealthcheck": true,
+      "logDecisions": true
     }
   }
 }

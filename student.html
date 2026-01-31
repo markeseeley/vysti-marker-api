@@ -25,12 +25,14 @@
 
       const forceClassic = forceClassicParam || uiMode === "classic";
       const forceReact = !forceClassicParam && (forceReactParam || uiMode === "react");
+      let logEnabled = true;
 
       const logDecision = (decision, reason, details = {}) => {
+        if (!logEnabled) return;
         const parts = [`decision=${decision}`, `reason=${reason}`];
-        if (details.user) parts.push(`user=${details.user}`);
+        if (details.userId) parts.push(`userId=${details.userId}`);
         if (typeof details.bucket === "number") parts.push(`bucket=${details.bucket}`);
-        if (typeof details.percentage === "number") parts.push(`percentage=${details.percentage}`);
+        if (typeof details.percentage === "number") parts.push(`pct=${details.percentage}`);
         console.log(`[rollout] ${parts.join(" ")}`);
       };
 
@@ -38,37 +40,35 @@
         const nextParams = new URLSearchParams(params);
         nextParams.delete("classic");
         nextParams.delete("react");
+        nextParams.set("from", "classic");
         const query = nextParams.toString();
         return `/student_react.html${query ? `?${query}` : ""}`;
       };
 
       const checkHealthcheck = async (enabled) => {
         if (!enabled) return true;
-        try {
-          const head = await fetch("/assets/student-react/main.js", {
-            method: "HEAD",
-            cache: "no-store"
-          });
-          if (head.ok) return true;
-        } catch (err) {}
-        try {
-          const get = await fetch("/assets/student-react/main.js", { cache: "no-store" });
-          return get.ok;
-        } catch (err) {
-          return false;
+        const urls = [
+          "/student_react.html",
+          "/assets/student-react/main.js",
+          "/assets/student-react/assets/index.css",
+          "/shared/runtimeConfig.js"
+        ];
+        for (const url of urls) {
+          try {
+            const head = await fetch(url, { method: "HEAD", cache: "no-store" });
+            if (head.ok) continue;
+          } catch (err) {}
+          try {
+            const get = await fetch(url, { cache: "no-store" });
+            if (!get.ok) return false;
+          } catch (err) {
+            return false;
+          }
         }
+        return true;
       };
 
-      const hashToBucket = async (value) => {
-        if (window.crypto?.subtle && window.TextEncoder) {
-          try {
-            const data = new TextEncoder().encode(value);
-            const digest = await window.crypto.subtle.digest("SHA-256", data);
-            const bytes = new Uint8Array(digest);
-            const prefix = (bytes[0] << 8) | bytes[1];
-            return prefix % 100;
-          } catch (err) {}
-        }
+      const hashToBucket = (value) => {
         let hash = 2166136261;
         for (let i = 0; i < value.length; i += 1) {
           hash ^= value.charCodeAt(i);
@@ -82,11 +82,6 @@
       const maybeRedirect = async (session) => {
         if (rolloutState.ran) return;
         rolloutState.ran = true;
-
-        if (!session) {
-          logDecision("classic", "no-session");
-          return;
-        }
 
         if (forceClassic) {
           logDecision("classic", "override-classic");
@@ -105,9 +100,15 @@
         }
 
         const rollout = (config && config.rollout && config.rollout.studentReact) || {};
+        logEnabled = rollout.logDecisions === true;
 
         if (rollout.killSwitch) {
           logDecision("classic", "killswitch");
+          return;
+        }
+
+        if (!session) {
+          logDecision("classic", "no-session");
           return;
         }
 
@@ -117,9 +118,10 @@
         const denyEmails = (rollout.denyEmails || []).map((item) =>
           String(item || "").toLowerCase()
         );
+        const denyUserIds = rollout.denyUserIds || [];
 
-        if (email && denyEmails.includes(email)) {
-          logDecision("classic", "denied");
+        if ((email && denyEmails.includes(email)) || (userId && denyUserIds.includes(userId))) {
+          logDecision("classic", "denied", { userId: userId || email });
           return;
         }
 
@@ -144,37 +146,41 @@
           eligible = true;
           reason = "allowlist";
         } else if (!enabled || percentage <= 0) {
-          logDecision("classic", "rollout-disabled");
+          logDecision("classic", "rollout-disabled", { userId: userId || email, percentage });
           return;
         } else {
           const hashSource = userId || email;
           if (!hashSource) {
-            logDecision("classic", "no-identifier");
+            logDecision("classic", "no-identifier", { userId: "unknown" });
             return;
           }
-          bucket = await hashToBucket(hashSource);
+          bucket = hashToBucket(hashSource);
           if (bucket < percentage) {
             eligible = true;
             reason = "bucket";
           } else {
-            logDecision("classic", "bucket", { bucket, percentage });
+            logDecision("classic", "bucket", { bucket, percentage, userId: userId || email });
             return;
           }
         }
 
         if (!eligible) {
-          logDecision("classic", "ineligible");
+          logDecision("classic", "ineligible", { userId: userId || email, percentage });
           return;
         }
 
         const healthOk = await checkHealthcheck(rollout.minBuildHealthcheck !== false);
         if (!healthOk) {
-          logDecision("classic", "healthcheck-failed", { bucket, percentage });
+          logDecision("classic", "healthcheck-failed", {
+            bucket,
+            percentage,
+            userId: userId || email
+          });
           return;
         }
 
         logDecision("react", reason, {
-          user: email || userId || "unknown",
+          userId: userId || email || "unknown",
           bucket,
           percentage
         });
