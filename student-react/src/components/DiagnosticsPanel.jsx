@@ -6,9 +6,11 @@ export default function DiagnosticsPanel({
   isOpen,
   onToggle,
   rolloutConfig,
+  rolloutReason,
   uiMode,
   buildId,
-  onSetUiMode,
+  onForceClassic,
+  onForceReact,
   onClearUiMode
 }) {
   const [localOpen, setLocalOpen] = useState(false);
@@ -48,6 +50,9 @@ export default function DiagnosticsPanel({
   const rolloutSummary = rolloutConfig
     ? JSON.stringify(rolloutConfig, null, 2)
     : "Missing rollout config";
+  const rolloutReasonSummary = rolloutReason
+    ? JSON.stringify(rolloutReason, null, 2)
+    : "No rollout reason";
 
   return (
     <div className="diagnostics">
@@ -108,14 +113,14 @@ export default function DiagnosticsPanel({
               <button
                 type="button"
                 className="secondary-btn"
-                onClick={() => onSetUiMode?.("classic")}
+                onClick={onForceClassic}
               >
                 Force Classic
               </button>
               <button
                 type="button"
                 className="secondary-btn"
-                onClick={() => onSetUiMode?.("react")}
+                onClick={onForceReact}
               >
                 Force React
               </button>
@@ -128,6 +133,7 @@ export default function DiagnosticsPanel({
               </button>
             </div>
           </div>
+          <pre className="diagnostics-pre">{rolloutReasonSummary}</pre>
           <pre className="diagnostics-pre">{rolloutSummary}</pre>
           <pre className="diagnostics-pre">{debugPayload}</pre>
         </div>
