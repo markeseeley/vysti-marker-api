@@ -3,14 +3,15 @@ import { extractPreviewTextFromContainer } from "../lib/previewText";
 import { getConfig } from "../config";
 import {
   fetchIssueExamples,
+  fetchIssueExamplesIndex,
   fetchLatestMarkEvent
 } from "../services/revisionPractice";
 import StatsPanel from "./StatsPanel";
-import { getApiBaseUrl } from "@shared/runtimeConfig";
-import { extractErrorMessage, fetchWithTimeout, isAuthExpired } from "../lib/request";
 import { normalizeForCompare, normalizeLabelTrim } from "../lib/normalize";
 import { applyRewriteToPreview } from "../lib/applyRewriteToPreview";
+import { checkRevision } from "../services/revisionCheck";
 import {
+  clearRevisionPracticeState,
   loadRevisionPracticeState,
   saveRevisionPracticeState
 } from "../lib/revisionPracticeStorage";
@@ -79,6 +80,7 @@ export default function RevisionPracticePanel({
   const [selectedLabel, setSelectedLabel] = useState("");
   const [examples, setExamples] = useState([]);
   const [issues, setIssues] = useState([]);
+  const [issueExampleIndex, setIssueExampleIndex] = useState([]);
   const [lastMarkEventId, setLastMarkEventId] = useState(null);
   const [wordCount, setWordCount] = useState(null);
   const [userId, setUserId] = useState("");
@@ -91,9 +93,9 @@ export default function RevisionPracticePanel({
   const [editingApprovedKeys, setEditingApprovedKeys] = useState({});
   const wordCountTimerRef = useRef(0);
   const lastExtractedRef = useRef("");
+  const lastMarkEventRef = useRef(null);
 
   const debugEnabled = Boolean(getConfig()?.featureFlags?.debugRevisionPractice);
-  const apiBaseUrl = getApiBaseUrl();
 
   const totalIssues = useMemo(() => {
     return Object.values(labelCounts || {}).reduce(
@@ -119,6 +121,9 @@ export default function RevisionPracticePanel({
     setApprovedByKey(snapshot.approved || {});
     setAppliedKeys(snapshot.applied || {});
     setApprovedPanelOpen(Boolean(snapshot.approvedPanelOpen));
+    if (snapshot.selectedLabel) {
+      setSelectedLabel(snapshot.selectedLabel);
+    }
   };
 
   useEffect(() => {
@@ -139,10 +144,21 @@ export default function RevisionPracticePanel({
         drafts: draftByKey,
         approved: approvedByKey,
         applied: appliedKeys,
-        approvedPanelOpen
+        approvedPanelOpen,
+        selectedLabel,
+        markEventId: lastMarkEventId
       }
     });
-  }, [approvedByKey, appliedKeys, approvedPanelOpen, draftByKey, selectedFile, userId]);
+  }, [
+    approvedByKey,
+    appliedKeys,
+    approvedPanelOpen,
+    draftByKey,
+    selectedFile,
+    selectedLabel,
+    lastMarkEventId,
+    userId
+  ]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -246,24 +262,15 @@ export default function RevisionPracticePanel({
           setLastMarkEventId(null);
           setUserId(currentUserId);
           setIssues([]);
+          setIssueExampleIndex([]);
           return;
         }
 
-        const entries = Object.entries(labelCountsFiltered || {})
-          .map(([label, count]) => ({ label, count: Number(count) || 0 }))
-          .filter((entry) => entry.label && entry.count > 0)
-          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-          .slice(0, 10);
-
         setLabelCounts(labelCountsFiltered || {});
-        setTopLabels(entries);
         setLastMarkEventId(markEvent.id || null);
         setUserId(currentUserId);
         setIssues(issuesFiltered || []);
-        setSelectedLabel((prev) => {
-          if (prev && entries.some((entry) => entry.label === prev)) return prev;
-          return entries[0]?.label || "";
-        });
+        setSelectedLabel((prev) => prev || "");
       } catch (err) {
         if (!isActive) return;
         setError(err?.message || "Failed to load revision data.");
@@ -277,6 +284,33 @@ export default function RevisionPracticePanel({
       isActive = false;
     };
   }, [enabled, markedBlob, selectedFile, supa, debugEnabled, externalAttempt]);
+
+  useEffect(() => {
+    if (!enabled || !supa || !selectedFile || !userId || !lastMarkEventId) return;
+    let isActive = true;
+    const loadIndex = async () => {
+      try {
+        const rows = await fetchIssueExamplesIndex({
+          supa,
+          userId,
+          fileName: selectedFile.name,
+          markEventId: lastMarkEventId
+        });
+        if (!isActive) return;
+        setIssueExampleIndex(rows);
+      } catch (err) {
+        if (!isActive) return;
+        if (debugEnabled) {
+          console.warn("[revision-practice] index fetch failed", err);
+        }
+        setIssueExampleIndex([]);
+      }
+    };
+    loadIndex();
+    return () => {
+      isActive = false;
+    };
+  }, [enabled, supa, selectedFile, userId, lastMarkEventId, debugEnabled]);
 
   useEffect(() => {
     if (!selectedLabelOverride) return;
@@ -346,17 +380,36 @@ export default function RevisionPracticePanel({
     debugEnabled
   ]);
 
+  useEffect(() => {
+    if (!selectedFile?.name || !userId) return;
+    const incoming = lastMarkEventId || null;
+    if (!incoming) return;
+    if (lastMarkEventRef.current && lastMarkEventRef.current !== incoming) {
+      clearRevisionPracticeState({ userId, fileName: selectedFile.name });
+      setDraftByKey({});
+      setApprovedByKey({});
+      setAppliedKeys({});
+      setApprovedPanelOpen(false);
+      setExampleStatus({});
+      setEditingApprovedKeys({});
+    }
+    lastMarkEventRef.current = incoming;
+  }, [lastMarkEventId, selectedFile?.name, userId]);
+
   const groupedIssues = useMemo(() => {
     const labels = Object.entries(labelCounts || {})
       .map(([label, count]) => ({ label, count: Number(count) || 0 }))
       .filter((entry) => entry.label && entry.count > 0);
 
-    const indices = issues.map((issue) => issue?.paragraph_index).filter(Number.isFinite);
+    const indexSource = issueExampleIndex.length ? issueExampleIndex : issues;
+    const indices = indexSource
+      .map((issue) => issue?.paragraph_index)
+      .filter(Number.isFinite);
     const introIdx = indices.length ? Math.min(...indices) : null;
     const conclusionIdx = indices.length ? Math.max(...indices) : null;
 
     const labelIndexMap = labels.reduce((acc, entry) => {
-      const matches = issues
+      const matches = indexSource
         .filter((issue) => issue?.label === entry.label)
         .map((issue) => issue?.paragraph_index)
         .filter(Number.isFinite);
@@ -373,10 +426,7 @@ export default function RevisionPracticePanel({
     labels.forEach((entry) => {
       const dominant = labelIndexMap[entry.label];
       const hints = getLabelHints(entry.label);
-      if (
-        (introIdx !== null && dominant === introIdx) ||
-        hints.isIntro
-      ) {
+      if ((introIdx !== null && dominant === introIdx) || hints.isIntro) {
         groups.intro.push(entry);
         return;
       }
@@ -403,7 +453,20 @@ export default function RevisionPracticePanel({
     });
 
     return { groups, introIdx, conclusionIdx };
-  }, [issues, labelCounts]);
+  }, [issueExampleIndex, issues, labelCounts]);
+
+  useEffect(() => {
+    const entries = Object.entries(labelCounts || {})
+      .map(([label, count]) => ({ label, count: Number(count) || 0 }))
+      .filter((entry) => entry.label && entry.count > 0)
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, 10);
+    setTopLabels(entries);
+    setSelectedLabel((prev) => {
+      if (prev && entries.some((entry) => entry.label === prev)) return prev;
+      return entries[0]?.label || "";
+    });
+  }, [labelCounts]);
 
   const approvedKeysInView = useMemo(() => {
     return new Set(examples.map((ex) => getExampleKey(selectedLabel, ex)));
@@ -412,6 +475,17 @@ export default function RevisionPracticePanel({
   const approvedOtherExamples = useMemo(() => {
     return approvedList.filter((entry) => !approvedKeysInView.has(entry.key));
   }, [approvedKeysInView, approvedList]);
+
+  const selectedIssueExplanation = useMemo(() => {
+    if (!selectedLabel) return "";
+    const issue = issues.find((item) => item?.label === selectedLabel);
+    const short = String(issue?.short_explanation || "").trim();
+    if (short) return short;
+    const full = String(issue?.explanation || "").trim();
+    if (!full) return "";
+    const firstSentence = full.split(".")[0]?.trim();
+    return firstSentence ? `${firstSentence}.` : full;
+  }, [issues, selectedLabel]);
 
   const handleCopy = async (sentence) => {
     if (!sentence) return;
@@ -475,47 +549,19 @@ export default function RevisionPracticePanel({
       updateExampleStatus(key, { error: "Supabase is not available." });
       return;
     }
-    if (!apiBaseUrl) {
-      updateExampleStatus(key, { error: "Missing API configuration." });
-      return;
-    }
     updateExampleStatus(key, { loading: true, error: "", approved: false });
 
     try {
-      const { data, error: sessionError } = await supa.auth.getSession();
-      if (sessionError || !data?.session) {
-        throw new Error("Session expired. Please sign in again.");
-      }
-      const payload = {
+      const result = await checkRevision({
+        supa,
         label,
-        label_trimmed: normalizeLabelTrim(label),
+        labelTrimmed: normalizeLabelTrim(label),
         rewrite,
         mode,
-        context_text: contextText,
-        original_sentence: original,
-        paragraph_index: example?.paragraph_index ?? 0
-      };
-      const response = await fetchWithTimeout(
-        `${apiBaseUrl}/revision/check`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${data.session.access_token}`
-          },
-          body: JSON.stringify(payload)
-        },
-        { timeoutMs: 25000 }
-      );
-
-      if (isAuthExpired(response)) {
-        throw new Error("Session expired. Please sign in again.");
-      }
-      if (!response.ok) {
-        throw new Error(await extractErrorMessage(response));
-      }
-
-      const result = await response.json();
+        contextText,
+        originalSentence: original,
+        paragraphIndex: example?.paragraph_index ?? 0
+      });
       if (result?.approved) {
         updateExampleStatus(key, { approved: true, message: "Approved!" });
         setApprovedByKey((prev) => ({
@@ -559,6 +605,18 @@ export default function RevisionPracticePanel({
       return false;
     }
     setAppliedKeys((prev) => ({ ...prev, [entry.key]: true }));
+    setApprovedByKey((prev) => {
+      const next = { ...prev };
+      delete next[entry.key];
+      return next;
+    });
+    setLabelCounts((prev) => {
+      const next = { ...prev };
+      if (entry.label && Number.isFinite(next[entry.label])) {
+        next[entry.label] = Math.max(0, Number(next[entry.label]) - 1);
+      }
+      return next;
+    });
     onPreviewEdited?.();
     updateExampleStatus(entry.key, { message: "Applied to preview." });
     return true;
@@ -779,6 +837,9 @@ export default function RevisionPracticePanel({
                   </button>
                 ) : null}
               </div>
+              {selectedIssueExplanation ? (
+                <p className="helper-text">{selectedIssueExplanation}</p>
+              ) : null}
               {practiceHighlightEnabled && examples.length ? (
                 <div className="practice-action-row">
                   <button
