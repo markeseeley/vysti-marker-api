@@ -23,6 +23,8 @@ export default function RevisionPracticePanel({
   markedBlob,
   previewRef,
   techniques,
+  selectedLabelOverride,
+  onSelectedLabelChange,
   onOpenDiagnostics,
   onNavigateToExample,
   onHighlightExamples,
@@ -184,6 +186,13 @@ export default function RevisionPracticePanel({
   }, [enabled, markedBlob, selectedFile, supa, debugEnabled, externalAttempt]);
 
   useEffect(() => {
+    if (!selectedLabelOverride) return;
+    if (topLabels.some((entry) => entry.label === selectedLabelOverride)) {
+      setSelectedLabel(selectedLabelOverride);
+    }
+  }, [selectedLabelOverride, topLabels]);
+
+  useEffect(() => {
     if (!enabled || !selectedLabel || !supa || !selectedFile) {
       setExamples([]);
       return;
@@ -325,7 +334,10 @@ export default function RevisionPracticePanel({
                     className={`issue-chip${
                       selectedLabel === entry.label ? " is-active" : ""
                     }`}
-                    onClick={() => setSelectedLabel(entry.label)}
+                    onClick={() => {
+                      setSelectedLabel(entry.label);
+                      onSelectedLabelChange?.(entry.label);
+                    }}
                   >
                     {entry.label} ({entry.count})
                   </button>
