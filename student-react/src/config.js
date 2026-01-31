@@ -16,7 +16,16 @@ const DEFAULT_CONFIG = {
     debugRevisionPractice: false,
     practiceNavigationReact: false,
     practiceHighlightReact: false,
-    debugPracticeNavigation: false
+    debugPracticeNavigation: false,
+    hardeningReact: false,
+    cancelRequestsReact: false,
+    strictFileValidationReact: false,
+    statusToastsReact: false,
+    debugHardening: false,
+    autosaveDraftReact: false,
+    revisionHistoryReact: false,
+    debugAutosave: false,
+    debugHistory: false
   }
 };
 
