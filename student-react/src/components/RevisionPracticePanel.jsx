@@ -1,15 +1,54 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { extractPreviewText } from "@shared/previewText";
+import { extractPreviewTextFromContainer } from "../lib/previewText";
 import { getConfig } from "../config";
 import {
   fetchIssueExamples,
   fetchLatestMarkEvent
 } from "../services/revisionPractice";
 import StatsPanel from "./StatsPanel";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
+import { extractErrorMessage, fetchWithTimeout, isAuthExpired } from "../lib/request";
+import { normalizeForCompare, normalizeLabelTrim } from "../lib/normalize";
+import { applyRewriteToPreview } from "../lib/applyRewriteToPreview";
+import {
+  loadRevisionPracticeState,
+  saveRevisionPracticeState
+} from "../lib/revisionPracticeStorage";
 
 const getWordCount = (text) => {
   const trimmed = String(text || "").trim();
   return trimmed ? trimmed.split(/\s+/).filter(Boolean).length : null;
+};
+
+const getExampleKey = (label, example) => {
+  const sentence = String(example?.sentence || "").trim();
+  const para = example?.paragraph_index ?? 0;
+  return `${label}::${para}::${sentence}`;
+};
+
+const getLabelHints = (label) => {
+  const normalized = normalizeLabelTrim(label);
+  return {
+    isIntro:
+      normalized.includes("title") ||
+      normalized.includes("introduction") ||
+      normalized.includes("thesis") ||
+      normalized.includes("first sentence"),
+    isConclusion: normalized.includes("conclusion")
+  };
+};
+
+const getDominantParagraphIndex = (indices) => {
+  if (!indices.length) return null;
+  const counts = indices.reduce((acc, idx) => {
+    const key = Number.isFinite(idx) ? idx : 0;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key]) => Number(key))
+    .find((num) => Number.isFinite(num));
 };
 
 export default function RevisionPracticePanel({
@@ -28,7 +67,9 @@ export default function RevisionPracticePanel({
   onOpenDiagnostics,
   onNavigateToExample,
   onHighlightExamples,
-  onClearHighlights
+  onClearHighlights,
+  mode,
+  onPreviewEdited
 }) {
   const [loading, setLoading] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
@@ -37,14 +78,22 @@ export default function RevisionPracticePanel({
   const [topLabels, setTopLabels] = useState([]);
   const [selectedLabel, setSelectedLabel] = useState("");
   const [examples, setExamples] = useState([]);
+  const [issues, setIssues] = useState([]);
   const [lastMarkEventId, setLastMarkEventId] = useState(null);
   const [wordCount, setWordCount] = useState(null);
   const [userId, setUserId] = useState("");
   const [noData, setNoData] = useState(false);
+  const [draftByKey, setDraftByKey] = useState({});
+  const [approvedByKey, setApprovedByKey] = useState({});
+  const [appliedKeys, setAppliedKeys] = useState({});
+  const [approvedPanelOpen, setApprovedPanelOpen] = useState(false);
+  const [exampleStatus, setExampleStatus] = useState({});
+  const [editingApprovedKeys, setEditingApprovedKeys] = useState({});
   const wordCountTimerRef = useRef(0);
   const lastExtractedRef = useRef("");
 
   const debugEnabled = Boolean(getConfig()?.featureFlags?.debugRevisionPractice);
+  const apiBaseUrl = getApiBaseUrl();
 
   const totalIssues = useMemo(() => {
     return Object.values(labelCounts || {}).reduce(
@@ -57,6 +106,44 @@ export default function RevisionPracticePanel({
     ? `${topLabels[0].label} (${topLabels[0].count})`
     : "";
 
+  const approvedList = useMemo(() => {
+    return Object.entries(approvedByKey).map(([key, entry]) => ({
+      key,
+      ...entry
+    }));
+  }, [approvedByKey]);
+
+  const applyStateSnapshot = (snapshot) => {
+    if (!snapshot) return;
+    setDraftByKey(snapshot.drafts || {});
+    setApprovedByKey(snapshot.approved || {});
+    setAppliedKeys(snapshot.applied || {});
+    setApprovedPanelOpen(Boolean(snapshot.approvedPanelOpen));
+  };
+
+  useEffect(() => {
+    if (!userId || !selectedFile?.name) return;
+    const snapshot = loadRevisionPracticeState({
+      userId,
+      fileName: selectedFile.name
+    });
+    applyStateSnapshot(snapshot);
+  }, [userId, selectedFile?.name]);
+
+  useEffect(() => {
+    if (!userId || !selectedFile?.name) return;
+    saveRevisionPracticeState({
+      userId,
+      fileName: selectedFile.name,
+      state: {
+        drafts: draftByKey,
+        approved: approvedByKey,
+        applied: appliedKeys,
+        approvedPanelOpen
+      }
+    });
+  }, [approvedByKey, appliedKeys, approvedPanelOpen, draftByKey, selectedFile, userId]);
+
   useEffect(() => {
     if (!enabled) return undefined;
     const container = previewRef?.current;
@@ -65,7 +152,7 @@ export default function RevisionPracticePanel({
     const update = () => {
       window.clearTimeout(wordCountTimerRef.current);
       wordCountTimerRef.current = window.setTimeout(() => {
-        const text = extractPreviewText(container);
+        const text = extractPreviewTextFromContainer(container);
         if (text === lastExtractedRef.current) return;
         lastExtractedRef.current = text;
         setWordCount(getWordCount(text));
@@ -95,6 +182,7 @@ export default function RevisionPracticePanel({
       setLabelCounts(counts);
       setTopLabels(entries);
       setLastMarkEventId(externalAttempt.id || null);
+      setIssues(externalAttempt.issues || []);
       setSelectedLabel((prev) => {
         if (prev && entries.some((entry) => entry.label === prev)) return prev;
         return entries[0]?.label || "";
@@ -112,6 +200,7 @@ export default function RevisionPracticePanel({
       setSelectedLabel("");
       setExamples([]);
       setLastMarkEventId(null);
+      setIssues([]);
       return;
     }
 
@@ -131,16 +220,18 @@ export default function RevisionPracticePanel({
           throw new Error("Missing user session.");
         }
 
-        const { markEvent, labelCountsFiltered } = await fetchLatestMarkEvent({
-          supa,
-          userId: currentUserId,
-          fileName: selectedFile.name
-        });
+        const { markEvent, labelCountsFiltered, issuesFiltered } =
+          await fetchLatestMarkEvent({
+            supa,
+            userId: currentUserId,
+            fileName: selectedFile.name
+          });
 
         if (debugEnabled) {
           console.log("[revision-practice] mark event", {
             hasEvent: Boolean(markEvent),
-            labelCountKeys: Object.keys(labelCountsFiltered || {}).length
+            labelCountKeys: Object.keys(labelCountsFiltered || {}).length,
+            issueCount: issuesFiltered.length
           });
         }
 
@@ -154,6 +245,7 @@ export default function RevisionPracticePanel({
           setExamples([]);
           setLastMarkEventId(null);
           setUserId(currentUserId);
+          setIssues([]);
           return;
         }
 
@@ -167,6 +259,7 @@ export default function RevisionPracticePanel({
         setTopLabels(entries);
         setLastMarkEventId(markEvent.id || null);
         setUserId(currentUserId);
+        setIssues(issuesFiltered || []);
         setSelectedLabel((prev) => {
           if (prev && entries.some((entry) => entry.label === prev)) return prev;
           return entries[0]?.label || "";
@@ -253,6 +346,73 @@ export default function RevisionPracticePanel({
     debugEnabled
   ]);
 
+  const groupedIssues = useMemo(() => {
+    const labels = Object.entries(labelCounts || {})
+      .map(([label, count]) => ({ label, count: Number(count) || 0 }))
+      .filter((entry) => entry.label && entry.count > 0);
+
+    const indices = issues.map((issue) => issue?.paragraph_index).filter(Number.isFinite);
+    const introIdx = indices.length ? Math.min(...indices) : null;
+    const conclusionIdx = indices.length ? Math.max(...indices) : null;
+
+    const labelIndexMap = labels.reduce((acc, entry) => {
+      const matches = issues
+        .filter((issue) => issue?.label === entry.label)
+        .map((issue) => issue?.paragraph_index)
+        .filter(Number.isFinite);
+      acc[entry.label] = getDominantParagraphIndex(matches);
+      return acc;
+    }, {});
+
+    const groups = {
+      intro: [],
+      body: {},
+      conclusion: []
+    };
+
+    labels.forEach((entry) => {
+      const dominant = labelIndexMap[entry.label];
+      const hints = getLabelHints(entry.label);
+      if (
+        (introIdx !== null && dominant === introIdx) ||
+        hints.isIntro
+      ) {
+        groups.intro.push(entry);
+        return;
+      }
+      if (
+        (conclusionIdx !== null && dominant === conclusionIdx) ||
+        hints.isConclusion
+      ) {
+        groups.conclusion.push(entry);
+        return;
+      }
+      const bodyIndex =
+        introIdx !== null && dominant !== null ? Math.max(1, dominant - introIdx) : 1;
+      if (!groups.body[bodyIndex]) groups.body[bodyIndex] = [];
+      groups.body[bodyIndex].push(entry);
+    });
+
+    const sortEntries = (list) =>
+      list.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+    groups.intro = sortEntries(groups.intro);
+    groups.conclusion = sortEntries(groups.conclusion);
+    Object.keys(groups.body).forEach((key) => {
+      groups.body[key] = sortEntries(groups.body[key]);
+    });
+
+    return { groups, introIdx, conclusionIdx };
+  }, [issues, labelCounts]);
+
+  const approvedKeysInView = useMemo(() => {
+    return new Set(examples.map((ex) => getExampleKey(selectedLabel, ex)));
+  }, [examples, selectedLabel]);
+
+  const approvedOtherExamples = useMemo(() => {
+    return approvedList.filter((entry) => !approvedKeysInView.has(entry.key));
+  }, [approvedKeysInView, approvedList]);
+
   const handleCopy = async (sentence) => {
     if (!sentence) return;
     try {
@@ -266,6 +426,185 @@ export default function RevisionPracticePanel({
     const raw = String(sentence || "");
     if (raw.length <= 140) return raw;
     return `${raw.slice(0, 140)}…`;
+  };
+
+  const updateDraft = (key, value) => {
+    setDraftByKey((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateExampleStatus = (key, patch) => {
+    setExampleStatus((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), ...patch }
+    }));
+  };
+
+  const clearApproved = (key) => {
+    setApprovedByKey((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleCheckRewrite = async (label, example) => {
+    const key = getExampleKey(label, example);
+    const rewrite = String(draftByKey[key] || "").trim();
+    const original = String(example?.sentence || "").trim();
+    if (!previewRef?.current) {
+      updateExampleStatus(key, { error: "Preview not loaded yet." });
+      return;
+    }
+    if (!rewrite) {
+      updateExampleStatus(key, { error: "Enter a rewrite before checking." });
+      return;
+    }
+    const normalizedRewrite = normalizeForCompare(rewrite);
+    const normalizedOriginal = normalizeForCompare(original);
+    if (normalizedRewrite === normalizedOriginal) {
+      updateExampleStatus(key, { error: "Rewrite must be different from the original." });
+      clearApproved(key);
+      return;
+    }
+    const contextText = extractPreviewTextFromContainer(previewRef.current);
+    if (!contextText) {
+      updateExampleStatus(key, { error: "Preview text is not available yet." });
+      return;
+    }
+    if (!supa) {
+      updateExampleStatus(key, { error: "Supabase is not available." });
+      return;
+    }
+    if (!apiBaseUrl) {
+      updateExampleStatus(key, { error: "Missing API configuration." });
+      return;
+    }
+    updateExampleStatus(key, { loading: true, error: "", approved: false });
+
+    try {
+      const { data, error: sessionError } = await supa.auth.getSession();
+      if (sessionError || !data?.session) {
+        throw new Error("Session expired. Please sign in again.");
+      }
+      const payload = {
+        label,
+        label_trimmed: normalizeLabelTrim(label),
+        rewrite,
+        mode,
+        context_text: contextText,
+        original_sentence: original,
+        paragraph_index: example?.paragraph_index ?? 0
+      };
+      const response = await fetchWithTimeout(
+        `${apiBaseUrl}/revision/check`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.session.access_token}`
+          },
+          body: JSON.stringify(payload)
+        },
+        { timeoutMs: 25000 }
+      );
+
+      if (isAuthExpired(response)) {
+        throw new Error("Session expired. Please sign in again.");
+      }
+      if (!response.ok) {
+        throw new Error(await extractErrorMessage(response));
+      }
+
+      const result = await response.json();
+      if (result?.approved) {
+        updateExampleStatus(key, { approved: true, message: "Approved!" });
+        setApprovedByKey((prev) => ({
+          ...prev,
+          [key]: {
+            label,
+            sentence: original,
+            paragraph_index: example?.paragraph_index ?? 0,
+            rewrite
+          }
+        }));
+      } else {
+        updateExampleStatus(key, {
+          approved: false,
+          error: result?.message || "Rewrite not approved yet."
+        });
+        clearApproved(key);
+      }
+    } catch (err) {
+      updateExampleStatus(key, { error: err?.message || "Check failed." });
+      clearApproved(key);
+    } finally {
+      updateExampleStatus(key, { loading: false });
+    }
+  };
+
+  const handleApplyRewrite = (entry, { shouldScroll = true } = {}) => {
+    const container = previewRef?.current;
+    if (!container) {
+      updateExampleStatus(entry.key, { error: "Preview not ready." });
+      return false;
+    }
+    const result = applyRewriteToPreview({
+      containerEl: container,
+      originalSentence: entry.sentence,
+      rewrite: entry.rewrite,
+      shouldScroll
+    });
+    if (!result.ok) {
+      updateExampleStatus(entry.key, { error: result.message });
+      return false;
+    }
+    setAppliedKeys((prev) => ({ ...prev, [entry.key]: true }));
+    onPreviewEdited?.();
+    updateExampleStatus(entry.key, { message: "Applied to preview." });
+    return true;
+  };
+
+  const handleApplyAll = () => {
+    if (approvedList.length < 2) return;
+    let successCount = 0;
+    approvedList.forEach((entry, idx) => {
+      const ok = handleApplyRewrite(entry, { shouldScroll: idx === approvedList.length - 1 });
+      if (ok) successCount += 1;
+    });
+    if (successCount > 0) {
+      setError("");
+    }
+  };
+
+  const handleDownloadNotes = () => {
+    if (!selectedLabel) return;
+    const rows = examples.map((ex) => {
+      const key = getExampleKey(selectedLabel, ex);
+      const draft = String(draftByKey[key] || "").trim();
+      const approved = approvedByKey[key]?.rewrite || "";
+      const rewriteText = approved || draft || "";
+      return {
+        original: ex?.sentence || "",
+        rewrite: rewriteText
+      };
+    });
+    const lines = [
+      `Label: ${selectedLabel}`,
+      "",
+      ...rows.flatMap((row, idx) => [
+        `Example ${idx + 1}:`,
+        `Original: ${row.original}`,
+        `Rewrite: ${row.rewrite || "(none)"}`,
+        ""
+      ])
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const filename = `revision_notes_${normalizeLabelTrim(selectedLabel) || "issue"}.txt`;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   if (!enabled) return null;
@@ -324,31 +663,122 @@ export default function RevisionPracticePanel({
           />
 
           <div className="practice-issues">
-            <h3>Most common issues</h3>
-            <div className="issue-list">
-              {topLabels.length ? (
-                topLabels.map((entry) => (
-                  <button
-                    key={entry.label}
-                    type="button"
-                    className={`issue-chip${
-                      selectedLabel === entry.label ? " is-active" : ""
-                    }`}
-                    onClick={() => {
-                      setSelectedLabel(entry.label);
-                      onSelectedLabelChange?.(entry.label);
-                    }}
-                  >
-                    {entry.label} ({entry.count})
-                  </button>
-                ))
-              ) : (
-                <p className="helper-text">No issues to show yet.</p>
-              )}
+            <h3>Grouped issues</h3>
+            <div className="practice-groups">
+              <div className="practice-group">
+                <div className="practice-group-title">Title and Introduction</div>
+                <div className="issue-list">
+                  {groupedIssues.groups.intro.length ? (
+                    groupedIssues.groups.intro.map((entry) => (
+                      <button
+                        key={entry.label}
+                        type="button"
+                        className={`issue-chip${
+                          selectedLabel === entry.label ? " is-active" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedLabel(entry.label);
+                          onSelectedLabelChange?.(entry.label);
+                        }}
+                      >
+                        {entry.label} ({entry.count})
+                      </button>
+                    ))
+                  ) : (
+                    <p className="helper-text">No intro issues.</p>
+                  )}
+                </div>
+              </div>
+
+              {Object.keys(groupedIssues.groups.body)
+                .sort((a, b) => Number(a) - Number(b))
+                .map((key) => (
+                  <div className="practice-group" key={`body-${key}`}>
+                    <div className="practice-group-title">Body Paragraph {key}</div>
+                    <div className="issue-list">
+                      {groupedIssues.groups.body[key].map((entry) => (
+                        <button
+                          key={entry.label}
+                          type="button"
+                          className={`issue-chip${
+                            selectedLabel === entry.label ? " is-active" : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedLabel(entry.label);
+                            onSelectedLabelChange?.(entry.label);
+                          }}
+                        >
+                          {entry.label} ({entry.count})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+              <div className="practice-group">
+                <div className="practice-group-title">Conclusion</div>
+                <div className="issue-list">
+                  {groupedIssues.groups.conclusion.length ? (
+                    groupedIssues.groups.conclusion.map((entry) => (
+                      <button
+                        key={entry.label}
+                        type="button"
+                        className={`issue-chip${
+                          selectedLabel === entry.label ? " is-active" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedLabel(entry.label);
+                          onSelectedLabelChange?.(entry.label);
+                        }}
+                      >
+                        {entry.label} ({entry.count})
+                      </button>
+                    ))
+                  ) : (
+                    <p className="helper-text">No conclusion issues.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="practice-top-issues">
+              <h4>Most common issues</h4>
+              <div className="issue-list">
+                {topLabels.length ? (
+                  topLabels.map((entry) => (
+                    <button
+                      key={entry.label}
+                      type="button"
+                      className={`issue-chip${
+                        selectedLabel === entry.label ? " is-active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedLabel(entry.label);
+                        onSelectedLabelChange?.(entry.label);
+                      }}
+                    >
+                      {entry.label} ({entry.count})
+                    </button>
+                  ))
+                ) : (
+                  <p className="helper-text">No issues to show yet.</p>
+                )}
+              </div>
             </div>
 
             <div className="examples-panel">
-              <h4>{selectedLabel || "Examples"}</h4>
+              <div className="examples-header">
+                <h4>{selectedLabel || "Examples"}</h4>
+                {selectedLabel ? (
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={handleDownloadNotes}
+                  >
+                    Download revision notes
+                  </button>
+                ) : null}
+              </div>
               {practiceHighlightEnabled && examples.length ? (
                 <div className="practice-action-row">
                   <button
@@ -370,36 +800,190 @@ export default function RevisionPracticePanel({
               {examplesLoading ? (
                 <p className="helper-text">Loading examples…</p>
               ) : examples.length ? (
-                examples.map((ex, idx) => (
-                  <div className="example-row" key={`${ex.paragraph_index}-${idx}`}>
-                    <div className="example-meta">
-                      <span>Paragraph {ex.paragraph_index ?? 0}</span>
+                examples.map((ex, idx) => {
+                  const key = getExampleKey(selectedLabel, ex);
+                  const draft = draftByKey[key] || "";
+                  const approved = approvedByKey[key];
+                  const applied = Boolean(appliedKeys[key]);
+                  const status = exampleStatus[key] || {};
+                  return (
+                    <div className="example-row" key={`${key}-${idx}`}>
+                      <div className="example-meta">
+                        <span>Paragraph {ex.paragraph_index ?? 0}</span>
+                        {status.message ? (
+                          <span className="example-status success">{status.message}</span>
+                        ) : null}
+                        {status.error ? (
+                          <span className="example-status error">{status.error}</span>
+                        ) : null}
+                        {approved ? (
+                          <span className="example-status approved">Approved!</span>
+                        ) : null}
+                        {applied ? (
+                          <span className="example-status applied">Applied</span>
+                        ) : null}
+                      </div>
+                      {practiceNavEnabled ? (
+                        <button
+                          type="button"
+                          className="example-jump"
+                          onClick={() => onNavigateToExample?.(ex.sentence)}
+                          title={ex.sentence || ""}
+                        >
+                          {renderSentenceText(ex.sentence)}
+                        </button>
+                      ) : (
+                        <p>{renderSentenceText(ex.sentence)}</p>
+                      )}
+                      <textarea
+                        className="rewrite-input"
+                        rows={3}
+                        placeholder="Write a stronger rewrite here…"
+                        value={draft}
+                        onChange={(event) => updateDraft(key, event.target.value)}
+                      />
+                      <div className="rewrite-actions">
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={() => handleCopy(ex.sentence)}
+                        >
+                          Copy sentence
+                        </button>
+                        <button
+                          className={`secondary-btn${
+                            status.loading ? " is-loading loading-cursor" : ""
+                          }`}
+                          type="button"
+                          onClick={() => handleCheckRewrite(selectedLabel, ex)}
+                          disabled={status.loading}
+                        >
+                          {status.loading ? "Checking" : "Check rewrite"}
+                        </button>
+                        <button
+                          className="primary-btn"
+                          type="button"
+                          onClick={() =>
+                            handleApplyRewrite({
+                              key,
+                              label: selectedLabel,
+                              sentence: ex.sentence,
+                              paragraph_index: ex.paragraph_index,
+                              rewrite: approved?.rewrite || ""
+                            })
+                          }
+                          disabled={!approved?.rewrite}
+                        >
+                          Apply to Preview
+                        </button>
+                      </div>
                     </div>
-                    {practiceNavEnabled ? (
-                      <button
-                        type="button"
-                        className="example-jump"
-                        onClick={() => onNavigateToExample?.(ex.sentence)}
-                        title={ex.sentence || ""}
-                      >
-                        {renderSentenceText(ex.sentence)}
-                      </button>
-                    ) : (
-                      <p>{renderSentenceText(ex.sentence)}</p>
-                    )}
-                    <button
-                      className="secondary-btn copy-btn"
-                      type="button"
-                      onClick={() => handleCopy(ex.sentence)}
-                    >
-                      Copy sentence
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="helper-text">No examples saved for this issue yet.</p>
               )}
             </div>
+
+            {approvedList.length ? (
+              <div className="approved-panel">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setApprovedPanelOpen((prev) => !prev)}
+                >
+                  {approvedPanelOpen ? "Hide" : "Show"} approved rewrites (
+                  {approvedList.length})
+                </button>
+                {approvedPanelOpen ? (
+                  <div className="approved-list">
+                    {approvedOtherExamples.length ? (
+                      approvedOtherExamples.map((entry) => {
+                        const isEditing = Boolean(editingApprovedKeys[entry.key]);
+                        const currentDraft = draftByKey[entry.key] ?? entry.rewrite;
+                        return (
+                          <div className="approved-item" key={`approved-${entry.key}`}>
+                            <div className="approved-meta">{entry.label}</div>
+                            {isEditing ? (
+                              <textarea
+                                className="rewrite-input"
+                                rows={2}
+                                value={currentDraft}
+                                onChange={(event) =>
+                                  updateDraft(entry.key, event.target.value)
+                                }
+                              />
+                            ) : (
+                              <p className="approved-text">{entry.rewrite}</p>
+                            )}
+                            <div className="rewrite-actions">
+                              <button
+                                className="secondary-btn"
+                                type="button"
+                                onClick={() =>
+                                  setEditingApprovedKeys((prev) => ({
+                                    ...prev,
+                                    [entry.key]: !prev[entry.key]
+                                  }))
+                                }
+                              >
+                                {isEditing ? "Cancel" : "Edit"}
+                              </button>
+                              {isEditing ? (
+                                <button
+                                  className="secondary-btn"
+                                  type="button"
+                                  onClick={() => {
+                                    const next = String(currentDraft || "").trim();
+                                    if (!next) return;
+                                    setApprovedByKey((prev) => ({
+                                      ...prev,
+                                      [entry.key]: { ...entry, rewrite: next }
+                                    }));
+                                    setEditingApprovedKeys((prev) => ({
+                                      ...prev,
+                                      [entry.key]: false
+                                    }));
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              ) : null}
+                              <button
+                                className="primary-btn"
+                                type="button"
+                                onClick={() =>
+                                  handleApplyRewrite({
+                                    key: entry.key,
+                                    label: entry.label,
+                                    sentence: entry.sentence,
+                                    paragraph_index: entry.paragraph_index,
+                                    rewrite: approvedByKey[entry.key]?.rewrite || ""
+                                  })
+                                }
+                              >
+                                Apply to Preview
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="helper-text">No other approved rewrites yet.</p>
+                    )}
+                    {approvedList.length >= 2 ? (
+                      <button
+                        className="primary-btn apply-all-btn"
+                        type="button"
+                        onClick={handleApplyAll}
+                      >
+                        Apply all rewrites to Preview
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
