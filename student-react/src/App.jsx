@@ -1103,6 +1103,15 @@ function App() {
     techniquesParsed
   ]);
 
+  const rolloutReason = useMemo(() => {
+    if (!showDiagnostics) return null;
+    try {
+      return JSON.parse(sessionStorage.getItem("rolloutReason") || "null");
+    } catch (err) {
+      return null;
+    }
+  }, [showDiagnostics]);
+
   if (isChecking) {
     return (
       <main className="page student-page student-react-shell">
@@ -1325,9 +1334,11 @@ function App() {
             onToggle={() => setShowDiagnostics((prev) => !prev)}
             data={diagnosticsData}
             rolloutConfig={rolloutConfig}
+            rolloutReason={rolloutReason}
             uiMode={uiMode}
             buildId={config.buildId}
-            onSetUiMode={setUiMode}
+            onForceClassic={handleBackToClassic}
+            onForceReact={handleSwitchToReact}
             onClearUiMode={clearUiMode}
           />
         </ErrorBoundary>
