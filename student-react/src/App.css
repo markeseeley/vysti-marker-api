@@ -79,6 +79,23 @@ button.loading-cursor::after {
   margin-top: 0;
 }
 
+.preview-error-panel {
+  border: 1px dashed rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+}
+
+.preview-error-stack {
+  margin: 10px 0 0;
+  padding: 10px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
 .drop-zone {
   position: relative;
 }

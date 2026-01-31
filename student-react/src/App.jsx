@@ -94,6 +94,8 @@ function App() {
   const [showMlaModal, setShowMlaModal] = useState(false);
   const [markedFilenameBase, setMarkedFilenameBase] = useState("");
   const [showRevisionPractice, setShowRevisionPractice] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [previewErrorStack, setPreviewErrorStack] = useState("");
   const [draftMeta, setDraftMeta] = useState(null);
   const [draftDismissed, setDraftDismissed] = useState(false);
   const [selectedAttempt, setSelectedAttempt] = useState(null);
@@ -112,6 +114,7 @@ function App() {
   const markUrl = apiBase ? `${apiBase}/mark` : "";
   const markTextUrl = apiBase ? `${apiBase}/mark_text` : "";
   const exportUrl = apiBase ? `${apiBase}/export_docx` : "";
+  const debugHardening = Boolean(config.featureFlags?.debugHardening);
   const practiceEnabled = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return (
@@ -199,6 +202,13 @@ function App() {
       setShowRevisionPractice(true);
     }
   }, [practiceEnabled]);
+
+  useEffect(() => {
+    if (!markedBlob) {
+      setPreviewError("");
+      setPreviewErrorStack("");
+    }
+  }, [markedBlob]);
 
   useEffect(() => {
     if (!supa) return undefined;
@@ -406,6 +416,8 @@ function App() {
         setLastMarkError("");
         setHasRevisedSinceMark(false);
         setMarkedFilenameBase("");
+        setPreviewError("");
+        setPreviewErrorStack("");
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -424,6 +436,8 @@ function App() {
       setLastMarkError("");
       setHasRevisedSinceMark(false);
       setMarkedFilenameBase("");
+      setPreviewError("");
+      setPreviewErrorStack("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -440,6 +454,8 @@ function App() {
     setLastMarkError("");
     setHasRevisedSinceMark(false);
     setMarkedFilenameBase("");
+    setPreviewError("");
+    setPreviewErrorStack("");
     logEvent("file_selected", { fileName: file?.name || "" });
   };
 
@@ -495,6 +511,8 @@ function App() {
     setHasRevisedSinceMark(false);
     setMarkedFilenameBase("");
     setFileValidationError("");
+    setPreviewError("");
+    setPreviewErrorStack("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -538,6 +556,8 @@ function App() {
       const parsed = parseTechniquesHeaderShared(techniquesHeader);
       setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
+      setPreviewError("");
+      setPreviewErrorStack("");
       const baseName = (selectedFile?.name || "essay.docx").replace(/\.docx$/i, "") || "essay";
       setMarkedFilenameBase(baseName);
       setSelectedAttempt(null);
@@ -601,6 +621,8 @@ function App() {
     setDraftDismissed(false);
     setSelectedAttempt(null);
     setAttempts([]);
+    setPreviewError("");
+    setPreviewErrorStack("");
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -636,6 +658,8 @@ function App() {
       const parsed = parseTechniquesHeaderShared(techniquesHeader);
       setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
+      setPreviewError("");
+      setPreviewErrorStack("");
       setSelectedAttempt(null);
       if (historyEnabled) {
         refreshAttemptHistory();
@@ -660,6 +684,23 @@ function App() {
 
   const handlePreviewEdited = () => {
     setHasRevisedSinceMark(true);
+  };
+
+  const handlePreviewError = (err) => {
+    if (!err) {
+      setPreviewError("");
+      setPreviewErrorStack("");
+      return;
+    }
+    setPreviewError(err?.message || "Preview render failed");
+    setPreviewErrorStack(err?.stack || "");
+  };
+
+  const handleClearPreview = () => {
+    setMarkedBlob(null);
+    setHasRevisedSinceMark(false);
+    setPreviewError("");
+    setPreviewErrorStack("");
   };
 
   const handleCancelRequest = () => {
@@ -959,31 +1000,6 @@ function App() {
     tourRef.current?.restartTour({ force: true });
   };
 
-  if (isChecking) {
-    return (
-      <main className="page student-page student-react-shell">
-        <div className="card form-card">
-          <p>Checking session...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (authError) {
-    return (
-      <main className="page student-page student-react-shell">
-        <div className="card form-card">
-          <p>{authError}</p>
-        </div>
-      </main>
-    );
-  }
-
-  const authReady = !isChecking && !authError;
-  const hasResults = Boolean(status.message) || Boolean(markedBlob);
-  const requestActive = hardeningEnabled || cancelRequestsEnabled ? Boolean(activeRequest) : false;
-  const statusClass =
-    status.kind === "success" ? " success" : status.kind === "error" ? " error" : "";
   const diagnosticsData = useMemo(() => {
     if (!showDiagnostics) return null;
     return {
@@ -1027,6 +1043,32 @@ function App() {
     showDiagnostics,
     techniquesParsed
   ]);
+
+  if (isChecking) {
+    return (
+      <main className="page student-page student-react-shell">
+        <div className="card form-card">
+          <p>Checking session...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (authError) {
+    return (
+      <main className="page student-page student-react-shell">
+        <div className="card form-card">
+          <p>{authError}</p>
+        </div>
+      </main>
+    );
+  }
+
+  const authReady = !isChecking && !authError;
+  const hasResults = Boolean(status.message) || Boolean(markedBlob);
+  const requestActive = hardeningEnabled || cancelRequestsEnabled ? Boolean(activeRequest) : false;
+  const statusClass =
+    status.kind === "success" ? " success" : status.kind === "error" ? " error" : "";
 
   return (
     <div className="student-react-shell">
@@ -1160,6 +1202,11 @@ function App() {
             onDownloadRevised={handleOpenDownloadModal}
             isDownloading={isDownloading}
             hasRevisedSinceMark={hasRevisedSinceMark}
+            previewError={previewError}
+            previewErrorStack={previewErrorStack}
+            showDebug={debugHardening}
+            onClearPreview={handleClearPreview}
+            onPreviewError={handlePreviewError}
           />
         </ErrorBoundary>
 
