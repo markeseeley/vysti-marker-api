@@ -89,6 +89,15 @@ const buildExamplesQuery = ({ supa, userId, fileName, label }) =>
     .order("paragraph_index", { ascending: true })
     .limit(50);
 
+const buildIndexQuery = ({ supa, userId, fileName }) =>
+  supa
+    .from("issue_examples")
+    .select("label, paragraph_index, created_at, mark_event_id")
+    .eq("user_id", userId)
+    .eq("file_name", fileName)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
 export async function fetchIssueExamples({
   supa,
   userId,
@@ -135,4 +144,42 @@ export async function fetchIssueExamples({
   });
 
   return deduped.slice(0, 10);
+}
+
+export async function fetchIssueExamplesIndex({
+  supa,
+  userId,
+  fileName,
+  markEventId
+}) {
+  let data = [];
+  let error = null;
+
+  if (markEventId) {
+    const resp = await buildIndexQuery({ supa, userId, fileName }).eq(
+      "mark_event_id",
+      markEventId
+    );
+    data = resp.data || [];
+    error = resp.error;
+  }
+
+  if ((!data || data.length === 0) && !error) {
+    const resp = await buildIndexQuery({ supa, userId, fileName });
+    data = resp.data || [];
+    error = resp.error;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  return data
+    .filter((row) => row?.label && !isSuppressedStudentModeLabel(row.label))
+    .map((row) => ({
+      label: row.label,
+      paragraph_index: row?.paragraph_index ?? 0,
+      created_at: row?.created_at,
+      mark_event_id: row?.mark_event_id
+    }));
 }
