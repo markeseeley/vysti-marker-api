@@ -1411,6 +1411,8 @@ function App() {
               onNavigateToExample={handleNavigateToExample}
               onHighlightExamples={handleHighlightExamples}
               onClearHighlights={handleClearHighlights}
+              mode={mode}
+              onPreviewEdited={() => setHasRevisedSinceMark(true)}
             />
           </ErrorBoundary>
         ) : null}

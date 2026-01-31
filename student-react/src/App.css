@@ -341,6 +341,110 @@ button.loading-cursor::after {
   margin-bottom: 12px;
 }
 
+.practice-groups {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.practice-group {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f8f9fa;
+}
+
+.practice-group-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.practice-top-issues {
+  margin-bottom: 16px;
+}
+
+.examples-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.rewrite-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  padding: 8px 10px;
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
+.rewrite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.example-status {
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.example-status.success {
+  color: #0b66c3;
+}
+
+.example-status.error {
+  color: #b00020;
+}
+
+.example-status.approved {
+  color: #177a3c;
+}
+
+.example-status.applied {
+  color: #7a4b00;
+}
+
+.approved-panel {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.approved-list {
+  display: grid;
+  gap: 10px;
+}
+
+.approved-item {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.approved-meta {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.approved-text {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+}
+
+.apply-all-btn {
+  width: fit-content;
+}
+
 .example-jump {
   margin: 0;
   padding: 0;
