@@ -9,9 +9,9 @@
 - Preview editing + zoom
 - Most Common Issues chart (bar chart + tooltip + click-to-revise)
 - MLA header modal (export revised)
+- Revision practice (grouping, rewrites, approvals, apply-to-preview)
 
 ## Still missing
-- Revision practice parity: issue grouping, approved rewrites flow, apply-to-preview
 - Preview tools: stats header, power verbs popover/tools, hint dock
 - Dismiss issue modal + helper parity
 
