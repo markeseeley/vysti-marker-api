@@ -27,12 +27,14 @@
       "percentage": 0,
       "logDecisions": true,
       "allowEmails": [
-        "mark@vysti.com"
+        "markeseeley@gmail.com"
       ],
-      "allowUserIds": [],
+      "allowUserIds": [
+        "639b3e0a-e374-4713-b112-43a2aa2c3cf4"
+      ],
       "denyEmails": [],
       "minBuildHealthcheck": true,
-      "logDecisions": true
+      "denyUserIds": []
     }
   }
 }
