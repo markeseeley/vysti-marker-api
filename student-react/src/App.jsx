@@ -115,6 +115,8 @@ function App() {
   const [mciError, setMciError] = useState("");
   const [mciSelectedLabel, setMciSelectedLabel] = useState("");
   const [mciMarkEventId, setMciMarkEventId] = useState(null);
+  const [currentMarkEvent, setCurrentMarkEvent] = useState(null);
+  const [mciRefreshToken, setMciRefreshToken] = useState(0);
   const [dismissedIssues, setDismissedIssues] = useState([]);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorStack, setPreviewErrorStack] = useState("");
@@ -323,13 +325,14 @@ function App() {
   }, [practiceEnabled]);
 
   useEffect(() => {
-    if (!practiceEnabled || !supa || !selectedFile || !markedBlob) {
+    if (!supa || !selectedFile || !markedBlob) {
       setMciLabelCounts({});
       setMciLabelCountsRaw({});
       setMciIssues([]);
       setMciError("");
       setMciLoading(false);
       setMciMarkEventId(null);
+      setCurrentMarkEvent(null);
       return;
     }
 
@@ -344,6 +347,7 @@ function App() {
       setMciError("");
       setMciLoading(false);
       setMciMarkEventId(selectedAttempt.id || null);
+      setCurrentMarkEvent(selectedAttempt || null);
       if (!mciSelectedLabel) {
         const firstLabel = Object.keys(counts || {})[0] || "";
         setMciSelectedLabel(firstLabel);
@@ -360,25 +364,50 @@ function App() {
         if (error || !data?.session?.user?.id) {
           throw new Error("Session expired. Please sign in again.");
         }
-        const { markEvent, labelCountsFiltered, issuesFiltered } =
-          await fetchLatestMarkEvent({
-            supa,
-            userId: data.session.user.id,
-            fileName: selectedFile.name
-          });
+        let attempts = 0;
+        let result = null;
+        while (attempts < 5) {
+          if (!isActive) return;
+          const { markEvent, labelCountsFiltered, issuesFiltered } =
+            await fetchLatestMarkEvent({
+              supa,
+              userId: data.session.user.id,
+              fileName: selectedFile.name
+            });
+          if (markEvent) {
+            result = { markEvent, labelCountsFiltered, issuesFiltered };
+            break;
+          }
+          attempts += 1;
+          if (attempts < 5) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+        }
         if (!isActive) return;
-        setMciLabelCountsRaw(labelCountsFiltered || {});
+        if (!result?.markEvent) {
+          setMciError(
+            "Revision data is still syncing — try Recheck or click Refresh."
+          );
+          setMciLabelCountsRaw({});
+          setMciLabelCounts({});
+          setMciIssues([]);
+          setMciMarkEventId(null);
+          setCurrentMarkEvent(null);
+          return;
+        }
+        setMciLabelCountsRaw(result.labelCountsFiltered || {});
         setMciLabelCounts(
           applyDismissalsToLabelCounts(
-            labelCountsFiltered || {},
+            result.labelCountsFiltered || {},
             dismissedIssues,
             selectedFile?.name
           )
         );
-        setMciIssues(issuesFiltered || []);
-        setMciMarkEventId(markEvent?.id || null);
+        setMciIssues(result.issuesFiltered || []);
+        setMciMarkEventId(result.markEvent?.id || null);
+        setCurrentMarkEvent(result.markEvent || null);
         if (!mciSelectedLabel) {
-          const firstLabel = Object.keys(labelCountsFiltered || {})[0] || "";
+          const firstLabel = Object.keys(result.labelCountsFiltered || {})[0] || "";
           setMciSelectedLabel(firstLabel);
         }
       } catch (err) {
@@ -387,6 +416,7 @@ function App() {
         setMciLabelCounts({});
         setMciIssues([]);
         setMciMarkEventId(null);
+        setCurrentMarkEvent(null);
       } finally {
         if (isActive) setMciLoading(false);
       }
@@ -396,13 +426,13 @@ function App() {
       isActive = false;
     };
   }, [
-    practiceEnabled,
     supa,
     selectedFile,
     markedBlob,
     selectedAttempt,
     mciSelectedLabel,
-    dismissedIssues
+    dismissedIssues,
+    mciRefreshToken
   ]);
 
   useEffect(() => {
@@ -1009,6 +1039,10 @@ function App() {
     setStudentMetrics(null);
   };
 
+  const handleRefreshMci = () => {
+    setMciRefreshToken((prev) => prev + 1);
+  };
+
   const handleCancelRequest = () => {
     if (!cancelRequestsEnabled) return;
     if (!activeRequest?.cancel) return;
@@ -1587,7 +1621,18 @@ function App() {
                 {mciLoading ? (
                   <p className="helper-text">Loading issue data…</p>
                 ) : null}
-                {mciError ? <p className="helper-text error-text">{mciError}</p> : null}
+                {mciError ? (
+                  <div className="helper-text error-text">
+                    <p>{mciError}</p>
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={handleRefreshMci}
+                    >
+                      Refresh issue data
+                    </button>
+                  </div>
+                ) : null}
                 <MostCommonIssuesChart
                   labelCounts={mciLabelCounts}
                   issues={mciIssues}
