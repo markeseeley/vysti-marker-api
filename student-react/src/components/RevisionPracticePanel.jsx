@@ -937,19 +937,13 @@ export default function RevisionPracticePanel({
     !examplesLoading && selectedLabel && !examples.length && !showAllApproved;
 
   return (
-    <section className="card revision-practice-card practice-card" id="revisionPracticeCard">
-      <div className="revision-practice-header">
-        <h2 className="revision-practice-title">Revision examples</h2>
-        {onOpenDiagnostics ? (
-          <button
-            type="button"
-            className="diagnostics-link"
-            onClick={onOpenDiagnostics}
-          >
-            Diagnostics
-          </button>
-        ) : null}
-      </div>
+    <section className="card revision-practice-card" id="revisionPracticeCard">
+      <h2 className="revision-practice-title">Revision examples</h2>
+      {onOpenDiagnostics ? (
+        <button type="button" className="diagnostics-link" onClick={onOpenDiagnostics}>
+          Diagnostics
+        </button>
+      ) : null}
 
       {!selectedFile || !markedBlob ? (
         <p className="helper-text">Mark an essay to unlock revision practice.</p>
@@ -1100,6 +1094,7 @@ export default function RevisionPracticePanel({
               <button
                 type="button"
                 className="secondary-btn next-example-btn"
+                id="nextExampleBtn"
                 onClick={handleNextExample}
               >
                 Next →
@@ -1285,10 +1280,7 @@ export default function RevisionPracticePanel({
                       const isEditing = Boolean(editingApprovedKeys[entry.key]);
                       const currentDraft = draftByKey[entry.key] ?? entry.rewrite;
                       return (
-                        <li
-                          className="approved-rewrite-card approved-item"
-                          key={`approved-${entry.key}`}
-                        >
+                        <li className="approved-rewrite-card" key={`approved-${entry.key}`}>
                           <div className="approved-rewrite-label approved-meta">
                             {entry.label}
                           </div>
