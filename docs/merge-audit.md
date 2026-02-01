@@ -9,11 +9,12 @@
 - Preview editing + zoom
 - Preview tools: stats header, metrics grid, power verbs, hint dock, pill hints
 - Most Common Issues chart (bar chart + tooltip + click-to-revise)
+- Revision practice visible + Most Common Issues chart works in React
 - MLA header modal (export revised)
 - Dismiss issue modal + persistence
 
 ## Still missing
-- Revision practice parity: issue grouping, approved rewrites/apply-to-preview, notes download
+- (None in this slice)
 
 ## Known behavior differences
 - Most Common Issues chart uses a single color palette (Classic uses per-bucket colors)
