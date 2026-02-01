@@ -117,6 +117,8 @@ export default function RevisionPracticePanel({
   const lastExtractedRef = useRef("");
   const lastMarkEventRef = useRef(null);
   const textareaRefs = useRef({});
+  const [exampleNavIndex, setExampleNavIndex] = useState(0);
+  const exampleRefs = useRef([]);
 
   const debugEnabled = Boolean(getConfig()?.featureFlags?.debugRevisionPractice);
   const dismissedIssues = dismissedIssuesProp ?? localDismissedIssues;
@@ -389,6 +391,11 @@ export default function RevisionPracticePanel({
   }, [selectedLabel]);
 
   useEffect(() => {
+    setExampleNavIndex(0);
+    exampleRefs.current = [];
+  }, [selectedLabel, examples.length]);
+
+  useEffect(() => {
     if (!selectedFile?.name) return;
     setLabelCounts(
       applyDismissalsToLabelCounts(labelCountsRaw, dismissedIssues, selectedFile.name)
@@ -606,6 +613,16 @@ export default function RevisionPracticePanel({
     const raw = String(sentence || "");
     if (raw.length <= 140) return raw;
     return `${raw.slice(0, 140)}…`;
+  };
+
+  const handleNextExample = () => {
+    if (!examples.length) return;
+    const nextIndex = (exampleNavIndex + 1) % examples.length;
+    setExampleNavIndex(nextIndex);
+    const el = exampleRefs.current[nextIndex];
+    if (el && typeof el.scrollIntoView === "function") {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   const updateDraft = (key, value) => {
@@ -914,10 +931,15 @@ export default function RevisionPracticePanel({
 
   if (!enabled) return null;
 
+  const showAllApproved =
+    !examplesLoading && selectedLabel && !examples.length && approvedList.length > 0;
+  const showExamplesEmpty =
+    !examplesLoading && selectedLabel && !examples.length && !showAllApproved;
+
   return (
-    <section className="card practice-card">
-      <div className="practice-header">
-        <h2>Revision practice</h2>
+    <section className="card revision-practice-card practice-card" id="revisionPracticeCard">
+      <div className="revision-practice-header">
+        <h2 className="revision-practice-title">Revision examples</h2>
         {onOpenDiagnostics ? (
           <button
             type="button"
@@ -959,27 +981,28 @@ export default function RevisionPracticePanel({
       ) : null}
 
       {selectedFile && markedBlob && !loading ? (
-        <div className="practice-grid">
-          <StatsPanel
-            wordCount={wordCount}
-            totalIssues={totalIssues}
-            topIssue={topIssue}
-            techniques={techniques}
-          />
+        <>
+          <div className="practice-grid">
+            <StatsPanel
+              wordCount={wordCount}
+              totalIssues={totalIssues}
+              topIssue={topIssue}
+              techniques={techniques}
+            />
+          </div>
 
-          <div className="practice-issues">
-            <h3>Grouped issues</h3>
-            <div className="practice-groups">
-              <div className="practice-group">
-                <div className="practice-group-title">Title and Introduction</div>
-                <div className="issue-list">
+          <div className="issue-select-wrapper">
+            <div id="issueButtonsWrap" className="issue-buttons-wrap">
+              <div className="issue-section-block">
+                <div className="issue-section-heading">Title and Introduction</div>
+                <div className="issue-button-row">
                   {groupedIssues.groups.intro.length ? (
                     groupedIssues.groups.intro.map((entry) => (
                       <button
                         key={entry.label}
                         type="button"
-                        className={`issue-chip${
-                          selectedLabel === entry.label ? " is-active" : ""
+                        className={`issue-btn${
+                          selectedLabel === entry.label ? " active" : ""
                         }`}
                         onClick={() => {
                           setSelectedLabel(entry.label);
@@ -998,15 +1021,15 @@ export default function RevisionPracticePanel({
               {Object.keys(groupedIssues.groups.body)
                 .sort((a, b) => Number(a) - Number(b))
                 .map((key) => (
-                  <div className="practice-group" key={`body-${key}`}>
-                    <div className="practice-group-title">Body Paragraph {key}</div>
-                    <div className="issue-list">
+                  <div className="issue-section-block" key={`body-${key}`}>
+                    <div className="issue-section-heading">Body Paragraph {key}</div>
+                    <div className="issue-button-row">
                       {groupedIssues.groups.body[key].map((entry) => (
                         <button
                           key={entry.label}
                           type="button"
-                          className={`issue-chip${
-                            selectedLabel === entry.label ? " is-active" : ""
+                          className={`issue-btn${
+                            selectedLabel === entry.label ? " active" : ""
                           }`}
                           onClick={() => {
                             setSelectedLabel(entry.label);
@@ -1020,16 +1043,16 @@ export default function RevisionPracticePanel({
                   </div>
                 ))}
 
-              <div className="practice-group">
-                <div className="practice-group-title">Conclusion</div>
-                <div className="issue-list">
+              <div className="issue-section-block">
+                <div className="issue-section-heading">Conclusion</div>
+                <div className="issue-button-row">
                   {groupedIssues.groups.conclusion.length ? (
                     groupedIssues.groups.conclusion.map((entry) => (
                       <button
                         key={entry.label}
                         type="button"
-                        className={`issue-chip${
-                          selectedLabel === entry.label ? " is-active" : ""
+                        className={`issue-btn${
+                          selectedLabel === entry.label ? " active" : ""
                         }`}
                         onClick={() => {
                           setSelectedLabel(entry.label);
@@ -1045,284 +1068,318 @@ export default function RevisionPracticePanel({
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="practice-top-issues">
-              <h4>Most common issues</h4>
-              <div className="issue-list">
-                {topLabels.length ? (
-                  topLabels.map((entry) => (
-                    <button
-                      key={entry.label}
-                      type="button"
-                      className={`issue-chip${
-                        selectedLabel === entry.label ? " is-active" : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedLabel(entry.label);
-                        onSelectedLabelChange?.(entry.label);
-                      }}
-                    >
-                      {entry.label} ({entry.count})
-                    </button>
-                  ))
-                ) : (
-                  <p className="helper-text">No issues to show yet.</p>
-                )}
+          {selectedIssueExplanation ? (
+            <div id="issueExplanationBlock">
+              <div className="issue-explanation-header">Explanation of the Issue</div>
+              <div id="issueExplanation" className="issue-explanation">
+                {selectedIssueExplanation}
               </div>
             </div>
+          ) : null}
 
-            <div className="examples-panel">
-              <div className="examples-header">
-                <h4>{selectedLabel || "Examples"}</h4>
-                {selectedLabel ? (
-                  <button
-                    className="secondary-btn"
-                    type="button"
-                    onClick={handleDownloadNotes}
-                  >
-                    Download revision notes
-                  </button>
-                ) : null}
+          {showAllApproved ? (
+            <div id="allApprovedBanner" className="examples-empty-state">
+              All examples for this issue are approved. Apply them to the Preview to
+              update your progress, then click another bar to revise a different issue.
+            </div>
+          ) : null}
+
+          {showExamplesEmpty ? (
+            <div id="examplesEmptyState" className="examples-empty-state">
+              {examplesEmptyMessage || "No examples saved for this issue yet."}
+            </div>
+          ) : null}
+
+          {examples.length ? (
+            <div id="exampleNavRow" className="examples-nav">
+              <div id="exampleNavText" className="examples-nav-text">
+                Issue {exampleNavIndex + 1} of {examples.length}
               </div>
-              {selectedIssueExplanation ? (
-                <p className="helper-text">{selectedIssueExplanation}</p>
-              ) : null}
-              {dismissMessage ? <p className="helper-text">{dismissMessage}</p> : null}
-              {practiceHighlightEnabled && examples.length ? (
-                <div className="practice-action-row">
-                  <button
-                    className="secondary-btn"
-                    type="button"
-                    onClick={() => onHighlightExamples?.(examples)}
+              <button
+                type="button"
+                className="secondary-btn next-example-btn"
+                onClick={handleNextExample}
+              >
+                Next →
+              </button>
+            </div>
+          ) : null}
+
+          {dismissMessage ? <p className="helper-text">{dismissMessage}</p> : null}
+
+          {practiceHighlightEnabled && examples.length ? (
+            <div className="practice-action-row">
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => onHighlightExamples?.(examples)}
+              >
+                Highlight examples
+              </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => onClearHighlights?.()}
+              >
+                Clear highlights
+              </button>
+            </div>
+          ) : null}
+
+          {examplesLoading ? (
+            <p className="helper-text">Loading examples…</p>
+          ) : (
+            <ul id="examplesList" className="examples-list">
+              {examples.map((ex, idx) => {
+                const key = getExampleKey(selectedLabel, ex);
+                const draft = draftByKey[key] || "";
+                const approved = approvedByKey[key];
+                const applied = Boolean(appliedKeys[key]);
+                const status = exampleStatus[key] || {};
+                if (!textareaRefs.current[key]) {
+                  textareaRefs.current[key] = { current: null };
+                }
+                return (
+                  <li
+                    className="example-item example-row"
+                    key={`${key}-${idx}`}
+                    ref={(el) => {
+                      exampleRefs.current[idx] = el;
+                    }}
                   >
-                    Highlight examples
-                  </button>
-                  <button
-                    className="secondary-btn"
-                    type="button"
-                    onClick={() => onClearHighlights?.()}
-                  >
-                    Clear highlights
-                  </button>
-                </div>
-              ) : null}
-              {examplesLoading ? (
-                <p className="helper-text">Loading examples…</p>
-              ) : examples.length ? (
-                examples.map((ex, idx) => {
-                  const key = getExampleKey(selectedLabel, ex);
-                  const draft = draftByKey[key] || "";
-                  const approved = approvedByKey[key];
-                  const applied = Boolean(appliedKeys[key]);
-                  const status = exampleStatus[key] || {};
-                  if (!textareaRefs.current[key]) {
-                    textareaRefs.current[key] = { current: null };
-                  }
-                  return (
-                    <div className="example-row" key={`${key}-${idx}`}>
-                      <div className="example-meta">
-                        <span>Paragraph {ex.paragraph_index ?? 0}</span>
-                        {status.message ? (
-                          <span className="example-status success">{status.message}</span>
-                        ) : null}
-                        {status.error ? (
-                          <span className="example-status error">{status.error}</span>
-                        ) : null}
-                        {approved ? (
-                          <span className="example-status approved">Approved!</span>
-                        ) : null}
-                        {applied ? (
-                          <span className="example-status applied">Applied</span>
-                        ) : null}
-                      </div>
-                      {practiceNavEnabled ? (
-                        <button
-                          type="button"
-                          className="example-jump"
-                          onClick={() => onNavigateToExample?.(ex.sentence)}
-                          title={ex.sentence || ""}
-                        >
-                          {renderSentenceText(ex.sentence)}
-                        </button>
-                      ) : (
-                        <p>{renderSentenceText(ex.sentence)}</p>
-                      )}
-                      <textarea
-                        className="rewrite-input"
-                        rows={3}
-                        placeholder="Write a stronger rewrite here…"
-                        value={draft}
-                        onChange={(event) => updateDraft(key, event.target.value)}
-                        ref={(el) => {
-                          textareaRefs.current[key].current = el;
-                        }}
-                      />
-                      {showPowerVerbsHelper ? (
-                        <PowerVerbsHelper
-                          textareaRef={textareaRefs.current[key]}
-                          onOpenDictionary={(event) =>
-                            onOpenPowerVerbs?.({
-                              anchorEl: event?.currentTarget,
-                              textareaRef: textareaRefs.current[key]
-                            })
-                          }
-                        />
-                      ) : null}
-                      <div className="rewrite-actions">
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => handleCopy(ex.sentence)}
-                        >
-                          Copy sentence
-                        </button>
-                        <button
-                          className="secondary-btn dismiss-btn"
-                          type="button"
-                          onClick={() => handleDismissIssue(selectedLabel, ex)}
-                          disabled={status.loading}
-                        >
-                          Dismiss issue
-                        </button>
-                        <button
-                          className={`secondary-btn${
-                            status.loading ? " is-loading loading-cursor" : ""
-                          }`}
-                          type="button"
-                          onClick={() => handleCheckRewrite(selectedLabel, ex)}
-                          disabled={status.loading}
-                        >
-                          {status.loading ? "Checking" : "Check rewrite"}
-                        </button>
-                        <button
-                          className="primary-btn"
-                          type="button"
-                          onClick={() =>
-                            handleApplyRewrite({
-                              key,
-                              label: selectedLabel,
-                              sentence: ex.sentence,
-                              paragraph_index: ex.paragraph_index,
-                              rewrite: approved?.rewrite || ""
-                            })
-                          }
-                          disabled={!approved?.rewrite}
-                        >
-                          Apply to Preview
-                        </button>
+                    <div className="example-guidance">
+                      <div className="example-guidance-label">Original sentence</div>
+                      <div className="example-guidance-text">
+                        {renderSentenceText(ex.sentence)}
                       </div>
                     </div>
-                  );
-                })
-              ) : (
-                <p className="helper-text">
-                  {examplesEmptyMessage ||
-                    "No examples saved for this issue yet."}
-                </p>
-              )}
-            </div>
+                    <div className="example-meta">
+                      <span>Paragraph {ex.paragraph_index ?? 0}</span>
+                      {status.message ? (
+                        <span className="example-status success">{status.message}</span>
+                      ) : null}
+                      {status.error ? (
+                        <span className="example-status error">{status.error}</span>
+                      ) : null}
+                      {approved ? (
+                        <span className="example-status approved">Approved!</span>
+                      ) : null}
+                      {applied ? (
+                        <span className="example-status applied">Applied</span>
+                      ) : null}
+                    </div>
+                    {practiceNavEnabled ? (
+                      <button
+                        type="button"
+                        className="example-jump"
+                        onClick={() => onNavigateToExample?.(ex.sentence)}
+                        title={ex.sentence || ""}
+                      >
+                        Jump to paragraph
+                      </button>
+                    ) : null}
+                    <textarea
+                      className="example-rewrite rewrite-input"
+                      rows={3}
+                      placeholder="Write a stronger rewrite here…"
+                      value={draft}
+                      onChange={(event) => updateDraft(key, event.target.value)}
+                      ref={(el) => {
+                        textareaRefs.current[key].current = el;
+                      }}
+                    />
+                    {showPowerVerbsHelper ? (
+                      <PowerVerbsHelper
+                        textareaRef={textareaRefs.current[key]}
+                        onOpenDictionary={(event) =>
+                          onOpenPowerVerbs?.({
+                            anchorEl: event?.currentTarget,
+                            textareaRef: textareaRefs.current[key]
+                          })
+                        }
+                      />
+                    ) : null}
+                    <div className="example-actions rewrite-actions">
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={() => handleCopy(ex.sentence)}
+                      >
+                        Copy sentence
+                      </button>
+                      <button
+                        className="secondary-btn dismiss-btn"
+                        type="button"
+                        onClick={() => handleDismissIssue(selectedLabel, ex)}
+                        disabled={status.loading}
+                      >
+                        Dismiss issue
+                      </button>
+                      <button
+                        className={`secondary-btn${
+                          status.loading ? " is-loading loading-cursor" : ""
+                        }`}
+                        type="button"
+                        onClick={() => handleCheckRewrite(selectedLabel, ex)}
+                        disabled={status.loading}
+                      >
+                        {status.loading ? "Checking" : "Check rewrite"}
+                      </button>
+                      <button
+                        className="primary-btn"
+                        type="button"
+                        onClick={() =>
+                          handleApplyRewrite({
+                            key,
+                            label: selectedLabel,
+                            sentence: ex.sentence,
+                            paragraph_index: ex.paragraph_index,
+                            rewrite: approved?.rewrite || ""
+                          })
+                        }
+                        disabled={!approved?.rewrite}
+                      >
+                        Apply to Preview
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
-            {approvedList.length ? (
-              <div className="approved-panel">
+          {approvedList.length ? (
+            <div
+              id="approvedRewritesWrap"
+              className="approved-rewrites-wrap"
+              data-collapsed={approvedPanelOpen ? "false" : "true"}
+            >
+              <button
+                type="button"
+                className="secondary-btn apply-all-btn apply-to-preview-btn"
+                id="applyAllToPreviewBtn"
+                style={{ display: approvedList.length >= 2 ? "inline-flex" : "none" }}
+                onClick={handleApplyAll}
+                disabled={approvedList.length < 2}
+              >
+                Apply all rewrites to Preview
+              </button>
+              <div className="approved-rewrites-header">
+                <div className="approved-rewrites-title">Approved rewrites</div>
                 <button
                   type="button"
-                  className="secondary-btn"
+                  className="approved-rewrites-toggle"
+                  id="approvedRewritesToggle"
+                  aria-expanded={approvedPanelOpen}
                   onClick={() => setApprovedPanelOpen((prev) => !prev)}
                 >
-                  {approvedPanelOpen ? "Hide" : "Show"} approved rewrites (
-                  {approvedList.length})
+                  {approvedPanelOpen ? "Hide" : "Show"} approved rewrites
                 </button>
-                {approvedPanelOpen ? (
-                  <div className="approved-list">
-                    {approvedOtherExamples.length ? (
-                      approvedOtherExamples.map((entry) => {
-                        const isEditing = Boolean(editingApprovedKeys[entry.key]);
-                        const currentDraft = draftByKey[entry.key] ?? entry.rewrite;
-                        return (
-                          <div className="approved-item" key={`approved-${entry.key}`}>
-                            <div className="approved-meta">{entry.label}</div>
+              </div>
+              {approvedPanelOpen ? (
+                <ul id="approvedRewritesList" className="approved-rewrites-list">
+                  {approvedOtherExamples.length ? (
+                    approvedOtherExamples.map((entry) => {
+                      const isEditing = Boolean(editingApprovedKeys[entry.key]);
+                      const currentDraft = draftByKey[entry.key] ?? entry.rewrite;
+                      return (
+                        <li
+                          className="approved-rewrite-card approved-item"
+                          key={`approved-${entry.key}`}
+                        >
+                          <div className="approved-rewrite-label approved-meta">
+                            {entry.label}
+                          </div>
+                          {isEditing ? (
+                            <textarea
+                              className="example-rewrite rewrite-input"
+                              rows={2}
+                              value={currentDraft}
+                              onChange={(event) =>
+                                updateDraft(entry.key, event.target.value)
+                              }
+                            />
+                          ) : (
+                            <p className="approved-rewrite-text approved-text">
+                              {entry.rewrite}
+                            </p>
+                          )}
+                          <div className="example-actions rewrite-actions">
+                            <button
+                              className="secondary-btn"
+                              type="button"
+                              onClick={() =>
+                                setEditingApprovedKeys((prev) => ({
+                                  ...prev,
+                                  [entry.key]: !prev[entry.key]
+                                }))
+                              }
+                            >
+                              {isEditing ? "Cancel" : "Edit"}
+                            </button>
                             {isEditing ? (
-                              <textarea
-                                className="rewrite-input"
-                                rows={2}
-                                value={currentDraft}
-                                onChange={(event) =>
-                                  updateDraft(entry.key, event.target.value)
-                                }
-                              />
-                            ) : (
-                              <p className="approved-text">{entry.rewrite}</p>
-                            )}
-                            <div className="rewrite-actions">
                               <button
                                 className="secondary-btn"
                                 type="button"
-                                onClick={() =>
+                                onClick={() => {
+                                  const next = String(currentDraft || "").trim();
+                                  if (!next) return;
+                                  setApprovedByKey((prev) => ({
+                                    ...prev,
+                                    [entry.key]: { ...entry, rewrite: next }
+                                  }));
                                   setEditingApprovedKeys((prev) => ({
                                     ...prev,
-                                    [entry.key]: !prev[entry.key]
-                                  }))
-                                }
+                                    [entry.key]: false
+                                  }));
+                                }}
                               >
-                                {isEditing ? "Cancel" : "Edit"}
+                                Save
                               </button>
-                              {isEditing ? (
-                                <button
-                                  className="secondary-btn"
-                                  type="button"
-                                  onClick={() => {
-                                    const next = String(currentDraft || "").trim();
-                                    if (!next) return;
-                                    setApprovedByKey((prev) => ({
-                                      ...prev,
-                                      [entry.key]: { ...entry, rewrite: next }
-                                    }));
-                                    setEditingApprovedKeys((prev) => ({
-                                      ...prev,
-                                      [entry.key]: false
-                                    }));
-                                  }}
-                                >
-                                  Save
-                                </button>
-                              ) : null}
-                              <button
-                                className="primary-btn"
-                                type="button"
-                                onClick={() =>
-                                  handleApplyRewrite({
-                                    key: entry.key,
-                                    label: entry.label,
-                                    sentence: entry.sentence,
-                                    paragraph_index: entry.paragraph_index,
-                                    rewrite: approvedByKey[entry.key]?.rewrite || ""
-                                  })
-                                }
-                              >
-                                Apply to Preview
-                              </button>
-                            </div>
+                            ) : null}
+                            <button
+                              className="primary-btn"
+                              type="button"
+                              onClick={() =>
+                                handleApplyRewrite({
+                                  key: entry.key,
+                                  label: entry.label,
+                                  sentence: entry.sentence,
+                                  paragraph_index: entry.paragraph_index,
+                                  rewrite: approvedByKey[entry.key]?.rewrite || ""
+                                })
+                              }
+                            >
+                              Apply to Preview
+                            </button>
                           </div>
-                        );
-                      })
-                    ) : (
+                        </li>
+                      );
+                    })
+                  ) : (
+                    <li className="approved-rewrite-card">
                       <p className="helper-text">No other approved rewrites yet.</p>
-                    )}
-                    {approvedList.length >= 2 ? (
-                      <button
-                        className="primary-btn apply-all-btn"
-                        type="button"
-                        onClick={handleApplyAll}
-                      >
-                        Apply all rewrites to Preview
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
+                    </li>
+                  )}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {selectedLabel ? (
+            <button
+              type="button"
+              className="secondary-btn"
+              id="downloadRevisionNotesBtn"
+              style={{ marginTop: 16 }}
+              onClick={handleDownloadNotes}
+            >
+              Download revision notes
+            </button>
+          ) : null}
+        </>
       ) : null}
       <DismissIssueModal
         isOpen={dismissModalOpen}
