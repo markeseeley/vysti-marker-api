@@ -1647,6 +1647,39 @@ function App() {
           </section>
         </form>
 
+        {practiceEnabled && showRevisionPractice ? (
+          <ErrorBoundary
+            inline
+            title="Something broke while rendering revision practice."
+            message="Try reloading or continue without this panel."
+          >
+            <RevisionPracticePanel
+              enabled={practiceEnabled}
+              requestActive={requestActive}
+              practiceNavEnabled={practiceNavEnabled}
+              practiceHighlightEnabled={practiceHighlightEnabled}
+              externalAttempt={selectedAttempt}
+              onClearExternalAttempt={() => setSelectedAttempt(null)}
+              supa={supa}
+              selectedFile={selectedFile}
+              markedBlob={markedBlob}
+              previewRef={previewRef}
+              techniques={techniques}
+              dismissedIssues={dismissedIssues}
+              onDismissedIssuesChange={setDismissedIssues}
+              selectedLabelOverride={mciSelectedLabel}
+              onSelectedLabelChange={(label) => setMciSelectedLabel(label)}
+              onOpenDiagnostics={() => setShowDiagnostics(true)}
+              onNavigateToExample={handleNavigateToExample}
+              onHighlightExamples={handleHighlightExamples}
+              onClearHighlights={handleClearHighlights}
+              mode={mode}
+              onPreviewEdited={handlePreviewEdited}
+              onOpenPowerVerbs={handleOpenPowerVerbsForTextarea}
+            />
+          </ErrorBoundary>
+        ) : null}
+
         <ErrorBoundary
           inline
           title="Something broke while rendering the preview."
@@ -1683,39 +1716,6 @@ function App() {
             onPreviewError={handlePreviewError}
           />
         </ErrorBoundary>
-
-        {practiceEnabled && showRevisionPractice ? (
-          <ErrorBoundary
-            inline
-            title="Something broke while rendering revision practice."
-            message="Try reloading or continue without this panel."
-          >
-            <RevisionPracticePanel
-              enabled={practiceEnabled}
-              requestActive={requestActive}
-              practiceNavEnabled={practiceNavEnabled}
-              practiceHighlightEnabled={practiceHighlightEnabled}
-              externalAttempt={selectedAttempt}
-              onClearExternalAttempt={() => setSelectedAttempt(null)}
-              supa={supa}
-              selectedFile={selectedFile}
-              markedBlob={markedBlob}
-              previewRef={previewRef}
-              techniques={techniques}
-              dismissedIssues={dismissedIssues}
-              onDismissedIssuesChange={setDismissedIssues}
-              selectedLabelOverride={mciSelectedLabel}
-              onSelectedLabelChange={(label) => setMciSelectedLabel(label)}
-              onOpenDiagnostics={() => setShowDiagnostics(true)}
-              onNavigateToExample={handleNavigateToExample}
-              onHighlightExamples={handleHighlightExamples}
-              onClearHighlights={handleClearHighlights}
-              mode={mode}
-              onPreviewEdited={handlePreviewEdited}
-              onOpenPowerVerbs={handleOpenPowerVerbsForTextarea}
-            />
-          </ErrorBoundary>
-        ) : null}
 
         {historyEnabled ? (
           <AttemptHistoryPanel
