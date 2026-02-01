@@ -12,32 +12,46 @@ const normalizeVerbEntry = (entry) => {
   return { verb, definition: String(entry.definition || "").trim() };
 };
 
+let cachedPowerVerbsPromise = null;
+let cachedPowerVerbsResult = null;
+
 export const loadPowerVerbs = async (candidateUrls = DEFAULT_CANDIDATE_URLS) => {
-  let lastErr = null;
-  for (const url of candidateUrls) {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        lastErr = new Error(`Failed ${url} (${res.status})`);
-        continue;
+  if (cachedPowerVerbsResult) return cachedPowerVerbsResult;
+  if (cachedPowerVerbsPromise) return cachedPowerVerbsPromise;
+
+  cachedPowerVerbsPromise = (async () => {
+    let lastErr = null;
+    for (const url of candidateUrls) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          lastErr = new Error(`Failed ${url} (${res.status})`);
+          continue;
+        }
+        const data = await res.json();
+        const list = Array.isArray(data)
+          ? data.map(normalizeVerbEntry).filter(Boolean)
+          : [];
+        const result = {
+          list,
+          map: new Map(list.map((entry) => [entry.verb.toLowerCase(), entry.definition])),
+          source: url
+        };
+        cachedPowerVerbsResult = result;
+        return result;
+      } catch (err) {
+        lastErr = err;
       }
-      const data = await res.json();
-      const list = Array.isArray(data)
-        ? data.map(normalizeVerbEntry).filter(Boolean)
-        : [];
-      return {
-        list,
-        map: new Map(list.map((entry) => [entry.verb.toLowerCase(), entry.definition])),
-        source: url
-      };
-    } catch (err) {
-      lastErr = err;
     }
-  }
-  if (lastErr) {
-    console.warn("Failed to load power verbs from all candidate URLs:", lastErr);
-  }
-  return { list: [], map: new Map(), source: "" };
+    if (lastErr) {
+      console.warn("Failed to load power verbs from all candidate URLs:", lastErr);
+    }
+    const result = { list: [], map: new Map(), source: "" };
+    cachedPowerVerbsResult = result;
+    return result;
+  })();
+
+  return cachedPowerVerbsPromise;
 };
 
 export const buildPowerVerbFormsSet = (list) => {
