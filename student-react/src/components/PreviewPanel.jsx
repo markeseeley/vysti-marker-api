@@ -51,15 +51,19 @@ export default function PreviewPanel({
 
         <div className="preview-header-right">
           {markedBlob ? (
-            <div className="preview-header-stats">
+            <div className="preview-header-stats" id="statsPanel">
               <div className="preview-header-stats-row">
                 <div className="student-stat preview-stat">
                   <div className="student-stat-label">Word count</div>
-                  <div className="student-stat-value">{wordCount ?? "—"}</div>
+                  <div className="student-stat-value" id="wordCountStat">
+                    {wordCount ?? "—"}
+                  </div>
                 </div>
                 <div className="student-stat preview-stat">
                   <div className="student-stat-label">Total issues</div>
-                  <div className="student-stat-value">{totalIssues ?? "—"}</div>
+                  <div className="student-stat-value" id="totalIssuesStat">
+                    {totalIssues ?? "—"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -149,7 +153,7 @@ export default function PreviewPanel({
         <button
           type="button"
           className="secondary-btn"
-          id="downloadBtn"
+          id="downloadMarkedBtn"
           onClick={onDownloadMarked}
           disabled={!markedBlob || isProcessing}
         >
@@ -158,6 +162,7 @@ export default function PreviewPanel({
         <button
           type="button"
           className={`secondary-btn${isDownloading ? " is-loading loading-cursor" : ""}`}
+          id="downloadBtn"
           onClick={() => onDownloadRevised?.()}
           disabled={
             !markedBlob ||

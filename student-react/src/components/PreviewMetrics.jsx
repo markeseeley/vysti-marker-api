@@ -22,6 +22,7 @@ export default function PreviewMetrics({
         <button
           type="button"
           className="metrics-toggle-btn"
+          id="metricsDetailsToggle"
           aria-expanded={!collapsed}
           onClick={onToggleDetails}
         >

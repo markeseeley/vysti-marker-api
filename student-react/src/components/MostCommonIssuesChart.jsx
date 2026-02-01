@@ -225,10 +225,6 @@ export default function MostCommonIssuesChart({
     };
   }, [entries, explanations, labels, values, onSelectLabel, markEventId]);
 
-  if (!entries.length) {
-    return null;
-  }
-
   return (
     <div id="mostCommonIssuesWrap" ref={wrapRef} style={{ marginTop: "20px" }}>
       <div className="rules-title">Most Common Issues</div>
