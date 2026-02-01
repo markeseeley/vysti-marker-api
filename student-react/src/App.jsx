@@ -18,6 +18,9 @@ import StatusToasts from "./components/StatusToasts";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DraftRestoreBanner from "./components/DraftRestoreBanner";
 import AttemptHistoryPanel from "./components/AttemptHistoryPanel";
+import MetricInfoPopover from "./components/MetricInfoPopover";
+import PowerVerbsPopover from "./components/PowerVerbsPopover";
+import PillHintPopover from "./components/PillHintPopover";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { logEvent, logError } from "./lib/logger";
 import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getConfig, getConfigError } from "./config";
@@ -29,8 +32,11 @@ import { downloadBlob } from "@shared/download";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import {
   extractPreviewTextFromContainer,
-  stripStudentHeaderBeforeTitleForDownload
+  stripStudentHeaderBeforeTitleForDownload,
+  wordCountFromText
 } from "./lib/previewText";
+import { buildPowerVerbFormsSet, loadPowerVerbs } from "./lib/powerVerbs";
+import { computeMetricsFromText, loadThesisDevicesLexicon } from "./lib/studentMetrics";
 import {
   clearHighlights,
   findBestMatchBlock,
@@ -68,6 +74,7 @@ const EMPTY_TECHNIQUES = {
 };
 
 const MAX_DOCX_BYTES = 15 * 1024 * 1024;
+const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
 
 function App() {
   const { supa, isChecking, authError, redirectToSignin } = useAuthSession();
@@ -116,6 +123,31 @@ function App() {
   const [fileValidationError, setFileValidationError] = useState("");
   const [dragMessage, setDragMessage] = useState("");
   const lastExtractedRef = useRef("");
+  const [wordCount, setWordCount] = useState(null);
+  const [studentMetrics, setStudentMetrics] = useState(null);
+  const [metricsCollapsed, setMetricsCollapsed] = useState(false);
+  const [metricInfoState, setMetricInfoState] = useState({
+    open: false,
+    anchorEl: null,
+    metricKey: null
+  });
+  const [powerVerbsState, setPowerVerbsState] = useState({
+    open: false,
+    anchorEl: null,
+    textareaRef: null
+  });
+  const [previewHint, setPreviewHint] = useState(null);
+  const [pillHintState, setPillHintState] = useState({
+    open: false,
+    mode: "anchor",
+    anchorEl: null,
+    data: null,
+    nav: null,
+    dismissKey: null
+  });
+  const [powerVerbFormsSet, setPowerVerbFormsSet] = useState(null);
+  const [thesisDevicesLexicon, setThesisDevicesLexicon] = useState(null);
+  const previewMetricsTimerRef = useRef(0);
 
   const config = getConfig();
   const configError = getConfigError();
@@ -222,6 +254,13 @@ function App() {
     [mode]
   );
 
+  const totalIssues = useMemo(() => {
+    return Object.values(mciLabelCounts || {}).reduce(
+      (sum, count) => sum + (Number(count) || 0),
+      0
+    );
+  }, [mciLabelCounts]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("react") === "1" && (isAllowlisted || rolloutDebugEnabled)) {
@@ -234,10 +273,40 @@ function App() {
 
   useEffect(() => {
     try {
+      setMetricsCollapsed(localStorage.getItem(METRIC_DETAILS_COLLAPSE_KEY) === "1");
+    } catch (err) {
+      setMetricsCollapsed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
       setUiModeState(localStorage.getItem("uiMode") || "");
     } catch (err) {
       setUiModeState("");
     }
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    loadPowerVerbs().then(({ list }) => {
+      if (!isActive) return;
+      setPowerVerbFormsSet(buildPowerVerbFormsSet(list));
+    });
+    loadThesisDevicesLexicon().then(({ lexicon }) => {
+      if (!isActive) return;
+      setThesisDevicesLexicon(lexicon);
+    });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      document.body.classList.add("popovers-ready");
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
@@ -323,6 +392,27 @@ function App() {
       setPreviewErrorStack("");
     }
   }, [markedBlob]);
+
+  useEffect(() => {
+    if (!markedBlob) {
+      setWordCount(null);
+      setStudentMetrics(null);
+      return;
+    }
+    schedulePreviewStatsUpdate(80);
+    return () => {
+      if (previewMetricsTimerRef.current) {
+        window.clearTimeout(previewMetricsTimerRef.current);
+      }
+    };
+  }, [
+    markedBlob,
+    mode,
+    mciLabelCounts,
+    mciMarkEventId,
+    powerVerbFormsSet,
+    thesisDevicesLexicon
+  ]);
 
   useEffect(() => {
     if (!supa) return undefined;
@@ -412,6 +502,45 @@ function App() {
 
   const clearStatus = () => {
     setStatus({ message: "", kind: "info" });
+  };
+
+  const closeAllGuidanceOverlays = () => {
+    setPreviewHint(null);
+    setMetricInfoState({ open: false, anchorEl: null, metricKey: null });
+    setPowerVerbsState({ open: false, anchorEl: null, textareaRef: null });
+    setPillHintState({
+      open: false,
+      mode: "anchor",
+      anchorEl: null,
+      data: null,
+      nav: null,
+      dismissKey: null
+    });
+  };
+
+  const recomputePreviewStats = () => {
+    const container = previewRef.current;
+    if (!container) return;
+    const text = extractPreviewTextFromContainer(container);
+    if (!text) return;
+    const wc = wordCountFromText(text);
+    setWordCount(Number.isFinite(wc) ? wc : null);
+    const metrics = computeMetricsFromText(text, mode, {
+      labelCounts: mciLabelCounts,
+      markEventId: mciMarkEventId,
+      powerVerbFormsSet,
+      thesisDevicesLexicon
+    });
+    setStudentMetrics(metrics);
+  };
+
+  const schedulePreviewStatsUpdate = (delayMs = 350) => {
+    if (previewMetricsTimerRef.current) {
+      window.clearTimeout(previewMetricsTimerRef.current);
+    }
+    previewMetricsTimerRef.current = window.setTimeout(() => {
+      recomputePreviewStats();
+    }, delayMs);
   };
 
   const startRequest = (kind) => {
@@ -627,6 +756,9 @@ function App() {
     setFileValidationError("");
     setPreviewError("");
     setPreviewErrorStack("");
+    setWordCount(null);
+    setStudentMetrics(null);
+    closeAllGuidanceOverlays();
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -639,6 +771,7 @@ function App() {
       return;
     }
     if (requestActive) return;
+    closeAllGuidanceOverlays();
     setIsProcessing(true);
     setStatus({
       message: hardeningEnabled ? "Uploading..." : "Processing...",
@@ -670,6 +803,7 @@ function App() {
       const parsed = parseTechniquesHeaderShared(techniquesHeader);
       setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
+      schedulePreviewStatsUpdate(120);
       setPreviewError("");
       setPreviewErrorStack("");
       const baseName = (selectedFile?.name || "essay.docx").replace(/\.docx$/i, "") || "essay";
@@ -737,6 +871,9 @@ function App() {
     setAttempts([]);
     setPreviewError("");
     setPreviewErrorStack("");
+    setWordCount(null);
+    setStudentMetrics(null);
+    closeAllGuidanceOverlays();
     clearStatus();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -746,6 +883,7 @@ function App() {
   const handleRecheck = async () => {
     if (!markedBlob) return;
     if (requestActive) return;
+    closeAllGuidanceOverlays();
     const text = extractPreviewTextFromContainer(previewRef.current);
     if (!text) {
       setError("Please add text to the preview before rechecking.");
@@ -772,6 +910,7 @@ function App() {
       const parsed = parseTechniquesHeaderShared(techniquesHeader);
       setTechniquesParsed(Array.isArray(parsed) ? parsed : null);
       setHasRevisedSinceMark(false);
+      schedulePreviewStatsUpdate(120);
       setPreviewError("");
       setPreviewErrorStack("");
       setSelectedAttempt(null);
@@ -798,6 +937,7 @@ function App() {
 
   const handlePreviewEdited = () => {
     setHasRevisedSinceMark(true);
+    schedulePreviewStatsUpdate(350);
   };
 
   const handlePreviewError = (err) => {
@@ -815,6 +955,8 @@ function App() {
     setHasRevisedSinceMark(false);
     setPreviewError("");
     setPreviewErrorStack("");
+    setWordCount(null);
+    setStudentMetrics(null);
   };
 
   const handleCancelRequest = () => {
@@ -1012,6 +1154,54 @@ function App() {
   const handleOpenDownloadModal = () => {
     if (!markedBlob || !hasRevisedSinceMark) return;
     setShowMlaModal(true);
+  };
+
+  const handleToggleMetricsDetails = () => {
+    setMetricsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(METRIC_DETAILS_COLLAPSE_KEY, next ? "1" : "0");
+      } catch (err) {}
+      return next;
+    });
+  };
+
+  const handleOpenMetricInfo = (event) => {
+    const key = event?.currentTarget?.dataset?.metric;
+    if (!key) return;
+    closeAllGuidanceOverlays();
+    setMetricInfoState({ open: true, anchorEl: event.currentTarget, metricKey: key });
+  };
+
+  const handleOpenPowerVerbs = (event) => {
+    closeAllGuidanceOverlays();
+    setPowerVerbsState({
+      open: true,
+      anchorEl: event?.currentTarget || null,
+      textareaRef: null
+    });
+  };
+
+  const handleOpenPowerVerbsForTextarea = ({ anchorEl, textareaRef }) => {
+    closeAllGuidanceOverlays();
+    setPowerVerbsState({
+      open: true,
+      anchorEl: anchorEl || null,
+      textareaRef: textareaRef || null
+    });
+  };
+
+  const handleOpenPillHint = ({ anchorEl, mode = "anchor", data, nav, dismissKey }) => {
+    if (!data) return;
+    closeAllGuidanceOverlays();
+    setPillHintState({
+      open: true,
+      mode,
+      anchorEl: anchorEl || null,
+      data,
+      nav: nav || null,
+      dismissKey: dismissKey || null
+    });
   };
 
   const handleDownloadRevised = async ({ includeMla, fields }) => {
@@ -1380,6 +1570,17 @@ function App() {
             onDownloadRevised={handleOpenDownloadModal}
             isDownloading={isDownloading}
             hasRevisedSinceMark={hasRevisedSinceMark}
+            wordCount={wordCount}
+            totalIssues={totalIssues}
+            metrics={studentMetrics}
+            metricsCollapsed={metricsCollapsed}
+            onToggleMetricsDetails={handleToggleMetricsDetails}
+            onOpenMetricInfo={handleOpenMetricInfo}
+            onOpenPillHint={handleOpenPillHint}
+            onOpenPowerVerbs={handleOpenPowerVerbs}
+            hint={previewHint}
+            onDismissHint={() => setPreviewHint(null)}
+            mode={mode}
             previewError={previewError}
             previewErrorStack={previewErrorStack}
             showDebug={debugHardening}
@@ -1412,7 +1613,8 @@ function App() {
               onHighlightExamples={handleHighlightExamples}
               onClearHighlights={handleClearHighlights}
               mode={mode}
-              onPreviewEdited={() => setHasRevisedSinceMark(true)}
+              onPreviewEdited={handlePreviewEdited}
+              onOpenPowerVerbs={handleOpenPowerVerbsForTextarea}
             />
           </ErrorBoundary>
         ) : null}
@@ -1456,6 +1658,38 @@ function App() {
         <Footer />
       </main>
 
+      <MetricInfoPopover
+        isOpen={metricInfoState.open}
+        anchorEl={metricInfoState.anchorEl}
+        metricKey={metricInfoState.metricKey}
+        onClose={() => setMetricInfoState({ open: false, anchorEl: null, metricKey: null })}
+      />
+      <PowerVerbsPopover
+        isOpen={powerVerbsState.open}
+        anchorEl={powerVerbsState.anchorEl}
+        previewRef={previewRef}
+        textareaRef={powerVerbsState.textareaRef}
+        onClose={() => setPowerVerbsState({ open: false, anchorEl: null, textareaRef: null })}
+        onVerbApplied={() => handlePreviewEdited()}
+      />
+      <PillHintPopover
+        isOpen={pillHintState.open}
+        mode={pillHintState.mode}
+        anchorEl={pillHintState.anchorEl}
+        data={pillHintState.data}
+        nav={pillHintState.nav}
+        dismissKey={pillHintState.dismissKey}
+        onClose={() =>
+          setPillHintState({
+            open: false,
+            mode: "anchor",
+            anchorEl: null,
+            data: null,
+            nav: null,
+            dismissKey: null
+          })
+        }
+      />
       <MlaModal
         isOpen={showMlaModal}
         initialAssignmentName={assignmentName}

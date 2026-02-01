@@ -556,6 +556,229 @@ button.loading-cursor::after {
   gap: 12px;
 }
 
+.preview-header-stats {
+  display: block;
+}
+
+.preview-header-stats-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.preview-stat {
+  min-height: 0;
+}
+
+.preview-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.preview-stage {
+  position: relative;
+}
+
+.preview-hint-dock {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  width: 360px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+
+.preview-hint-dock .tour-popover {
+  position: relative;
+  top: auto;
+  left: auto;
+}
+
+.preview-hint-dock .hint-card {
+  pointer-events: auto;
+}
+
+.metrics-details-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin: 6px 0 8px;
+}
+
+.metrics-toggle-btn {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  color: rgba(0, 0, 0, 0.75);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.metrics-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.metrics-toggle-btn:active {
+  transform: translateY(0.5px);
+}
+
+.preview-pill-btn {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  color: rgba(0, 0, 0, 0.75);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.preview-pill-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.preview-pill-btn:active {
+  transform: translateY(0.5px);
+}
+
+.preview-pill-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.pill-hint-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 129;
+}
+
+.pill-hint-subheader {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: var(--fs-xs);
+  color: rgba(0, 0, 0, 0.65);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.power-verbs-helper {
+  margin: 6px 0 10px;
+}
+
+.power-verbs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.power-verbs-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.power-verbs-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.power-verbs-feedback {
+  font-size: var(--fs-xs);
+  color: rgba(0, 0, 0, 0.6);
+  min-height: 14px;
+}
+
+.power-verbs-iconbtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.power-verbs-iconbtn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.power-verbs-suggestions-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.power-verbs-suggestions-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.power-verbs-shuffle-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 26px;
+  font-weight: 900;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.power-verbs-shuffle-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.power-verb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
+}
+
+#metricsGrid.details-collapsed .metric-sub {
+  display: block;
+  margin-top: 0;
+}
+
+#metricsGrid.details-collapsed .metric-sub > :not(.metric-success):not(.metric-persistent) {
+  display: none !important;
+}
+
+#metricsGrid.details-collapsed .metric-sub:empty {
+  display: none;
+}
+
 .results-actions {
   margin-top: 12px;
   display: flex;
