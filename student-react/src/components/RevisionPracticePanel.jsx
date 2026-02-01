@@ -6,9 +6,19 @@ import {
   fetchIssueExamplesIndex,
   fetchLatestMarkEvent
 } from "../services/revisionPractice";
+import DismissIssueModal from "./DismissIssueModal";
 import StatsPanel from "./StatsPanel";
 import { normalizeForCompare, normalizeLabelTrim } from "../lib/normalize";
 import { applyRewriteToPreview } from "../lib/applyRewriteToPreview";
+import {
+  applyDismissalsToLabelCounts,
+  filterDismissedExamples,
+  loadDismissNoAsk,
+  loadDismissedIssuesFromStorage,
+  saveDismissNoAsk,
+  saveDismissedIssuesToStorage
+} from "../lib/dismissIssues";
+import { removeIssueLabelAndHighlight } from "../lib/previewDismissals";
 import PowerVerbsHelper from "./PowerVerbsHelper";
 import { POWER_VERBS_LABEL } from "../lib/powerVerbs";
 import { checkRevision } from "../services/revisionCheck";
@@ -56,6 +66,7 @@ const getDominantParagraphIndex = (indices) => {
 
 export default function RevisionPracticePanel({
   enabled,
+  requestActive = false,
   practiceNavEnabled = false,
   practiceHighlightEnabled = false,
   externalAttempt = null,
@@ -65,6 +76,8 @@ export default function RevisionPracticePanel({
   markedBlob,
   previewRef,
   techniques,
+  dismissedIssues: dismissedIssuesProp,
+  onDismissedIssuesChange,
   selectedLabelOverride,
   onSelectedLabelChange,
   onOpenDiagnostics,
@@ -79,6 +92,7 @@ export default function RevisionPracticePanel({
   const [examplesLoading, setExamplesLoading] = useState(false);
   const [error, setError] = useState("");
   const [labelCounts, setLabelCounts] = useState({});
+  const [labelCountsRaw, setLabelCountsRaw] = useState({});
   const [topLabels, setTopLabels] = useState([]);
   const [selectedLabel, setSelectedLabel] = useState("");
   const [examples, setExamples] = useState([]);
@@ -94,12 +108,25 @@ export default function RevisionPracticePanel({
   const [approvedPanelOpen, setApprovedPanelOpen] = useState(false);
   const [exampleStatus, setExampleStatus] = useState({});
   const [editingApprovedKeys, setEditingApprovedKeys] = useState({});
+  const [dismissModalOpen, setDismissModalOpen] = useState(false);
+  const [pendingDismiss, setPendingDismiss] = useState(null);
+  const [dismissMessage, setDismissMessage] = useState("");
+  const [examplesEmptyMessage, setExamplesEmptyMessage] = useState("");
+  const [localDismissedIssues, setLocalDismissedIssues] = useState([]);
   const wordCountTimerRef = useRef(0);
   const lastExtractedRef = useRef("");
   const lastMarkEventRef = useRef(null);
   const textareaRefs = useRef({});
 
   const debugEnabled = Boolean(getConfig()?.featureFlags?.debugRevisionPractice);
+  const dismissedIssues = dismissedIssuesProp ?? localDismissedIssues;
+  const updateDismissedIssues = (next) => {
+    if (typeof onDismissedIssuesChange === "function") {
+      onDismissedIssuesChange(next);
+    } else {
+      setLocalDismissedIssues(next);
+    }
+  };
 
   const totalIssues = useMemo(() => {
     return Object.values(labelCounts || {}).reduce(
@@ -207,7 +234,19 @@ export default function RevisionPracticePanel({
         .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
         .slice(0, 10);
 
-      setLabelCounts(counts);
+      const storedDismissed = loadDismissedIssuesFromStorage({
+        markEventId: externalAttempt.id || null,
+        fileName: selectedFile?.name || ""
+      });
+      updateDismissedIssues(storedDismissed);
+      setLabelCountsRaw(counts);
+      setLabelCounts(
+        applyDismissalsToLabelCounts(
+          counts,
+          storedDismissed,
+          selectedFile?.name || ""
+        )
+      );
       setTopLabels(entries);
       setLastMarkEventId(externalAttempt.id || null);
       setIssues(externalAttempt.issues || []);
@@ -268,6 +307,7 @@ export default function RevisionPracticePanel({
         if (!markEvent) {
           setNoData(true);
           setLabelCounts({});
+          setLabelCountsRaw({});
           setTopLabels([]);
           setSelectedLabel("");
           setExamples([]);
@@ -275,10 +315,23 @@ export default function RevisionPracticePanel({
           setUserId(currentUserId);
           setIssues([]);
           setIssueExampleIndex([]);
+          updateDismissedIssues([]);
           return;
         }
 
-        setLabelCounts(labelCountsFiltered || {});
+        const storedDismissed = loadDismissedIssuesFromStorage({
+          markEventId: markEvent.id || null,
+          fileName: selectedFile.name
+        });
+        updateDismissedIssues(storedDismissed);
+        setLabelCountsRaw(labelCountsFiltered || {});
+        setLabelCounts(
+          applyDismissalsToLabelCounts(
+            labelCountsFiltered || {},
+            storedDismissed,
+            selectedFile.name
+          )
+        );
         setLastMarkEventId(markEvent.id || null);
         setUserId(currentUserId);
         setIssues(issuesFiltered || []);
@@ -332,6 +385,44 @@ export default function RevisionPracticePanel({
   }, [selectedLabelOverride, topLabels]);
 
   useEffect(() => {
+    setExamplesEmptyMessage("");
+  }, [selectedLabel]);
+
+  useEffect(() => {
+    if (!selectedFile?.name) return;
+    setLabelCounts(
+      applyDismissalsToLabelCounts(labelCountsRaw, dismissedIssues, selectedFile.name)
+    );
+  }, [dismissedIssues, labelCountsRaw, selectedFile?.name]);
+
+  useEffect(() => {
+    if (!examples.length) return;
+    const filtered = filterDismissedExamples(
+      examples,
+      dismissedIssues,
+      selectedFile?.name || "",
+      selectedLabel
+    );
+    if (filtered.length !== examples.length) {
+      setExamples(filtered);
+    }
+  }, [dismissedIssues, examples, selectedLabel, selectedFile?.name]);
+
+  useEffect(() => {
+    if (!dismissMessage) return;
+    const timer = window.setTimeout(() => setDismissMessage(""), 2000);
+    return () => window.clearTimeout(timer);
+  }, [dismissMessage]);
+
+  useEffect(() => {
+    if (!dismissModalOpen) return;
+    if (requestActive || !enabled || !markedBlob) {
+      setDismissModalOpen(false);
+      setPendingDismiss(null);
+    }
+  }, [dismissModalOpen, requestActive, enabled, markedBlob]);
+
+  useEffect(() => {
     if (!enabled || !selectedLabel || !supa || !selectedFile) {
       setExamples([]);
       return;
@@ -358,7 +449,8 @@ export default function RevisionPracticePanel({
           userId: currentUserId,
           fileName: selectedFile.name,
           label: selectedLabel,
-          markEventId: lastMarkEventId
+          markEventId: lastMarkEventId,
+          dismissedIssues
         });
 
         if (debugEnabled) {
@@ -370,6 +462,7 @@ export default function RevisionPracticePanel({
 
         if (!isActive) return;
         setExamples(exampleRows);
+        setExamplesEmptyMessage("");
       } catch (err) {
         if (!isActive) return;
         setError(err?.message || "Failed to load examples.");
@@ -389,7 +482,8 @@ export default function RevisionPracticePanel({
     selectedFile,
     lastMarkEventId,
     userId,
-    debugEnabled
+    debugEnabled,
+    dismissedIssues
   ]);
 
   useEffect(() => {
@@ -646,6 +740,130 @@ export default function RevisionPracticePanel({
     }
   };
 
+  const clearExampleState = (key) => {
+    setDraftByKey((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setApprovedByKey((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setAppliedKeys((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setExampleStatus((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const performDismiss = async (label, example, result) => {
+    if (!selectedFile?.name) return;
+    const fileName = selectedFile.name;
+    const record = {
+      label: label || "",
+      sentence: example?.sentence || "",
+      paragraph_index: example?.paragraph_index ?? null,
+      file_name: fileName,
+      created_at: new Date().toISOString(),
+      reason: result.reason,
+      other_text: result.other_text || null
+    };
+
+    const nextDismissed = [...(dismissedIssues || []), record];
+    updateDismissedIssues(nextDismissed);
+    saveDismissedIssuesToStorage({
+      markEventId: lastMarkEventId,
+      fileName,
+      dismissedIssues: nextDismissed
+    });
+
+    if (supa) {
+      try {
+        const sessionResp = await supa.auth.getSession();
+        const uid = sessionResp?.data?.session?.user?.id || userId;
+        if (uid) {
+          const { error: insertError } = await supa
+            .from("dismissed_issue_feedback")
+            .insert({
+              user_id: uid,
+              file_name: fileName,
+              mark_event_id: lastMarkEventId || null,
+              mode,
+              issue_label: label || "",
+              paragraph_index: record.paragraph_index,
+              sentence: record.sentence,
+              reason: result.reason,
+              other_text: result.other_text || null
+            });
+          if (insertError) {
+            console.warn("Dismissed issue feedback insert failed:", insertError);
+          }
+        }
+      } catch (err) {
+        console.warn("Dismissed issue feedback insert failed:", err);
+      }
+    }
+
+    const previewResult = removeIssueLabelAndHighlight(label, record, {
+      containerEl: previewRef?.current,
+      scroll: true,
+      allowParagraphFallback: true,
+      silent: false
+    });
+    const key = getExampleKey(label, example);
+    if (!previewResult.ok) {
+      updateExampleStatus(key, {
+        error: previewResult.message || "Preview not available."
+      });
+      setDismissMessage("");
+    } else {
+      setDismissMessage(previewResult.message || "Dismissed.");
+      onPreviewEdited?.();
+    }
+
+    setLabelCounts((prev) => {
+      const next = { ...prev };
+      const current = Number(next[label] || 0);
+      const updated = Math.max(0, current - 1);
+      if (updated === 0) delete next[label];
+      else next[label] = updated;
+      return next;
+    });
+
+    updateExampleStatus(key, { message: "Dismissed." });
+    setExamples((prev) => {
+      const next = prev.filter((ex) => getExampleKey(label, ex) !== key);
+      if (!next.length) {
+        setExamplesEmptyMessage(
+          "No remaining examples (they may have been dismissed). Choose a different issue."
+        );
+      }
+      return next;
+    });
+    clearExampleState(key);
+  };
+
+  const handleDismissIssue = async (label, example) => {
+    const pref = loadDismissNoAsk(label);
+    if (pref?.reason) {
+      await performDismiss(label, example, {
+        reason: pref.reason,
+        other_text: pref.other_text || null,
+        dontAskAgain: true
+      });
+      return;
+    }
+    setPendingDismiss({ label, example });
+    setDismissModalOpen(true);
+  };
+
   const handleDownloadNotes = () => {
     if (!selectedLabel) return;
     const rows = examples.map((ex) => {
@@ -675,6 +893,23 @@ export default function RevisionPracticePanel({
     link.download = filename;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  const handleDismissConfirm = async ({ reason, other_text }) => {
+    if (!pendingDismiss) return;
+    const { label, example } = pendingDismiss;
+    setDismissModalOpen(false);
+    setPendingDismiss(null);
+    await performDismiss(label, example, { reason, other_text, dontAskAgain: false });
+  };
+
+  const handleDismissNoAsk = async ({ reason, other_text }) => {
+    if (!pendingDismiss) return;
+    const { label, example } = pendingDismiss;
+    saveDismissNoAsk(label, reason, other_text);
+    setDismissModalOpen(false);
+    setPendingDismiss(null);
+    await performDismiss(label, example, { reason, other_text, dontAskAgain: true });
   };
 
   if (!enabled) return null;
@@ -852,6 +1087,7 @@ export default function RevisionPracticePanel({
               {selectedIssueExplanation ? (
                 <p className="helper-text">{selectedIssueExplanation}</p>
               ) : null}
+              {dismissMessage ? <p className="helper-text">{dismissMessage}</p> : null}
               {practiceHighlightEnabled && examples.length ? (
                 <div className="practice-action-row">
                   <button
@@ -941,6 +1177,14 @@ export default function RevisionPracticePanel({
                           Copy sentence
                         </button>
                         <button
+                          className="secondary-btn dismiss-btn"
+                          type="button"
+                          onClick={() => handleDismissIssue(selectedLabel, ex)}
+                          disabled={status.loading}
+                        >
+                          Dismiss issue
+                        </button>
+                        <button
                           className={`secondary-btn${
                             status.loading ? " is-loading loading-cursor" : ""
                           }`}
@@ -971,7 +1215,10 @@ export default function RevisionPracticePanel({
                   );
                 })
               ) : (
-                <p className="helper-text">No examples saved for this issue yet.</p>
+                <p className="helper-text">
+                  {examplesEmptyMessage ||
+                    "No examples saved for this issue yet."}
+                </p>
               )}
             </div>
 
@@ -1077,6 +1324,15 @@ export default function RevisionPracticePanel({
           </div>
         </div>
       ) : null}
+      <DismissIssueModal
+        isOpen={dismissModalOpen}
+        onCancel={() => {
+          setDismissModalOpen(false);
+          setPendingDismiss(null);
+        }}
+        onConfirm={handleDismissConfirm}
+        onNoAsk={handleDismissNoAsk}
+      />
     </section>
   );
 }
