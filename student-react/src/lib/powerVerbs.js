@@ -1,8 +1,4 @@
-const DEFAULT_CANDIDATE_URLS = [
-  "/assets/student-react/power_verbs_2025.json",
-  "/assets/power_verbs_2025.json",
-  "/power_verbs_2025.json"
-];
+const DEFAULT_CANDIDATE_URLS = ["/power_verbs_2025.json"];
 
 export const POWER_VERBS_LABEL = "Avoid weak verbs";
 
