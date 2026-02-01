@@ -107,7 +107,6 @@ function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showMlaModal, setShowMlaModal] = useState(false);
   const [markedFilenameBase, setMarkedFilenameBase] = useState("");
-  const [showRevisionPractice, setShowRevisionPractice] = useState(false);
   const [mciLabelCounts, setMciLabelCounts] = useState({});
   const [mciLabelCountsRaw, setMciLabelCountsRaw] = useState({});
   const [mciIssues, setMciIssues] = useState([]);
@@ -253,6 +252,11 @@ function App() {
       localStorage.getItem("vysti_history") === "1"
     );
   }, [config.featureFlags?.revisionHistoryReact]);
+  const attemptHistoryOverride = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("attemptHistory") === "1";
+  }, []);
+  const showAttemptHistory = historyEnabled && (debugHardening || attemptHistoryOverride);
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -318,11 +322,6 @@ function App() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  useEffect(() => {
-    if (practiceEnabled) {
-      setShowRevisionPractice(true);
-    }
-  }, [practiceEnabled]);
 
   useEffect(() => {
     if (!supa || !selectedFile || !markedBlob) {
@@ -889,7 +888,7 @@ function App() {
       const baseName = (selectedFile?.name || "essay.docx").replace(/\.docx$/i, "") || "essay";
       setMarkedFilenameBase(baseName);
       setSelectedAttempt(null);
-      if (historyEnabled) {
+      if (showAttemptHistory) {
         refreshAttemptHistory();
       }
       setLastMarkStatus({ status: markStatus, ok: true });
@@ -994,7 +993,7 @@ function App() {
       setPreviewError("");
       setPreviewErrorStack("");
       setSelectedAttempt(null);
-      if (historyEnabled) {
+      if (showAttemptHistory) {
         refreshAttemptHistory();
       }
       setSuccess("Rechecked ✅");
@@ -1041,6 +1040,12 @@ function App() {
 
   const handleRefreshMci = () => {
     setMciRefreshToken((prev) => prev + 1);
+  };
+
+  const scrollToRevisionPractice = () => {
+    const target = document.getElementById("revisionPracticeCard");
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleCancelRequest = () => {
@@ -1205,7 +1210,7 @@ function App() {
   }, [autosaveEnabled, userId, selectedFile, mode]);
 
   async function refreshAttemptHistory() {
-    if (!historyEnabled || !supa || !userId || !selectedFile) return;
+    if (!showAttemptHistory || !supa || !userId || !selectedFile) return;
     setAttemptsLoading(true);
     setAttemptsError("");
     try {
@@ -1227,13 +1232,13 @@ function App() {
   }
 
   useEffect(() => {
-    if (!historyEnabled || !userId || !selectedFile) {
+    if (!showAttemptHistory || !userId || !selectedFile) {
       setAttempts([]);
       setAttemptsError("");
       return;
     }
     refreshAttemptHistory();
-  }, [historyEnabled, userId, selectedFile]);
+  }, [showAttemptHistory, userId, selectedFile]);
 
   const handleOpenDownloadModal = () => {
     if (!markedBlob || !hasRevisedSinceMark) return;
@@ -1598,15 +1603,6 @@ function App() {
                   Cancel {activeRequest.kind}
                 </button>
               ) : null}
-              {practiceEnabled ? (
-                <button
-                  className="secondary-btn"
-                  type="button"
-                  onClick={() => setShowRevisionPractice((prev) => !prev)}
-                >
-                  Revision practice
-                </button>
-              ) : null}
               <button
                 className="secondary-btn"
                 type="button"
@@ -1639,7 +1635,7 @@ function App() {
                   markEventId={mciMarkEventId}
                   onSelectLabel={(label) => {
                     setMciSelectedLabel(label);
-                    setShowRevisionPractice(true);
+                    scrollToRevisionPractice();
                   }}
                 />
               </>
@@ -1647,7 +1643,7 @@ function App() {
           </section>
         </form>
 
-        {practiceEnabled && showRevisionPractice ? (
+        {practiceEnabled && markedBlob ? (
           <ErrorBoundary
             inline
             title="Something broke while rendering revision practice."
@@ -1717,9 +1713,9 @@ function App() {
           />
         </ErrorBoundary>
 
-        {historyEnabled ? (
+        {showAttemptHistory ? (
           <AttemptHistoryPanel
-            enabled={historyEnabled}
+            enabled={showAttemptHistory}
             attempts={attempts}
             selectedAttemptId={selectedAttempt?.id || null}
             onSelectAttempt={(attempt) => setSelectedAttempt(attempt)}
