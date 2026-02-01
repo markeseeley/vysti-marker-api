@@ -14,6 +14,13 @@ function getBuildId() {
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const extractBuildIdFromHtml = (html) => {
+  const metaRegex =
+    /<meta\s+name=["']app-build-id["']\s+content=["']([^"']*)["']/i;
+  const match = html.match(metaRegex);
+  return match?.[1]?.trim() || "";
+};
+
 const updateBuildIdInHtml = (html, buildId) => {
   let next = html;
   const metaRegex =
@@ -48,29 +55,54 @@ const updateBuildIdInHtml = (html, buildId) => {
 
 async function updateStudentReactHtml(buildId) {
   const filePath = path.resolve(repoRoot, "student_react.html");
-  try {
-    const content = await fs.readFile(filePath, "utf8");
-    const next = updateBuildIdInHtml(content, buildId);
-    if (next === content) return false;
+  const content = await fs.readFile(filePath, "utf8");
+  const next = updateBuildIdInHtml(content, buildId);
+  const updated = next !== content;
+  if (updated) {
     await fs.writeFile(filePath, next, "utf8");
-    return { updated: true, path: filePath };
-  } catch (err) {
-    if (err && err.code === "ENOENT") return { updated: false, path: filePath };
-    throw err;
   }
+  return { updated, path: filePath };
 }
 
 async function main() {
-  const buildId = getBuildId();
+  let buildId = getBuildId();
+  const htmlPath = path.resolve(repoRoot, "student_react.html");
+
+  let existingBuildId = "";
+  try {
+    const html = await fs.readFile(htmlPath, "utf8");
+    existingBuildId = extractBuildIdFromHtml(html);
+  } catch (err) {
+    if (err && err.code === "ENOENT") {
+      throw new Error("student_react.html not found at repo root.");
+    }
+    throw err;
+  }
+
+  if (existingBuildId && existingBuildId === buildId) {
+    const fallbackId = `${buildId}-${Date.now()}`;
+    console.warn(
+      `[build] APP_BUILD_ID matches current HTML (${buildId}); using ${fallbackId} for cache-bust.`
+    );
+    buildId = fallbackId;
+  }
+
   const results = [await updateStudentReactHtml(buildId)];
-  const updatedCount = results.filter((item) => item.updated).length;
+  const updatedFiles = results.filter((item) => item.updated);
+  const updatedCount = updatedFiles.length;
 
   console.log(
     `[build] APP_BUILD_ID=${buildId} (${updatedCount} file${
       updatedCount === 1 ? "" : "s"
     } stamped)`
   );
-  if (!updatedCount) {
+  if (updatedCount) {
+    console.log(
+      `[build] Stamped files:\n${updatedFiles
+        .map((item) => `- ${path.relative(repoRoot, item.path)}`)
+        .join("\n")}`
+    );
+  } else {
     console.warn("[build] No files updated. Check student_react.html markers.");
   }
 }
