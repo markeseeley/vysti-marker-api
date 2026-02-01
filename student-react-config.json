@@ -5,10 +5,10 @@
   "featureFlags": {
     "reactBeta": true,
     "useSharedCore": false,
-    "revisionPracticeReact": false,
+    "revisionPracticeReact": true,
     "debugRevisionPractice": false,
-    "practiceNavigationReact": false,
-    "practiceHighlightReact": false,
+    "practiceNavigationReact": true,
+    "practiceHighlightReact": true,
     "debugPracticeNavigation": false,
     "hardeningReact": false,
     "cancelRequestsReact": false,
