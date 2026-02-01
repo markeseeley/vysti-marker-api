@@ -13,13 +13,14 @@
 - MLA header modal (export revised)
 - Dismiss issue modal + persistence
 - Cache-busting/build-id stamping fixed for `student_react.html`
-- Layout/styling parity pass for results, MCI, revision, preview cards
+- Layout/styling parity pass for results, MCI, revision, preview, downloads flow
 
 ## Still missing
 - (None in this slice)
 
 ## Known behavior differences
 - Most Common Issues chart uses a single color palette (Classic uses per-bucket colors)
+- Power verbs list is fetched once per session (cached)
 
 ## Access overrides
 - Force Classic (`?classic=1`) is always allowed.
@@ -32,5 +33,6 @@
 4. Edit preview text → recheck → ensure new mark renders.
 5. Download marked + revised files (with/without MLA header).
 6. Verify results/MCI/revision/preview cards match Classic spacing/structure.
-7. Ensure hardening flags are on → cancel, toasts, validation, timeouts.
-8. In Diagnostics → “Copy debug info” and confirm secrets are redacted.
+7. Confirm `power_verbs_2025.json` loads once (no repeated requests).
+8. Ensure hardening flags are on → cancel, toasts, validation, timeouts.
+9. In Diagnostics → “Copy debug info” and confirm secrets are redacted.
