@@ -35,6 +35,11 @@ import {
   stripStudentHeaderBeforeTitleForDownload,
   wordCountFromText
 } from "./lib/previewText";
+import {
+  applyDismissalsToLabelCounts,
+  loadDismissedIssuesFromStorage
+} from "./lib/dismissIssues";
+import { applyDismissalsToPreviewDOM } from "./lib/previewDismissals";
 import { buildPowerVerbFormsSet, loadPowerVerbs } from "./lib/powerVerbs";
 import { computeMetricsFromText, loadThesisDevicesLexicon } from "./lib/studentMetrics";
 import {
@@ -104,11 +109,13 @@ function App() {
   const [markedFilenameBase, setMarkedFilenameBase] = useState("");
   const [showRevisionPractice, setShowRevisionPractice] = useState(false);
   const [mciLabelCounts, setMciLabelCounts] = useState({});
+  const [mciLabelCountsRaw, setMciLabelCountsRaw] = useState({});
   const [mciIssues, setMciIssues] = useState([]);
   const [mciLoading, setMciLoading] = useState(false);
   const [mciError, setMciError] = useState("");
   const [mciSelectedLabel, setMciSelectedLabel] = useState("");
   const [mciMarkEventId, setMciMarkEventId] = useState(null);
+  const [dismissedIssues, setDismissedIssues] = useState([]);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorStack, setPreviewErrorStack] = useState("");
   const [uiMode, setUiModeState] = useState("");
@@ -318,6 +325,7 @@ function App() {
   useEffect(() => {
     if (!practiceEnabled || !supa || !selectedFile || !markedBlob) {
       setMciLabelCounts({});
+      setMciLabelCountsRaw({});
       setMciIssues([]);
       setMciError("");
       setMciLoading(false);
@@ -328,7 +336,10 @@ function App() {
     if (selectedAttempt) {
       const counts = selectedAttempt.labelCounts || {};
       const issues = selectedAttempt.issues || [];
-      setMciLabelCounts(counts);
+      setMciLabelCountsRaw(counts);
+      setMciLabelCounts(
+        applyDismissalsToLabelCounts(counts, dismissedIssues, selectedFile?.name)
+      );
       setMciIssues(issues);
       setMciError("");
       setMciLoading(false);
@@ -356,7 +367,14 @@ function App() {
             fileName: selectedFile.name
           });
         if (!isActive) return;
-        setMciLabelCounts(labelCountsFiltered || {});
+        setMciLabelCountsRaw(labelCountsFiltered || {});
+        setMciLabelCounts(
+          applyDismissalsToLabelCounts(
+            labelCountsFiltered || {},
+            dismissedIssues,
+            selectedFile?.name
+          )
+        );
         setMciIssues(issuesFiltered || []);
         setMciMarkEventId(markEvent?.id || null);
         if (!mciSelectedLabel) {
@@ -383,8 +401,28 @@ function App() {
     selectedFile,
     markedBlob,
     selectedAttempt,
-    mciSelectedLabel
+    mciSelectedLabel,
+    dismissedIssues
   ]);
+
+  useEffect(() => {
+    if (!selectedFile?.name) {
+      setDismissedIssues([]);
+      return;
+    }
+    const loaded = loadDismissedIssuesFromStorage({
+      markEventId: mciMarkEventId,
+      fileName: selectedFile.name
+    });
+    setDismissedIssues(loaded);
+  }, [mciMarkEventId, selectedFile?.name]);
+
+  useEffect(() => {
+    if (!selectedFile?.name) return;
+    setMciLabelCounts(
+      applyDismissalsToLabelCounts(mciLabelCountsRaw, dismissedIssues, selectedFile.name)
+    );
+  }, [dismissedIssues, mciLabelCountsRaw, selectedFile?.name]);
 
   useEffect(() => {
     if (!markedBlob) {
@@ -392,6 +430,18 @@ function App() {
       setPreviewErrorStack("");
     }
   }, [markedBlob]);
+
+  useEffect(() => {
+    if (!markedBlob || !previewRef.current || !selectedFile?.name) return;
+    const timer = window.setTimeout(() => {
+      applyDismissalsToPreviewDOM(
+        previewRef.current,
+        dismissedIssues,
+        selectedFile.name
+      );
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [dismissedIssues, markedBlob, selectedFile?.name]);
 
   useEffect(() => {
     if (!markedBlob) {
@@ -1597,6 +1647,7 @@ function App() {
           >
             <RevisionPracticePanel
               enabled={practiceEnabled}
+              requestActive={requestActive}
               practiceNavEnabled={practiceNavEnabled}
               practiceHighlightEnabled={practiceHighlightEnabled}
               externalAttempt={selectedAttempt}
@@ -1606,6 +1657,8 @@ function App() {
               markedBlob={markedBlob}
               previewRef={previewRef}
               techniques={techniques}
+              dismissedIssues={dismissedIssues}
+              onDismissedIssuesChange={setDismissedIssues}
               selectedLabelOverride={mciSelectedLabel}
               onSelectedLabelChange={(label) => setMciSelectedLabel(label)}
               onOpenDiagnostics={() => setShowDiagnostics(true)}

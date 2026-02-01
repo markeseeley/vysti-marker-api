@@ -529,6 +529,48 @@ button.loading-cursor::after {
   font-size: var(--fs-sm);
 }
 
+.dismiss-modal .modal-question {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.dismiss-modal .modal-reasons {
+  display: grid;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+
+.dismiss-modal .modal-reasons label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dismiss-modal .dismiss-other {
+  min-height: 90px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
+.dismiss-modal .dismiss-char-count {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  text-align: right;
+}
+
+.dismiss-modal .modal-error {
+  color: #b60000;
+  font-size: var(--fs-sm);
+}
+
+.rewrite-actions .dismiss-btn {
+  border-color: rgba(180, 0, 0, 0.3);
+  color: #b60000;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
