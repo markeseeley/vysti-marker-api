@@ -7,18 +7,16 @@
 ## Parity complete (React vs Classic)
 - Upload + clear file, mark, recheck, download marked/revised
 - Preview editing + zoom
+- Preview tools: stats header, metrics grid, power verbs, hint dock, pill hints
 - Most Common Issues chart (bar chart + tooltip + click-to-revise)
 - MLA header modal (export revised)
-- Revision practice (grouping, rewrites, approvals, apply-to-preview)
 
 ## Still missing
-- Preview tools: stats header, power verbs popover/tools, hint dock
+- Revision practice parity: issue grouping, approved rewrites/apply-to-preview, notes download
 - Dismiss issue modal + helper parity
 
 ## Known behavior differences
 - Most Common Issues chart uses a single color palette (Classic uses per-bucket colors)
-- Revision practice is functional but not complete (no approved rewrites/apply-to-preview yet)
-- Preview metrics + power verbs are not available yet in React
 
 ## Access overrides
 - Force Classic (`?classic=1`) is always allowed.
