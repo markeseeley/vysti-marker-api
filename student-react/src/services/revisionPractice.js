@@ -1,3 +1,8 @@
+import {
+  applyDismissalsToLabelCounts,
+  filterDismissedExamples
+} from "../lib/dismissIssues";
+
 function normalizeLabelForCompare(s) {
   return String(s || "")
     .toLowerCase()
@@ -58,7 +63,12 @@ const filterIssues = (issues) => {
   return arr.filter((issue) => !isSuppressedStudentModeLabel(issue?.label || ""));
 };
 
-export async function fetchLatestMarkEvent({ supa, userId, fileName }) {
+export async function fetchLatestMarkEvent({
+  supa,
+  userId,
+  fileName,
+  dismissedIssues = []
+}) {
   const { data, error } = await supa
     .from("mark_events")
     .select("id, label_counts, issues, created_at, file_name")
@@ -72,7 +82,12 @@ export async function fetchLatestMarkEvent({ supa, userId, fileName }) {
   }
 
   const markEvent = data?.[0] || null;
-  const labelCountsFiltered = filterLabelCounts(markEvent?.label_counts || {});
+  const labelCountsFilteredRaw = filterLabelCounts(markEvent?.label_counts || {});
+  const labelCountsFiltered = applyDismissalsToLabelCounts(
+    labelCountsFilteredRaw,
+    dismissedIssues,
+    fileName
+  );
   const issuesFiltered = filterIssues(markEvent?.issues || []);
 
   return { markEvent, labelCountsFiltered, issuesFiltered };
@@ -103,7 +118,8 @@ export async function fetchIssueExamples({
   userId,
   fileName,
   label,
-  markEventId
+  markEventId,
+  dismissedIssues = []
 }) {
   let data = [];
   let error = null;
@@ -143,7 +159,8 @@ export async function fetchIssueExamples({
     });
   });
 
-  return deduped.slice(0, 10);
+  const filtered = filterDismissedExamples(deduped, dismissedIssues, fileName, label);
+  return filtered.slice(0, 10);
 }
 
 export async function fetchIssueExamplesIndex({
