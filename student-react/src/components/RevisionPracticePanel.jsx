@@ -9,6 +9,8 @@ import {
 import StatsPanel from "./StatsPanel";
 import { normalizeForCompare, normalizeLabelTrim } from "../lib/normalize";
 import { applyRewriteToPreview } from "../lib/applyRewriteToPreview";
+import PowerVerbsHelper from "./PowerVerbsHelper";
+import { POWER_VERBS_LABEL } from "../lib/powerVerbs";
 import { checkRevision } from "../services/revisionCheck";
 import {
   clearRevisionPracticeState,
@@ -70,7 +72,8 @@ export default function RevisionPracticePanel({
   onHighlightExamples,
   onClearHighlights,
   mode,
-  onPreviewEdited
+  onPreviewEdited,
+  onOpenPowerVerbs
 }) {
   const [loading, setLoading] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
@@ -94,6 +97,7 @@ export default function RevisionPracticePanel({
   const wordCountTimerRef = useRef(0);
   const lastExtractedRef = useRef("");
   const lastMarkEventRef = useRef(null);
+  const textareaRefs = useRef({});
 
   const debugEnabled = Boolean(getConfig()?.featureFlags?.debugRevisionPractice);
 
@@ -107,6 +111,14 @@ export default function RevisionPracticePanel({
   const topIssue = topLabels.length
     ? `${topLabels[0].label} (${topLabels[0].count})`
     : "";
+
+  const showPowerVerbsHelper = useMemo(() => {
+    const normalized = normalizeLabelTrim(selectedLabel);
+    return (
+      normalized === normalizeLabelTrim(POWER_VERBS_LABEL) ||
+      normalized.includes("power verbs")
+    );
+  }, [selectedLabel]);
 
   const approvedList = useMemo(() => {
     return Object.entries(approvedByKey).map(([key, entry]) => ({
@@ -867,6 +879,9 @@ export default function RevisionPracticePanel({
                   const approved = approvedByKey[key];
                   const applied = Boolean(appliedKeys[key]);
                   const status = exampleStatus[key] || {};
+                  if (!textareaRefs.current[key]) {
+                    textareaRefs.current[key] = { current: null };
+                  }
                   return (
                     <div className="example-row" key={`${key}-${idx}`}>
                       <div className="example-meta">
@@ -902,7 +917,21 @@ export default function RevisionPracticePanel({
                         placeholder="Write a stronger rewrite here…"
                         value={draft}
                         onChange={(event) => updateDraft(key, event.target.value)}
+                        ref={(el) => {
+                          textareaRefs.current[key].current = el;
+                        }}
                       />
+                      {showPowerVerbsHelper ? (
+                        <PowerVerbsHelper
+                          textareaRef={textareaRefs.current[key]}
+                          onOpenDictionary={(event) =>
+                            onOpenPowerVerbs?.({
+                              anchorEl: event?.currentTarget,
+                              textareaRef: textareaRefs.current[key]
+                            })
+                          }
+                        />
+                      ) : null}
                       <div className="rewrite-actions">
                         <button
                           className="secondary-btn"
