@@ -640,6 +640,18 @@ function App() {
     setStatus({ message, kind: "success" });
   };
 
+  const handlePaywall = (feature) => {
+    const messages = {
+      recheck: "Subscribe to unlock rechecking.",
+      download: "Subscribe to download your essay.",
+    };
+    const msg = messages[feature] || "Subscribe to unlock this feature.";
+    setError(msg);
+    setTimeout(() => {
+      window.location.assign("/role.html");
+    }, 1800);
+  };
+
   const clearStatus = () => {
     setStatus({ message: "", kind: "info" });
   };
@@ -2815,6 +2827,7 @@ function App() {
             lastSavedAt={draftMeta?.savedAt}
             saveProgressEnabled={saveProgressEnabled}
             entitlement={entitlement}
+            onPaywall={handlePaywall}
             onRendered={() => {
               const c = previewRef.current;
               if (!c) return;

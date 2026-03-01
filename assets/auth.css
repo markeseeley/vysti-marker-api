@@ -493,6 +493,13 @@ a:hover { text-decoration: underline; }
     border-radius: 14px;
   }
 
+  input[type="date"] {
+    height: 44px;
+    padding: 8px 10px;
+    font-size: 14px;
+    -webkit-appearance: none;
+  }
+
   .landing-metrics-row {
     grid-template-columns: 1fr 1fr;
   }

@@ -76,6 +76,7 @@ export default function PreviewPanel({
   onToolkitChange,
   onScanAllTechniques,
   entitlement,
+  onPaywall,
 }) {
   const [isLexisModalOpen, setIsLexisModalOpen] = useState(false);
   const [isDismissedPanelOpen, setIsDismissedPanelOpen] = useState(false);
@@ -396,6 +397,7 @@ export default function PreviewPanel({
               toolkitEnabled={toolkitEnabled}
               onToolkitChange={onToolkitChange}
               entitlement={entitlement}
+              onPaywall={onPaywall}
             />
             <div id="markedPreview" ref={previewRef} className="marked-preview-container"></div>
             {isTeacher && <SelectionPopover previewRef={previewRef} onEdit={onEdit} onBeforeEdit={onBeforeEdit} toolkitEnabled={toolkitEnabled} />}

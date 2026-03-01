@@ -483,7 +483,7 @@ function applyTaggedHighlight(container, color, colorCode, label, onEdit) {
 }
 
 
-export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRecheck, isRechecking, hasRevisedSinceMark, worksChanged, onRefocus, onUndo, onSaveProgress, saveProgressState, saveProgressEnabled, lastSavedAt, onFinishReview, reviewStatus, isTeacher, onDownloadMarked, onDownloadRevised, isDownloading, markedBlob, isProcessing, previewError, toolkitEnabled, onToolkitChange, entitlement }) {
+export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRecheck, isRechecking, hasRevisedSinceMark, worksChanged, onRefocus, onUndo, onSaveProgress, saveProgressState, saveProgressEnabled, lastSavedAt, onFinishReview, reviewStatus, isTeacher, onDownloadMarked, onDownloadRevised, isDownloading, markedBlob, isProcessing, previewError, toolkitEnabled, onToolkitChange, entitlement, onPaywall }) {
   const prevent = (e) => e.preventDefault();
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const customizerRef = useRef(null);
@@ -915,8 +915,8 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
             className={`preview-toolbar-btn preview-toolbar-recheck${isFreeStudent ? " preview-toolbar-locked" : ""}`}
             title={isFreeStudent ? "Subscribe to unlock rechecking" : "Re-analyze your essay with current changes"}
             aria-label="Recheck essay"
-            disabled={isFreeStudent || isRechecking || (!hasRevisedSinceMark && !worksChanged)}
-            onClick={isFreeStudent ? undefined : onRecheck}
+            disabled={!isFreeStudent && (isRechecking || (!hasRevisedSinceMark && !worksChanged))}
+            onClick={isFreeStudent ? () => onPaywall?.("recheck") : onRecheck}
           >
             {isFreeStudent && <span className="toolbar-lock-icon" aria-hidden="true">&#x1F512;</span>}
             {isRechecking ? "Processing..." : "Recheck"}
@@ -962,8 +962,8 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
           className={`preview-toolbar-btn preview-toolbar-download${isDownloading ? " is-loading" : ""}${isFreeStudent ? " preview-toolbar-locked" : ""}`}
           title={isFreeStudent ? "Subscribe to download your essay" : "Download marked essay"}
           aria-label="Download marked essay"
-          disabled={isFreeStudent || !markedBlob || isProcessing || isDownloading}
-          onClick={isFreeStudent ? undefined : onDownloadMarked}
+          disabled={!isFreeStudent && (!markedBlob || isProcessing || isDownloading)}
+          onClick={isFreeStudent ? () => onPaywall?.("download") : onDownloadMarked}
         >
           {isFreeStudent && <span className="toolbar-lock-icon" aria-hidden="true">&#x1F512;</span>}
           {isDownloading ? "Preparing\u2026" : <><Download size={13} /> <span className="preview-toolbar-download-label">Download</span></>}
@@ -976,8 +976,8 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
             className={`preview-toolbar-btn preview-toolbar-download${isDownloading ? " is-loading" : ""}${isFreeStudent ? " preview-toolbar-locked" : ""}`}
             title={isFreeStudent ? "Subscribe to download your essay" : (!hasRevisedSinceMark && markedBlob ? "Make at least one change to enable download" : "Download revised essay")}
             aria-label="Download revised essay"
-            disabled={isFreeStudent || !markedBlob || !hasRevisedSinceMark || isDownloading || isProcessing || Boolean(previewError)}
-            onClick={isFreeStudent ? undefined : onDownloadRevised}
+            disabled={!isFreeStudent && (!markedBlob || !hasRevisedSinceMark || isDownloading || isProcessing || Boolean(previewError))}
+            onClick={isFreeStudent ? () => onPaywall?.("download") : onDownloadRevised}
           >
             {isFreeStudent && <span className="toolbar-lock-icon" aria-hidden="true">&#x1F512;</span>}
             {isDownloading ? "Preparing\u2026" : <><Download size={13} /> <span className="preview-toolbar-download-label">Revised</span></>}

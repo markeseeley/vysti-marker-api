@@ -616,10 +616,14 @@ async def create_checkout_session(
             "stripe_customer_id": customer_id,
         })
 
+    price = body.price_id or STRIPE_PRICE_BOTH
+    if not price:
+        raise HTTPException(status_code=400, detail="No pricing configured")
+
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
-        line_items=[{"price": body.price_id, "quantity": 1}],
+        line_items=[{"price": price, "quantity": 1}],
         allow_promotion_codes=True,
         success_url=request.base_url._url + "role.html?checkout=success",
         cancel_url=request.base_url._url + "role.html?checkout=cancelled",

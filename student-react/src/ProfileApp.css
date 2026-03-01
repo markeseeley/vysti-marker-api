@@ -138,6 +138,61 @@
   background: rgba(197, 48, 48, 0.06);
   border-color: rgba(197, 48, 48, 0.5);
 }
+.profile-btn-danger-fill {
+  background: #c53030;
+  color: #fff;
+  border-color: #c53030;
+}
+.profile-btn-danger-fill:hover {
+  background: #a52828;
+  border-color: #a52828;
+}
+.profile-btn-danger-fill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Subscription badge */
+.subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.subscription-badge-free {
+  background: rgba(0, 0, 0, 0.07);
+  color: rgba(0, 0, 0, 0.55);
+}
+.subscription-badge-paid {
+  background: rgba(25, 135, 84, 0.12);
+  color: #198754;
+}
+
+/* Danger zone card */
+.profile-danger {
+  border: 1.5px solid rgba(197, 48, 48, 0.2);
+}
+.profile-danger h2 {
+  color: #c53030;
+}
+
+/* Delete confirmation */
+.delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.delete-warning {
+  margin: 0;
+  font-size: var(--fs-xs, 15px);
+  line-height: 1.5;
+  color: #c53030;
+  font-weight: 500;
+}
 
 /* Password form */
 .pw-form {

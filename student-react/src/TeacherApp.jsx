@@ -300,12 +300,10 @@ export default function TeacherApp() {
   const handleMarkAll = useCallback(async () => {
     if (!supa || state.files.length === 0 || state.isProcessing) return;
 
-    // Free tier: block if already used their mark
+    // Free tier: block if already used their mark — redirect to subscribe
     if (entitlement.subscription_tier === "free" && entitlement.marks_used >= entitlement.marks_limit) {
-      const filesToMark = state.files.filter((f) => f.status === "queued" || f.status === "error");
-      for (const f of filesToMark) {
-        dispatch({ type: "FILE_ERROR", id: f.id, error: "Subscribe for unlimited marking." });
-      }
+      alert("Subscribe to mark more essays.");
+      window.location.assign("/role.html");
       return;
     }
 
@@ -359,7 +357,11 @@ export default function TeacherApp() {
       } catch (err) {
         console.error("Mark failed for", f.fileName, err);
         dispatch({ type: "FILE_ERROR", id: f.id, error: err.message });
-        if (err?.isEntitlementError) break;
+        if (err?.isEntitlementError) {
+          alert("Subscribe to mark more essays.");
+          window.location.assign("/role.html");
+          break;
+        }
       }
     }
 

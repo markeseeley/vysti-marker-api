@@ -20,7 +20,7 @@ function getAvatarUrl(user) {
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return "—";
+  if (!dateStr) return "\u2014";
   try {
     return new Date(dateStr).toLocaleDateString(undefined, {
       year: "numeric",
@@ -28,7 +28,7 @@ function formatDate(dateStr) {
       day: "numeric",
     });
   } catch {
-    return "—";
+    return "\u2014";
   }
 }
 
@@ -43,17 +43,46 @@ function getRoleName() {
   }
 }
 
-export default function ProfilePage({ user, onSignOut, onPasswordUpdate }) {
+function formatStatus(status) {
+  if (!status) return null;
+  const map = {
+    active: "Active",
+    past_due: "Past due",
+    cancelled: "Cancelled",
+    trial: "Trial",
+    none: null,
+  };
+  return map[status] ?? status;
+}
+
+export default function ProfilePage({
+  user, profile,
+  onSignOut, onPasswordUpdate,
+  onManageBilling, onUpgrade, onDeleteAccount,
+}) {
   const [pwSection, setPwSection] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwStatus, setPwStatus] = useState({ type: "", msg: "" });
   const [pwBusy, setPwBusy] = useState(false);
 
+  const [deleteSection, setDeleteSection] = useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [deleteStatus, setDeleteStatus] = useState({ type: "", msg: "" });
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState("");
+
   const provider = getProvider(user);
   const displayName = getDisplayName(user);
   const avatarUrl = getAvatarUrl(user);
   const isEmailUser = provider === "Email";
+
+  const tier = profile?.subscription_tier || "free";
+  const isPaid = tier === "paid";
+  const status = formatStatus(profile?.subscription_status);
+  const marksUsed = profile?.marks_used ?? 0;
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
@@ -77,6 +106,44 @@ export default function ProfilePage({ user, onSignOut, onPasswordUpdate }) {
       setPwStatus({ type: "error", msg: err?.message || "Failed to update password." });
     } finally {
       setPwBusy(false);
+    }
+  };
+
+  const handleBillingClick = async () => {
+    setBillingBusy(true);
+    setBillingError("");
+    try {
+      await onManageBilling();
+    } catch (err) {
+      setBillingError(err?.message || "Could not open billing portal.");
+      setBillingBusy(false);
+    }
+  };
+
+  const handleUpgradeClick = async () => {
+    setBillingBusy(true);
+    setBillingError("");
+    try {
+      await onUpgrade();
+    } catch (err) {
+      setBillingError(err?.message || "Could not start checkout.");
+      setBillingBusy(false);
+    }
+  };
+
+  const handleDeleteSubmit = async (e) => {
+    e.preventDefault();
+    if (deleteConfirmEmail.trim().toLowerCase() !== (user?.email || "").toLowerCase()) {
+      setDeleteStatus({ type: "error", msg: "Email does not match." });
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteStatus({ type: "", msg: "" });
+    try {
+      await onDeleteAccount();
+    } catch (err) {
+      setDeleteStatus({ type: "error", msg: err?.message || "Account deletion failed." });
+      setDeleteBusy(false);
     }
   };
 
@@ -106,7 +173,7 @@ export default function ProfilePage({ user, onSignOut, onPasswordUpdate }) {
           <h2>Account Details</h2>
           <div className="profile-field">
             <span className="profile-label">Email</span>
-            <span className="profile-value">{user?.email || "—"}</span>
+            <span className="profile-value">{user?.email || "\u2014"}</span>
           </div>
           <div className="profile-field">
             <span className="profile-label">Sign-in method</span>
@@ -135,6 +202,52 @@ export default function ProfilePage({ user, onSignOut, onPasswordUpdate }) {
             <span className="profile-value">{formatDate(user?.last_sign_in_at)}</span>
           </div>
         </section>
+
+        {profile && (
+          <section className="profile-card">
+            <h2>Subscription</h2>
+            <div className="profile-field">
+              <span className="profile-label">Plan</span>
+              <span className="profile-value">
+                <span className={`subscription-badge ${isPaid ? "subscription-badge-paid" : "subscription-badge-free"}`}>
+                  {isPaid ? "Paid" : "Free"}
+                </span>
+              </span>
+            </div>
+            {isPaid && status && (
+              <div className="profile-field">
+                <span className="profile-label">Status</span>
+                <span className="profile-value">{status}</span>
+              </div>
+            )}
+            <div className="profile-field">
+              <span className="profile-label">Essays marked</span>
+              <span className="profile-value">{marksUsed}</span>
+            </div>
+            {billingError && (
+              <p className="pw-status pw-status-error">{billingError}</p>
+            )}
+            <div style={{ marginTop: 16 }}>
+              {isPaid ? (
+                <button
+                  className="profile-btn"
+                  onClick={handleBillingClick}
+                  disabled={billingBusy}
+                >
+                  {billingBusy ? "Opening\u2026" : "Manage Billing"}
+                </button>
+              ) : (
+                <button
+                  className="profile-btn profile-btn-primary"
+                  onClick={handleUpgradeClick}
+                  disabled={billingBusy}
+                >
+                  {billingBusy ? "Loading\u2026" : "Upgrade"}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         {isEmailUser && (
           <section className="profile-card">
@@ -188,6 +301,55 @@ export default function ProfilePage({ user, onSignOut, onPasswordUpdate }) {
           <button className="profile-btn profile-btn-danger" onClick={onSignOut}>
             Sign out
           </button>
+        </section>
+
+        <section className="profile-card profile-danger">
+          <h2>Danger Zone</h2>
+          {!deleteSection ? (
+            <button
+              className="profile-btn profile-btn-danger"
+              onClick={() => setDeleteSection(true)}
+            >
+              Delete account
+            </button>
+          ) : (
+            <form onSubmit={handleDeleteSubmit} className="delete-confirm">
+              <p className="delete-warning">
+                This will permanently delete your account, all essays, and cancel
+                your subscription. This cannot be undone.
+              </p>
+              <div className="pw-field">
+                <label htmlFor="delete-email">Type your email to confirm</label>
+                <input
+                  id="delete-email"
+                  type="email"
+                  value={deleteConfirmEmail}
+                  onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                  placeholder={user?.email || ""}
+                  autoComplete="off"
+                />
+              </div>
+              {deleteStatus.msg && (
+                <p className={`pw-status pw-status-${deleteStatus.type}`}>{deleteStatus.msg}</p>
+              )}
+              <div className="pw-actions">
+                <button
+                  type="submit"
+                  className="profile-btn profile-btn-danger-fill"
+                  disabled={deleteBusy}
+                >
+                  {deleteBusy ? "Deleting\u2026" : "Permanently delete"}
+                </button>
+                <button
+                  type="button"
+                  className="profile-btn"
+                  onClick={() => { setDeleteSection(false); setDeleteConfirmEmail(""); setDeleteStatus({ type: "", msg: "" }); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </section>
       </div>
     </main>

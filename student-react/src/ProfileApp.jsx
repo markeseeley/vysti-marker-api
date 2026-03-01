@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuthSession } from "./hooks/useAuthSession";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
 import UserMenu from "./components/UserMenu";
 import ProfilePage from "./components/ProfilePage";
 import Footer from "./components/Footer";
@@ -9,6 +10,8 @@ export default function ProfileApp() {
   const { supa, isChecking: authChecking } = useAuthSession("profile");
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [token, setToken] = useState(null);
 
   useEffect(() => {
     if (!authChecking && supa) {
@@ -16,8 +19,19 @@ export default function ProfileApp() {
       (async () => {
         try {
           const { data } = await supa.auth.getSession();
-          if (data?.session?.user) {
-            setUser(data.session.user);
+          const sessionUser = data?.session?.user;
+          if (sessionUser) {
+            setUser(sessionUser);
+            const accessToken = data.session.access_token;
+            setToken(accessToken);
+            // Fetch profile data (subscription tier, marks used, etc.)
+            const apiBase = getApiBaseUrl();
+            const resp = await fetch(`${apiBase}/api/profile`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            if (resp.ok) {
+              setProfile(await resp.json());
+            }
           }
         } catch {}
       })();
@@ -44,6 +58,63 @@ export default function ProfileApp() {
     if (error) throw error;
   }, [supa]);
 
+  const handleManageBilling = useCallback(async () => {
+    if (!token) return;
+    const apiBase = getApiBaseUrl();
+    const resp = await fetch(`${apiBase}/api/stripe/portal`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Could not open billing portal");
+    }
+    const { portal_url } = await resp.json();
+    window.location.href = portal_url;
+  }, [token]);
+
+  const handleUpgrade = useCallback(async () => {
+    if (!token) return;
+    const apiBase = getApiBaseUrl();
+    const resp = await fetch(`${apiBase}/api/stripe/checkout`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Could not start checkout");
+    }
+    const { checkout_url } = await resp.json();
+    window.location.href = checkout_url;
+  }, [token]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!token) return;
+    const apiBase = getApiBaseUrl();
+    const resp = await fetch(`${apiBase}/api/delete-account`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Account deletion failed");
+    }
+    // Clear local state and redirect
+    localStorage.removeItem("vysti_role");
+    localStorage.removeItem("vysti_products");
+    window.location.replace("/signin.html");
+  }, [token]);
+
   if (!authReady) {
     return null;
   }
@@ -67,8 +138,12 @@ export default function ProfileApp() {
 
       <ProfilePage
         user={user}
+        profile={profile}
         onSignOut={handleSignOut}
         onPasswordUpdate={handlePasswordUpdate}
+        onManageBilling={handleManageBilling}
+        onUpgrade={handleUpgrade}
+        onDeleteAccount={handleDeleteAccount}
       />
 
       <Footer />
