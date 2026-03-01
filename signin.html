@@ -109,6 +109,26 @@
         <div class="status" id="signupStatus"></div>
       </div>
 
+      <!-- ===== RESET PASSWORD form ===== -->
+      <div class="auth-card hidden" id="resetCard">
+        <h1 class="auth-title">Reset Password</h1>
+        <p class="auth-subtitle">Enter your new password below</p>
+
+        <div class="field">
+          <label for="resetPassword">New Password</label>
+          <input id="resetPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+        </div>
+
+        <div class="field">
+          <label for="resetConfirm">Confirm New Password</label>
+          <input id="resetConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+        </div>
+
+        <button id="resetBtn" type="button">Update Password</button>
+
+        <div class="status" id="resetStatus"></div>
+      </div>
+
       <!-- ===== STEP 2: Course code ===== -->
       <div class="auth-card hidden" id="courseCard">
         <h1 class="auth-title">Welcome!</h1>
@@ -263,6 +283,11 @@
     const signupBtn    = document.getElementById("signupBtn");
     const googleSignupBtn = document.getElementById("googleSignupBtn");
     const signupStatusEl = document.getElementById("signupStatus");
+    const resetCard    = document.getElementById("resetCard");
+    const resetPassEl  = document.getElementById("resetPassword");
+    const resetConfirmEl = document.getElementById("resetConfirm");
+    const resetBtn     = document.getElementById("resetBtn");
+    const resetStatusEl = document.getElementById("resetStatus");
     const courseCodeEl  = document.getElementById("courseCode");
     const enrollBtn    = document.getElementById("enrollBtn");
     const skipEnroll   = document.getElementById("skipEnroll");
@@ -404,6 +429,41 @@
         statusEl.textContent = "Error: " + error.message;
       } else {
         statusEl.textContent = "Password reset email sent. Check your inbox.";
+      }
+    });
+
+    // ===== Reset password (after clicking email link) =====
+    resetBtn.addEventListener("click", async () => {
+      const pw = resetPassEl.value;
+      const confirm = resetConfirmEl.value;
+      if (!pw) {
+        resetStatusEl.textContent = "Please enter a new password.";
+        return;
+      }
+      if (pw.length < 8) {
+        resetStatusEl.textContent = "Password must be at least 8 characters.";
+        return;
+      }
+      if (pw !== confirm) {
+        resetStatusEl.textContent = "Passwords do not match.";
+        return;
+      }
+      resetStatusEl.textContent = "Updating password\u2026";
+      const { error } = await supa.auth.updateUser({ password: pw });
+      if (error) {
+        resetStatusEl.textContent = "Error: " + error.message;
+      } else {
+        resetStatusEl.textContent = "Password updated! Signing you in\u2026";
+        const { data } = await supa.auth.getSession();
+        if (data.session) {
+          setTimeout(() => handlePostAuth(data.session), 1000);
+        } else {
+          resetStatusEl.textContent = "Password updated! Please sign in with your new password.";
+          setTimeout(() => {
+            resetCard.classList.add("hidden");
+            signinCard.classList.remove("hidden");
+          }, 2000);
+        }
       }
     });
 
@@ -586,6 +646,16 @@
     let authHandled = false;
     supa.auth.onAuthStateChange(async (event, session) => {
       if (authHandled) return;
+      if (event === "PASSWORD_RECOVERY") {
+        // User clicked reset link — show the new-password form
+        authHandled = true;
+        signinCard.classList.add("hidden");
+        signupCard.classList.add("hidden");
+        courseCard.classList.add("hidden");
+        resetCard.classList.remove("hidden");
+        resetPassEl.focus();
+        return;
+      }
       if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
         authHandled = true;
         await handlePostAuth(session);
