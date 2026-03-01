@@ -374,7 +374,13 @@
       const { data, error } = await supa.auth.signInWithPassword({ email, password });
 
       if (error) {
-        statusEl.textContent = "Login error: " + error.message;
+        if (error.message === "Invalid login credentials") {
+          statusEl.textContent = "Incorrect email or password. Please try again.";
+        } else if (error.message === "Email not confirmed") {
+          statusEl.textContent = "Please check your email and click the confirmation link first.";
+        } else {
+          statusEl.textContent = "Sign-in error: " + error.message;
+        }
         return;
       }
 
@@ -574,9 +580,21 @@
     });
 
     // ===== On page load: check if already signed in =====
+    // Also handles email confirmation redirects (Supabase returns
+    // #access_token=... in the URL; the client exchanges it async,
+    // then fires SIGNED_IN via onAuthStateChange).
+    let authHandled = false;
+    supa.auth.onAuthStateChange(async (event, session) => {
+      if (authHandled) return;
+      if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        authHandled = true;
+        await handlePostAuth(session);
+      }
+    });
     (async () => {
       const { data } = await supa.auth.getSession();
-      if (data.session) {
+      if (data.session && !authHandled) {
+        authHandled = true;
         await handlePostAuth(data.session);
       }
     })();
