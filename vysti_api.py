@@ -238,6 +238,7 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 STRIPE_PRICE_MARK = os.getenv("STRIPE_PRICE_MARK")
 STRIPE_PRICE_REVISE = os.getenv("STRIPE_PRICE_REVISE")
+STRIPE_PRICE_BOTH = os.getenv("STRIPE_PRICE_BOTH")
 
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
@@ -545,7 +546,9 @@ def require_product(*products: str):
 # Map price IDs to product flags
 def _price_to_products(price_id: str) -> dict:
     """Return the product flags for a given Stripe price ID."""
-    if price_id == STRIPE_PRICE_MARK:
+    if price_id == STRIPE_PRICE_BOTH:
+        return {"has_mark": True, "has_revise": True}
+    elif price_id == STRIPE_PRICE_MARK:
         return {"has_mark": True}
     elif price_id == STRIPE_PRICE_REVISE:
         return {"has_revise": True}
@@ -688,6 +691,7 @@ async def stripe_webhook(request: Request):
             patch = {
                 **products,
                 "subscription_status": "active",
+                "subscription_tier": "paid",
                 "stripe_customer_id": customer_id,
                 "onboarded_at": datetime.datetime.utcnow().isoformat(),
             }
@@ -712,11 +716,16 @@ async def stripe_webhook(request: Request):
             new_status = status_map.get(status_val, "none")
             patch = {"subscription_status": new_status}
 
+            # If active (reactivation), restore paid tier
+            if new_status == "active":
+                patch["subscription_tier"] = "paid"
+
             # If cancelled, remove product access
             if new_status == "cancelled":
                 patch["has_mark"] = False
                 patch["has_revise"] = False
                 patch["has_write"] = False
+                patch["subscription_tier"] = "free"
 
             await _update_profile_fields(user_id, patch)
 
@@ -726,6 +735,7 @@ async def stripe_webhook(request: Request):
         if user_id:
             await _update_profile_fields(user_id, {
                 "subscription_status": "cancelled",
+                "subscription_tier": "free",
                 "has_mark": False,
                 "has_revise": False,
                 "has_write": False,
