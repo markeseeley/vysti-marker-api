@@ -6,11 +6,12 @@
   <title>Vysti Marker — Ingest Marked Essays</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/marker.css">
 
   <!-- Supabase JS client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/shared/supabase-init.js"></script>
   <style>
     .ingest-container {
       max-width: 1200px;
@@ -98,15 +99,13 @@
     </div>
   
     <nav>
-      <a href="/progress.html">Dashboard</a>
-      <a href="/index.html">Mark Assignments</a>
-      <a href="/ingest.html" class="active">Ingest Marked Essays</a>
-      <a href="/classes.html">Classes</a>
+      <a href="/index.html" title="Upload and grade student essays">Mark</a>
+      <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
+      <a href="/write_react.html" title="Draft an essay with guidance">Write</a>
+      <a href="/student_progress.html" title="Track your writing progress">Progress</a>
     </nav>
-  
+
     <div class="actions">
-      <button class="iconbtn" type="button" title="Notifications" aria-label="Notifications"></button>
-      <img class="avatar" src="/assets/avatar.png" alt="Profile" />
       <button class="topbar-btn" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -157,18 +156,12 @@
     </div>
 
     <footer class="marker-footer" aria-label="Site footer">
-      <div class="footer-copy">© 2025 Vysti Research. All rights reserved.</div>
+      <div class="footer-copy">© 2026 Vysti Research. All rights reserved.<span class="footer-legal"><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></span></div>
       <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
     </footer>
   </main>
 
   <script>
-    // ===== Supabase auth setup =====
-    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
-
-    const { createClient } = supabase;
-    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const API_URL = "https://vysti-rules.onrender.com/ingest_marked";
 
     const fileInput = document.getElementById("fileInput");

@@ -1,0 +1,7 @@
+.node/
+student-react/node_modules/
+student-react/.vite/
+student-react/.env
+student-react/.env.*
+.DS_Store
+student-react/dist/

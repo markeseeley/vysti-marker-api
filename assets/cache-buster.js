@@ -1,6 +1,6 @@
 (function () {
   const META_BUILD_ID = "app-build-id";
-  const BUILD_ID_KEYS = ["APP_BUILD_ID", "__APP_BUILD_ID__"];
+  const BUILD_ID_KEYS = ["APP_BUILD_ID"];
 
   function readMetaContent(name) {
     if (typeof document === "undefined") return "";

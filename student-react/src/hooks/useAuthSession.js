@@ -2,11 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { redirectToSignin } from "../lib/auth";
 import { logEvent, logError } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
 
-export function useAuthSession() {
+export function useAuthSession(role = "student") {
   const [supa, setSupa] = useState(null);
   const [isChecking, setIsChecking] = useState(true);
   const [authError, setAuthError] = useState("");
+  const [products, setProducts] = useState({ has_mark: false, has_revise: false, has_write: false });
+  const [entitlement, setEntitlement] = useState({
+    subscription_tier: "free",
+    marks_used: 0,
+    marks_limit: 1,
+  });
   const guardActive = useRef(true);
 
   useEffect(() => {
@@ -30,7 +37,34 @@ export function useAuthSession() {
           redirectToSignin();
           return;
         }
-        localStorage.setItem("vysti_role", "student");
+        try { localStorage.setItem("vysti_role", role); } catch {}
+        try {
+          const raw = localStorage.getItem("vysti_products");
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (guardActive.current) setProducts(p);
+          }
+        } catch {}
+
+        // Fetch entitlement data from profile API
+        try {
+          const apiBase = getApiBaseUrl();
+          const profileResp = await fetch(`${apiBase}/api/profile`, {
+            headers: { Authorization: `Bearer ${data.session.access_token}` },
+          });
+          if (profileResp.ok && guardActive.current) {
+            const profileData = await profileResp.json();
+            setEntitlement({
+              subscription_tier: profileData.subscription_tier || "free",
+              marks_used: profileData.marks_used || 0,
+              marks_limit: 1,
+            });
+          }
+        } catch (e) {
+          // Non-critical: entitlement defaults to free tier
+          console.warn("Failed to fetch entitlement:", e);
+        }
+
         if (guardActive.current) {
           setIsChecking(false);
         }
@@ -61,6 +95,8 @@ export function useAuthSession() {
     supa,
     isChecking,
     authError,
+    products,
+    entitlement,
     redirectToSignin
   };
 }

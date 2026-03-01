@@ -1,7 +1,71 @@
+# Environment files (contain secrets)
+.env
+.env.*
+.env.local
+.env.*.local
+.env.save
+
+# Python
+venv/
+venv311/
+__pycache__/
+*.pyc
+
+# Node
 .node/
+node_modules/
 student-react/node_modules/
 student-react/.vite/
 student-react/.env
 student-react/.env.*
-.DS_Store
 student-react/dist/
+
+# OS
+.DS_Store
+
+# Screenshots (dev only)
+Screenshot *.png
+
+# Claude Code / Playwright dev artifacts
+.claude/
+.playwright-mcp/
+.mcp.json
+
+# Docker dev
+.dockerignore
+Dockerfile
+docker-compose.yml
+DOCKER_SETUP.md
+
+# Big project archive
+big_project/
+
+# Test files
+test_*.py
+test_*.docx
+test_*.html
+
+# Backups
+*_backup*.html
+*_backup*.py
+
+# Test essays and assignments
+Test Essays/
+Foundation 1-6 Assignments/
+*.pdf
+
+# Dev documentation (not needed in production)
+INTEGRATION_PLAN.md
+LEXIS_INTEGRATION_GUIDE.md
+GRAMMAR_CHECKING_OPTIONS.md
+DYNAMIC_GUIDANCE_INTEGRATION.md
+DEBUG_LEXIS.md
+SAAS_GRAMMAR_STRATEGY.md
+BUILD.md
+A-Z Lexis.*
+Python Code.rtf
+
+# Misc dev files
+working html core files.zip
+vysti_eye.png
+*.csv

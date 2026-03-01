@@ -1,70 +1,136 @@
-import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
-const PLACEHOLDER = "__APP_BUILD_ID__";
 
 function getBuildId() {
   const envValue = (process.env.APP_BUILD_ID || "").trim();
   if (envValue) return envValue;
 
-  try {
-    const gitSha = execSync("git rev-parse --short HEAD", {
-      cwd: repoRoot,
-      stdio: ["ignore", "pipe", "ignore"]
-    })
-      .toString()
-      .trim();
-    if (gitSha) return gitSha;
-  } catch (_) {
-    // Ignore git failures and fall back to timestamp.
-  }
-
   return String(Date.now());
 }
 
-async function replaceInFile(filePath, buildId) {
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const extractBuildIdFromHtml = (html) => {
+  const metaRegex =
+    /<meta\s+name=["']app-build-id["']\s+content=["']([^"']*)["']/i;
+  const match = html.match(metaRegex);
+  return match?.[1]?.trim() || "";
+};
+
+const updateBuildIdInHtml = (html, buildId, assets) => {
+  let next = html;
+  const metaRegex =
+    /(<meta\s+name=["']app-build-id["']\s+content=["'])([^"']*)(["'])/i;
+  if (metaRegex.test(next)) {
+    next = next.replace(metaRegex, `$1${buildId}$3`);
+  } else {
+    next = next.replace(
+      /<\/head>/i,
+      `  <meta name="app-build-id" content="${buildId}" />\n  </head>`
+    );
+  }
+
+  assets.forEach((assetPath) => {
+    const escaped = escapeRegExp(assetPath);
+    const withQuery = new RegExp(`(${escaped}\\?v=)[^"']+`, "g");
+    if (withQuery.test(next)) {
+      next = next.replace(withQuery, `$1${buildId}`);
+      return;
+    }
+    const noQuery = new RegExp(`(${escaped})(?=["'])`, "g");
+    next = next.replace(noQuery, `$1?v=${buildId}`);
+  });
+
+  return next;
+};
+
+async function updateHtmlFile(fileName, buildId, assets) {
+  const filePath = path.resolve(repoRoot, fileName);
+  let content;
   try {
-    const content = await fs.readFile(filePath, "utf8");
-    if (!content.includes(PLACEHOLDER)) return false;
-    const next = content.split(PLACEHOLDER).join(buildId);
-    if (next === content) return false;
-    await fs.writeFile(filePath, next, "utf8");
-    return true;
+    content = await fs.readFile(filePath, "utf8");
   } catch (err) {
-    if (err && err.code === "ENOENT") return false;
+    if (err && err.code === "ENOENT") {
+      return { updated: false, path: filePath, missing: true };
+    }
     throw err;
   }
+  const next = updateBuildIdInHtml(content, buildId, assets);
+  const updated = next !== content;
+  if (updated) {
+    await fs.writeFile(filePath, next, "utf8");
+  }
+  return { updated, path: filePath };
 }
 
 async function main() {
-  const buildId = getBuildId();
-  const targets = [
-    path.resolve(repoRoot, "student_react.html"),
-    path.resolve(repoRoot, "assets", "student-react", "main.js"),
-    path.resolve(
-      repoRoot,
-      "assets",
-      "student-react",
-      "assets",
-      "index.css"
-    )
+  let buildId = getBuildId();
+  const htmlPath = path.resolve(repoRoot, "student_react.html");
+
+  let existingBuildId = "";
+  try {
+    const html = await fs.readFile(htmlPath, "utf8");
+    existingBuildId = extractBuildIdFromHtml(html);
+  } catch (err) {
+    if (err && err.code === "ENOENT") {
+      throw new Error("student_react.html not found at repo root.");
+    }
+    throw err;
+  }
+
+  if (existingBuildId && existingBuildId === buildId) {
+    const fallbackId = `${buildId}-${Date.now()}`;
+    console.warn(
+      `[build] APP_BUILD_ID matches current HTML (${buildId}); using ${fallbackId} for cache-bust.`
+    );
+    buildId = fallbackId;
+  }
+
+  const studentAssets = [
+    "/assets/student-react/main.js",
+    "/assets/student-react/assets/main.css"
+  ];
+  const writeAssets = [
+    "/assets/student-react/write-main.js",
+    "/assets/student-react/assets/write-main.css"
+  ];
+  const teacherAssets = [
+    "/assets/student-react/teacher-main.js",
+    "/assets/student-react/assets/teacher-main.css"
+  ];
+  const profileAssets = [
+    "/assets/student-react/profile-main.js",
+    "/assets/student-react/assets/profile-main.css"
   ];
 
-  let updatedCount = 0;
-  for (const target of targets) {
-    const updated = await replaceInFile(target, buildId);
-    if (updated) updatedCount += 1;
-  }
+  const results = [
+    await updateHtmlFile("student_react.html", buildId, studentAssets),
+    await updateHtmlFile("write_react.html", buildId, writeAssets),
+    await updateHtmlFile("teacher_react.html", buildId, teacherAssets),
+    await updateHtmlFile("profile_react.html", buildId, profileAssets),
+  ];
+
+  const updatedFiles = results.filter((item) => item.updated);
+  const updatedCount = updatedFiles.length;
 
   console.log(
     `[build] APP_BUILD_ID=${buildId} (${updatedCount} file${
       updatedCount === 1 ? "" : "s"
     } stamped)`
   );
+  if (updatedCount) {
+    console.log(
+      `[build] Stamped files:\n${updatedFiles
+        .map((item) => `- ${path.relative(repoRoot, item.path)}`)
+        .join("\n")}`
+    );
+  } else {
+    console.warn("[build] No files updated. Check HTML file markers.");
+  }
 }
 
 main().catch((err) => {

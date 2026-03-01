@@ -1,6 +1,7 @@
 import { MODES } from "../config";
 
-export default function ModeSelect({ mode, onChange }) {
+export default function ModeSelect({ mode, onChange, modes }) {
+  const modeList = modes || MODES;
   return (
     <label>
       <span className="label-row mode-select-label-row">
@@ -12,7 +13,7 @@ export default function ModeSelect({ mode, onChange }) {
         onChange={(event) => onChange(event.target.value)}
         aria-label="Assignment type"
       >
-        {MODES.map((option) => (
+        {modeList.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

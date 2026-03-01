@@ -1,0 +1,558 @@
+[
+  {
+    "verb": "aestheticizes",
+    "definition": "treats as primarily aesthetic; emphasizes beauty over other concerns"
+  },
+  {
+    "verb": "caricatures",
+    "definition": "portrays with exaggerated features for comic or critical effect"
+  },
+  {
+    "verb": "catalyzes",
+    "definition": "cause or accelerate (a reaction) by acting as a catalyst"
+  },
+  {
+    "verb": "champions",
+    "definition": "support the cause of; defend"
+  },
+  {
+    "verb": "clarifies",
+    "definition": "resolves ambiguity"
+  },
+  {
+    "verb": "classifies",
+    "definition": "arrange in classes or categories according to shared qualities or characteristics"
+  },
+  {
+    "verb": "commodifies",
+    "definition": "turns into a product or commodity; makes marketable"
+  },
+  {
+    "verb": "compares",
+    "definition": "estimate, measure, or note the similarity or dissimilarity between"
+  },
+  {
+    "verb": "complicates",
+    "definition": "make (something) more difficult or confusing by causing it to be more complex"
+  },
+  {
+    "verb": "concedes",
+    "definition": "admit that something is true or valid after first denying or resisting it"
+  },
+  {
+    "verb": "contends",
+    "definition": "advances a debatable claim"
+  },
+  {
+    "verb": "contextualizes",
+    "definition": "places an idea within cultural/historical forces"
+  },
+  {
+    "verb": "contrasts",
+    "definition": "compare in such a way as to emphasize differences"
+  },
+  {
+    "verb": "critiques",
+    "definition": "evaluates critically by identifying strengths, limits, or flaws"
+  },
+  {
+    "verb": "decenters",
+    "definition": "removes from primary importance; shifts focus elsewhere"
+  },
+  {
+    "verb": "decodes",
+    "definition": "breaks down hidden cues or subtext"
+  },
+  {
+    "verb": "deconstructs",
+    "definition": "breaks down assumptions to reveal contradictions or hidden logic"
+  },
+  {
+    "verb": "decreases",
+    "definition": "make or become smaller or fewer in size, amount, intensity, or degree"
+  },
+  {
+    "verb": "defines",
+    "definition": "state or describe exactly the nature, scope, or meaning of"
+  },
+  {
+    "verb": "delegitimizes",
+    "definition": "undermines credibility, authority, or justification"
+  },
+  {
+    "verb": "delineates",
+    "definition": "describe or portray (something) precisely"
+  },
+  {
+    "verb": "demonizes",
+    "definition": "portrays as evil or threatening"
+  },
+  {
+    "verb": "demystifies",
+    "definition": "makes something less mysterious by revealing how it works"
+  },
+  {
+    "verb": "demythologizes",
+    "definition": "strips away mythic aura; treats as ordinary or constructed"
+  },
+  {
+    "verb": "denaturalizes",
+    "definition": "shows something as constructed rather than natural or inevitable"
+  },
+  {
+    "verb": "deploys",
+    "definition": "uses strategically (a technique, idea, or resource)"
+  },
+  {
+    "verb": "depoliticizes",
+    "definition": "removes political dimension; frames as neutral or private"
+  },
+  {
+    "verb": "deromanticizes",
+    "definition": "strips away idealized framing; portrays more realistically or critically"
+  },
+  {
+    "verb": "destabilizes",
+    "definition": "undermines what seems stable, natural, or obvious"
+  },
+  {
+    "verb": "devalues",
+    "definition": "reduce or underestimate the worth or importance of"
+  },
+  {
+    "verb": "diminishes",
+    "definition": "reduces importance"
+  },
+  {
+    "verb": "disentangles",
+    "definition": "free (something or someone) from an entanglement; extricate"
+  },
+  {
+    "verb": "disrupts",
+    "definition": "breaks expected patterns"
+  },
+  {
+    "verb": "draws attention to",
+    "definition": "highlights; calls attention to"
+  },
+  {
+    "verb": "embeds",
+    "definition": "fix (an object) firmly and deeply in a surrounding mass"
+  },
+  {
+    "verb": "embraces",
+    "definition": "accept or support (a belief, theory, or change) willingly and enthusiastically"
+  },
+  {
+    "verb": "entangles",
+    "definition": "cause to become twisted together with or caught in"
+  },
+  {
+    "verb": "enumerates",
+    "definition": "lists items one by one"
+  },
+  {
+    "verb": "envisions",
+    "definition": "imagine as a future possibility; visualize"
+  },
+  {
+    "verb": "eradicates",
+    "definition": "destroy completely; put an end to"
+  },
+  {
+    "verb": "erases",
+    "definition": "removes from the record; makes invisible"
+  },
+  {
+    "verb": "eroticizes",
+    "definition": "give (something or someone) erotic qualities"
+  },
+  {
+    "verb": "essentializes",
+    "definition": "reduces complex ideas or identities to one ‘essential’ trait"
+  },
+  {
+    "verb": "evaluates",
+    "definition": "form an idea of the amount, number, or value of; assess"
+  },
+  {
+    "verb": "eviscerates",
+    "definition": "deprive (something) of its essential content"
+  },
+  {
+    "verb": "evokes",
+    "definition": "bring or recall to the conscious mind"
+  },
+  {
+    "verb": "exemplifies",
+    "definition": "give an example of; illustrate by giving an example"
+  },
+  {
+    "verb": "exoticizes",
+    "definition": "presents as strange or alluringly foreign"
+  },
+  {
+    "verb": "expresses",
+    "definition": "convey (a thought or feeling) in words or by gestures and conduct"
+  },
+  {
+    "verb": "extrapolates upon",
+    "definition": "extend the application of (a method or conclusion, especially one based on statistics) to an unknown situation by assuming that existing trends will continue or similar methods will be applicable"
+  },
+  {
+    "verb": "extricates",
+    "definition": "free from an entanglement; disentangle"
+  },
+  {
+    "verb": "fetishizes",
+    "definition": "fixates on one aspect and exaggerates its importance"
+  },
+  {
+    "verb": "foregrounds",
+    "definition": "brings into prominence; makes most noticeable or important"
+  },
+  {
+    "verb": "frames",
+    "definition": "presents within a particular perspective or interpretation"
+  },
+  {
+    "verb": "genderizes",
+    "definition": "represents or interprets through gender as an organizing category"
+  },
+  {
+    "verb": "highlights",
+    "definition": "pick out and emphasize"
+  },
+  {
+    "verb": "hints at",
+    "definition": "a slight or indirect indication or suggestion"
+  },
+  {
+    "verb": "historicizes",
+    "definition": "treat or represent as historical"
+  },
+  {
+    "verb": "humanizes",
+    "definition": "presents with empathy or complexity; makes feel fully human"
+  },
+  {
+    "verb": "illustrates",
+    "definition": "explain or make (something) clear by using examples, charts, pictures, etc."
+  },
+  {
+    "verb": "imagines",
+    "definition": "form a mental image or concept of"
+  },
+  {
+    "verb": "implies",
+    "definition": "strongly suggest the truth or existence of (something not expressly stated)"
+  },
+  {
+    "verb": "increases",
+    "definition": "become or make greater in size, amount, intensity, or degree"
+  },
+  {
+    "verb": "indicates",
+    "definition": "point out; show"
+  },
+  {
+    "verb": "infantilizes",
+    "definition": "treats a person or group as childlike; denies agency"
+  },
+  {
+    "verb": "insinuates",
+    "definition": "suggest or hint (something bad or reprehensible) in an indirect and unpleasant way"
+  },
+  {
+    "verb": "intensifies",
+    "definition": "become or make more intense"
+  },
+  {
+    "verb": "intermingles",
+    "definition": "mix or mingle together"
+  },
+  {
+    "verb": "intermixes",
+    "definition": "mix or blend together; combine"
+  },
+  {
+    "verb": "interrogates",
+    "definition": "ask questions of someone or about a topic; question closely"
+  },
+  {
+    "verb": "jettisons",
+    "definition": "abandon or discard (something no longer wanted)"
+  },
+  {
+    "verb": "justifies",
+    "definition": "show or prove to be right or reasonable"
+  },
+  {
+    "verb": "juxtaposes",
+    "definition": "place close together for contrasting effect"
+  },
+  {
+    "verb": "lampoons",
+    "definition": "ridicule with sharp humor"
+  },
+  {
+    "verb": "legitimizes",
+    "definition": "makes seem acceptable, authoritative, or justified"
+  },
+  {
+    "verb": "lessens",
+    "definition": "make or become less; diminish"
+  },
+  {
+    "verb": "manipulates",
+    "definition": "handle or control (a tool or mechanism), typically skillfully"
+  },
+  {
+    "verb": "marginalizes",
+    "definition": "pushes to the edge; treats as less important or less visible"
+  },
+  {
+    "verb": "mobilizes",
+    "definition": "activates ideas/emotions/people for an effect"
+  },
+  {
+    "verb": "modifies",
+    "definition": "make partial or minor changes to improve or make less extreme"
+  },
+  {
+    "verb": "mythologizes",
+    "definition": "turns into a mythic or heroic story; amplifies legend"
+  },
+  {
+    "verb": "naturalizes",
+    "definition": "treats something constructed as if it is natural or inevitable"
+  },
+  {
+    "verb": "negotiates",
+    "definition": "find a way over, through, or around an obstacle; navigate"
+  },
+  {
+    "verb": "normalizes",
+    "definition": "makes seem normal or inevitable through repetition or framing"
+  },
+  {
+    "verb": "observes",
+    "definition": "notice or perceive and register as significant"
+  },
+  {
+    "verb": "obviates",
+    "definition": "remove a need or difficulty"
+  },
+  {
+    "verb": "opines",
+    "definition": "state or express an opinion"
+  },
+  {
+    "verb": "orientalizes",
+    "definition": "portrays the ‘East’ through stereotypes that serve Western power"
+  },
+  {
+    "verb": "otherizes",
+    "definition": "casts a group as outsider to create distance or hierarchy"
+  },
+  {
+    "verb": "outlines",
+    "definition": "give a general description or plan showing essential features without detail"
+  },
+  {
+    "verb": "overturns",
+    "definition": "abolish, invalidate, or reverse a previous decision, situation, or system"
+  },
+  {
+    "verb": "paints a picture of",
+    "definition": "portrays vividly; describes in words"
+  },
+  {
+    "verb": "particularizes",
+    "definition": "makes specific; ties an idea to a particular context"
+  },
+  {
+    "verb": "pathologizes",
+    "definition": "frames as abnormal or diseased; treats as a problem needing correction"
+  },
+  {
+    "verb": "penetrates",
+    "definition": "succeed in understanding or gaining insight into (something complex or mysterious)"
+  },
+  {
+    "verb": "points out",
+    "definition": "indicates; draws attention to"
+  },
+  {
+    "verb": "politicizes",
+    "definition": "treats as political; connects to power, policy, or ideology"
+  },
+  {
+    "verb": "posits",
+    "definition": "puts forward a theory or claim confidently"
+  },
+  {
+    "verb": "problematizes",
+    "definition": "make into or regard as a problem requiring a solution"
+  },
+  {
+    "verb": "provokes",
+    "definition": "stimulate or give rise to (a reaction or emotion, typically a strong or unwelcome one) in someone"
+  },
+  {
+    "verb": "punctuates",
+    "definition": "interrupt or intersperse (an activity) with"
+  },
+  {
+    "verb": "punishes",
+    "definition": "inflict a penalty or sanction on (someone) as retribution for an offense, especially a transgression of a legal or moral code"
+  },
+  {
+    "verb": "pushes",
+    "definition": "promote the use, sale, or acceptance of"
+  },
+  {
+    "verb": "questions",
+    "definition": "a sentence worded or expressed so as to elicit information"
+  },
+  {
+    "verb": "racializes",
+    "definition": "represents or interprets through race as an organizing category"
+  },
+  {
+    "verb": "reacts to",
+    "definition": "respond or behave in a particular way in response to something"
+  },
+  {
+    "verb": "reevaluates",
+    "definition": "evaluate again or differently"
+  },
+  {
+    "verb": "reframes",
+    "definition": "presents again from a new angle to change interpretation"
+  },
+  {
+    "verb": "reifies",
+    "definition": "treats an abstract idea as if it were a concrete thing"
+  },
+  {
+    "verb": "reimagines",
+    "definition": "reinterpret (an event, work of art, etc.) imaginatively; rethink"
+  },
+  {
+    "verb": "reinvigorates",
+    "definition": "give new energy or strength to"
+  },
+  {
+    "verb": "reiterates",
+    "definition": "repeats; restates"
+  },
+  {
+    "verb": "relegates",
+    "definition": "consign or dismiss to an inferior rank or position"
+  },
+  {
+    "verb": "resolves",
+    "definition": "settle or find a solution to (a problem, dispute, or contentious matter); or decide firmly on a course of action"
+  },
+  {
+    "verb": "responds to",
+    "definition": "say something in reply"
+  },
+  {
+    "verb": "reveals",
+    "definition": "make (previously unknown or secret information) known to others"
+  },
+  {
+    "verb": "revolutionizes",
+    "definition": "change (something) radically or fundamentally"
+  },
+  {
+    "verb": "romanticizes",
+    "definition": "idealizes unrealistically"
+  },
+  {
+    "verb": "runs the gamut of",
+    "definition": "covers the complete range or scope of something"
+  },
+  {
+    "verb": "sanctifies",
+    "definition": "treats as sacred or beyond criticism"
+  },
+  {
+    "verb": "satirizes",
+    "definition": "uses satire to expose"
+  },
+  {
+    "verb": "scrutinizes",
+    "definition": "examines closely; inspects critically"
+  },
+  {
+    "verb": "sexualizes",
+    "definition": "portrays or describes in sexual terms; gives sexual qualities"
+  },
+  {
+    "verb": "sidesteps",
+    "definition": "avoid dealing with or discussing (something problematic or disagreeable)"
+  },
+  {
+    "verb": "silences",
+    "definition": "suppresses or prevents from being heard or represented"
+  },
+  {
+    "verb": "situates",
+    "definition": "put in context; describe the circumstances surrounding (something)"
+  },
+  {
+    "verb": "spotlights",
+    "definition": "direct attention to (a particular problem or situation)"
+  },
+  {
+    "verb": "stratifies",
+    "definition": "arranges into layers or ranks; classifies into strata"
+  },
+  {
+    "verb": "strengthens",
+    "definition": "make or become stronger"
+  },
+  {
+    "verb": "subverts",
+    "definition": "undermines from within; reverses expected meaning or hierarchy"
+  },
+  {
+    "verb": "theorizes",
+    "definition": "frames something through a conceptual lens"
+  },
+  {
+    "verb": "undermines",
+    "definition": "lessen the effectiveness, power, or ability of, especially gradually or insidiously"
+  },
+  {
+    "verb": "underscores",
+    "definition": "emphasizes; highlights"
+  },
+  {
+    "verb": "universalizes",
+    "definition": "treats a specific experience as if it applies to everyone"
+  },
+  {
+    "verb": "unpacks",
+    "definition": "pulls apart layers of meaning"
+  },
+  {
+    "verb": "upends",
+    "definition": "overturns; disrupts or reverses"
+  },
+  {
+    "verb": "upsets",
+    "definition": "cause disorder in (something); disrupt"
+  },
+  {
+    "verb": "vilifies",
+    "definition": "describes in an extremely negative way; attacks character"
+  },
+  {
+    "verb": "whitewashes",
+    "definition": "deliberately attempt to conceal unpleasant or incriminating facts about (someone or something)"
+  }
+]

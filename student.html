@@ -9,6 +9,238 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/marker.css">
   <script>
+    (function () {
+      if (window.location.pathname.includes("student_react.html")) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const forceClassicParam = params.get("classic") === "1";
+      const forceReactParam = params.get("react") === "1";
+      let uiMode = null;
+
+      try {
+        uiMode = localStorage.getItem("uiMode");
+      } catch (err) {
+        uiMode = null;
+      }
+
+      const forceClassic = forceClassicParam || uiMode === "classic";
+      const forceReact = !forceClassicParam && (forceReactParam || uiMode === "react");
+      let logEnabled = true;
+
+      const persistRolloutReason = (decision, reason, details = {}) => {
+        try {
+          sessionStorage.setItem(
+            "rolloutReason",
+            JSON.stringify({
+              decision,
+              reason,
+              email: details.email || "",
+              userId: details.userId || "",
+              bucket: typeof details.bucket === "number" ? details.bucket : null,
+              percentage: typeof details.percentage === "number" ? details.percentage : null,
+              ts: new Date().toISOString(),
+              allowlisted: details.allowlisted === true
+            })
+          );
+        } catch (_) {}
+      };
+
+      const logDecision = (decision, reason, details = {}) => {
+        persistRolloutReason(decision, reason, details);
+        if (!logEnabled) return;
+        const parts = [`decision=${decision}`, `reason=${reason}`];
+        if (details.userId) parts.push(`userId=${details.userId}`);
+        if (typeof details.bucket === "number") parts.push(`bucket=${details.bucket}`);
+        if (typeof details.percentage === "number") parts.push(`pct=${details.percentage}`);
+        console.log(`[rollout] ${parts.join(" ")}`);
+      };
+
+      const buildTargetUrl = () => {
+        const nextParams = new URLSearchParams(params);
+        nextParams.delete("classic");
+        nextParams.delete("react");
+        nextParams.set("from", "classic");
+        const query = nextParams.toString();
+        return `/student_react.html${query ? `?${query}` : ""}`;
+      };
+
+      const checkHealthcheck = async (enabled) => {
+        if (!enabled) return true;
+        const urls = [
+          "/student_react.html",
+          "/assets/student-react/main.js",
+          "/assets/student-react/assets/index.css",
+          "/shared/runtimeConfig.js",
+          "/shared/auth.js",
+          "/shared/markingApi.js",
+          "/shared/download.js",
+          "/student-react-config.json"
+        ];
+        for (const url of urls) {
+          try {
+            const head = await fetch(url, { method: "HEAD", cache: "no-store" });
+            if (head.ok) continue;
+          } catch (err) {}
+          try {
+            const get = await fetch(url, { cache: "no-store" });
+            if (!get.ok) return false;
+          } catch (err) {
+            return false;
+          }
+        }
+        return true;
+      };
+
+      const hashToBucket = (value) => {
+        let hash = 2166136261;
+        for (let i = 0; i < value.length; i += 1) {
+          hash ^= value.charCodeAt(i);
+          hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        return Math.abs(hash) % 100;
+      };
+
+      const rolloutState = { ran: false };
+
+      const maybeRedirect = async (session) => {
+        if (rolloutState.ran) return;
+        rolloutState.ran = true;
+
+        if (forceClassic) {
+          logDecision("classic", "override-classic");
+          return;
+        }
+
+        let config;
+        try {
+          const res = await fetch("/student-react-config.json", { cache: "no-store" });
+          if (!res.ok) throw new Error("config");
+          config = await res.json();
+          window.__vystiRuntimeConfig = config;
+        } catch (err) {
+          logDecision("classic", "config-failed");
+          return;
+        }
+
+        const rollout = (config && config.rollout && config.rollout.studentReact) || {};
+        logEnabled = rollout.logDecisions !== false;
+
+        if (rollout.killSwitch) {
+          logDecision("classic", "killswitch");
+          return;
+        }
+
+        if (!session) {
+          logDecision("classic", "no-session");
+          return;
+        }
+
+        const user = session.user || {};
+        const email = String(user.email || "").toLowerCase();
+        const userId = user.id || "";
+        const denyEmails = (rollout.denyEmails || []).map((item) =>
+          String(item || "").toLowerCase()
+        );
+        const denyUserIds = rollout.denyUserIds || [];
+
+        if ((email && denyEmails.includes(email)) || (userId && denyUserIds.includes(userId))) {
+          logDecision("classic", "denied", { userId: userId || email, email, allowlisted: false });
+          return;
+        }
+
+        const allowEmails = (rollout.allowEmails || []).map((item) =>
+          String(item || "").toLowerCase()
+        );
+        const allowUserIds = rollout.allowUserIds || [];
+        const enabled = Boolean(rollout.enabled);
+        const percentage = Number(rollout.percentage || 0);
+
+        let eligible = false;
+        let reason = "bucket";
+        let bucket = null;
+
+        if (forceReact) {
+          eligible = true;
+          reason = "override-react";
+        } else if (email && allowEmails.includes(email)) {
+          eligible = true;
+          reason = "allowlist";
+        } else if (userId && allowUserIds.includes(userId)) {
+          eligible = true;
+          reason = "allowlist";
+        } else if (!enabled || percentage <= 0) {
+          logDecision("classic", "rollout-disabled", {
+            userId: userId || email,
+            email,
+            percentage,
+            allowlisted: false
+          });
+          return;
+        } else {
+          const hashSource = userId || email;
+          if (!hashSource) {
+            logDecision("classic", "no-identifier", {
+              userId: "unknown",
+              email,
+              percentage,
+              allowlisted: false
+            });
+            return;
+          }
+          bucket = hashToBucket(hashSource);
+          if (bucket < percentage) {
+            eligible = true;
+            reason = "bucket";
+          } else {
+            logDecision("classic", "bucket", {
+              bucket,
+              percentage,
+              userId: userId || email,
+              email,
+              allowlisted: false
+            });
+            return;
+          }
+        }
+
+        if (!eligible) {
+          logDecision("classic", "ineligible", {
+            userId: userId || email,
+            email,
+            percentage,
+            allowlisted: false
+          });
+          return;
+        }
+
+        const healthOk = await checkHealthcheck(rollout.minBuildHealthcheck !== false);
+        if (!healthOk) {
+          logDecision("classic", "healthcheck-failed", {
+            bucket,
+            percentage,
+            userId: userId || email,
+            email,
+            allowlisted: reason === "allowlist" || reason === "override-react"
+          });
+          return;
+        }
+
+        logDecision("react", reason, {
+          userId: userId || email || "unknown",
+          bucket,
+          percentage,
+          email,
+          allowlisted: reason === "allowlist" || reason === "override-react"
+        });
+        window.location.replace(buildTargetUrl());
+      };
+
+      window.__studentReactRollout = {
+        maybeRedirect
+      };
+    })();
+  </script>
+  <script>
     // EARLY GLOBAL DRAG/DROP GUARD
     // Prevent the browser from navigating/opening/downloading a file when one is dropped anywhere on the page.
     // Must be robust across browsers (Chrome/Edge/Safari/Firefox) and must NOT block the dropZone handler.
@@ -62,6 +294,7 @@
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/shared/supabase-init.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
@@ -479,503 +712,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       padding: 16px;
       background: #fff;
     }
-    .revision-practice-card {
-      margin-top: 24px;
-      grid-column: 1 / -1;
-    }
-    .revision-practice-title {
-      margin-bottom: 12px;
-      font-size: var(--fs-h3);
-      font-weight: 700;
-      text-align: center;
-    }
-    .most-common-footer {
-      margin-top: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .most-common-word-count,
-    .most-common-total-issues {
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      color: var(--text);
-    }
-    .most-common-techniques {
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      background: #fff;
-      text-align: right;
-      margin-left: auto;
-    }
-    .most-common-techniques-title {
-      font-size: var(--fs-xs);
-      font-weight: 700;
-      color: var(--muted);
-      margin-bottom: 6px;
-      text-transform: none;
-      letter-spacing: 0.02em;
-    }
-    .most-common-techniques-list {
-      font-size: var(--fs-sm);
-      color: var(--text);
-      line-height: 1.4;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .issue-select-wrapper {
-      display: none;
-    }
-    .issue-buttons-wrap {
-      display: none;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .issue-section-block {
-      padding-top: 4px;
-    }
-    .issue-section-heading {
-      text-align: center;
-      font-size: var(--fs-sm);
-      font-weight: 700;
-      color: rgba(0, 0, 0, 0.7);
-      margin: 6px 0 8px;
-      letter-spacing: 0.02em;
-    }
-    .issue-button-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-    }
-    .issue-btn {
-      appearance: none;
-      border: 1px solid var(--issue-border, #e0e0e0);
-      background: var(--issue-bg, #fff);
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-size: var(--fs-xs);
-      cursor: pointer;
-      transition: border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease, background-color 120ms ease;
-    }
-    .issue-btn:hover {
-      border-color: var(--issue-border, #e0e0e0);
-      background: var(--issue-bg-hover, #fff);
-    }
-    .issue-btn:active {
-      transform: translateY(1px);
-    }
-    .issue-btn.active {
-      border-color: var(--issue-border, #e0e0e0);
-      box-shadow: 0 0 0 2px var(--issue-ring, rgba(128, 0, 32, 0.15));
-    }
-    .issue-explanation-header {
-      font-weight: 700;
-      font-size: var(--fs-sm);
-      margin-bottom: 6px;
-      padding: 0 12px;
-      color: rgba(0, 0, 0, .75);
-      text-transform: none;
-    }
-    .issue-explanation {
-      margin-bottom: 16px;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 6px;
-      font-size: var(--fs-sm);
-      color: var(--text);
-    }
-    .examples-empty-state {
-      margin: 0 0 16px;
-      padding: 12px;
-      background: #f8f9fa;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      border-radius: 8px;
-      font-size: var(--fs-sm);
-      color: rgba(0, 0, 0, 0.75);
-    }
-    .mci-tooltip {
-      pointer-events: none;
-      z-index: 80;
-      width: min(380px, calc(100vw - 24px));
-      max-width: min(380px, calc(100vw - 24px));
-    }
-    .mci-tooltip .mci-tooltip-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .mci-tooltip .mci-count {
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .mci-tooltip .mci-explanation {
-      font-size: var(--fs-sm);
-      color: rgba(0, 0, 0, .75);
-      line-height: 1.45;
-    }
-    .mci-tooltip .mci-hint {
-      margin-top: 10px;
-      font-size: var(--fs-xs);
-      font-weight: 700;
-      color: rgba(90, 15, 28, 0.75);
-    }
-    .examples-nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin: 6px 0 12px;
-      padding: 0 4px;
-    }
-    .examples-nav-text {
-      font-size: var(--fs-xs);
-      font-weight: 600;
-      color: var(--muted);
-    }
-    .next-example-btn {
-      padding: 6px 12px;
-      font-size: var(--fs-xs);
-      white-space: nowrap;
-    }
-    .examples-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .example-item {
-      margin-bottom: 20px;
-      padding: 16px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-    }
-    .example-guidance {
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      color: #5a0f1c;
-      margin-bottom: 8px;
-      padding: 12px;
-      background: rgba(169, 13, 34, 0.08);
-      border: 1px solid rgba(169, 13, 34, 0.18);
-      border-left: 4px solid rgba(169, 13, 34, 0.65);
-      border-radius: 6px;
-    }
-    .example-guidance-label {
-      font-weight: 700;
-      font-size: var(--fs-xs);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: rgba(90, 15, 28, 0.75);
-      margin-bottom: 6px;
-    }
-    .example-guidance-text {
-      font-weight: 600;
-      font-size: var(--fs-sm);
-      color: var(--text);
-    }
-    .example-meta {
-      font-size: var(--fs-xs);
-      color: var(--muted);
-      margin: -2px 0 10px;
-      font-weight: 600;
-    }
-    .example-student {
-      font-size: var(--fs-xs);
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-    .example-rewrite {
-      width: 100%;
-      min-height: 80px;
-      max-height: 220px;
-      padding: 8px;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      font-size: var(--fs-body);
-      font-family: inherit;
-      margin-bottom: 8px;
-      resize: vertical;
-      overflow-y: hidden;
-    }
-    .example-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .power-verbs-helper {
-      margin: 6px 0 10px;
-    }
-    .power-verbs-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
-    }
-    .power-verbs-title {
-      font-size: var(--fs-sm);
-      font-weight: 600;
-      color: rgba(0, 0, 0, 0.75);
-    }
-    .power-verbs-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .power-verbs-feedback {
-      font-size: var(--fs-xs);
-      color: rgba(0, 0, 0, 0.6);
-      min-height: 14px;
-    }
-    .power-verbs-iconbtn{
-      width: 32px;
-      height: 32px;
-      border-radius: 999px;
-      border: 1px solid rgba(0,0,0,.14);
-      background: #fff;
-      color: rgba(0,0,0,.55);
-      font-size: 16px;
-      font-weight: 900;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .power-verbs-iconbtn:hover{ background: rgba(0,0,0,.03); }
-    #repeatTutorialBtn:disabled{
-      opacity: .45;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-    .power-verbs-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .power-verbs-suggestions-row{
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-top: 8px;
-    }
-    .power-verbs-suggestions-list{
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .power-verbs-shuffle-btn{
-      width: 48px;
-      height: 48px;
-      border-radius: 999px;
-      border: 1px solid rgba(0,0,0,.14);
-      background: #fff;
-      color: rgba(0,0,0,.55);
-      font-size: 26px;
-      font-weight: 900;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .power-verbs-shuffle-btn:hover{ background: rgba(0,0,0,.03); }
-    .approved-rewrites-wrap {
-      margin-top: 16px;
-      padding: 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(53, 133, 53, 0.35);
-      background: rgba(231, 245, 231, 0.45);
-    }
-    .approved-rewrites-title {
-      margin: 10px 0 8px;
-      font-size: var(--fs-sm);
-      font-weight: 700;
-      color: #2d5a2d;
-    }
-    .approved-rewrites-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .approved-rewrites-toggle {
-      border: 1px solid rgba(53, 133, 53, 0.35);
-      background: rgba(241, 251, 241, 0.9);
-      color: #2d5a2d;
-      font-size: var(--fs-xs);
-      font-weight: 700;
-      border-radius: 999px;
-      padding: 6px 12px;
-      cursor: pointer;
-    }
-    .approved-rewrites-toggle:hover {
-      background: rgba(224, 244, 224, 0.95);
-    }
-    .approved-rewrites-wrap[data-collapsed="true"] .approved-rewrites-list {
-      display: none;
-    }
-    .approved-rewrites-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .approved-rewrite-card {
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #a8d5a8;
-      background: #f1fbf1;
-    }
-    .approved-rewrite-label {
-      font-size: var(--fs-xs);
-      font-weight: 700;
-      color: #2d5a2d;
-      margin-bottom: 6px;
-    }
-    .approved-rewrite-text {
-      font-size: var(--fs-sm);
-      color: var(--text);
-      margin-bottom: 8px;
-      white-space: pre-wrap;
-    }
-    .approved-rewrite-edit {
-      width: 100%;
-      min-height: 84px;
-      padding: 10px 12px;
-      border: 1px solid rgba(0, 0, 0, 0.15);
-      border-radius: 6px;
-      font-size: var(--fs-sm);
-      font-family: inherit;
-      background: #fff;
-      margin-bottom: 8px;
-      resize: vertical;
-    }
-    .approved-rewrite-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .example-btn {
-      padding: 7px 12px;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      background: #fff;
-      font-size: var(--fs-xs);
-      cursor: pointer;
-    }
-    .example-btn:hover {
-      background: #f0f0f0;
-    }
-    .example-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .example-btn.remove-issue-btn {
-      border-color: rgba(128, 0, 32, 0.35);
-      color: #7a1c1c;
-      background: #fff;
-    }
-    .example-btn.remove-issue-btn:hover {
-      background: #fbeaea;
-    }
-    .apply-to-preview-btn {
-      background: #f8f9fa;
-      border-color: rgba(0,0,0,.14);
-      color: rgba(0,0,0,.75);
-    }
-    .apply-to-preview-btn.apply-attention,
-    #applyAllToPreviewBtn.apply-attention {
-      border-color: rgba(128, 0, 32, 0.75);
-      outline: 2px solid rgba(128, 0, 32, 0.55);
-      box-shadow:
-        0 0 0 4px rgba(128, 0, 32, 0.18),
-        0 0 14px rgba(128, 0, 32, 0.32);
-      animation: applyPulse 1.4s ease-in-out infinite;
-    }
-    @keyframes applyPulse {
-      0% {
-        box-shadow:
-          0 0 0 0 rgba(128, 0, 32, 0.22),
-          0 0 10px rgba(128, 0, 32, 0.28);
-      }
-      60% {
-        box-shadow:
-          0 0 0 8px rgba(128, 0, 32, 0),
-          0 0 16px rgba(128, 0, 32, 0.18);
-      }
-      100% {
-        box-shadow:
-          0 0 0 0 rgba(128, 0, 32, 0),
-          0 0 12px rgba(128, 0, 32, 0.24);
-      }
-    }
-    .apply-all-btn {
-      margin-top: 12px;
-      width: 100%;
-    }
-    .apply-to-preview-btn:not(:disabled):hover {
-      background: #e9ecef;
-    }
-    .example-applied {
-      opacity: 0.7;
-      background: #f0f0f0;
-    }
-    .example-item.example-approved {
-      background: #e7f5e7;
-      border-color: #a8d5a8;
-    }
-    .example-dismissed {
-      background: #f9f2f2;
-      border-color: #e7cfcf;
-    }
-    .hidden-select {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-      width: 0;
-      height: 0;
-    }
-    .rewrite-status {
-      margin-top: 8px;
-      padding: 8px;
-      border-radius: 6px;
-      font-size: var(--fs-xs);
-      display: none;
-    }
-    .rewrite-status.visible {
-      display: block;
-    }
-    .rewrite-status.ok {
-      background: #e7f5e7;
-      color: #2d5a2d;
-      border: 1px solid #a8d5a8;
-    }
-    .rewrite-status.bad {
-      background: #ffe7e7;
-      color: #5a2d2d;
-      border: 1px solid #d5a8a8;
-    }
-    .rewrite-status.checking {
-      background: #eef3f8;
-      color: #1f3b5b;
-      border: 1px solid #c6d7ea;
-    }
-    .rewrite-status.checking::after {
-      content: "...";
-      display: inline-block;
-      width: 0;
-      overflow: hidden;
-      vertical-align: bottom;
-      animation: rewriteDots 1s steps(4, end) infinite;
-    }
-    @keyframes rewriteDots {
-      to { width: 1.25em; }
-    }
+    /* Revision examples CSS moved to /assets/marker.css */
 
     /* HOTFIX: Student Tour overlay must never block uploads or clicks.
        The tour overlay is a full-page layer; when it intercepts the drop,
@@ -1289,7 +1026,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       </div>
     </section>
     <footer class="marker-footer" aria-label="Site footer">
-      <div class="footer-copy">© 2025 Vysti Research. All rights reserved.</div>
+      <div class="footer-copy">© 2026 Vysti Research. All rights reserved.<span class="footer-legal"><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></span></div>
       <img class="footer-logo" src="/assets/logo_black.png" alt="Vysti" />
     </footer>
   </main>
@@ -1525,12 +1262,28 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       return "other";
     }
 
-    // ===== Supabase auth setup =====
-    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
+    const DEFAULT_API_BASE = "https://vysti-rules.onrender.com";
 
-    const { createClient } = supabase;
-    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    function getApiBase() {
+      return (window.__vystiRuntimeConfig?.apiBaseUrl || DEFAULT_API_BASE).replace(/\/$/, "");
+    }
+
+    (async () => {
+      try {
+        const cfg = window.__vystiRuntimeConfig;
+        const enabled = !!cfg?.featureFlags?.useSharedCore;
+        if (!enabled) return;
+        window.__vystiSharedCore = {
+          runtime: await import("/shared/runtimeConfig.js"),
+          auth: await import("/shared/auth.js"),
+          api: await import("/shared/markingApi.js"),
+          dl: await import("/shared/download.js"),
+        };
+        console.log("[shared-core] enabled");
+      } catch (e) {
+        console.warn("[shared-core] failed to load; staying classic", e);
+      }
+    })();
     const form = document.getElementById("studentForm");
     const fileInput = document.getElementById("fileInput");
     const checkBtn = document.getElementById("checkBtn");
@@ -3317,12 +3070,17 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
     // ===== Auth + role guard =====
     let studentHelpersStartedThisLoad = false;
+
+
+
     async function refreshAuthUI() {
       const { data } = await supa.auth.getSession();
       const session = data.session;
 
       if (!session) {
-        window.location.replace("/signin.html");
+        window.location.replace(
+          `/signin.html?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`
+        );
         return;
       }
 
@@ -3331,6 +3089,10 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       // Logged in as student
       form.style.display = "grid";
+
+      if (window.__studentReactRollout?.maybeRedirect) {
+        window.__studentReactRollout.maybeRedirect(session);
+      }
 
     }
 
@@ -3362,7 +3124,43 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     logoutBtn.addEventListener("click", async () => {
       await supa.auth.signOut();
       localStorage.removeItem("vysti_role");
-      window.location.replace("/signin.html");
+      window.location.replace(
+        `/signin.html?redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`
+      );
+    });
+
+    function setUiMode(value) {
+      try {
+        if (!value) {
+          localStorage.removeItem("uiMode");
+          console.log("[rollout] uiMode cleared");
+          return;
+        }
+        localStorage.setItem("uiMode", value);
+        console.log(`[rollout] uiMode set=${value}`);
+      } catch (err) {
+        console.warn("[rollout] uiMode storage failed");
+      }
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (!event.altKey || !event.shiftKey) return;
+      if (String(event.key || "").toLowerCase() !== "u") return;
+      const target = event.target;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      event.preventDefault();
+      const next = window
+        .prompt("UI mode: react, classic, or clear", localStorage.getItem("uiMode") || "")
+        ?.trim()
+        .toLowerCase();
+      if (!next) return;
+      if (next === "clear") {
+        setUiMode("");
+        return;
+      }
+      if (next === "react" || next === "classic") {
+        setUiMode(next);
+      }
     });
 
     const repeatTutorialBtn = document.getElementById("repeatTutorialBtn");
@@ -7963,7 +7761,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
 
       try {
         // Call API
-        const API_URL = "https://vysti-rules.onrender.com/mark";
+        const API_URL = `${getApiBase()}/mark`;
         const response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -8033,7 +7831,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
             // Prevent download if no revisions have been made
             if (!hasRevisedSinceMark) return;
 
-            const API_BASE = "https://vysti-rules.onrender.com";
+            const API_BASE = getApiBase();
 
             const baseName = (selectedFile?.name || "essay").replace(/\.docx$/i, "");
             const outputName = `${baseName}_revised.docx`;
@@ -11791,7 +11589,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
       }
 
       try {
-        const API_BASE = "https://vysti-rules.onrender.com";
+        const API_BASE = getApiBase();
         const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
         const response = await fetch(`${API_BASE}/revision/check`, {
           method: "POST",
@@ -12155,7 +11953,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
         beginRecheckCrossfade();
 
         try {
-          const API_BASE = "https://vysti-rules.onrender.com";
+          const API_BASE = getApiBase();
           const currentMode = modeSelect ? modeSelect.value : "textual_analysis";
           const markTextPayload = {
             file_name: selectedFile.name,

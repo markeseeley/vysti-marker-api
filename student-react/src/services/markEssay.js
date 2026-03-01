@@ -1,12 +1,35 @@
-import { getApiUrls } from "../config";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
+import { buildMarkFormData } from "@shared/markingApi";
 import { logError, logEvent } from "../lib/logger";
+import { extractErrorMessage, fetchWithTimeout, isAuthExpired } from "../lib/request";
+
+function throwIfEntitlementError(response) {
+  if (response.status === 402) {
+    return response.json().then((j) => {
+      const detail = j.detail || j;
+      const err = new Error(detail.message || "Please upgrade to continue.");
+      err.code = detail.code || "USAGE_LIMIT";
+      err.isEntitlementError = true;
+      throw err;
+    }).catch((e) => {
+      if (e.isEntitlementError) throw e;
+      const err = new Error("Please upgrade to continue.");
+      err.code = "USAGE_LIMIT";
+      err.isEntitlementError = true;
+      throw err;
+    });
+  }
+  return null;
+}
 
 export async function markEssay({
   supa,
   file,
   mode,
   assignmentName,
-  onSessionExpired
+  onSessionExpired,
+  signal,
+  timeoutMs
 }) {
   logEvent("mark_start", { mode, fileName: file?.name || "" });
   if (!supa) {
@@ -20,56 +43,84 @@ export async function markEssay({
     throw new Error("Session expired. Please sign in again.");
   }
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("mode", mode);
-  formData.append("include_summary_table", "false");
-  formData.append("highlight_thesis_devices", "false");
-  formData.append("student_mode", "true");
-
-  if (assignmentName?.trim()) {
-    formData.append("assignment_name", assignmentName.trim());
-  }
-
-  const { markUrl } = getApiUrls();
-  if (!markUrl) {
+  const apiBaseUrl = getApiBaseUrl();
+  if (!apiBaseUrl) {
     logError("Mark URL missing from config");
     throw new Error("Missing API configuration. Please refresh.");
   }
-  const response = await fetch(markUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${data.session.access_token}`
-    },
-    body: formData
-  });
 
-  if (response.status === 401 || response.status === 403) {
-    if (onSessionExpired) onSessionExpired();
-    logError("Session expired during mark", { status: response.status });
-    throw new Error("Session expired. Please sign in again.");
-  }
+  try {
+    const formData = buildMarkFormData({
+      file,
+      mode,
+      includeSummaryTable: false,
+      assignmentName
+    });
+    const response = await fetchWithTimeout(
+      `${apiBaseUrl}/mark`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`
+        },
+        body: formData,
+        signal
+      },
+      { timeoutMs }
+    );
 
-  if (!response.ok) {
-    const text = await response.text();
-    const snippet = text ? `: ${text.substring(0, 140)}` : "";
-    logError("Mark failed", { status: response.status, snippet });
-    const err = new Error(`Mark failed (${response.status})${snippet}`);
-    err.status = response.status;
+    await throwIfEntitlementError(response);
+
+    if (isAuthExpired(response)) {
+      const err = new Error("Session expired");
+      err.code = "SESSION_EXPIRED";
+      throw err;
+    }
+
+    if (!response.ok) {
+      throw new Error(await extractErrorMessage(response));
+    }
+
+    const techniquesHeaderRaw = response.headers.get("X-Vysti-Techniques");
+    const contentType = response.headers.get("content-type");
+
+    let blob;
+    let metadata = null;
+
+    if (contentType && contentType.includes("application/json")) {
+      const jsonData = await response.json();
+      const binaryString = atob(jsonData.document);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      metadata = jsonData.metadata || null;
+    } else {
+      blob = await response.blob();
+    }
+
+    logEvent("mark_success", { size: blob.size });
+    return { blob, metadata, techniquesHeader: techniquesHeaderRaw, status: response.status };
+  } catch (err) {
+    if (err?.code === "SESSION_EXPIRED") {
+      if (onSessionExpired) onSessionExpired();
+      logError("Session expired during mark");
+      throw new Error("Session expired. Please sign in again.");
+    }
+    logError("Mark failed", { error: err?.message });
     throw err;
   }
-
-  const techniquesHeader = response.headers.get("X-Vysti-Techniques");
-  const blob = await response.blob();
-  logEvent("mark_success", { size: blob.size });
-
-  return { blob, techniquesHeader, status: response.status };
 }
 
 export async function markText({
   supa,
   payload,
-  onSessionExpired
+  onSessionExpired,
+  signal,
+  timeoutMs
 }) {
   logEvent("recheck_start");
   if (!supa) {
@@ -83,35 +134,69 @@ export async function markText({
     throw new Error("Session expired. Please sign in again.");
   }
 
-  const { markTextUrl } = getApiUrls();
-  if (!markTextUrl) {
+  const apiBaseUrl = getApiBaseUrl();
+  if (!apiBaseUrl) {
     logError("Recheck URL missing from config");
     throw new Error("Missing API configuration. Please refresh.");
   }
-  const response = await fetch(markTextUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${data.session.access_token}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const enrichedPayload = { ...payload, return_metadata: true };
+    const response = await fetchWithTimeout(
+      `${apiBaseUrl}/mark_text`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session.access_token}`
+        },
+        body: JSON.stringify(enrichedPayload),
+        signal
+      },
+      { timeoutMs }
+    );
 
-  if (response.status === 401 || response.status === 403) {
-    if (onSessionExpired) onSessionExpired();
-    logError("Session expired during recheck", { status: response.status });
-    throw new Error("Session expired. Please sign in again.");
-  }
+    await throwIfEntitlementError(response);
 
-  if (!response.ok) {
-    const text = await response.text();
-    const snippet = text ? `: ${text.substring(0, 140)}` : "";
-    logError("Recheck failed", { status: response.status, snippet });
-    const err = new Error(`Recheck failed (${response.status})${snippet}`);
-    err.status = response.status;
+    if (isAuthExpired(response)) {
+      const err = new Error("Session expired");
+      err.code = "SESSION_EXPIRED";
+      throw err;
+    }
+
+    if (!response.ok) {
+      throw new Error(await extractErrorMessage(response));
+    }
+
+    const techniquesHeader = response.headers.get("X-Vysti-Techniques");
+    const contentType = response.headers.get("content-type");
+
+    let blob;
+    let metadata = null;
+
+    if (contentType && contentType.includes("application/json")) {
+      const jsonData = await response.json();
+      const binaryString = atob(jsonData.document);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      metadata = jsonData.metadata || null;
+    } else {
+      blob = await response.blob();
+    }
+
+    logEvent("recheck_success", { size: blob.size });
+    return { blob, metadata, techniquesHeader };
+  } catch (err) {
+    if (err?.code === "SESSION_EXPIRED") {
+      if (onSessionExpired) onSessionExpired();
+      logError("Session expired during recheck");
+      throw new Error("Session expired. Please sign in again.");
+    }
+    logError("Recheck failed", { error: err?.message });
     throw err;
   }
-  const blob = await response.blob();
-  logEvent("recheck_success", { size: blob.size });
-  return blob;
 }

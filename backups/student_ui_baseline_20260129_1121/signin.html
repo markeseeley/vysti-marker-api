@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vysti Marker — Sign in</title>
+
+  <link rel="stylesheet" href="/assets/auth.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  
+</head>
+
+<body>
+    <main class="auth-shell">
+        <section class="auth-left" aria-hidden="true">
+            <img class="auth-logo" src="/assets/logo.svg" alt="Vysti" />
+        </section>
+
+        <section class="auth-right">
+        <div class="auth-card">
+            <h1 class="auth-title">Vysti Rules</h1>
+            <p class="auth-subtitle">Sign in to your account</p>
+
+            <div class="field">
+                <label for="email">Email Address</label>
+                <input id="email" type="email" placeholder="Email Address" />
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" placeholder="Password" />
+            </div>
+            <button id="signinBtn" type="button">Sign in</button>
+
+
+            <div class="status" id="status"></div>
+        </div>
+    </section>
+</main>
+
+  <script>
+    // ===== Supabase config (same as your index.html) =====
+    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";  // paste your anon key
+    const { createClient } = supabase;
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const emailEl = document.getElementById("email");
+    const passEl = document.getElementById("password");
+    const btn = document.getElementById("signinBtn");
+    const statusEl = document.getElementById("status");
+
+    btn.addEventListener("click", async () => {
+      const email = emailEl.value.trim();
+      const password = passEl.value.trim();
+
+      statusEl.textContent = "Signing in…";
+      const { error } = await supa.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        statusEl.textContent = "Login error: " + error.message;
+        return;
+      }
+
+      statusEl.textContent = "Signed in. Redirecting…";
+      // redirect to role picker
+      window.location.href = "/role.html";
+    });
+
+    // If already logged in, skip sign-in page
+    (async () => {
+      const { data } = await supa.auth.getSession();
+      if (data.session) {
+        window.location.href = "/role.html";
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -2,12 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getApiUrls } from "../config";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import { redirectToSignin } from "../lib/auth";
+import LexisModal from "../components/LexisModal";
+import { BookOpen, Search, Download } from "../components/Icons";
 
 const MODES = [
   { value: "textual_analysis", label: "Analytic essay" },
-  { value: "peel_paragraph", label: "Mini-essay paragraph" },
+  { value: "peel_paragraph", label: "Mini-essay" },
   { value: "reader_response", label: "Reader response" },
-  { value: "argumentation", label: "Argumentation" }
+  { value: "argumentation", label: "Argumentation" },
+  { value: "research_paper", label: "Research paper" },
 ];
 
 const MODE_EXPLAINER = {
@@ -15,13 +18,16 @@ const MODE_EXPLAINER = {
     description: "A formal and academic essay of analysis with all Vysti Rules running."
   },
   peel_paragraph: {
-    description: "A single paragraph that follows the PEEL structure."
+    description: "A single focused analytical paragraph."
   },
   reader_response: {
     description: "A reflective response that connects ideas to the reader's perspective."
   },
   argumentation: {
-    description: "Argumentation is more open mode beyond textual analysis."
+    description: "Argumentation is a more open mode beyond textual analysis."
+  },
+  research_paper: {
+    description: "A formal research paper with extended evidence and analytical structure."
   }
 };
 
@@ -40,6 +46,8 @@ export default function StudentPage() {
   const [markedBlob, setMarkedBlob] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [metadata, setMetadata] = useState(null);
+  const [isLexisModalOpen, setIsLexisModalOpen] = useState(false);
 
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -51,6 +59,17 @@ export default function StudentPage() {
 
   const hasResults = Boolean(statusMessage || downloadUrl);
   const showPreview = Boolean(markedBlob);
+
+  // Re-mark automatically when Assignment mode changes after essay is already marked
+  const prevModeRef = useRef(mode);
+  useEffect(() => {
+    const changed = prevModeRef.current !== mode;
+    prevModeRef.current = mode;
+    if (changed && markedBlob && selectedFile && !isProcessing) {
+      handleMark();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   useEffect(() => {
     const container = previewRef.current;
@@ -75,8 +94,9 @@ export default function StudentPage() {
         const buf = await markedBlob.arrayBuffer();
         if (!isActive) return;
 
-        if (window.docx?.renderAsync) {
-          await window.docx.renderAsync(buf, container, null, { inWrapper: true });
+        const renderAsync = window.docx?.renderAsync || window.docxPreview?.renderAsync;
+        if (renderAsync) {
+          await renderAsync(buf, container, null, { inWrapper: true });
           if (!isActive) return;
           container.contentEditable = "true";
           container.spellcheck = true;
@@ -125,6 +145,8 @@ export default function StudentPage() {
     setStatusMessage("");
   };
 
+  const MAX_DOCX_BYTES = 15 * 1024 * 1024; // 15 MB
+
   const isDocx = (file) => {
     if (!file) return false;
     const name = file.name?.toLowerCase() || "";
@@ -140,6 +162,16 @@ export default function StudentPage() {
       if (file) {
         setError("Please upload a .docx file.");
       }
+      setSelectedFile(null);
+      setMarkedBlob(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (file.size > MAX_DOCX_BYTES) {
+      setError("File is too large. Maximum size is 15 MB.");
       setSelectedFile(null);
       setMarkedBlob(null);
       if (fileInputRef.current) {
@@ -217,6 +249,7 @@ export default function StudentPage() {
       formData.append("include_summary_table", "false");
       formData.append("highlight_thesis_devices", "false");
       formData.append("student_mode", "true");
+      formData.append("return_metadata", "true");
 
       if (assignmentName.trim()) {
         formData.append("assignment_name", assignmentName.trim());
@@ -238,8 +271,35 @@ export default function StudentPage() {
         throw new Error(`Mark failed (${response.status})`);
       }
 
-      const blob = await response.blob();
-      setMarkedBlob(blob);
+      // Check if response is JSON (with metadata) or blob (document only)
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && contentType.includes("application/json")) {
+        // NEW: JSON response with metadata
+        const data = await response.json();
+
+        // Decode base64 document
+        const binaryString = atob(data.document);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+
+        setMarkedBlob(blob);
+        setMetadata(data.metadata);
+        // Expose metadata for testing (use window.testMetadata in console)
+        window.testMetadata = data.metadata;
+
+      } else {
+        // EXISTING: Blob response (fallback)
+        const blob = await response.blob();
+        setMarkedBlob(blob);
+        setMetadata(null);
+      }
+
       clearStatus();
     } catch (err) {
       console.error("Mark failed", err);
@@ -273,6 +333,7 @@ export default function StudentPage() {
       await supa.auth.signOut();
     } finally {
       localStorage.removeItem("vysti_role");
+      localStorage.removeItem("vysti_products");
       redirectToSignin();
     }
   };
@@ -328,14 +389,13 @@ export default function StudentPage() {
           >
             Teacher
           </button>
-          {/* TODO: repeat tutorial */}
           <button
             className="iconbtn repeat-tutorial-trigger"
             id="repeatTutorialBtn"
             type="button"
             aria-label="Repeat tutorial"
             data-tip="Repeat the tutorial"
-            onClick={() => console.log("TODO: repeat tutorial")}
+            onClick={() => {}}
           >
             ?
           </button>
@@ -387,13 +447,12 @@ export default function StudentPage() {
               <div className="mode-desc" id="modeDesc">
                 {modeExplainer.description}
               </div>
-              {/* TODO: show mode details */}
               <button
                 type="button"
                 className="mode-more"
                 id="modeMoreBtn"
                 aria-expanded="false"
-                onClick={() => console.log("TODO: show mode details")}
+                onClick={() => {}}
               >
                 Want more details?
               </button>
@@ -505,7 +564,7 @@ export default function StudentPage() {
               }}
               onClick={handleDownload}
             >
-              Download marked essay
+              <Download size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Download marked essay
             </button>
 
             <div
@@ -539,18 +598,48 @@ export default function StudentPage() {
               >
                 <div className="preview-header-stats-row">
                   <div className="student-stat preview-stat">
-                    <div className="student-stat-label">Word count</div>
+                  <div className="student-stat-label">Words</div>
                     <div id="wordCountStat" className="student-stat-value">
                       —
                     </div>
                   </div>
 
                   <div className="student-stat preview-stat">
-                    <div className="student-stat-label">Total issues</div>
+                  <div className="student-stat-label">Issues</div>
                     <div id="totalIssuesStat" className="student-stat-value">
                       —
                     </div>
                   </div>
+
+                  {/* Lexis Button */}
+                  {metadata?.detected_lexis && metadata.detected_lexis.length > 0 && (
+                    <button
+                      type="button"
+                      className="secondary-btn lexis-btn"
+                      onClick={() => setIsLexisModalOpen(true)}
+                      style={{
+                        marginLeft: "1rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        fontSize: "0.9rem"
+                      }}
+                    >
+                      <Search size={13} /> Explore
+                      <span
+                        style={{
+                          background: "#4A90E2",
+                          color: "white",
+                          borderRadius: "10px",
+                          padding: "2px 8px",
+                          fontSize: "0.75rem",
+                          fontWeight: "600"
+                        }}
+                      >
+                        {metadata.detected_lexis.length}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -570,16 +659,15 @@ export default function StudentPage() {
                     <option value="1.5">150%</option>
                   </select>
                 </label>
-                {/* TODO: power verbs */}
                 <button
                   type="button"
                   className="preview-pill-btn"
                   id="previewPowerVerbsBtn"
                   aria-label="Open Power Verbs"
-                  onClick={() => console.log("TODO: power verbs")}
+                  onClick={() => {}}
                 >
                   <span className="preview-pill-icon" aria-hidden="true">
-                    📘
+                    <BookOpen size={14} />
                   </span>
                   Power Verbs
                 </button>
@@ -593,6 +681,13 @@ export default function StudentPage() {
           ></div>
         </section>
       </main>
+
+      {/* Lexis Modal */}
+      <LexisModal
+        isOpen={isLexisModalOpen}
+        onClose={() => setIsLexisModalOpen(false)}
+        detectedLexis={metadata?.detected_lexis || []}
+      />
     </div>
   );
 }

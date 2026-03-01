@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vysti Marker — Choose Role</title>
+  <title>Vysti — Choose Your Plan</title>
   <link rel="stylesheet" href="/assets/marker.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/shared/supabase-init.js"></script>
   <style>
     body {
       display: flex;
@@ -19,7 +20,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 48px 40px;
-      max-width: 460px;
+      max-width: 500px;
       width: 100%;
       margin: 0 18px;
     }
@@ -39,32 +40,71 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     .role-btn {
       width: 100%;
-      padding: 16px;
-      border: 0;
+      padding: 20px 16px;
+      border: 2px solid rgba(0,0,0,.08);
       border-radius: 12px;
-      font-weight: 700;
-      font-size: 16px;
+      background: #fff;
       cursor: pointer;
       transition: all 0.2s;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .role-btn-primary {
-      background: var(--maroon);
-      color: #fff;
+    .role-btn:hover {
+      border-color: var(--maroon);
+      background: rgba(169,13,34,.02);
     }
-    .role-btn-primary:hover {
-      filter: brightness(.95);
+    .role-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      border-color: rgba(0,0,0,.06);
     }
-    .role-btn-secondary {
-      background: #f5f6f8;
+    .role-btn:disabled:hover {
+      background: #fff;
+      border-color: rgba(0,0,0,.06);
+    }
+    .role-btn-name {
+      font-size: 17px;
+      font-weight: 700;
       color: var(--text);
-      border: 1px solid rgba(0,0,0,.1);
     }
-    .role-btn-secondary:hover {
-      background: #e9eaed;
+    .role-btn-desc {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 400;
+      line-height: 1.4;
+    }
+    .role-btn-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--maroon);
+      background: rgba(169,13,34,.08);
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-top: 4px;
+      align-self: flex-start;
+    }
+    .role-both {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .role-both-link {
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .role-both-link:hover {
+      color: var(--maroon);
     }
     .role-note {
       font-size: 12px;
@@ -87,62 +127,143 @@
     .logout-btn:hover {
       background: rgba(0,0,0,.04);
     }
+    .role-status {
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 12px;
+      min-height: 20px;
+    }
   </style>
 </head>
 <body>
   <div class="role-card">
-    <h1 class="role-title">Choose your workspace</h1>
-    <p class="role-subtitle">Are you a Student or a Teacher?</p>
-    
+    <h1 class="role-title">Choose your plan</h1>
+    <p class="role-subtitle">What would you like to do with Vysti?</p>
+
     <div class="role-buttons">
-      <button id="studentBtn" class="role-btn role-btn-primary" type="button">I'm a Student</button>
-      <button id="teacherBtn" class="role-btn role-btn-secondary" type="button">I'm a Teacher</button>
+      <button id="markBtn" class="role-btn" type="button">
+        <span class="role-btn-name">Mark — $11.99/mo</span>
+        <span class="role-btn-desc">Batch-mark student essays with Vysti's marking engine. Track class progress over time.</span>
+        <span class="role-btn-tag">For Teachers</span>
+      </button>
+      <button id="reviseBtn" class="role-btn" type="button">
+        <span class="role-btn-name">Revise — $8.99/mo</span>
+        <span class="role-btn-desc">Get feedback on your writing and practice revision with guided exercises.</span>
+        <span class="role-btn-tag">For Students</span>
+      </button>
     </div>
-    
-    <p class="role-note">You can change this later.</p>
-    
+
+    <div class="role-both">
+      <button id="bothBtn" class="role-both-link" type="button">I need both</button>
+    </div>
+
+    <p class="role-note">You can add the other plan later from your account settings.</p>
+
     <button id="logoutBtn" class="logout-btn" type="button">Sign Out</button>
+    <div id="statusMsg" class="role-status"></div>
   </div>
 
   <script>
-    // ===== Supabase config =====
-    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";
-    const { createClient } = supabase;
-    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const studentBtn = document.getElementById("studentBtn");
-    const teacherBtn = document.getElementById("teacherBtn");
+    const markBtn = document.getElementById("markBtn");
+    const reviseBtn = document.getElementById("reviseBtn");
+    const bothBtn = document.getElementById("bothBtn");
     const logoutBtn = document.getElementById("logoutBtn");
+    const statusMsg = document.getElementById("statusMsg");
+
+    // Price IDs (from Stripe product catalog)
+    const PRICE_MARK = "price_1T668o05dveHz2frQ0A6yljL";
+    const PRICE_REVISE = "price_1T668o05dveHz2frBXPt1CyJ";
 
     // ===== Auth guard =====
+    let sessionToken = null;
     (async () => {
       const { data } = await supa.auth.getSession();
       if (!data.session) {
-        // Not authenticated → redirect to signin
         window.location.href = "/signin.html";
         return;
       }
+      sessionToken = data.session.access_token;
 
-      // If authenticated, always show role picker UI (don't auto-redirect)
-      // This allows users to switch roles even if one is already set
+      // Handle return from Stripe checkout
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("checkout") === "success") {
+        statusMsg.textContent = "Payment confirmed! Setting up your account\u2026";
+        // Fetch updated profile and route
+        try {
+          const resp = await fetch("/api/profile", {
+            headers: { "Authorization": "Bearer " + sessionToken },
+          });
+          if (resp.ok) {
+            const profile = await resp.json();
+            localStorage.setItem("vysti_products", JSON.stringify({
+              has_mark: profile.has_mark,
+              has_revise: profile.has_revise,
+              has_write: profile.has_write || false,
+            }));
+            if (profile.has_mark) {
+              localStorage.setItem("vysti_role", "teacher");
+              window.location.assign("/teacher_react.html");
+            } else {
+              localStorage.setItem("vysti_role", "student");
+              window.location.assign("/student_react.html");
+            }
+            return;
+          }
+        } catch (err) {
+          console.warn("Profile fetch after checkout failed:", err);
+        }
+        statusMsg.textContent = "Payment received. Please select your plan to continue.";
+        // Clear the query string
+        history.replaceState(null, "", "/role.html");
+      } else if (params.get("checkout") === "cancelled") {
+        statusMsg.textContent = "Checkout was cancelled. You can try again.";
+        history.replaceState(null, "", "/role.html");
+      }
     })();
 
-    // ===== Role selection handlers =====
-    studentBtn.addEventListener("click", () => {
-      localStorage.setItem("vysti_role", "student");
-      window.location.href = "/student.html";
-    });
+    // ===== Start Stripe Checkout =====
+    async function startCheckout(priceId) {
+      if (!sessionToken) return;
+      markBtn.disabled = reviseBtn.disabled = true;
+      bothBtn.disabled = true;
+      statusMsg.textContent = "Redirecting to checkout\u2026";
 
-    teacherBtn.addEventListener("click", () => {
-      localStorage.setItem("vysti_role", "teacher");
-      window.location.href = "/index.html";
-    });
+      try {
+        const resp = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + sessionToken,
+          },
+          body: JSON.stringify({ price_id: priceId }),
+        });
 
-    // ===== Logout handler =====
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.detail || "Checkout failed");
+        }
+
+        const { checkout_url } = await resp.json();
+        window.location.assign(checkout_url);
+      } catch (err) {
+        console.error("Checkout error:", err);
+        statusMsg.textContent = err.message || "Something went wrong. Please try again.";
+        markBtn.disabled = reviseBtn.disabled = false;
+        bothBtn.disabled = false;
+      }
+    }
+
+    markBtn.addEventListener("click", () => startCheckout(PRICE_MARK));
+    reviseBtn.addEventListener("click", () => startCheckout(PRICE_REVISE));
+    // "Both" — for now, start with Mark checkout. They can add Revise later.
+    bothBtn.addEventListener("click", () => startCheckout(PRICE_MARK));
+
+    // ===== Logout =====
     logoutBtn.addEventListener("click", async () => {
       await supa.auth.signOut();
       localStorage.removeItem("vysti_role");
+      localStorage.removeItem("vysti_products");
       window.location.replace("/signin.html");
     });
   </script>

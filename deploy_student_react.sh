@@ -281,7 +281,7 @@ test -f "${ROOT}/assets/student-react/main.js"
 test -f "${ROOT}/assets/student-react/assets/index.css"
 
 echo "==> Staging deploy artifacts..."
-git -C "${ROOT}" add student_react.html assets/student-react
+git -C "${ROOT}" add student_react.html teacher_react.html assets/student-react
 
 if [ -f "${ROOT}/assets/cache-buster.js" ]; then
   git -C "${ROOT}" add assets/cache-buster.js

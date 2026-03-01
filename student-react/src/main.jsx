@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
-import { getConfig, getConfigError, initConfig } from "./config";
+import { getConfig, getConfigError, initConfig as initAppConfig } from "./config";
 import { initLogger } from "./lib/logger";
+import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
@@ -21,33 +22,35 @@ const renderLoading = () => {
 
 const searchParams = new URLSearchParams(window.location.search);
 if (searchParams.get("classic") === "1") {
-  window.location.replace("/student.html");
+  try {
+    localStorage.setItem("uiMode", "classic");
+  } catch (err) {}
+  window.location.replace("/student.html?classic=1");
 } else {
   renderLoading();
-  initConfig()
-    .then(() => {
+  (async () => {
+    try {
+      await initRuntimeConfig();
+    } catch (err) {
+      console.warn("Runtime config init failed:", err);
+    }
+    try {
+      await initAppConfig();
       const config = getConfig();
       const error = getConfigError();
       if (error) {
         console.warn("Config error:", error);
       }
       initLogger(config);
-      root.render(
-        <StrictMode>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-        </StrictMode>
-      );
-    })
-    .catch((err) => {
+    } catch (err) {
       console.error("Config init failed:", err);
-      root.render(
-        <StrictMode>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-        </StrictMode>
-      );
-    });
+    }
+    root.render(
+      <StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </StrictMode>
+    );
+  })();
 }

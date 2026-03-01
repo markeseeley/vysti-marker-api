@@ -1,0 +1,22 @@
+--- A/assets/auth.css
++++ B/assets/auth.css
+@@ -1,4 +1,4 @@
+-﻿:root{
++:root{
+     --maroon:#A90D22;
+     --gray:#D9D9D9;
+     --text:#111111;
+@@ -55,7 +55,7 @@
+   .auth-logo{
+     position:relative;
+     z-index:1;
+-    width:min(320px, 60%);
++    width:min(520px, 70%);
+     height:auto;
+     filter: drop-shadow(0 18px 40px rgba(0,0,0,.35));
+   }
+@@ -154,4 +154,4 @@
+ }
+ 
+ 
+-  +  

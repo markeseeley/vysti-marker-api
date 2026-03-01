@@ -22,6 +22,7 @@ import spacy
 
 # Custom logical color for grammar issues (implemented via shading)
 GRAMMAR_ORANGE = "GRAMMAR_ORANGE"
+GRAMMAR_REPETITION = "GRAMMAR_REPETITION"  # Noun repetition: no Word highlight (frontend toggle only)
 
 try:
     nlp = spacy.load("en_core_web_sm")
@@ -36,6 +37,324 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Dict, Tuple, NamedTuple
 
+# ============================================================
+# LANGUAGETOOL — GRAMMAR CHECKING (lazy-loaded singleton)
+# ============================================================
+_language_tool_instance = None
+
+def get_language_tool():
+    """Lazy-load LanguageTool. Import is deferred so marker.py works even without Java."""
+    global _language_tool_instance
+    if _language_tool_instance is None:
+        try:
+            import language_tool_python
+            _language_tool_instance = language_tool_python.LanguageTool('en-US')
+            print("✓ LanguageTool initialized")
+        except Exception as e:
+            print(f"⚠️  LanguageTool initialization failed: {e}")
+            _language_tool_instance = False  # Mark as failed, don't retry
+    return _language_tool_instance if _language_tool_instance else None
+
+
+# Curated set of British/Australian English spellings that en-US flags as errors.
+# Using an explicit set avoids false positives from pattern matching
+# (e.g. "authour" matching -our→-or, or "beautifull" matching -ll→-l).
+_BRITISH_SPELLINGS = {
+    # -our variants
+    "colour", "colours", "coloured", "colouring", "colourful",
+    "honour", "honours", "honoured", "honouring", "honourable",
+    "favour", "favours", "favoured", "favouring", "favourable", "favourite", "favourites",
+    "labour", "labours", "laboured", "labouring",
+    "behaviour", "behaviours", "behavioural",
+    "neighbour", "neighbours", "neighbouring", "neighbourhood", "neighbourhoods",
+    "humour", "humours", "humourous",
+    "endeavour", "endeavours",
+    "harbour", "harbours",
+    "savour", "savours", "savouring", "savoury",
+    "vigour", "rigour", "valour", "armour", "glamour",
+    "rumour", "rumours", "tumour", "tumours", "odour", "odours",
+    # -yse variants
+    "analyse", "analysed", "analysing",
+    "paralyse", "paralysed",
+    # -re variants
+    "centre", "centres", "centred",
+    "theatre", "theatres",
+    "metre", "metres",
+    "litre", "litres",
+    "fibre", "fibres",
+    "sombre",
+    # -ence variants
+    "defence", "defences",
+    "offence", "offences",
+    "licence", "licences",
+    "pretence",
+    # double-l variants
+    "travelling", "travelled", "traveller", "travellers",
+    "cancelling", "cancelled",
+    "modelling", "modelled",
+    "counselling", "counselled", "counsellor",
+    "marvellous", "jewellery",
+    "labelling", "labelled",
+    "levelling", "levelled",
+    "signalling", "signalled",
+    "fuelling", "fuelled",
+    # other common differences
+    "grey", "greys",
+    "programme", "programmes",
+    "whilst", "amongst", "towards",
+    "focussed", "focussing",
+    "ageing", "judgement", "acknowledgement",
+    "enrolment", "fulfilment",
+    "skilful", "wilful",
+    "catalogue", "catalogues",
+    "dialogue", "dialogues",
+    "analogue",
+    "practise", "practised", "practising", "practises",
+}
+
+
+# Valid English words that LanguageTool's dictionary misses.
+# Add words here as false positives are discovered.
+# Cross-referenced with thesis_devices.txt and power_verbs_2025.json.
+_SPELLING_ALLOWLIST = {
+    "fisherwoman", "fisherwomen",
+
+    # ── Political / legal / academic terminology (+ derivations) ──
+    "originalist", "originalism", "originalists",
+    "textualist", "textualism", "textualists",
+    "intersectionality", "intersectional", "intersectionally",
+    "neoliberal", "neoliberalism", "neoliberals",
+    "neoconservative", "neoconservatism", "neoconservatives",
+    "decolonize", "decolonization", "decolonial",
+    "decolonized", "decolonizing", "decolonizes",
+    "postcolonial", "postcolonialism", "postcolonialist",
+    "heteronormative", "heteronormativity",
+    "cisgender", "cisnormative", "cisnormativity",
+    "performativity", "performative", "performatively",
+    "intertextual", "intertextuality", "intertextually",
+    "metanarrative", "metanarratives", "metafiction", "metafictional",
+    "deconstruction", "deconstructionist", "deconstructionists",
+    "deconstructive",
+    "hegemony", "hegemonic", "hegemonically",
+    "counterhegemonic", "counterhegemony",
+    "dialectical", "dialectic", "dialectics", "dialectically",
+    "epistemological", "epistemology", "epistemologically", "epistemologies",
+    "ontological", "ontology", "ontologically", "ontologies",
+    "praxis", "heuristic", "heuristics",
+    "hermeneutic", "hermeneutics", "hermeneutical", "hermeneutically",
+    "semiotics", "semiotic", "semiotically", "semiotician",
+    "historiography", "historiographic", "historiographical",
+    "historiographies",
+    "positionality", "reflexivity",
+    "hypermasculine", "hypermasculinity",
+
+    # ── Rhetorical / literary devices (cross-ref thesis_devices.txt) ──
+    "hypophora", "anaphora", "anaphoric",
+    "epistrophe", "epistrophic", "epiphora",
+    "chiasmus", "chiastic", "chiastically",
+    "antimetabole",
+    "zeugma", "zeugmatic", "zeugmatically",
+    "syllepsis",
+    "polysyndeton", "polysyndetic",
+    "asyndeton", "asyndetic",
+    "syndeton",
+    "litotes", "meiosis", "meiotic",
+    "paralepsis", "apophasis",
+    "anadiplosis", "epanalepsis", "symploce",
+    "antithesis", "antithetical",
+    "juxtaposition", "juxtapositional",
+    "paranomasia", "paronomastic",
+    "synecdoche", "synecdochic", "synecdoches",
+    "metonymy", "metonymic", "metonymies", "metonymical", "metonymically",
+    "metonym",
+    "synesthesia", "synesthetic", "synaesthesia", "synaesthetic",
+    "hortative",
+    "bathos", "bathetic",
+    "hyperbaton",
+    "tricolon",
+    "catachresis", "catachrestic",
+    "metalepsis", "metaleptic",
+    "aporia", "aporetic",
+    "peripeteia", "peripeteic",
+    "anagnorisis",
+    "hamartia",
+    "hubris", "hubristic",
+    "focalization",
+    "analepsis",
+    "prolepsis", "proleptic",
+
+    # ── Visual / art / film analysis (cross-ref thesis_devices.txt) ──
+    "chiaroscuro", "chiaroscurist",
+    "tenebrism", "tenebristic", "tenebrist",
+    "sfumato",
+    "pointillism", "pointillist", "pointillistic",
+    "impasto",
+    "contrapposto",
+    "grisaille",
+    "sgraffito",
+    "gouache",
+    "encaustic",
+    "pentimento", "pentimenti",
+    "scumbling",
+    "intaglio",
+    "bokeh",
+    "diegetic", "nondiegetic",
+    "crosshatching", "crosshatch", "crosshatched",
+    "foreshortening", "foreshortened",
+
+    # ── Thesis-device nominalizations (student-essay forms) ──
+    "zoomorphication", "zoomorphic", "zoomorphism",
+    "metaphorization",
+    "narrativization",
+    "allegorization",
+    "anthropomorphization",
+    "hyperbolization",
+    "recontextualization",
+    "binarization",
+    "dichotomization",
+    "perspectivization",
+    "imagistic",
+    "onomatopoeic", "onomatopoetic", "onomatopoeically",
+    "assonantal",
+    "caesural",
+    "allusive", "allusively", "allusiveness",
+
+    # ── Power verbs — critical-theory / academic (cross-ref power_verbs_2025.json) ──
+    "aestheticize", "aestheticizes", "aestheticized", "aestheticizing",
+    "commodify", "commodifies", "commodified", "commodifying",
+    "decenter", "decenters", "decentered", "decentering",
+    "delegitimize", "delegitimizes", "delegitimized", "delegitimizing",
+    "demythologize", "demythologizes", "demythologized", "demythologizing",
+    "denaturalize", "denaturalizes", "denaturalized", "denaturalizing",
+    "depoliticize", "depoliticizes", "depoliticized", "depoliticizing",
+    "deromanticize", "deromanticizes", "deromanticized", "deromanticizing",
+    "essentialize", "essentializes", "essentialized", "essentializing",
+    "exoticize", "exoticizes", "exoticized", "exoticizing",
+    "fetishize", "fetishizes", "fetishized", "fetishizing",
+    "genderize", "genderizes", "genderized", "genderizing",
+    "historicize", "historicizes", "historicized", "historicizing",
+    "infantilize", "infantilizes", "infantilized", "infantilizing",
+    "mythologize", "mythologizes", "mythologized", "mythologizing",
+    "orientalize", "orientalizes", "orientalized", "orientalizing",
+    "otherize", "otherizes", "otherized", "otherizing",
+    "particularize", "particularizes", "particularized", "particularizing",
+    "pathologize", "pathologizes", "pathologized", "pathologizing",
+    "problematize", "problematizes", "problematized", "problematizing",
+    "racialize", "racializes", "racialized", "racializing",
+    "sexualize", "sexualizes", "sexualized", "sexualizing",
+    "universalize", "universalizes", "universalized", "universalizing",
+    "bowdlerize", "bowdlerizes", "bowdlerized", "bowdlerizing",
+    "reify", "reifies", "reified", "reifying",
+    "foreground", "foregrounds", "foregrounded", "foregrounding",
+    "eroticize", "eroticizes", "eroticized", "eroticizing",
+
+    # ── Words the derivation checker can't catch (no English base form) ──
+    "questionability",  # LT knows "questionable" but misses the -ity form
+    "ekphrasis", "ekphrastic",
+    "bildungsroman",
+    "poststructuralism", "poststructuralist",
+    "homonormativity", "homonormative",
+    "readerly",
+    "narrativity",
+    "affectivity",
+    "discursivity",
+    "normativity",
+    "intersubjectivity", "intersubjective",
+    "relationality", "relational",
+    "spatiality",
+    "textuality",
+
+    # ── Common compound words in student essays ──
+    "proknife", "progun", "antigun",
+}
+
+
+def _is_british_variant(word, replacements):
+    """Return True if word is a known British/Australian English spelling, not a real typo.
+
+    Uses a curated set for reliability, plus a safe -ise/-isation pattern fallback
+    to catch less common variants (these suffixes have no false-positive risk).
+    """
+    w = word.lower().strip()
+    # Fast set lookup for known British spellings
+    if w in _BRITISH_SPELLINGS:
+        return True
+    # Fallback: -ise/-isation patterns are safe (no English word ending in -ise
+    # that isn't a British variant gets flagged by en-US, since words like
+    # "advise", "surprise", "exercise" are valid in American English too)
+    for repl in (replacements or []):
+        r = repl.lower().strip()
+        if w.endswith("ise") and len(w) > 5 and r == w[:-3] + "ize":
+            return True
+        if w.endswith("ises") and len(w) > 6 and r == w[:-4] + "izes":
+            return True
+        if w.endswith("ised") and r == w[:-4] + "ized":
+            return True
+        if w.endswith("ising") and r == w[:-5] + "izing":
+            return True
+        if w.endswith("isation") and r == w[:-7] + "ization":
+            return True
+        if w.endswith("isations") and r == w[:-8] + "izations":
+            return True
+    return False
+
+
+# ── Morphological derivation checker ──
+# LanguageTool's dictionary misses many valid English derivations
+# (e.g. "questionability", "performativity", "situatedness").
+# Instead of enumerating every form, we strip the suffix, reconstruct
+# the base form, and check whether LanguageTool itself accepts the base.
+# Results are cached per-process so the cost is negligible.
+
+_DERIVATION_SUFFIX_MAP = [
+    # (suffix_to_strip, suffix_to_add_back)  — longest first to avoid partial matches
+    ("abilities",  "able"),     # questionabilities → questionable
+    ("ibilities",  "ible"),     # defensibilities  → defensible
+    ("ability",    "able"),     # questionability  → questionable
+    ("ibility",    "ible"),     # defensibility    → defensible
+    ("ization",    "ize"),      # aestheticization → aestheticize
+    ("isation",    "ise"),      # globalisation    → globalise
+    ("iveness",    "ive"),      # performativeness → performative
+    ("edness",     "ed"),       # situatedness     → situated
+    ("ivity",      "ive"),      # performativity   → performative
+    ("ness",       ""),         # otherness        → other
+    ("ment",       ""),         # enmeshment       → enmesh (handled carefully)
+]
+
+_derivation_cache = {}  # word -> bool (True = valid derivation)
+
+
+def _is_valid_derivation(word, lt_instance):
+    """Return True if *word* is a standard English derivation of a known base.
+
+    Works by stripping common nominalizing suffixes and checking whether
+    LanguageTool accepts the reconstructed base form.  Cached per-word.
+    """
+    w = word.lower().strip()
+    if w in _derivation_cache:
+        return _derivation_cache[w]
+
+    for suffix, base_suffix in _DERIVATION_SUFFIX_MAP:
+        if not w.endswith(suffix) or len(w) <= len(suffix) + 2:
+            continue
+        stem = w[:-len(suffix)] + base_suffix
+        # Quick sanity: stem should be at least 3 chars
+        if len(stem) < 3:
+            continue
+        try:
+            check = lt_instance.check(f"This is {stem}.")
+            flagged = any(m.rule_id == "MORFOLOGIK_RULE_EN_US" for m in check)
+            if not flagged:
+                _derivation_cache[w] = True
+                return True
+        except Exception:
+            pass
+        # Only try the first matching suffix (longest match wins)
+        break
+
+    _derivation_cache[w] = False
+    return False
+
 
 # ============================================================
 # FOUNDATION ASSIGNMENT 1 — GLOBAL LABEL TRACKING
@@ -45,6 +364,15 @@ from typing import Dict, Tuple, NamedTuple
 # yellow label at the very end of all red-struck content.
 # Format: (paragraph_index, char_position_in_flat_text) or None
 FOUNDATION1_LABEL_TARGET = None
+
+
+# ============================================================
+# LEXIS DATABASE — GLOBAL STORAGE
+# ============================================================
+# Stores the assignment-lexis.csv data for term detection.
+# Loaded lazily when first needed to avoid slowing down imports.
+LEXIS_DATABASE = None
+LEXIS_INDEX = None  # Cached lemma index for fast lookups
 
 
 def normalize_title_key(s: str) -> str:
@@ -156,6 +484,9 @@ def is_probable_title_quote(interior: str, surrounding_sentence: str) -> bool:
 
     # Title-case heuristic
     if not is_title_case_like(interior):
+        # If no words are capitalized, it's clearly evidence, not a title
+        if not any(w[0].isupper() for w in words if w):
+            return False
         # Allow colon/comma-heavy titles even if not strict title case
         if interior.count(",") + interior.count(":") < 1:
             return False
@@ -165,12 +496,120 @@ def is_probable_title_quote(interior: str, surrounding_sentence: str) -> bool:
         return True
 
     # Look for a likely author name span (2+ capitalized tokens) outside the quote
-    sentence_without_quote = (surrounding_sentence or "").replace(interior, "", 1)
-    cap_tokens = re.findall(r"\b[A-Z][a-z]+\b", sentence_without_quote)
-    if len(cap_tokens) >= 2:
-        return True
+    # But exclude sentence-initial capitalizations to avoid false positives
+    sentence_without_quote = (surrounding_sentence or "").replace(interior, "", 1).strip()
+    # Only look for caps AFTER the first word (to exclude "However," etc.)
+    words_after_first = sentence_without_quote.split(maxsplit=1)
+    if len(words_after_first) > 1:
+        rest_of_sentence = words_after_first[1]
+        cap_tokens = re.findall(r"\b[A-Z][a-z]+\b", rest_of_sentence)
+        if len(cap_tokens) >= 2:
+            return True
 
     return False
+
+
+# ── Author / title guessing (for student-facing auto-fill) ──────────
+
+_WORK_CUE_RE = re.compile(
+    r"\b(essay|novel|poem|speech|article|short\s+story|story|play|memoir|"
+    r"address|chapter|excerpt|letter|editorial|autobiography|book)\b",
+    re.IGNORECASE,
+)
+
+_QUOTE_RE = re.compile(r'[\u201c\u201d"""]([^\u201c\u201d"""]+)[\u201c\u201d"""]')
+
+
+def guess_author_and_title(full_text: str) -> dict:
+    """
+    Scan the first body paragraph of the student essay and return the best
+    guess for the author name and the title of the analysed text.
+
+    Returns dict with keys:
+      guessed_author  (str) — e.g. "Toni Morrison"
+      guessed_title   (str) — e.g. "Strangers"
+      guessed_is_minor (bool) — True if the title was in double-quotes (short work)
+    """
+    result = {"guessed_author": "", "guessed_title": "", "guessed_is_minor": True}
+    if not full_text or not full_text.strip():
+        return result
+
+    # Pick the first paragraph that looks like a body paragraph:
+    # must contain a period (complete sentence) and be >60 chars.
+    # Short lines without periods are likely the student's own essay title / header.
+    paragraphs = [p.strip() for p in full_text.split("\n") if p.strip()]
+    first_body = ""
+    for p in paragraphs:
+        if len(p) > 60 and "." in p:
+            first_body = p
+            break
+    if not first_body:
+        first_body = paragraphs[0] if paragraphs else ""
+    if not first_body:
+        return result
+
+    # Use only the first sentence (up to the first period followed by a space).
+    # Skip periods after single letters — initials ("F.") and acronyms ("U.S.").
+    first_sentence = first_body
+    for _pm in re.finditer(r"\.\s", first_body):
+        preceding = first_body[: _pm.start()]
+        if re.search(r"(?:^|[\s.(])[A-Za-z]$", preceding):
+            continue
+        if re.search(r"\b(?:e\.g|i\.e|etc|vs)$", preceding):
+            continue
+        first_sentence = first_body[: _pm.end()]
+        break
+
+    # ── Title: find a quoted string preceded by a work cue ──
+    cue_match = _WORK_CUE_RE.search(first_sentence)
+    quotes = list(_QUOTE_RE.finditer(first_sentence))
+
+    if quotes:
+        # Prefer the quote closest after a work cue
+        best = None
+        for q in quotes:
+            if cue_match and q.start() > cue_match.start():
+                best = q
+                break
+        if best is None:
+            best = quotes[0]
+        result["guessed_title"] = best.group(1).strip()
+        result["guessed_is_minor"] = True  # in quotes → minor work
+
+    # ── Author: consecutive capitalised words before the work cue / possessive ──
+    search_zone = first_sentence
+    if cue_match:
+        search_zone = first_sentence[: cue_match.start()]
+    # Remove the title from the search zone so we don't confuse it
+    if result["guessed_title"]:
+        search_zone = search_zone.replace(result["guessed_title"], "")
+
+    # Find runs of capitalised words (2+), allow possessive 's.
+    # Allow single-letter initials with periods (e.g. "John F. Kennedy",
+    # "F. Scott Fitzgerald", "John D. H. Lawrence").
+    cap_runs = re.findall(
+        r"\b((?:[A-Z]\.\s+)*[A-Z][a-z]+(?:\s+(?:[A-Z]\.\s+)*[A-Z][a-z]+)+)(?:'s)?\b",
+        search_zone,
+    )
+    # Filter out runs starting with common sentence-start words
+    _NON_NAME_STARTS = {"In", "The", "An", "A", "On", "At", "By", "For", "To", "As", "It", "This", "That", "From"}
+    for run in cap_runs:
+        first_word = run.split()[0]
+        if first_word in _NON_NAME_STARTS:
+            # Drop the first word and check if remainder is still 2+ words
+            remainder = " ".join(run.split()[1:])
+            if len(remainder.split()) >= 2:
+                result["guessed_author"] = remainder.strip()
+                break
+            elif len(remainder.split()) == 1:
+                # Single proper noun after stripping — still likely an author surname
+                result["guessed_author"] = remainder.strip()
+                break
+        else:
+            result["guessed_author"] = run.strip()
+            break
+
+    return result
 
 
 def get_config_title_keys(config) -> set[str]:
@@ -406,45 +845,35 @@ def has_summary_verb_signal(tokens) -> bool:
     return False
 
 
-def missing_intro_first_sentence_signals(doc, sentences, flat_text: str) -> bool:
+def missing_intro_first_sentence_signals(doc, sentences, flat_text: str) -> dict:
+    """Return dict of which first-sentence components are present/missing."""
     if not sentences:
-        return False
+        return {"missing": False}
 
     first_start, first_end = sentences[0]
     first_sentence_text = flat_text[first_start:first_end]
     sentence_tokens = [t for t in doc if first_start <= t.idx < first_end]
 
-    has_author = has_author_full_name_signal(sentence_tokens)
-    has_title = bool(TITLE_QUOTE_PATTERN.search(first_sentence_text))
-    has_genre = bool(GENRE_PATTERN.search(first_sentence_text))
-    has_summary = has_summary_verb_signal(sentence_tokens)
+    result = {
+        "has_author": has_author_full_name_signal(sentence_tokens),
+        "has_title": bool(TITLE_QUOTE_PATTERN.search(first_sentence_text)),
+        "has_genre": bool(GENRE_PATTERN.search(first_sentence_text)),
+        "has_summary_verb": has_summary_verb_signal(sentence_tokens),
+    }
+    result["missing"] = not all(v for k, v in result.items() if k != "missing")
+    return result
 
-    return not (has_author and has_title and has_genre and has_summary)
 
-
-def find_title_span_in_first_sentence(flat_text: str, sentences, config) -> tuple[tuple[int, int] | None, bool]:
+def _find_title_span_for_one(flat_text: str, sentences, title: str) -> tuple[tuple[int, int] | None, bool]:
     """
-    Try to locate the teacher-supplied title inside the FIRST sentence of the
-    paragraph.
-
-    Returns:
-        (span, is_exact)
-
-        span     -> (start, end) character offsets into flat_text, or None
-        is_exact -> True  if the student text matches the teacher input
-                           (after normalizing curly quotes/dashes),
-                    False if it is only a fuzzy match.
+    Inner helper: try to locate a single teacher-supplied title inside the
+    FIRST sentence.  Returns (span, is_exact) or (None, False).
     """
-    if not config or not getattr(config, "text_title", None) or not sentences:
-        return None, False
-
-    # Target for fuzzy matching (ignore punctuation/case)
-    norm_target = normalize_title_key(config.text_title)
+    norm_target = normalize_title_key(title)
     if not norm_target:
         return None, False
 
-    # Target for "exact" matching (preserve punctuation/case, but normalize quotes/dashes)
-    exact_target = normalize_title_for_exact_match(config.text_title)
+    exact_target = normalize_title_for_exact_match(title)
 
     first_start, first_end = sentences[0]
     sentence_text = flat_text[first_start:first_end]
@@ -458,55 +887,34 @@ def find_title_span_in_first_sentence(flat_text: str, sentences, config) -> tupl
         for j in range(i + 1, n + 1):
             snippet = sentence_text[i:j]
 
-            # Cheap reject: must contain at least one letter
             if not any(ch.isalpha() for ch in snippet):
                 continue
 
-            # Normalize snippet for fuzzy matching
             norm_snip = normalize_title_key(snippet)
             if not norm_snip:
                 continue
 
-            # NEW: if the normalized snippet equals the normalized teacher title,
-            # accept it even if it's only 1–2 words.
             if norm_snip != norm_target:
-                # Only fuzzy candidates need to "look like a title"
-                # This filters out ordinary clauses like
-                # "Facebook offered 58 genders but only allowed users..."
-                # while keeping real/attempted titles like
-                # "Facebook's New Gender Options: Multiple Choices, Same Three Tired Pronouns"
                 if not is_title_case_like(snippet):
                     continue
 
-            # Ignore substrings that are far shorter than the full title;
-            # this prevents short evidence like "three tired pronouns" from
-            # being mistaken for the title.
             if len(norm_snip) < max(5, int(0.5 * len(norm_target))):
                 continue
 
-            # Exact fuzzy-normalized match
             if norm_snip == norm_target:
                 sim = 1.0
             else:
-                # Real fuzzy: allow small word changes ("Fenders" vs "Genders",
-                # or Ham's alternate title)
-                sim = title_similarity(snippet, config.text_title)
+                sim = title_similarity(snippet, title)
 
-            # Require reasonably high similarity so we don't confuse ordinary
-            # quotations with the title.
             if sim < 0.6:
                 continue
 
             span = (first_start + i, first_start + j)
-
-            # Check if this candidate is also an exact match "as written"
             is_exact_here = (normalize_title_for_exact_match(snippet) == exact_target)
 
-            # If we ever find an exact match, take it immediately.
             if is_exact_here:
                 return span, True
 
-            # Otherwise keep the best fuzzy match so far.
             if sim > best_sim:
                 best_sim = sim
                 best_span = span
@@ -518,16 +926,288 @@ def find_title_span_in_first_sentence(flat_text: str, sentences, config) -> tupl
     return None, False
 
 
+def find_title_span_in_first_sentence(flat_text: str, sentences, config) -> tuple[tuple[int, int] | None, bool]:
+    """
+    Try to locate the teacher-supplied title inside the FIRST sentence of the
+    paragraph.  Checks all configured titles (text_title, text_title_2,
+    text_title_3) and returns the first match.
+
+    Returns:
+        (span, is_exact)
+
+        span     -> (start, end) character offsets into flat_text, or None
+        is_exact -> True  if the student text matches the teacher input
+                           (after normalizing curly quotes/dashes),
+                    False if it is only a fuzzy match.
+    """
+    if not config or not sentences:
+        return None, False
+
+    # Try each configured title in order; return the first match.
+    for attr in ("text_title", "text_title_2", "text_title_3"):
+        title = getattr(config, attr, None)
+        if not title:
+            continue
+        span, is_exact = _find_title_span_for_one(flat_text, sentences, title)
+        if span is not None:
+            return span, is_exact
+
+    return None, False
+
+
 # Bookmark-related constants and helpers for internal hyperlinks
 BOOKMARK_PREFIX = "vysti_issue_"
 
 BOOKMARK_MAX_LEN = 40  # Word's limit for bookmark names
 
 ARTICLE_ERROR_LABEL = "Article error"
-INLINE_LABEL_ALLOWLIST = {ARTICLE_ERROR_LABEL}
+FINAL_SENTENCE_LABEL = "No quotations in the final sentence of a body paragraph"
+AUTHOR_REF_LABEL = "Use the author's name instead of 'the author'"
+QUOTATION_START_LABEL = "Avoid beginning a sentence with a quotation"
+NUMBER_RULE_LABEL = "Write out the numbers one through ten"
+ONE_SENTENCE_SUMMARY_LABEL = "A one-sentence summary is always insufficient"
+MOVE_TO_TOPIC_LABEL = "Move this to the topic sentence"
+ASSIGNMENT_INTRO_LABEL = "The assignment was to write the introduction and the first topic sentence"
+ASSIGNMENT_FIRST_SENTENCE_LABEL = "The assignment is to write the first sentence"
+SVA_LABEL = "Check subject-verb agreement"
+SVA_SHORT = "s-v"
+SPELLING_LABEL = "Spelling error"
+SPELLING_SHORT = "sp"
+CONFUSED_WORD_LABEL = "Commonly confused word"
+CONFUSED_WORD_SHORT = "cw"
+INTRO_COMMA_LABEL = "Comma after introductory word"
+INTRO_COMMA_SHORT = "cm"
+APOSTROPHE_LABEL = "Possessive apostrophe"
+APOSTROPHE_SHORT = "ap"
+EXPLAIN_EVIDENCE_LABEL = "Explain the significance of evidence"
+INLINE_LABEL_ALLOWLIST = {
+    ARTICLE_ERROR_LABEL,
+    FINAL_SENTENCE_LABEL,
+    MOVE_TO_TOPIC_LABEL,
+    AUTHOR_REF_LABEL,
+    QUOTATION_START_LABEL,
+    NUMBER_RULE_LABEL,
+    ONE_SENTENCE_SUMMARY_LABEL,
+    ASSIGNMENT_INTRO_LABEL,
+    ASSIGNMENT_FIRST_SENTENCE_LABEL,
+    SVA_LABEL,
+    SPELLING_LABEL,
+    CONFUSED_WORD_LABEL,
+    INTRO_COMMA_LABEL,
+    APOSTROPHE_LABEL,
+    EXPLAIN_EVIDENCE_LABEL,
+}
 APPROVED_LABELS = None
 ARTICLE_ERROR_EXPLANATION = "Use a before consonants and an before vowels."
 ARTICLE_ERROR_GUIDANCE = "Swap the article so it matches the next word (a + consonant, an + vowel)."
+
+SVA_EXPLANATION = (
+    "The subject and verb in this sentence do not agree in number. "
+    "A singular subject takes a singular verb (e.g. 'she writes'), "
+    "and a plural subject takes a plural verb (e.g. 'they write')."
+)
+SVA_GUIDANCE = (
+    "Identify the true subject of the sentence and make the verb match: "
+    "singular subjects pair with singular verbs (adds -s), plural subjects "
+    "pair with base-form verbs. Watch for phrases between the subject and "
+    "verb that may distract from the real subject."
+)
+
+SPELLING_EXPLANATION = (
+    "This word appears to be misspelled. Spelling errors can distract "
+    "the reader and undermine the credibility of your argument."
+)
+SPELLING_GUIDANCE = (
+    "Check the spelling of the highlighted word carefully. Common spelling "
+    "mistakes include transposed letters, missing letters, and doubled "
+    "consonants. If unsure, look up the correct spelling."
+)
+
+CONFUSED_WORD_EXPLANATION = (
+    "This word is commonly confused with a similar word. Using the wrong "
+    "word can change the meaning of your sentence or make it unclear."
+)
+CONFUSED_WORD_GUIDANCE = (
+    "Check whether you meant to use a different word here. Common mix-ups "
+    "include their/there/they're, its/it's, affect/effect, and lose/loose. "
+    "Consider the meaning you intend and choose the correct form."
+)
+
+INTRO_COMMA_EXPLANATION = (
+    "Conjunctive adverbs and introductory words like However, Furthermore, "
+    "and Therefore need a comma after them when they begin a sentence."
+)
+INTRO_COMMA_GUIDANCE = (
+    "Add a comma after introductory words like However, Furthermore, Therefore, "
+    "Moreover, Nevertheless, and In addition when they start a sentence."
+)
+
+APOSTROPHE_EXPLANATION = (
+    "A possessive apostrophe is needed to show ownership. For singular nouns, "
+    "add 's (e.g. the author's argument). For plural nouns ending in s, "
+    "add just an apostrophe (e.g. the students' essays)."
+)
+APOSTROPHE_GUIDANCE = (
+    "Add an apostrophe to show possession. Ask yourself: does this noun own "
+    "something? If so, it needs 's (singular) or s' (plural ending in s)."
+)
+
+EXPLAIN_EVIDENCE_EXPLANATION = (
+    "After inserting a quotation, you must explain its significance. "
+    "A quotation that is not followed by analysis is 'dropped' evidence — "
+    "the reader cannot see how it supports your argument."
+)
+EXPLAIN_EVIDENCE_GUIDANCE = (
+    "After every quotation, add at least one sentence of analysis that "
+    "explains how the quoted words support your argument. Ask yourself: "
+    "what does this evidence show, and why does it matter to my thesis?"
+)
+
+FINAL_SENTENCE_EXPLANATION = (
+    "You should use the final sentence of a body paragraph to link the paragraph "
+    "back to your thesis. This helps to ensure that you are fulfilling the demands "
+    "of your thesis and helps your reader see that you are supporting your thesis "
+    "and staying on topic. Quotations should not be used in the final sentence of "
+    "a body paragraph."
+)
+FINAL_SENTENCE_GUIDANCE = (
+    "The final sentence of each body paragraph should link back to your thesis in "
+    "your own words, demonstrating how this paragraph fulfills your essay's larger "
+    "argument. When Vysti identifies a quotation ending your body paragraph, revise "
+    "to end with your own analytical statement instead. Quotations require your "
+    "interpretation\u2014ending with a quote leaves your reader to draw their own "
+    "conclusions rather than showing them how the evidence supports your thesis."
+)
+
+AUTHOR_REF_EXPLANATION = (
+    "In academic writing, avoid the generic phrase 'the author.' Instead, refer to "
+    "the writer by their family name (e.g. Morrison, Baldwin, Shakespeare) after "
+    "introducing them by full name in your opening sentence. This follows standard "
+    "academic convention and maintains a professional tone."
+)
+AUTHOR_REF_GUIDANCE = (
+    "Replace 'the author' with the writer's last name. After stating the full name "
+    "once in your first sentence, use only the family name throughout the rest of "
+    "your essay."
+)
+
+QUOTATION_START_EXPLANATION = (
+    "Sentences in academic essays should begin with your own words, not a quotation. "
+    "Starting a sentence with a quotation shifts control of your argument to the "
+    "source rather than establishing your own analytical voice first."
+)
+QUOTATION_START_GUIDANCE = (
+    "Revise so your sentence opens with your own words before introducing the "
+    "quotation. Use an introductory clause or signal phrase, then integrate the "
+    "quotation: for example, 'Morrison emphasizes this tension when she writes, "
+    "\"...\"' rather than '\"...\" is what Morrison writes.'"
+)
+
+NUMBER_RULE_EXPLANATION = (
+    "In academic writing, the numbers one through ten should be written out as words "
+    "rather than numerals. Numerals are acceptable for numbers above ten, for dates, "
+    "page numbers, and in-text citations."
+)
+NUMBER_RULE_GUIDANCE = (
+    "Spell out the number as a word (e.g. write 'three' instead of '3'). This "
+    "convention applies to the numbers one through ten in running text."
+)
+
+ONE_SENTENCE_SUMMARY_EXPLANATION = (
+    "Your introduction needs more than a single sentence of summary before the "
+    "thesis statement. A one-sentence summary does not provide enough context for "
+    "the reader to understand the text you are analyzing."
+)
+ONE_SENTENCE_SUMMARY_GUIDANCE = (
+    "Expand your introductory summary to at least two sentences before your thesis. "
+    "Provide enough context about the text\u2014its situation, conflict, or central "
+    "idea\u2014so the reader can follow your argument."
+)
+
+MOVE_TO_TOPIC_EXPLANATION = (
+    "Your topic sentence should clearly state the device or strategy you are "
+    "analyzing in this paragraph, matching the order set by your thesis statement. "
+    "The topic or device Vysti highlighted appears later in the paragraph instead "
+    "of in the topic sentence."
+)
+MOVE_TO_TOPIC_GUIDANCE = (
+    "Revise your topic sentence so it explicitly names the device or strategy this "
+    "paragraph will discuss. Move the highlighted term into the topic sentence and "
+    "ensure it matches the next topic in your thesis order."
+)
+
+ASSIGNMENT_INTRO_EXPLANATION = (
+    "This assignment asks you to write only the introduction and the first topic "
+    "sentence. Content beyond that scope will not be assessed."
+)
+ASSIGNMENT_INTRO_GUIDANCE = (
+    "Focus on writing a complete introduction (first sentence, summary, and thesis) "
+    "followed by one topic sentence that matches the first topic in your thesis."
+)
+
+ASSIGNMENT_FIRST_SENTENCE_EXPLANATION = (
+    "This assignment asks you to write only the first sentence of your essay. "
+    "Content beyond that scope will not be assessed."
+)
+ASSIGNMENT_FIRST_SENTENCE_GUIDANCE = (
+    "Write one sentence that states the author's full name, the genre, the title "
+    "of the work (properly formatted), and a concrete summary."
+)
+
+# ── MLA citation check (Research paper mode) ──
+MLA_CITATION_LABEL = "Add parenthetical citation"
+MLA_CITATION_EXPLANATION = (
+    "In MLA format, quotations should be followed by a parenthetical citation "
+    "with the author\u2019s last name and page number before the period, "
+    "e.g., (Morrison 42). For poetry, use line numbers: (Line 5) or (Lines 3\u20134). "
+    "If the author is already named in the sentence, only the page number is needed: (42)."
+)
+MLA_CITATION_GUIDANCE = (
+    "After a quotation, include a parenthetical citation before the period. "
+    "Use the format (Author Page), e.g., (Morrison 42). "
+    "If you already named the author, just the page number is fine: (42)."
+)
+
+# ── Shared (generalized) labels & explanations for user-facing output ──
+# These protect proprietary rule logic in downloads and reports.
+# Internal labels remain unchanged in the live preview and backend.
+HARDCODED_SHARED_ISSUES = {
+    ARTICLE_ERROR_LABEL: "Grammar",
+    SVA_LABEL: "Grammar",
+    SPELLING_LABEL: "Spelling",
+    CONFUSED_WORD_LABEL: "Word usage",
+    INTRO_COMMA_LABEL: "Punctuation",
+    APOSTROPHE_LABEL: "Punctuation",
+    EXPLAIN_EVIDENCE_LABEL: "Evidence development",
+    FINAL_SENTENCE_LABEL: "Paragraph structure",
+    AUTHOR_REF_LABEL: "Academic convention",
+    QUOTATION_START_LABEL: "Evidence integration",
+    NUMBER_RULE_LABEL: "Formatting convention",
+    ONE_SENTENCE_SUMMARY_LABEL: "Introduction development",
+    MOVE_TO_TOPIC_LABEL: "Paragraph organization",
+    ASSIGNMENT_INTRO_LABEL: "Assignment scope",
+    ASSIGNMENT_FIRST_SENTENCE_LABEL: "Assignment scope",
+    MLA_CITATION_LABEL: "Citation format",
+}
+
+HARDCODED_SHARED_EXPLANATIONS = {
+    ARTICLE_ERROR_LABEL: "Review article usage in this sentence.",
+    SVA_LABEL: "Check that the subject and verb agree in number.",
+    SPELLING_LABEL: "Check the spelling of the highlighted word.",
+    CONFUSED_WORD_LABEL: "Verify that this is the word you intended.",
+    INTRO_COMMA_LABEL: "Review punctuation after the introductory word.",
+    APOSTROPHE_LABEL: "Review apostrophe usage for possession.",
+    EXPLAIN_EVIDENCE_LABEL: "Develop your analysis of the evidence presented.",
+    FINAL_SENTENCE_LABEL: "Review how this paragraph concludes.",
+    AUTHOR_REF_LABEL: "Review how you refer to the author.",
+    QUOTATION_START_LABEL: "Review how you introduce quotations.",
+    NUMBER_RULE_LABEL: "Review number formatting.",
+    ONE_SENTENCE_SUMMARY_LABEL: "Expand the introductory context.",
+    MOVE_TO_TOPIC_LABEL: "Review the organization of this paragraph.",
+    ASSIGNMENT_INTRO_LABEL: "Review the scope of this assignment.",
+    ASSIGNMENT_FIRST_SENTENCE_LABEL: "Review the scope of this assignment.",
+    MLA_CITATION_LABEL: "Review citation formatting after quotations.",
+}
 
 # Global counter so bookmark IDs are unique in the document
 BOOKMARK_ID_COUNTER = 1
@@ -748,15 +1428,26 @@ class MarkerConfig:
     enforce_human_people_rule: bool = True
     # Controls whether we enforce the "society / universe / reality / life / truth" vague-terms rule
     enforce_vague_terms_rule: bool = True
-    enforce_sva_rule: bool = False
-    enforce_present_tense_rule: bool = False
+    enforce_sva_rule: bool = True
+    enforce_spelling_rule: bool = True
+    enforce_confused_words_rule: bool = True
+    enforce_intro_comma_rule: bool = True
+    enforce_apostrophe_rule: bool = True
+    enforce_present_tense_rule: bool = True
 
+    # MLA parenthetical citation check (Research paper mode)
+    enforce_mla_citation: bool = False
 
     forbid_audience_reference: bool = True  # "Avoid referring to the reader or audience..."
     forbid_personal_pronouns: bool = True  # "No 'I', 'we', 'us', 'our' or 'you'..."
 
     enforce_essay_title_format: bool = True  # "Essay title format"
     enforce_essay_title_capitalization: bool = True  # "Capitalize the words in the title"
+
+    # Frame-detection helper: True when author_name was teacher-supplied
+    # (not auto-guessed). Auto-guessed authors may come FROM the frame
+    # paragraph itself, which would defeat frame detection.
+    _author_is_teacher_supplied: bool = False
 
     # Intro quotation behavior
     # If True, allow direct quotations in *introductory summary* sentences
@@ -843,6 +1534,8 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
     - foundation_4: Foundation Assignment 4 – intro + first body topic sentence
     - foundation_5: Foundation Assignment 5 – intro + full body paragraphs
     - foundation_6: Foundation Assignment 6 – full essay
+    - research_paper: like textual_analysis but allows long quotations
+    - sandbox: all rules disabled; teacher marks manually
     """
     cfg = MarkerConfig(mode=mode)
 
@@ -869,11 +1562,14 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_topic_thesis_alignment = False
         cfg.require_body_evidence = False
         cfg.enforce_off_topic = False
-        # Allow direct address to the reader/audience in argumentation
-        # ("Avoid referring to the reader or audience..." is off),
-        # but keep the ban on first-person pronouns by default.
+        # Allow first-person pronouns and audience references
         cfg.forbid_audience_reference = False
+        cfg.forbid_personal_pronouns = False
         cfg.highlight_thesis_devices = False
+        # Past tense is acceptable in argumentation
+        cfg.enforce_present_tense_rule = False
+        # Don't flag quotations in the introduction
+        cfg.enforce_intro_quote_rule = False
 
 
     elif mode == "analytic_frame":
@@ -886,6 +1582,39 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.allow_intro_summary_quotes = True
         cfg.enforce_intro_quote_rule = False
 
+    elif mode == "research_paper":
+        # Research paper: full analysis rules but long quotations are permitted.
+        cfg.enforce_long_quote_rule = False
+        cfg.enforce_mla_citation = True
+
+    elif mode == "sandbox":
+        # Sandbox: disable ALL automated rules. Teacher marks manually.
+        cfg.enforce_closed_thesis = False
+        cfg.enforce_specific_thesis_topics = False
+        cfg.enforce_thesis_organization = False
+        cfg.enforce_topic_thesis_alignment = False
+        cfg.enforce_off_topic = False
+        cfg.require_body_evidence = False
+        cfg.enforce_contractions_rule = False
+        cfg.enforce_long_quote_rule = False
+        cfg.enforce_which_rule = False
+        cfg.enforce_weak_verbs_rule = False
+        cfg.enforce_fact_proof_rule = False
+        cfg.enforce_human_people_rule = False
+        cfg.enforce_vague_terms_rule = False
+        cfg.enforce_sva_rule = False
+        cfg.enforce_spelling_rule = False
+        cfg.enforce_confused_words_rule = False
+        cfg.enforce_intro_comma_rule = False
+        cfg.enforce_apostrophe_rule = False
+        cfg.enforce_present_tense_rule = False
+        cfg.enforce_intro_quote_rule = False
+        cfg.enforce_essay_title_format = False
+        cfg.enforce_essay_title_capitalization = False
+        cfg.forbid_audience_reference = False
+        cfg.forbid_personal_pronouns = False
+        cfg.highlight_thesis_devices = False
+        cfg.allow_intro_summary_quotes = True
 
     # ---------- Foundation modes ----------
 
@@ -949,6 +1678,30 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         # plus experimental grammar checks (subject–verb agreement).
         # cfg.enforce_sva_rule = True
         # cfg.enforce_present_tense_rule = True
+
+    # ---------- Write-mode progressive presets ----------
+    # These mirror Foundation configs but use distinct mode strings so that
+    # Foundation-specific behavioral guards (red strikethrough, forced
+    # paragraph_role, assignment-completion labels) do NOT trigger.
+
+    elif mode == "write_first_sentence":
+        # Same flags as foundation_1: only first-sentence rules active.
+        cfg.enforce_closed_thesis = False
+        cfg.enforce_specific_thesis_topics = False
+        cfg.enforce_thesis_organization = False
+        cfg.enforce_topic_thesis_alignment = False
+        cfg.enforce_off_topic = False
+        cfg.require_body_evidence = False
+        cfg.enforce_essay_title_format = False
+        cfg.enforce_essay_title_capitalization = False
+
+    elif mode == "write_intro":
+        # Same flags as foundation_2/3: thesis rules ON, body rules OFF.
+        cfg.require_body_evidence = False
+        cfg.enforce_topic_thesis_alignment = False
+        cfg.enforce_off_topic = False
+        cfg.enforce_essay_title_format = False
+        cfg.enforce_essay_title_capitalization = False
 
     elif mode == "peel_paragraph":
         # Single PEEL paragraph: Point–Evidence–Explanation–Link.
@@ -1031,6 +1784,253 @@ def load_thesis_devices(path: str = "thesis_devices.txt") -> None:
 
 # Load devices at module import time
 load_thesis_devices()
+
+
+# ============================================================
+# LEXIS DATABASE — LOADING AND DETECTION
+# ============================================================
+
+def load_lexis_database(path: str = "big_project/assignment-lexis.csv"):
+    """
+    Load the assignment-lexis CSV into a pandas DataFrame.
+    Caches it in the global LEXIS_DATABASE variable.
+
+    Returns the DataFrame, or empty DataFrame if file not found.
+    This function is lazy-loaded (called on first use) to avoid
+    slowing down module import.
+    """
+    global LEXIS_DATABASE
+
+    if LEXIS_DATABASE is not None:
+        return LEXIS_DATABASE
+
+    try:
+        # Get the directory where marker.py is located
+        file_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(file_dir, path)
+
+        if not os.path.exists(file_path):
+            # File not found - return empty DataFrame (not an error)
+            LEXIS_DATABASE = pd.DataFrame()
+            return LEXIS_DATABASE
+
+        # Load the CSV
+        df = pd.read_csv(file_path)
+
+        # Basic validation
+        required_cols = ["term", "term_norm", "definition", "focus_type"]
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+            print(f"Warning: Lexis CSV missing columns: {missing}")
+            LEXIS_DATABASE = pd.DataFrame()
+            return LEXIS_DATABASE
+
+        # Cache it
+        LEXIS_DATABASE = df
+        print(f"✓ Loaded {len(df)} lexis terms from {path}")
+        return df
+
+    except Exception as e:
+        print(f"Warning: Error loading lexis database: {e}")
+        LEXIS_DATABASE = pd.DataFrame()
+        return LEXIS_DATABASE
+
+
+def build_lexis_index(lexis_df):
+    """
+    Build an index of lemmatized terms from the lexis database.
+    Uses spacy to lemmatize each term for flexible matching.
+
+    Returns a dict mapping lemma -> list of term data rows
+    (list because multiple terms might have same lemma)
+    """
+    global LEXIS_INDEX
+
+    if LEXIS_INDEX is not None:
+        return LEXIS_INDEX
+
+    if lexis_df.empty:
+        LEXIS_INDEX = {}
+        return LEXIS_INDEX
+
+    index = {}
+
+    for _, row in lexis_df.iterrows():
+        term = row.get("term", "")
+        if not term or pd.isna(term):
+            continue
+
+        # Parse the term with spacy to get its lemma(s)
+        doc = nlp(term)
+
+        # For single-word terms, use the lemma
+        if len(doc) == 1:
+            lemma = doc[0].lemma_.lower()
+            if lemma not in index:
+                index[lemma] = []
+            # Flag terms that are capitalized in the CSV (e.g. "State", "Self")
+            # so we only match them when capitalized in the essay text
+            row = row.copy()
+            row["_require_cap"] = term[0].isupper() and term.lower() != term
+            index[lemma].append(row)
+
+        # For multi-word terms (e.g., "19th Amendment"), store the full phrase
+        else:
+            phrase_key = term.lower()
+            if phrase_key not in index:
+                index[phrase_key] = []
+            index[phrase_key].append(row)
+
+    LEXIS_INDEX = index
+    return index
+
+
+def detect_lexis_in_text(text: str, focus_types: list[str] | None = None):
+    """
+    Detect lexis terms in the given text using lemmatization.
+
+    This handles different word forms:
+    - "feminism" matches "feminist", "feminists", "feminism"
+    - "argue" matches "argues", "argued", "arguing"
+
+    Args:
+        text: The text to analyze
+        focus_types: Optional list of focus_types to include (e.g., ["concept", "device", "event"])
+                    If None, includes all types except "general"
+
+    Returns a list of detected terms with their metadata:
+    [
+        {
+            "term": "feminism",
+            "term_norm": "feminism",
+            "focus_type": "concept",
+            "definition": "...",
+            "positions": [(start, end), ...],
+            "count": 2,
+            "linked_lexis": "...",
+            ...
+        },
+        ...
+    ]
+    """
+    # Lazy load the database
+    lexis_df = load_lexis_database()
+    if lexis_df.empty:
+        return []
+
+    # Default filter: exclude "general" type (too noisy)
+    if focus_types is None:
+        focus_types = ["concept", "device", "event", "person"]
+
+    # Filter by focus_type
+    if focus_types:
+        lexis_df = lexis_df[lexis_df["focus_type"].isin(focus_types)]
+
+    if lexis_df.empty:
+        return []
+
+    # Build lemma index for fast lookup
+    lexis_index = build_lexis_index(lexis_df)
+
+    # Parse the document with spacy
+    doc = nlp(text)
+
+    detected_terms = {}  # term -> term_data (to deduplicate)
+
+    # Check for multi-word phrases first (like "19th Amendment")
+    for phrase_key in lexis_index.keys():
+        if " " in phrase_key:  # Multi-word term
+            phrase_lower = phrase_key.lower()
+            start = 0
+            while True:
+                pos = text.lower().find(phrase_lower, start)
+                if pos == -1:
+                    break
+
+                # Check word boundaries
+                before_ok = (pos == 0 or not text[pos - 1].isalnum())
+                after_ok = (pos + len(phrase_key) >= len(text) or
+                           not text[pos + len(phrase_key)].isalnum())
+
+                if before_ok and after_ok:
+                    # Add to detected
+                    for row in lexis_index[phrase_key]:
+                        term = row.get("term", "")
+                        if term not in detected_terms:
+                            detected_terms[term] = {
+                                "term": term,
+                                "term_norm": row.get("term_norm", ""),
+                                "focus_type": row.get("focus_type", ""),
+                                "definition": row.get("definition", ""),
+                                "positions": [],
+                                "count": 0,
+                            }
+                            # Add optional fields if present
+                            for field in ["etymology", "derivations", "roots",
+                                        "part_of_speech",
+                                        "application", "application_default",
+                                        "exploration", "exploration_default",
+                                        "quote", "author", "source_major",
+                                        "linked_lexis", "assign_lexis"]:
+                                val = row.get(field)
+                                if val and not pd.isna(val):
+                                    detected_terms[term][field] = val
+
+                        detected_terms[term]["positions"].append((pos, pos + len(phrase_key)))
+                        detected_terms[term]["count"] += 1
+
+                start = pos + 1
+
+    # Check single-word terms using lemmatization
+    for token in doc:
+        # Skip punctuation and whitespace
+        if not token.is_alpha:
+            continue
+
+        lemma = token.lemma_.lower()
+
+        # Check if this lemma matches any lexis term
+        if lemma in lexis_index:
+            for row in lexis_index[lemma]:
+                # For capitalized concept terms (State, Self, Real, etc.),
+                # only match when the word is capitalized in the essay
+                if row.get("_require_cap") and not token.text[0].isupper():
+                    continue
+
+                term = row.get("term", "")
+
+                # Initialize term_data if first occurrence
+                if term not in detected_terms:
+                    detected_terms[term] = {
+                        "term": term,
+                        "term_norm": row.get("term_norm", ""),
+                        "focus_type": row.get("focus_type", ""),
+                        "definition": row.get("definition", ""),
+                        "positions": [],
+                        "count": 0,
+                    }
+                    # Add optional fields if present
+                    for field in ["etymology", "derivations", "roots",
+                                "part_of_speech",
+                                "application", "application_default",
+                                "exploration", "exploration_default",
+                                "quote", "author", "source_major",
+                                "linked_lexis", "assign_lexis"]:
+                        val = row.get(field)
+                        if val and not pd.isna(val):
+                            detected_terms[term][field] = val
+
+                # Add position (character span)
+                start_char = token.idx
+                end_char = token.idx + len(token.text)
+                detected_terms[term]["positions"].append((start_char, end_char))
+                detected_terms[term]["count"] += 1
+
+    # Convert to list and sort by first occurrence
+    detected = list(detected_terms.values())
+    detected.sort(key=lambda x: x["positions"][0][0] if x["positions"] else 0)
+
+    return detected
 
 
 def canonical_device_key(tok):
@@ -1264,26 +2264,62 @@ SUBJECTIVE_EVAL_WORDS = {
     # Core ones Mark specified
     "successful",
     "successfully",
-    "poignant",    
+    "poignant",
+    "poignantly",
     "insightful",
-    "thought-provoking",
     "insightfully",
+    "thought-provoking",
     "sophisticated",
     "wonderful",
+    "wonderfully",
     "persuasive",
+    "persuasively",
     # Other common empty evaluators
     "powerful",
     "powerfully",
     "effective",
+    "effectively",
     "interesting",
+    "interestingly",
     "compelling",
     "moving",
     "beautiful",
+    "beautifully",
     "brilliant",
+    "brilliantly",
     "amazing",
+    "amazingly",
     "masterful",
+    "masterfully",
     "great",
     "excellent",
+    "perfectly",
+    "remarkable",
+    "remarkably",
+    "impressive",
+    "impressively",
+    "exceptional",
+    "exceptionally",
+    "incredible",
+    "incredibly",
+    "profound",
+    "profoundly",
+    "captivating",
+    "stunning",
+    "stunningly",
+    "eloquent",
+    "eloquently",
+    "flawless",
+    "flawlessly",
+    "genius",
+    "superb",
+    "superbly",
+    "magnificent",
+    "magnificently",
+    "extraordinary",
+    "extraordinarily",
+    "phenomenal",
+    "phenomenally",
 }
 
 THESIS_VERB_LEMMAS = {
@@ -1320,6 +2356,27 @@ SUMMARY_VERB_LEMMAS = THESIS_VERB_LEMMAS | {
     "analyze", "analyzes", "analyzing",
     "focus", "focuses", "focusing",
     "discuss", "discusses", "discussing",
+    "encounter", "encounters", "encountering",
+    "navigate", "navigates", "navigating",
+    "recount", "recounts", "recounting",
+    "reflect", "reflects", "reflecting",
+    "address", "addresses", "addressing",
+    "chronicle", "chronicles", "chronicling",
+    "capture", "captures", "capturing",
+    "confront", "confronts", "confronting",
+    "grapple", "grapples", "grappling",
+    "contemplate", "contemplates", "contemplating",
+    "consider", "considers", "considering",
+    "critique", "critiques", "critiquing",
+    "challenge", "challenges", "challenging",
+    "investigate", "investigates", "investigating",
+    "uncover", "uncovers", "uncovering",
+    "document", "documents", "documenting",
+    "detail", "details", "detailing",
+    "trace", "traces", "tracing",
+    "express", "expresses", "expressing",
+    "articulate", "articulates", "articulating",
+    "expose", "exposes", "exposing",
 }
 
 GENRE_PATTERN = re.compile(
@@ -1341,6 +2398,9 @@ THESIS_ALL_DEVICE_KEYS = set()
 # New: raw thesis paragraph text (lowercased) for simple substring checks
 THESIS_TEXT_LOWER: str = ""
 
+# The full thesis sentence (not lowercased) for dynamic guidance placeholders
+THESIS_TEXT: str = ""
+
 # New global state for body paragraph indexing and bridge detection
 BODY_PARAGRAPH_COUNT = 0
 BRIDGE_PARAGRAPHS = set()
@@ -1355,6 +2415,39 @@ DOC_EXAMPLES = []
 DOC_EXAMPLE_COUNTS = {}  # dict: label -> int (count of examples stored for this label)
 DOC_EXAMPLE_SENT_HASHES = set()  # set of tuples: (label, md5(sentence)) for deduplication
 MAX_EXAMPLES_PER_LABEL = 10
+
+# Global state for sentence type classification per paragraph
+DOC_SENTENCE_TYPES = {}  # { paragraph_index: [{"type": str, "text": str}, ...] }
+
+# Global state for first-sentence component detection
+DOC_FIRST_SENTENCE_COMPONENTS = None  # dict with has_author, has_title, has_genre, has_summary_verb, missing
+
+# Global state for noun repetition detection
+DOC_REPEATED_NOUNS = []  # list of { "lemma": str, "count": int, "forms": [str] }
+DOC_TOTAL_WORD_COUNT = 0  # total word count across all real paragraphs
+
+# Global state for issue metadata (replaces the old summary table serialization)
+DOC_ISSUES_METADATA = []  # list of {"label": str, "explanation": str, "count": int}
+
+
+def _is_hidden_paragraph(p) -> bool:
+    """Return True if ALL runs in the paragraph have the w:vanish property set.
+
+    Chinese-locale versions of Word / WPS Office insert hidden form-boundary
+    markers (窗体顶端 / 窗体底端) with ``<w:vanish/>``.  These paragraphs are
+    invisible in Word but python-docx sees them as normal text.  Filtering
+    them out prevents ghost text, unwanted centering, and stray borders in
+    marked output.
+    """
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    runs = p._element.findall(f".//{ns}r")
+    if not runs:
+        return False
+    for r in runs:
+        rPr = r.find(f"{ns}rPr")
+        if rPr is None or rPr.find(f"{ns}vanish") is None:
+            return False
+    return True
 
 
 def extract_thesis_topics(thesis_tokens):
@@ -1643,13 +2736,56 @@ def load_short_explanations(excel_path) -> dict[str, str]:
     return dict(zip(df[0], df[3]))
 
 
+def load_shared_issues(excel_path) -> dict[str, str]:
+    """Column 4: internal_label → shared (generalized) label for user-facing output."""
+    df = pd.read_excel(excel_path, header=None)
+    if df.shape[1] < 5:
+        return {}
+    df = df.dropna(subset=[0, 4])
+    if df.empty:
+        return {}
+    df[0] = df[0].astype(str).str.strip()
+    df[4] = df[4].astype(str).str.strip()
+    df = df[(df[0] != "") & (df[4] != "")]
+    df = df[~df[0].str.lower().isin(["issue", "label"])]
+    return dict(zip(df[0], df[4]))
+
+
+def load_shared_explanations(excel_path) -> dict[str, str]:
+    """Column 5: internal_label → shared (generalized) explanation for user-facing output."""
+    df = pd.read_excel(excel_path, header=None)
+    if df.shape[1] < 6:
+        return {}
+    df = df.dropna(subset=[0, 5])
+    if df.empty:
+        return {}
+    df[0] = df[0].astype(str).str.strip()
+    df[5] = df[5].astype(str).str.strip()
+    df = df[(df[0] != "") & (df[5] != "")]
+    df = df[~df[0].str.lower().isin(["issue", "label"])]
+    return dict(zip(df[0], df[5]))
+
+
 def first_sentence(text: str, *, max_len: int = 180) -> str:
     clean = re.sub(r"\s+", " ", str(text or "")).strip()
     if not clean:
         return ""
-    match = re.match(r"^(.+?[.!?])(\s|$)", clean)
-    if match:
-        return match.group(1).strip()
+    # Find sentence-ending punctuation, skipping common abbreviations
+    _abbrev_re = re.compile(r"\b(?:e\.g|i\.e|etc|vs)\.$")
+    # Skip periods after a single letter — catches initials ("F.") and
+    # acronym components ("U." in "U.S.") that aren't sentence endings.
+    _single_letter_re = re.compile(r"(?:^|[\s.(])[A-Za-z]\.$")
+    # Skip periods after digits — catches numbered lists ("1.", "2.")
+    _numbered_re = re.compile(r"\d\.$")
+    for m in re.finditer(r"[.!?](?:\s|$)", clean):
+        candidate = clean[: m.start() + 1]
+        if _abbrev_re.search(candidate):
+            continue
+        if clean[m.start()] == "." and _single_letter_re.search(candidate):
+            continue
+        if clean[m.start()] == "." and _numbered_re.search(candidate):
+            continue
+        return candidate.strip()
     if max_len and len(clean) > max_len:
         return clean[: max_len - 3].rstrip() + "..."
     return clean
@@ -1815,7 +2951,7 @@ def spacy_parse(text):
         nxt = text[j]
         return (nxt in {",", ";", ":", ")", "]"} or nxt.islower() or nxt.isdigit())
 
-    # Merge pass (only if we have at least 2 sentences)
+    # Merge pass 1: merge sentences split inside double quotes
     if len(raw_sentences) >= 2:
         merged = []
         cur_start, cur_end = raw_sentences[0]
@@ -1829,16 +2965,39 @@ def spacy_parse(text):
         merged.append((cur_start, cur_end))
         raw_sentences = merged
 
+    # Merge pass 2: merge sentences split on single-letter abbreviations.
+    # Catches initials ("F." in "John F. Kennedy") and acronym components
+    # ("U." in "U.S.") that spaCy may incorrectly treat as sentence endings.
+    _single_letter_end_re = re.compile(r"(?:^|[\s.])[A-Za-z]\.\s*$")
+    if len(raw_sentences) >= 2:
+        merged2 = []
+        cur_start, cur_end = raw_sentences[0]
+        for ns, ne in raw_sentences[1:]:
+            sent_text = text[cur_start:cur_end]
+            if _single_letter_end_re.search(sent_text):
+                cur_end = ne
+            else:
+                merged2.append((cur_start, cur_end))
+                cur_start, cur_end = ns, ne
+        merged2.append((cur_start, cur_end))
+        raw_sentences = merged2
+
     sentences: list[tuple[int, int]] = []
 
     for s_start, s_end in raw_sentences:
         cur_start = s_start
         i = s_start
         # Look for . ? ! immediately followed by an uppercase letter with no space
+        # (catches missing spaces like "sentence.Next") but skip single-letter
+        # abbreviations like "U.S." where the period follows a single letter.
         while i < s_end - 1:
             ch = text[i]
             nxt = text[i + 1]
             if ch in ".?!" and not nxt.isspace() and nxt.isalpha() and nxt.isupper():
+                # Don't split if period follows a single letter (abbreviation/acronym)
+                if ch == "." and i >= 1 and text[i - 1].isalpha() and (i < 2 or not text[i - 2].isalpha()):
+                    i += 1
+                    continue
                 cut_end = i + 1
                 if cur_start < cut_end:
                     sentences.append((cur_start, cut_end))
@@ -1848,6 +3007,48 @@ def spacy_parse(text):
             sentences.append((cur_start, s_end))
 
     return doc, tokens, sentences
+
+
+def classify_sentence_type(doc, sent_start: int, sent_end: int) -> str:
+    """
+    Classify a sentence span within a spaCy Doc as one of:
+      "simple", "compound", "complex", "compound-complex"
+
+    Uses dependency labels:
+      - compound: ROOT verb has a conj child that is a VERB/AUX or has its own subject
+      - complex: sentence contains advcl, relcl, ccomp, or acl dependencies
+      - compound-complex: both compound and complex features
+      - simple: none of the above
+    """
+    sent_tokens = [t for t in doc if sent_start <= t.idx < sent_end]
+    if not sent_tokens:
+        return "simple"
+
+    has_conj_clause = False
+    has_subordinate_clause = False
+
+    for tok in sent_tokens:
+        # Compound: a conj child of ROOT (or another conj) that is itself a verb
+        # or has its own subject — indicating a full coordinated clause, not just
+        # a conjoined noun phrase.
+        if tok.dep_ == "conj" and tok.head.dep_ in ("ROOT", "conj"):
+            if tok.pos_ in ("VERB", "AUX"):
+                has_conj_clause = True
+            elif any(child.dep_ in ("nsubj", "nsubjpass") for child in tok.children):
+                has_conj_clause = True
+
+        # Complex: subordinate clause dependencies
+        if tok.dep_ in ("advcl", "relcl", "ccomp", "acl"):
+            has_subordinate_clause = True
+
+    if has_conj_clause and has_subordinate_clause:
+        return "compound-complex"
+    elif has_conj_clause:
+        return "compound"
+    elif has_subordinate_clause:
+        return "complex"
+    else:
+        return "simple"
 
 
 def should_flag_sentence_initial_this(doc, s_start, s_end, tok_start) -> bool:
@@ -2312,6 +3513,7 @@ def analyze_text(
     intro_idx=0,
     config: MarkerConfig | None = None,
     prev_body_last_sentence_content_words: set[str] | None = None,
+    doc_total_word_count: int | None = None,
 ):
     """
     Phase 1 — Forbidden Words
@@ -2333,6 +3535,7 @@ def analyze_text(
     global BRIDGE_DEVICE_KEYS
     global FOUNDATION1_LABEL_TARGET
     global THESIS_TEXT_LOWER
+    global DOC_FIRST_SENTENCE_COMPONENTS
 
     if labels_used is None:
         labels_used = []
@@ -2351,6 +3554,16 @@ def analyze_text(
     # SPACY PROCESSING
     # -----------------------
     doc, tokens, sentences = spacy_parse(flat_text)
+
+    # Classify sentence types for this paragraph (simple/compound/complex/compound-complex)
+    global DOC_SENTENCE_TYPES
+    if paragraph_index is not None and sentences:
+        DOC_SENTENCE_TYPES[paragraph_index] = [
+            {"type": classify_sentence_type(doc, s_start, s_end),
+             "text": flat_text[s_start:s_end].strip()}
+            for s_start, s_end in sentences
+        ]
+
     last_sentence_content_words: set[str] = set()
     if sentences:
         last_start, last_end = sentences[-1]
@@ -2503,7 +3716,9 @@ def analyze_text(
                         "label": True,
                     })
             else:
-                if missing_intro_first_sentence_signals(doc, sentences, flat_text):
+                fs_check = missing_intro_first_sentence_signals(doc, sentences, flat_text)
+                DOC_FIRST_SENTENCE_COMPONENTS = fs_check
+                if fs_check["missing"]:
                     first_start, first_end = sentences[0]
                     anchor_pos = first_end
                     if INTRO_FIRST_SENTENCE_LABEL not in labels_used:
@@ -2620,44 +3835,32 @@ def analyze_text(
     # -----------------------
     # STRUCTURAL QUOTATION RULES (intro/body/conclusion)
     # -----------------------
-    def add_structural_mark(start, end, note, color=WD_COLOR_INDEX.GRAY_25):
+    def add_structural_mark(start, end, note, color=WD_COLOR_INDEX.GRAY_25, context=None):
         """
-        Helper to add a mark for structural quotation & thesis rules, ensuring we only
-        create a labeled yellow comment once per note across the document.
+        Helper to add a mark for structural quotation & thesis rules.
+        Every occurrence gets a yellow label for student clarity.
         Allows zero-length spans so we can attach label-only comments at the end
         of a paragraph without highlighting any characters.
+
+        Args:
+            context: Optional dict with contextual data (found_value, topics, confidence, etc.)
+                    for dynamic guidance placeholders
         """
         if start is None or end is None or start > end:
             return
 
-        # Always show a yellow label for Undeveloped paragraph in every paragraph
-        # and for the body-evidence rule in every paragraph that lacks quotations.
-        if note in {"Undeveloped paragraph", "Every paragraph needs evidence"}:
-            marks.append({
-                "start": start,
-                "end": end,
-                "note": note,
-                "color": color,
-                "label": True,
-            })
-            return
-
+        mark = {
+            "start": start,
+            "end": end,
+            "note": note,
+            "color": color,
+            "label": True,
+        }
+        if context:
+            mark.update(context)
+        marks.append(mark)
         if note not in labels_used:
-            marks.append({
-                "start": start,
-                "end": end,
-                "note": note,
-                "color": color,
-                "label": True,
-            })
             labels_used.append(note)
-        else:
-            marks.append({
-                "start": start,
-                "end": end,
-                "note": note,
-                "color": color,
-            })
 
     paragraph_role = get_paragraph_role(paragraph_index, intro_idx, total_paragraphs, config=config)
     num_sentences = len(sentences)
@@ -2973,7 +4176,9 @@ def analyze_text(
             and (not is_foundation3 or is_first_intro_para)
             and not getattr(config, "text_title", None)
         ):
-            if missing_intro_first_sentence_signals(doc, sentences, flat_text):
+            fs_check = missing_intro_first_sentence_signals(doc, sentences, flat_text)
+            DOC_FIRST_SENTENCE_COMPONENTS = fs_check
+            if fs_check["missing"]:
                 first_start, first_end = sentences[0]
                 anchor_pos = first_end
                 if INTRO_FIRST_SENTENCE_LABEL not in labels_used:
@@ -3071,6 +4276,10 @@ def analyze_text(
             if not is_foundation3 or is_last_intro_para:
                 thesis_sent_idx = len(sentences) - 1
 
+        # Track which sentences have already been flagged so we fire
+        # at most once per sentence (not once per quotation).
+        intro_flagged_sents = set()
+
         for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices):
             if sent_idx is None:
                 continue
@@ -3133,11 +4342,16 @@ def analyze_text(
             ):
                 continue
 
+            # Deduplicate: only fire once per sentence for the same rule
+            if sent_idx in intro_flagged_sents:
+                continue
+
             add_structural_mark(
                 q_start,
                 q_end,
                 quote_note,
             )
+            intro_flagged_sents.add(sent_idx)
 
         # -----------------------
         # THESIS STATEMENT CHECK (CLOSED THESIS)
@@ -3150,6 +4364,10 @@ def analyze_text(
             thesis_start, thesis_end = sentences[-1]
             thesis_text = flat_text[thesis_start:thesis_end].strip()
 
+            # Store thesis text globally for dynamic guidance
+            global THESIS_TEXT
+            THESIS_TEXT = thesis_text
+
             # Anchor for label-only comment placed "after" the paragraph.
             # For Foundation 2, anchor at the end of the thesis sentence instead.
             anchor_pos = thesis_end if config and config.mode == "foundation_2" else len(flat_text) + 1
@@ -3161,7 +4379,7 @@ def analyze_text(
             # EXCEPTION: Foundation 2 expects exactly 2 sentences (first sentence + thesis),
             # so we skip this rule for that mode.
             if len(sentences) == 2 and not (config and config.mode == "foundation_2"):
-                one_sentence_summary_note = "A one-sentence summary is always insufficient"
+                one_sentence_summary_note = ONE_SENTENCE_SUMMARY_LABEL
 
                 # Attach the label-only comment directly after the FIRST sentence
                 # (the introductory summary), not at the end of the paragraph.
@@ -3174,6 +4392,8 @@ def analyze_text(
                     "color": None,   # label-only, no highlight
                     "label": True,
                 })
+                if one_sentence_summary_note not in labels_used:
+                    labels_used.append(one_sentence_summary_note)
 
             # If the final sentence is a question, treat this as "no thesis".
             # (Thesis statements in this system cannot be questions.)
@@ -3416,6 +4636,10 @@ def analyze_text(
             last_start, last_end = sentences[last_idx]
             last_sentence_text = flat_text[last_start:last_end]
 
+        # Fire each positional rule at most once per paragraph (not per quotation).
+        topic_flagged = False
+        final_flagged = False
+
         for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices):
             if sent_idx is None:
                 continue
@@ -3424,7 +4648,7 @@ def analyze_text(
             quote_overlaps_topic = (
                 q_start < topic_end and q_end > topic_start
             )
-            
+
             if quote_overlaps_topic:
                 # Topic sentence – skip if the quotation is the teacher-supplied title
                 interior = flat_text[q_start:q_end].strip()
@@ -3433,11 +4657,13 @@ def analyze_text(
                 if is_probable_title_quote(interior, topic_sentence_text):
                     continue
 
-                add_structural_mark(
-                    q_start,
-                    q_end,
-                    "No quotations in topic sentences",
-                )
+                if not topic_flagged:
+                    add_structural_mark(
+                        q_start,
+                        q_end,
+                        "No quotations in topic sentences",
+                    )
+                    topic_flagged = True
             elif sent_idx == last_idx:
                 # Skip if this quotation is the teacher-supplied title
                 interior = flat_text[q_start:q_end].strip()
@@ -3446,11 +4672,13 @@ def analyze_text(
                 if is_probable_title_quote(interior, last_sentence_text):
                     continue
 
-                add_structural_mark(
-                    q_start,
-                    q_end,
-                    "No quotations in the final sentence of a body paragraph",
-                )
+                if not final_flagged:
+                    add_structural_mark(
+                        q_start,
+                        q_end,
+                        FINAL_SENTENCE_LABEL,
+                    )
+                    final_flagged = True
             else:
                 # Interior sentence: counts as a valid body quote
                 has_interior_quote = True
@@ -3612,11 +4840,30 @@ def analyze_text(
 
                     else:
                         # Default: attach label at end of topic sentence
+                        # Build context for dynamic guidance if this is a thesis organization issue
+                        context = None
+                        if label_text == "Follow the organization of the thesis":
+                            # Get the expected device for this body paragraph
+                            expected_device = None
+                            if body_idx is not None and 0 <= (body_idx - 1) < len(THESIS_DEVICE_SEQUENCE):
+                                expected_device = THESIS_DEVICE_SEQUENCE[body_idx - 1]
+
+                            # Build topics list from THESIS_TOPIC_ORDER or THESIS_DEVICE_SEQUENCE
+                            topics_list = THESIS_TOPIC_ORDER if THESIS_TOPIC_ORDER else THESIS_DEVICE_SEQUENCE
+
+                            context = {
+                                "found_value": expected_device,
+                                "topics": topics_list,
+                                "thesis": THESIS_TEXT,
+                                "confidence": "high"
+                            }
+
                         add_structural_mark(
                             anchor_pos,
                             anchor_pos,
                             label_text,
-                            color=None
+                            color=None,
+                            context=context
                         )
 
                 # ---------------------------------------------
@@ -3685,11 +4932,13 @@ def analyze_text(
                                 {
                                     "start": expected_start,
                                     "end": expected_end,
-                                    "note": "Move this to the topic sentence",
+                                    "note": MOVE_TO_TOPIC_LABEL,
                                     "color": WD_COLOR_INDEX.GRAY_25,
                                     "label": True,
                                 }
                             )
+                            if MOVE_TO_TOPIC_LABEL not in labels_used:
+                                labels_used.append(MOVE_TO_TOPIC_LABEL)
                         else:
                             # No occurrence anywhere else — classify based on topic sentence
                             if topic_devices & thesis_device_set:
@@ -3816,6 +5065,43 @@ def analyze_text(
                         q_start,
                         q_end,
                         "Shorten, modify, and integrate quotations",
+                    )
+
+        # MLA parenthetical citation check (Research paper mode)
+        # For each body-paragraph sentence that contains a quotation,
+        # verify that the sentence also contains a parenthetical citation
+        # of the form (...digit...) after the last closing quote mark.
+        if getattr(config, "enforce_mla_citation", False):
+            import re as _re
+            _citation_re = _re.compile(r'\([^)]*\d+[^)]*\)')
+            # Group quotes by sentence
+            _sent_quotes = {}
+            for (q_start, q_end), q_si in zip(spans, quote_sentence_indices):
+                if q_si is None:
+                    continue
+                _sent_quotes.setdefault(q_si, []).append((q_start, q_end))
+
+            for s_idx, qs in _sent_quotes.items():
+                # Skip first/last sentences (topic/final) and floating quotes
+                if s_idx == first_idx or s_idx == last_idx:
+                    continue
+                if s_idx in floating_sentence_indices:
+                    continue
+                if s_idx >= len(sentences):
+                    continue
+
+                s_start, s_end = sentences[s_idx]
+                # Get the last closing-quote position in this sentence
+                last_q_end = max(q_e for _, q_e in qs)
+                # Check text from after the last closing quote to end of sentence
+                after_quote = flat_text[last_q_end:s_end]
+                if not _citation_re.search(after_quote):
+                    # Place label at the last quotation in this sentence
+                    last_q_start = [q_s for q_s, q_e in qs if q_e == last_q_end][0]
+                    add_structural_mark(
+                        last_q_start,
+                        last_q_end,
+                        MLA_CITATION_LABEL,
                     )
 
         # ---------------------------------------------
@@ -4072,6 +5358,73 @@ def analyze_text(
                     "color": WD_COLOR_INDEX.GRAY_25,
                 })
 
+        # ---------------------------------------------
+        # Post-quotation explanation check:
+        # Flag sentences where a quotation ends without
+        # any meaningful analysis/explanation after it.
+        #
+        # Heuristic:
+        #   - Only interior sentences (not topic/final).
+        #   - Skip floating-quotation sentences (already flagged).
+        #   - Find the last quotation span in the sentence.
+        #   - Count alphabetic words after the closing quote
+        #     that are NOT inside parentheses (MLA citations)
+        #     and NOT inside other quote spans.
+        #   - If fewer than 3 such words, the evidence is
+        #     "dropped" without explanation.
+        # ---------------------------------------------
+        for idx_sent, (s_start, s_end) in enumerate(sentences):
+            if idx_sent == first_idx or idx_sent == last_idx:
+                continue
+            if idx_sent in floating_sentence_indices:
+                continue
+
+            # Collect all quotation spans in this sentence
+            sent_quote_spans = [
+                (q_start, q_end)
+                for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices)
+                if sent_idx == idx_sent
+            ]
+            if not sent_quote_spans:
+                continue
+
+            # Use the LAST quotation in the sentence
+            last_q_start, last_q_end = max(sent_quote_spans, key=lambda x: x[1])
+
+            # Count alphabetic words after the last quote's end, up to
+            # the sentence end. Skip tokens inside parentheses (citations)
+            # and tokens inside other quote spans.
+            in_parens = False
+            post_quote_words = 0
+            for tok in doc:
+                if tok.idx < last_q_end or tok.idx >= s_end:
+                    continue
+                # Track parentheses to skip MLA citations like (Smith 45)
+                if tok.text == "(":
+                    in_parens = True
+                    continue
+                if tok.text == ")":
+                    in_parens = False
+                    continue
+                if in_parens:
+                    continue
+                # Skip pure punctuation
+                if not any(ch.isalpha() for ch in tok.text):
+                    continue
+                # Skip tokens inside other quote spans
+                tok_start = tok.idx
+                if pos_in_spans(tok_start, spans):
+                    continue
+                post_quote_words += 1
+
+            if post_quote_words < 3:
+                # Highlight the quotation and attach the label
+                add_structural_mark(
+                    last_q_start,
+                    last_q_end,
+                    EXPLAIN_EVIDENCE_LABEL,
+                )
+
     elif paragraph_role == "conclusion":
         # New rule: Incomplete conclusion if there is only one sentence.
         # Attach a label-only comment after the paragraph (no highlight).
@@ -4086,6 +5439,8 @@ def analyze_text(
 
         # Rule 3: No quotations anywhere in the conclusion,
         # EXCEPT allow known titles quoted in the conclusion.
+        # Fire at most once per sentence (not per quotation).
+        conclusion_flagged_sents = set()
         for (q_start, q_end), sent_idx in zip(spans, quote_sentence_indices):
             if sent_idx is None:
                 continue
@@ -4097,11 +5452,15 @@ def analyze_text(
             if is_teacher_title_interior(interior):
                 continue
 
+            if sent_idx in conclusion_flagged_sents:
+                continue
+
             add_structural_mark(
                 q_start,
                 q_end,
                 "Avoid quotations in the conclusion",
             )
+            conclusion_flagged_sents.add(sent_idx)
 
     # -----------------------
     # -----------------------
@@ -4164,6 +5523,8 @@ def analyze_text(
 
             if should_flag:
                 # Pronoun at sentence start → Clarify pronouns and antecedents (TURQUOISE + label)
+                # Extract the actual pronoun for personalized guidance
+                pronoun_found = flat_text[tok_start:tok_end]
                 if rule_note_pronoun_antecedent not in labels_used:
                     marks.append({
                         "start": tok_start,
@@ -4171,6 +5532,7 @@ def analyze_text(
                         "note": rule_note_pronoun_antecedent,
                         "color": WD_COLOR_INDEX.TURQUOISE,
                         "label": True,
+                        "found_value": pronoun_found,
                     })
                     labels_used.append(rule_note_pronoun_antecedent)
                 else:
@@ -4179,12 +5541,13 @@ def analyze_text(
                         "end": tok_end,
                         "note": rule_note_pronoun_antecedent,
                         "color": WD_COLOR_INDEX.TURQUOISE,
+                        "found_value": pronoun_found,
                     })
 
     # -----------------------
     # AVOID BEGINNING A SENTENCE WITH A QUOTATION
     # -----------------------
-    rule_note_quotation_start = "Avoid beginning a sentence with a quotation"
+    rule_note_quotation_start = QUOTATION_START_LABEL
 
     # Only apply this rule to intro/body/conclusion paragraphs,
     # and never to the creative essay title line.
@@ -4273,9 +5636,6 @@ def analyze_text(
     # -----------------------
     rule_note_and = "Avoid using the word 'and' more than twice in a sentence"
 
-    # Have we already attached a yellow label for this rule anywhere in the document?
-    and_label_attached = rule_note_and in labels_used
-
     for (s_start, s_end) in sentences:
         and_tokens = []
 
@@ -4299,19 +5659,20 @@ def analyze_text(
         if len(and_tokens) > 2:
             # Highlight ALL 'and's in this sentence in TURQUOISE
             for idx, (tok_start, tok_end) in enumerate(and_tokens):
+                and_word_found = flat_text[tok_start:tok_end]
                 mark = {
                     "start": tok_start,
                     "end": tok_end,
                     "color": WD_COLOR_INDEX.TURQUOISE,
+                    "found_value": and_word_found,
                 }
 
-                # Attach a SINGLE yellow label to the LAST "and"
-                # in the FIRST offending sentence only
-                if not and_label_attached and idx == len(and_tokens) - 1:
+                # Attach yellow label to the LAST "and" in every offending sentence
+                if idx == len(and_tokens) - 1:
                     mark["note"] = rule_note_and
                     mark["label"] = True
-                    labels_used.append(rule_note_and)
-                    and_label_attached = True
+                    if rule_note_and not in labels_used:
+                        labels_used.append(rule_note_and)
 
                 marks.append(mark)
 
@@ -4346,27 +5707,28 @@ def analyze_text(
         "our": "No 'I', 'we', 'us', 'our' or 'you' in academic writing",
         "your": "No 'I', 'we', 'us', 'our' or 'you' in academic writing",
         "yours": "No 'I', 'we', 'us', 'our' or 'you' in academic writing",
-        "ethos": "Avoid the words 'ethos', 'pathos', and 'logos'",
-        "pathos": "Avoid the words 'ethos', 'pathos', and 'logos'",
-        "logos": "Avoid the words 'ethos', 'pathos', and 'logos'",
-        "very": "Avoid the words 'very' and 'a lot'",
-        "a lot": "Avoid the words 'very' and 'a lot'",
+        "ethos": "Avoid the word 'ethos'",
+        "pathos": "Avoid the word 'pathos'",
+        "logos": "Avoid the word 'logos'",
+        "very": "Avoid the word 'very'",
+        "a lot": "Avoid the phrase 'a lot'",
         "which": "Avoid the word 'which'",
-        "human": "Avoid using the words 'human', 'people', 'everyone', or 'individual'",
-        "people": "Avoid using the words 'human', 'people', 'everyone', or 'individual'",
-        "everyone": "Avoid using the words 'human', 'people', 'everyone', or 'individual'",
-        "individual": "Avoid using the words 'human', 'people', 'everyone', or 'individual'",
-        "fact": "Avoid the words 'fact', 'proof', and 'prove'",
-        "facts": "Avoid the words 'fact', 'proof', and 'prove'",
-        "proof": "Avoid the words 'fact', 'proof', and 'prove'",
-        "prove": "Avoid the words 'fact', 'proof', and 'prove'",
-        "proves": "Avoid the words 'fact', 'proof', and 'prove'",
-        "society": "Avoid overly general words like 'society', 'universe', 'reality', 'life', and 'truth'",
-        "universe": "Avoid overly general words like 'society', 'universe', 'reality', 'life', and 'truth'",
-        "life": "Avoid overly general words like 'society', 'universe', 'reality', 'life', and 'truth'",
-        "truth": "Avoid overly general words like 'society', 'universe', 'reality', 'life', and 'truth'",
-        "reality": "Avoid overly general words like 'society', 'universe', 'reality', 'life', and 'truth'",
-        "etc": "Avoid 'etc.' in academic writing",
+        "human": "Avoid the vague term 'human'",
+        "humans": "Avoid the vague term 'human'",
+        "people": "Avoid the vague term 'people'",
+        "everyone": "Avoid the vague term 'everyone'",
+        "individual": "Avoid the vague term 'individual'",
+        "fact": "Avoid the word 'fact'",
+        "facts": "Avoid the word 'fact'",
+        "proof": "Avoid the word 'proof'",
+        "prove": "Avoid the word 'prove'",
+        "proves": "Avoid the word 'prove'",
+        "society": "Avoid the vague term 'society'",
+        "universe": "Avoid the vague term 'universe'",
+        "life": "Avoid the vague term 'life'",
+        "truth": "Avoid the vague term 'truth'",
+        "reality": "Avoid the vague term 'reality'",
+        "etc": "Do not use 'etc.' at the end of a list",
         "audience": "Avoid referring to the reader or audience unless necessary",
         "audiences": "Avoid referring to the reader or audience unless necessary",
         "reader": "Avoid referring to the reader or audience unless necessary",
@@ -4390,7 +5752,7 @@ def analyze_text(
             forbidden.pop(key, None)
     # Optionally allow 'human', 'people', 'everyone', 'individual'
     if not getattr(config, "enforce_human_people_rule", True):
-        for key in ["human", "people", "everyone", "individual"]:
+        for key in ["human", "humans", "people", "everyone", "individual"]:
             forbidden.pop(key, None)
 
     # Optionally allow vague general nouns 'society', 'universe', 'reality', 'life', 'truth'
@@ -4663,6 +6025,8 @@ def analyze_text(
             continue
 
         rule_note = forbidden[word]
+        # Extract the actual forbidden word for personalized guidance
+        forbidden_word_found = flat_text[match_start:match_end]
         if rule_note not in labels_used:
             marks.append({
                 "start": match_start,
@@ -4670,6 +6034,7 @@ def analyze_text(
                 "note": rule_note,
                 "color": WD_COLOR_INDEX.GRAY_25,
                 "label": True,
+                "found_value": forbidden_word_found,
             })
             labels_used.append(rule_note)
         else:
@@ -4678,13 +6043,14 @@ def analyze_text(
                 "end": match_end,
                 "note": rule_note,
                 "color": WD_COLOR_INDEX.GRAY_25,
+                "found_value": forbidden_word_found,
             })
 
     # -----------------------
     # ABSOLUTE LANGUAGE (Precision Imprecise)
     # -----------------------
     absolute_terms = ["always", "never"]
-    rule_note_absolute = "Avoid absolute language like 'always' or 'never'"
+    rule_note_absolute = "Qualify language"  # Changed to match Excel file
     absolute_regex = re.compile(
         r"\b(" + "|".join(re.escape(term) for term in absolute_terms) + r")\b",
         re.IGNORECASE,
@@ -4697,11 +6063,14 @@ def analyze_text(
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
             continue
 
+        # Extract the actual absolute term for personalized guidance
+        absolute_found = flat_text[match_start:match_end]
         mark = {
             "start": match_start,
             "end": match_end,
             "note": rule_note_absolute,
             "color": WD_COLOR_INDEX.GRAY_25,
+            "found_value": absolute_found,
         }
         if not absolute_labeled:
             mark["label"] = True
@@ -4710,11 +6079,139 @@ def analyze_text(
         marks.append(mark)
 
     # -----------------------
-    # PHASE 1.5 — SUBJECT–VERB AGREEMENT (experimental)
+    # PHASE 1.5 — LANGUAGETOOL CHECKS
+    # -----------------------
+    # Skip grammar checks on essay title lines — titles are intentionally
+    # ungrammatical (fragments, creative phrasing) and should not be penalized.
+    _want_sva = getattr(config, "enforce_sva_rule", True)
+    _want_spelling = getattr(config, "enforce_spelling_rule", True)
+    _want_confused = getattr(config, "enforce_confused_words_rule", True)
+    _want_intro_comma = getattr(config, "enforce_intro_comma_rule", True)
+    _want_apostrophe = getattr(config, "enforce_apostrophe_rule", True)
+
+    _skip_lt = is_essay_title_line
+
+    if not _skip_lt and (_want_sva or _want_spelling or _want_confused or _want_intro_comma or _want_apostrophe):
+        _SVA_RULE_IDS = {
+            "AGREEMENT_SENT_START", "HE_VERB_AGR", "PERS_PRONOUN_AGREEMENT",
+            "THIS_NNS", "THERE_RE_MANY", "SINGULAR_NOUN_VERB_AGREEMENT",
+        }
+        _SVA_RULE_SUBSTRINGS = ("_AGREEMENT", "_AGR", "SUBJECT_VERB")
+        _SPELLING_RULE = "MORFOLOGIK_RULE_EN_US"
+        _CONFUSED_WORD_RULES = {
+            "THERE_THEIR", "ITS_TO_IT_S", "AFFECT_EFFECT", "LOOSE_LOSE",
+            "MODAL_OF", "SUPPOSE_TO", "BE_USE_TO_DO", "WANT_TO_NN",
+            "BETWEEN_YOU_AND_I", "FEWER_LESS",
+        }
+        _INTRO_COMMA_RULE = "SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA"
+
+        # Build a set of words from teacher-provided author names and titles
+        # so they are never flagged as spelling errors.
+        _config_words = set()
+        for _val in (
+            getattr(config, "author_name", None),
+            getattr(config, "author_name_2", None),
+            getattr(config, "author_name_3", None),
+            getattr(config, "text_title", None),
+            getattr(config, "text_title_2", None),
+            getattr(config, "text_title_3", None),
+        ):
+            if _val:
+                for _w in _val.split():
+                    _config_words.add(_w.lower().strip(".,;:!?\"'()[]"))
+        _APOSTROPHE_RULE = "POSSESSIVE_APOSTROPHE"
+
+        def _lt_mark(label, short, start, end):
+            """Build a LanguageTool mark dict and handle first-label vs repeat."""
+            m = {
+                "start": start, "end": end,
+                "note": label,
+                "color": WD_COLOR_INDEX.GRAY_25,
+                "found_value": flat_text[start:end],
+            }
+            if label not in labels_used:
+                m["label"] = True
+                labels_used.append(label)
+            else:
+                m["display_note"] = short
+                m["label"] = True
+            return m
+
+        try:
+            lt = get_language_tool()
+            if lt is not None:
+                lt_matches = lt.check(flat_text)
+                for match in lt_matches:
+                    rid = match.rule_id
+                    start = match.offset
+                    end = match.offset + match.error_length
+
+                    # Skip if inside a quotation span
+                    if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):
+                        continue
+
+                    # --- Subject-verb agreement ---
+                    if _want_sva:
+                        is_sva = (
+                            rid in _SVA_RULE_IDS
+                            or any(sub in rid for sub in _SVA_RULE_SUBSTRINGS)
+                        )
+                        if is_sva:
+                            marks.append(_lt_mark(SVA_LABEL, SVA_SHORT, start, end))
+                            continue
+
+                    # --- Confused words (curated list only) ---
+                    if _want_confused and rid in _CONFUSED_WORD_RULES:
+                        # Skip hyphenation-style flags (e.g. "side-effects" → "side effects")
+                        flagged_cw = flat_text[start:end]
+                        if "-" in flagged_cw:
+                            continue
+                        marks.append(_lt_mark(CONFUSED_WORD_LABEL, CONFUSED_WORD_SHORT, start, end))
+                        continue
+
+                    # --- Comma after introductory word ---
+                    if _want_intro_comma and rid == _INTRO_COMMA_RULE:
+                        marks.append(_lt_mark(INTRO_COMMA_LABEL, INTRO_COMMA_SHORT, start, end))
+                        continue
+
+                    # --- Possessive apostrophe ---
+                    if _want_apostrophe and rid == _APOSTROPHE_RULE:
+                        marks.append(_lt_mark(APOSTROPHE_LABEL, APOSTROPHE_SHORT, start, end))
+                        continue
+
+                    # --- Spelling errors (last — catch-all for MORFOLOGIK_RULE) ---
+                    if _want_spelling and rid == _SPELLING_RULE:
+                        flagged_word = flat_text[start:end]
+                        # Skip capitalized words (proper nouns: names, places, etc.)
+                        if flagged_word and flagged_word[0].isupper():
+                            continue
+                        # Skip words from teacher-provided author names and titles
+                        if flagged_word.lower().strip() in _config_words:
+                            continue
+                        # Skip words in our supplemental allowlist
+                        if flagged_word.lower().strip() in _SPELLING_ALLOWLIST:
+                            continue
+                        # Skip British/Australian spelling variants
+                        if _is_british_variant(flagged_word, match.replacements):
+                            continue
+                        # Skip valid morphological derivations (e.g. questionability → questionable)
+                        if _is_valid_derivation(flagged_word, lt):
+                            continue
+                        _sp_mark = _lt_mark(SPELLING_LABEL, SPELLING_SHORT, start, end)
+                        # Always show full label (not "sp") so students see "Spelling error" every time
+                        _sp_mark.pop("display_note", None)
+                        if match.replacements:
+                            _sp_mark["suggestions"] = match.replacements[:3]
+                        marks.append(_sp_mark)
+        except Exception as e:
+            print(f"[LanguageTool] check failed: {e}")
+
+    # -----------------------
+    # LEGACY PHASE 1.5 — SUBJECT–VERB AGREEMENT (experimental)
     # -----------------------
     """
     if getattr(config, "enforce_sva_rule", False):
-        rule_note_sva = "Check subject–verb agreement"
+        rule_note_sva = "Check subject-verb agreement"
         rule_note_sva_short = "s-v"
 
         def classify_subject_number(tok):
@@ -4972,6 +6469,7 @@ def analyze_text(
         "to summarize",
         "the use of",
         "successfully",
+        "masterfully",
     ]
     delete_phrases = sorted(
         set(p.strip() for p in delete_phrases if p.strip()),
@@ -5014,7 +6512,7 @@ def analyze_text(
             # no "label": this prevents a yellow arrow comment
         })
 
-    rule_note_in_conclusion = "Use a boundary statement to begin your conclusion"
+    rule_note_in_conclusion = "Use a boundary statement when transitioning between paragraphs"
 
     if paragraph_role == "conclusion" and sentences:
         first_start, first_end = sentences[0]
@@ -5050,7 +6548,7 @@ def analyze_text(
     # -----------------------
     # PHASE 5A — "The author" references (replace, don't delete)
     # -----------------------
-    rule_note_author_ref = "Use the author’s name instead of 'the author'"
+    rule_note_author_ref = AUTHOR_REF_LABEL
     author_regex = re.compile(r"\bthe\s+author(?:'s)?\b", re.IGNORECASE)
 
     for match in author_regex.finditer(flat_text):
@@ -5131,6 +6629,7 @@ def analyze_text(
         "throughout the narrative",
         "throughout the passage",
         "through this essay",
+        "through the essay",
         "throughout the text",
         "in the text",
         "in this quote",
@@ -5157,9 +6656,9 @@ def analyze_text(
             if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
                 continue
 
-            # Allow references to the essay in the FIRST sentence only
+            # Allow references to the essay in the FIRST sentence of INTRO only
             # (students often write "In this essay..." as part of genre naming)
-            if sentences:
+            if sentences and paragraph_role == "intro":
                 sent_idx = get_sentence_index_for_pos(match_start, sentences)
                 if sent_idx == 0 and "essay" in phrase.lower():
                     continue
@@ -5208,20 +6707,19 @@ def analyze_text(
     if getattr(config, "enforce_weak_verbs_rule", True):
         weak_verbs_regex = re.compile(
             r"\b("
-            r"show|shows|showed|showing|"
+            r"show|shows|showed|showing|shown|"
             r"use|uses|used|using|"
-            r"make|makes|made|making|"
-            r"do|does|did|doing|"
-            r"get|gets|got|getting|"
-            r"have|has|had|having"
+            r"demonstrate|demonstrates|demonstrated|demonstrating|"
+            r"emphasize|emphasizes|emphasized|emphasizing|"
+            r"represent|represents|represented|representing|"
+            r"state|states|stated|stating|"
+            r"symbolize|symbolizes|symbolized|symbolizing"
             r")\b",
             re.IGNORECASE
         )
 
         rule_note_weak_verbs = "Avoid weak verbs"
 
-        # Regression: "Not only does Selzer compare..." should not flag "does";
-        # control "Selzer does compare..." should still flag "does".
         for match in weak_verbs_regex.finditer(flat_text):
             match_start = match.start()
             match_end = match.end()
@@ -5229,23 +6727,48 @@ def analyze_text(
             # Special case: "the use of" is handled as a delete-phrase with
             # red strikethrough, so we do NOT also flag "use" as a weak verb there.
             word_lower = match.group(0).lower()
-            if word_lower == "use":
+            if word_lower in ("use", "uses"):
                 phrase_start = match_start - 4
                 phrase_end = match_end + 3
                 if phrase_start >= 0 and phrase_end <= len(flat_text):
                     if flat_text[phrase_start:phrase_end].lower() == "the use of":
                         continue
-            # Allow the set phrase "not only does/do/did"
-            if word_lower in ("do", "does", "did"):
-                before = flat_text[max(0, match_start - 30):match_start]
-                if re.search(r"\bnot\s+only\s*$", before, re.IGNORECASE):
+
+                # Skip noun compounds: "use value", "land use", "drug use", etc.
+                _use_noun_after = {"value", "values", "case", "cases", "rights"}
+                _use_noun_before = {"land", "drug", "substance", "water", "energy", "resource", "exchange"}
+                # Check word after "use"
+                after_space = flat_text[match_end:match_end + 1]
+                if after_space == " ":
+                    after_word_match = re.match(r"(\w+)", flat_text[match_end + 1:])
+                    if after_word_match and after_word_match.group(1).lower() in _use_noun_after:
+                        continue
+                # Check word before "use"
+                before_chunk = flat_text[max(0, match_start - 12):match_start].rstrip()
+                if before_chunk:
+                    before_word = before_chunk.split()[-1].lower() if before_chunk.split() else ""
+                    if before_word in _use_noun_before:
+                        continue
+
+            # Special case: skip "state"/"states" when used as a noun
+            # e.g. "the state of", "United States", "State government"
+            if word_lower in ("state", "states", "stated", "stating"):
+                matched_text = flat_text[match_start:match_end]
+                # Capitalised form is almost always a proper noun / place name
+                if matched_text[0].isupper():
+                    continue
+                after_end = match_end + 4
+                if after_end <= len(flat_text) and flat_text[match_end:after_end].lower() == " of ":
                     continue
 
             # Skip forbidden-term marking inside ANY quotation (BEFORE any other checks)
             if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
                 continue
 
-            display = "Avoid weak verbs (show, use, make, do, get, have)"
+            display = "Avoid weak verbs"
+            # Extract the actual weak verb for personalized guidance
+            weak_verb_found = flat_text[match_start:match_end]
+
             if rule_note_weak_verbs not in labels_used:
                 marks.append({
                     "start": match_start,
@@ -5253,7 +6776,8 @@ def analyze_text(
                     "note": rule_note_weak_verbs,
                     "display_note": display,
                     "color": WD_COLOR_INDEX.TURQUOISE,
-                    "label": True
+                    "label": True,
+                    "found_value": weak_verb_found
                 })
                 labels_used.append(rule_note_weak_verbs)
             else:
@@ -5261,15 +6785,103 @@ def analyze_text(
                     "start": match_start,
                     "end": match_end,
                     "note": rule_note_weak_verbs,
-                    "color": WD_COLOR_INDEX.TURQUOISE
+                    "color": WD_COLOR_INDEX.TURQUOISE,
+                    "found_value": weak_verb_found
                 })
+
+    # -----------------------
+    # PHASE 6B — NOUN REPETITION
+    # -----------------------
+    if getattr(config, "enforce_noun_repetition_rule", True):
+        global DOC_REPEATED_NOUNS
+        from collections import defaultdict
+        noun_occurrences = defaultdict(list)
+
+        # Parse with spaCy to extract nouns
+        for token in doc:
+            if token.pos_ != "NOUN":
+                continue
+
+            tok_start = token.idx
+            tok_end = token.idx + len(token.text)
+
+            # Skip inside quotes
+            if pos_in_spans(tok_start, spans) or pos_in_spans(tok_end - 1, spans):
+                continue
+
+            # Skip proper nouns (capitalized)
+            if token.text and token.text[0].isupper():
+                continue
+
+            lemma = token.lemma_.lower()
+            noun_occurrences[lemma].append((token.text, tok_start, tok_end))
+
+        # Determine threshold based on DOCUMENT word count (not paragraph)
+        word_count = doc_total_word_count if doc_total_word_count else len(flat_text.split())
+        if word_count < 300:
+            threshold = max(3, word_count // 100)
+        elif word_count <= 700:
+            threshold = 5
+        else:
+            threshold = 6 + (word_count - 700) // 200
+
+        rule_note_repetition = "Noun repetition"
+
+        # Mark repeated nouns
+        for lemma, occurrences in noun_occurrences.items():
+            if len(occurrences) >= threshold:
+                for idx, (original_form, start, end) in enumerate(occurrences):
+                    display = f"Avoid repeating '{lemma}' ({len(occurrences)} times)"
+
+                    if idx == 0 and rule_note_repetition not in labels_used:
+                        # First occurrence: add label
+                        marks.append({
+                            "start": start,
+                            "end": end,
+                            "note": rule_note_repetition,
+                            "display_note": display,
+                            "color": GRAMMAR_REPETITION,
+                            "label": True,
+                            "found_value": f"{lemma} ({len(occurrences)})",
+                            "count": len(occurrences),
+                        })
+                        labels_used.append(rule_note_repetition)
+                    else:
+                        # Subsequent occurrences
+                        marks.append({
+                            "start": start,
+                            "end": end,
+                            "note": rule_note_repetition,
+                            "color": GRAMMAR_REPETITION,
+                            "found_value": lemma,
+                            "count": len(occurrences),
+                        })
+
+        # Accumulate ALL noun occurrences across paragraphs (no threshold gate).
+        # Document-level threshold filtering happens after the paragraph loop.
+        existing_nouns = {item["lemma"]: item for item in DOC_REPEATED_NOUNS}
+
+        for lemma, occurrences in noun_occurrences.items():
+            if lemma in existing_nouns:
+                existing_nouns[lemma]["count"] += len(occurrences)
+                existing_nouns[lemma]["forms"].extend([occ[0] for occ in occurrences])
+                existing_nouns[lemma]["forms"] = list(set(existing_nouns[lemma]["forms"]))
+            else:
+                existing_nouns[lemma] = {
+                    "lemma": lemma,
+                    "count": len(occurrences),
+                    "forms": list(set(occ[0] for occ in occurrences))
+                }
+
+        DOC_REPEATED_NOUNS = list(existing_nouns.values())
+        DOC_REPEATED_NOUNS.sort(key=lambda x: -x["count"])
 
     # -----------------------
     # PHASE 7 — NUMBER RULE (1–10)
     # -----------------------
     number_regex = re.compile(r"\b(1|2|3|4|5|6|7|8|9|10)\b")
 
-    rule_note_number = "Write out the numbers one through ten"
+    rule_note_number = NUMBER_RULE_LABEL
 
     MONTH_RE = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?"
     DATE_RE = re.compile(rf"\b{MONTH_RE}\s+(?:[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?\b")
@@ -5368,6 +6980,24 @@ def analyze_text(
 
         return True
 
+    def _is_comma_formatted_number(text: str, m_start: int, m_end: int) -> bool:
+        """Return True if the digit at [m_start:m_end) is part of a comma-formatted number like 3,200 or 10,000."""
+        if m_end < len(text) and text[m_end] == ',':
+            rest = text[m_end + 1:]
+            if len(rest) >= 3 and rest[:3].isdigit() and (len(rest) == 3 or not rest[3].isdigit()):
+                return True
+        return False
+
+    def _is_decimal_number(text: str, m_start: int, m_end: int) -> bool:
+        """Return True if the digit at [m_start:m_end) is part of a decimal like 1.3 or 4.2."""
+        # Digit before a decimal point with another digit after: "3.5"
+        if m_end < len(text) and text[m_end] == '.' and m_end + 1 < len(text) and text[m_end + 1].isdigit():
+            return True
+        # Digit after a decimal point: the ".3" in "1.3"
+        if m_start > 0 and text[m_start - 1] == '.' and m_start >= 2 and text[m_start - 2].isdigit():
+            return True
+        return False
+
     if os.getenv("VYSTI_SELF_CHECK_ONE_THROUGH_TEN") == "1":
         checks = [
             ("I have 5 reasons.", True),
@@ -5376,6 +7006,13 @@ def analyze_text(
             ("Lines 3-5 show the shift.", False),
             ("Line 4 shows the shift.", False),
             ("This is supported (5).", False),
+            ("The city has 3,200 residents.", False),
+            ("He earned $1,000 last month.", False),
+            ("The population reached 10,000.", False),
+            ("She read 3 books.", True),
+            ("About 1.3 million people.", False),
+            ("She had a 3.5 GPA.", False),
+            ("See Section 4.2 for details.", False),
         ]
         for sample_text, should_flag in checks:
             flagged = False
@@ -5383,6 +7020,10 @@ def analyze_text(
                 if is_exempt_one_through_ten(sample_text, m.start(), m.end()):
                     continue
                 if is_parenthetical_citation(sample_text, m.start(), m.end()):
+                    continue
+                if _is_comma_formatted_number(sample_text, m.start(), m.end()):
+                    continue
+                if _is_decimal_number(sample_text, m.start(), m.end()):
                     continue
                 flagged = True
                 break
@@ -5401,6 +7042,18 @@ def analyze_text(
             continue
 
         if is_exempt_one_through_ten(flat_text, match_start, match_end):
+            continue
+
+        # Skip numbers that are part of comma-formatted numbers (e.g., 3,200 or 10,000)
+        if match_end < len(flat_text) and flat_text[match_end] == ',':
+            rest = flat_text[match_end + 1:]
+            if len(rest) >= 3 and rest[:3].isdigit() and (len(rest) == 3 or not rest[3].isdigit()):
+                continue
+
+        # Skip numbers that are part of decimal numbers (e.g., 1.3, 3.5, 4.2)
+        if match_end < len(flat_text) and flat_text[match_end] == '.' and match_end + 1 < len(flat_text) and flat_text[match_end + 1].isdigit():
+            continue
+        if match_start > 0 and flat_text[match_start - 1] == '.' and match_start >= 2 and flat_text[match_start - 2].isdigit():
             continue
 
         # Skip parenthetical citations like (1) or (1-3)
@@ -5739,9 +7392,10 @@ def analyze_text(
     return marks, flat_text, segments, sentences, last_sentence_content_words
 
 
-# Constants for quotation label insertion
-CLOSING_QUOTE_CHARS = {'"', '"', "'", "'"}
-TRAILING_QUOTE_PUNCT = {",", ".", "!", "?", ";", ":"}
+# Constants for label insertion — labels always go AFTER trailing punctuation.
+# Single unified set so we consume ANY mix of quotes + punctuation in one pass
+# (handles ".", .", ".", ."  etc.)
+LABEL_SKIP_CHARS = {'"', '"', "'", "'", ",", ".", "!", "?", ";", ":"}
 
 
 def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph_index=None):
@@ -5840,11 +7494,18 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
                 continue  # Skip if we've reached the cap for this label
             
             # Append example
-            DOC_EXAMPLES.append({
+            example = {
                 "label": note,
                 "sentence": sentence_text,
                 "paragraph_index": paragraph_index,
-            })
+            }
+
+            # Transfer context fields from mark to example for dynamic guidance
+            for field in ["found_value", "topics", "thesis", "confidence", "original_phrase", "suggestions", "count"]:
+                if field in mark:
+                    example[field] = mark[field]
+
+            DOC_EXAMPLES.append(example)
             # Update counts and hashes
             DOC_EXAMPLE_COUNTS[note] = current_count + 1
             DOC_EXAMPLE_SENT_HASHES.add(hash_key)
@@ -5887,7 +7548,9 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
 
             # Apply highlight
             if color is not None:
-                if color == GRAMMAR_ORANGE:
+                if color == GRAMMAR_REPETITION:
+                    pass  # No Word highlight — frontend toggle handles it
+                elif color == GRAMMAR_ORANGE:
                     # Grammar issues: DARK BLUE highlight + WHITE font (Word-safe)
                     r.font.highlight_color = WD_COLOR_INDEX.DARK_BLUE
                     r.font.color.rgb = RGBColor(255, 255, 255)
@@ -5972,23 +7635,46 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
             continue
         cur = merged_marks[-1]
         if marks_overlap(cur, m):
-            # Overlapping marks – merge spans and metadata
-            cur["end"] = max(cur["end"], m["end"])
-            # Prefer to keep any existing note/label; otherwise adopt new one
-            if m.get("label"):
-                cur["label"] = True
-                if not cur.get("note") and m.get("note"):
+            same_color = cur.get("color") == m.get("color")
+            if same_color:
+                # Same color → merge spans and metadata (original behavior)
+                cur["end"] = max(cur["end"], m["end"])
+                # Prefer to keep any existing note/label; otherwise adopt new one
+                if m.get("label"):
+                    cur["label"] = True
+                    if not cur.get("note") and m.get("note"):
+                        cur["note"] = m["note"]
+                elif m.get("note") and not cur.get("note"):
                     cur["note"] = m["note"]
-            elif m.get("note") and not cur.get("note"):
-                cur["note"] = m["note"]
-            # Strikethrough if either mark wants it
-            if m.get("strike"):
-                cur["strike"] = True
-            # Preserve an explicit color if we don't already have one
-            if cur.get("color") is None and m.get("color") is not None:
-                cur["color"] = m["color"]
+                # Strikethrough if either mark wants it
+                if m.get("strike"):
+                    cur["strike"] = True
+                # Preserve an explicit color if we don't already have one
+                if cur.get("color") is None and m.get("color") is not None:
+                    cur["color"] = m["color"]
+            else:
+                # Different colors → don't merge; trim the later mark so it
+                # starts after the current one (prevents label-span widening,
+                # e.g. a pronoun TURQUOISE mark absorbing a GRAY_25 evidence
+                # highlight and dragging the label across the whole phrase).
+                trimmed_start = max(m["start"], cur["end"])
+                if trimmed_start < m["end"]:
+                    m["start"] = trimmed_start
+                    merged_marks.append(m)
+                elif m.get("note"):
+                    # Mark was fully subsumed but carries a label —
+                    # keep it as a zero-length anchor at cur's end
+                    m["start"] = cur["end"]
+                    m["end"] = cur["end"]
+                    merged_marks.append(m)
         else:
             merged_marks.append(m)
+
+    # DEBUG: log all marks with notes to verify label rendering
+    for _dbg_mark in merged_marks:
+        _dbg_note = _dbg_mark.get("note")
+        if _dbg_note:
+            print(f"[LABEL DEBUG] note='{_dbg_note}' label_flag={_dbg_mark.get('label')} start={_dbg_mark.get('start')} end={_dbg_mark.get('end')} para={paragraph_index}")
 
     cursor = 0
     for mark in merged_marks:
@@ -5996,8 +7682,8 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
         end = mark["end"]
         note = mark.get("note")
         color = mark.get("color", None)
-        is_label = bool(mark.get("label"))
-        is_quote_label = bool(note and is_label and "quotation" in note.lower())
+        # Every mark with a note gets a yellow label for student clarity
+        is_label = bool(note)
 
         # Clamp into the bounds of flat_text; anchors past the end become len(flat_text)
         mark_start = max(0, min(start, text_len))
@@ -6040,7 +7726,9 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
         # Handle labels
         if note and is_label:
             if not mark.get("praise") and APPROVED_LABELS is not None and note not in APPROVED_LABELS:
+                print(f"[LABEL DEBUG] SKIPPED (not in APPROVED_LABELS): '{note}'")
                 continue
+            print(f"[LABEL DEBUG] RENDERING label: '{note}' at pos {mark_start}-{mark_end} para={paragraph_index}")
             # Praise labels (e.g. "Good paragraph.") get green; all others stay yellow.
             label_color = (
                 WD_COLOR_INDEX.BRIGHT_GREEN
@@ -6048,32 +7736,19 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
                 else WD_COLOR_INDEX.YELLOW
             )
 
-            if is_quote_label:
-                # For quotation rules, move the label AFTER the closing quote if it is next
-                if cursor < len(flat_text) and flat_text[cursor] in CLOSING_QUOTE_CHARS:
-                    append_text_with_italics(
-                        paragraph,
-                        flat_text,
-                        cursor,
-                        cursor + 1,
-                        original_italic_spans,
-                        color=None,
-                        strike=False,
-                    )
-                    cursor += 1
-
-                    # Optional but recommended: keep punctuation immediately after the closing quote attached
-                    while cursor < len(flat_text) and flat_text[cursor] in TRAILING_QUOTE_PUNCT:
-                        append_text_with_italics(
-                            paragraph,
-                            flat_text,
-                            cursor,
-                            cursor + 1,
-                            original_italic_spans,
-                            color=None,
-                            strike=False,
-                        )
-                        cursor += 1
+            # Move label AFTER any trailing quotes and punctuation (in any order)
+            # so labels never intrude into "word"." or "word." patterns
+            while cursor < len(flat_text) and flat_text[cursor] in LABEL_SKIP_CHARS:
+                append_text_with_italics(
+                    paragraph,
+                    flat_text,
+                    cursor,
+                    cursor + 1,
+                    original_italic_spans,
+                    color=None,
+                    strike=False,
+                )
+                cursor += 1
 
             # Build the label run
             # NOTE: Label runs are Vysti-generated and should NOT inherit student italics,
@@ -6109,116 +7784,36 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
         )
 
 
-def add_summary_table(doc, labels, rules, issue_counts=None):
-
+def _write_html_explanation(paragraph, text):
     """
-    Append a summary section of all yellow-labeled rules used in the document.
-
-    `labels` is the list of rule-label strings that were actually used
-    (labels_used), and `rules` is the dict returned by load_rules:
-        short_label -> explanation
+    Write explanation text to a Word paragraph, converting <strong> tags to
+    bold runs and stripping other HTML.  Also replaces {FOUND} with a generic
+    phrase since the summary table is label-level, not instance-level.
     """
-    # Deduplicate while preserving order
-    unique_labels = []
-    for lbl in labels:
-        if lbl and lbl not in unique_labels:
-            unique_labels.append(lbl)
+    import re as _re
 
-    # If there are no issue labels, do NOT add any summary block at all.
-    if not unique_labels:
-        return
+    # Replace {FOUND} (with or without <strong> wrapper) with plain fallback
+    text = _re.sub(r"<strong>\{FOUND\}</strong>", "that word or phrase", text)
+    text = text.replace("{FOUND}", "that word or phrase")
+    text = text.replace("{COUNT}", "several")
 
-    # Sort issues alphabetically by their first word ("Avoid", "Clarify", etc.)
-    unique_labels_sorted = sorted(unique_labels, key=lambda s: s.split()[0].lower())
+    # Split on <strong>...</strong> boundaries, preserving content
+    parts = _re.split(r"(<strong>.*?</strong>)", text)
 
-    # Spacer before summary
-    doc.add_paragraph()
-
-    # -----------------------
-    # Summary table: Issue | Explanation
-    # With a blank row after each Issue/Explanation pair for visual separation.
-    # -----------------------
-    num_pairs = len(unique_labels_sorted)
-    # We want:
-    #   header row
-    #   blank spacer row after header
-    #   (issue/explanation row + blank row) * N
-    total_rows = num_pairs * 2 + 2
-    table = doc.add_table(rows=total_rows, cols=2)
-    table.alignment = WD_TABLE_ALIGNMENT.LEFT
-
-    # Make Issue column narrower than Explanation column
-    table.autofit = False
-    issue_width = Inches(1.8)
-    expl_width = Inches(4.8)
-
-    # python-docx is a little fussy: set both column and cell widths
-    for col, width in zip(table.columns, (issue_width, expl_width)):
-        col.width = width
-        for cell in col.cells:
-            cell.width = width
-
-    # Header row
-    hdr = table.rows[0].cells
-    hdr[0].text = "Issue"
-    hdr[1].text = "Explanation"
-
-    # Make sure the Issue header is left-aligned
-    for p in hdr[0].paragraphs:
-        p.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-
-    # Data rows, with one blank row after each for spacing
-    row_idx = 2   # instead of 1
-    for lbl in unique_labels_sorted:
-        issue_cell, expl_cell = table.rows[row_idx].cells
-
-        # ISSUE cell: build with runs so we can attach a bookmark
-        issue_p = issue_cell.paragraphs[0]
-        issue_p.text = ""
-        issue_p.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-        issue_run = issue_p.add_run(lbl)
-        enforce_font(issue_run)
-        cnt = (issue_counts or {}).get(lbl, 0)
-        cnt_run = issue_p.add_run(f" ({cnt})")
-        enforce_font(cnt_run)
-
-
-        # Attach a bookmark to this Issue paragraph so yellow labels can link to it
-        bmk_name = bookmark_name_for_label(lbl)
-        add_bookmark_to_paragraph(issue_p, bmk_name)
-
-        # EXPLANATION cell
-        explanation = rules.get(lbl, "")
-
-        # Special case: make the Power Verbs explanation a hyperlink
-        if lbl in ("Avoid weak verbs", "Refer to the Power Verbs list"):
-            expl_p = expl_cell.paragraphs[0]
-            expl_p.text = ""
-
-            link_text = explanation or "Download the Power Verbs here"
-            run = expl_p.add_run(link_text)
+    for part in parts:
+        m = _re.match(r"<strong>(.*?)</strong>", part)
+        if m:
+            # Bold run (strip any nested HTML)
+            inner = _re.sub(r"<[^>]+>", "", m.group(1))
+            run = paragraph.add_run(inner)
+            run.font.bold = True
             enforce_font(run)
-
-            wrap_run_in_external_link(
-                expl_p,
-                run,
-                "https://www.vysti.org/resources",
-            )
         else:
-            expl_cell.text = explanation if explanation is not None else ""
-
-        # Next row (row_idx + 1) is intentionally left blank as a spacer
-        row_idx += 2
-
-    # Ensure Times New Roman 12pt for everything in the table,
-    # and make the header row bold.
-    for r_idx, row in enumerate(table.rows):
-        for cell in row.cells:
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    enforce_font(run)
-                    if r_idx == 0:
-                        run.font.bold = True
+            # Plain text — strip any stray HTML tags
+            plain = _re.sub(r"<[^>]+>", "", part)
+            if plain:
+                run = paragraph.add_run(plain)
+                enforce_font(run)
 
 
 def title_needs_capitalization_fix(title_str: str) -> bool:
@@ -6687,10 +8282,284 @@ def detect_mla_header_indices(real_paragraphs, config: MarkerConfig | None = Non
     return header_indices
 
 
+# ── Bibliography / Works Cited detection ─────────────────────────────
+# Headings that signal the start of a bibliography section.
+_BIBLIOGRAPHY_HEADINGS = {
+    "works cited",
+    "bibliography",
+    "references",
+    "works consulted",
+    "sources cited",
+    "sources",
+    "works referenced",
+    "cited works",
+    "reference list",
+}
+
+# Regex for the heading line: optional leading/trailing punctuation & whitespace.
+import re as _re
+_BIBLIOGRAPHY_HEADING_RE = _re.compile(
+    r"^\s*(" + "|".join(_re.escape(h) for h in _BIBLIOGRAPHY_HEADINGS) + r")\s*[:.]?\s*$",
+    _re.IGNORECASE,
+)
+
+# Regex for a typical MLA / APA citation entry (fallback when heading is absent).
+# Matches patterns like:  LastName, FirstName. "Title." …
+_CITATION_ENTRY_RE = _re.compile(
+    r'^[A-Z][a-z]+,\s+[A-Z].*?\.\s+".*?"',
+)
+
+
+def detect_bibliography_indices(real_paragraphs, config=None):
+    """
+    Return a set of paragraph indices (in the real_paragraphs list) that form
+    a bibliography / Works Cited / References section at the end of the document.
+
+    Once a bibliography heading is found, that paragraph and ALL subsequent
+    paragraphs are included in the returned set.
+
+    To avoid false positives, headings are only recognized in the back half of
+    the document (index > len // 2).
+
+    As a fallback, if no heading is found but the last few paragraphs look like
+    MLA/APA citation entries, those are included too.
+    """
+    total = len(real_paragraphs)
+    if total < 3:
+        return set()
+
+    half = total // 2
+    bibliography_start = None
+
+    # ── Primary: look for a bibliography heading ──
+    for new_idx, (old_idx, p) in enumerate(real_paragraphs):
+        if new_idx <= half:
+            continue
+
+        flat_text, _ = flatten_paragraph_without_labels(p)
+        text = flat_text.strip()
+        if not text:
+            continue
+
+        # Short line matching a known heading
+        if len(text) < 60 and _BIBLIOGRAPHY_HEADING_RE.match(text):
+            bibliography_start = new_idx
+            break
+
+    # ── Fallback: detect trailing citation entries without a heading ──
+    if bibliography_start is None:
+        # Check the last 5 paragraphs for citation-shaped lines
+        trailing_citations = []
+        for new_idx in range(max(half, total - 5), total):
+            _, p = real_paragraphs[new_idx]
+            flat_text, _ = flatten_paragraph_without_labels(p)
+            text = flat_text.strip()
+            if text and _CITATION_ENTRY_RE.match(text):
+                trailing_citations.append(new_idx)
+
+        # Only treat as bibliography if we find 2+ consecutive citation entries
+        # at the very end of the document
+        if len(trailing_citations) >= 2 and trailing_citations[-1] == total - 1:
+            bibliography_start = trailing_citations[0]
+
+    if bibliography_start is None:
+        return set()
+
+    return set(range(bibliography_start, total))
+
+
+def _find_last_sentence_start(text, quote_spans):
+    """
+    Return the character index where the last sentence begins, using simple
+    punctuation-based splitting (same approach as intro detection in STEP 2).
+    Sentence endings are `.`, `?`, `!` outside quote spans.
+
+    For "First sentence. Second sentence. Third sentence." this returns the
+    index of 'T' in "Third sentence." — i.e. the position after the
+    second-to-last sentence ending (skipping whitespace).
+    """
+    prev_end = 0   # position after the second-to-last sentence ending
+    last_end = 0   # position after the most recent sentence ending
+    for i, ch in enumerate(text):
+        if ch in {".", "?", "!"} and not pos_in_spans(i, quote_spans):
+            prev_end = last_end
+            last_end = i + 1
+    # The last sentence starts after the second-to-last ending
+    start = prev_end
+    while start < len(text) and text[start] in {" ", "\t", "\n", "\r"}:
+        start += 1
+    return start
+
+
+def _text_has_device_words(text):
+    """
+    Return True if any whitespace-delimited word in *text* (lowercased)
+    matches a single-word entry in THESIS_DEVICE_WORDS.
+    """
+    words = text.lower().split()
+    for w in words:
+        # Strip trailing punctuation so "imagery," or "symbolism." still match
+        stripped = w.rstrip(".,;:!?\"'""''")
+        if stripped in THESIS_DEVICE_WORDS:
+            return True
+    return False
+
+
+def detect_frame_intro_shift(real_paragraphs, intro_idx, header_indices, bibliography_indices, config):
+    """
+    Detect a Frame essay where paragraph 1 is a literary frame (philosophical,
+    quotation-based, or narrative) and the real introduction — with author,
+    title, and thesis — begins in the next paragraph.
+
+    Detection criteria (all must be met):
+      1. Intro quote rule is NOT enforced (analytic_frame or allowIntroQuotes toggle).
+      2. Current intro paragraph lacks "intro character" for the primary text
+         (no teacher-supplied author name, no text title in quotes, no genre word
+         paired with author). This identifies it as a frame rather than the real intro.
+      3. Current intro's last sentence has NO device/strategy words (no closed thesis).
+      4. Next real paragraph's first sentence has intro character:
+         - title in quotes (TITLE_QUOTE_PATTERN), OR
+         - genre word (GENRE_PATTERN) + teacher-supplied author name
+      5. Next real paragraph's last sentence has device/strategy words (thesis candidate).
+
+    Returns the shifted intro_idx if a frame essay is detected,
+    otherwise returns the original intro_idx unchanged.
+    """
+    if config is None or intro_idx is None:
+        return intro_idx
+
+    # Gate: only run when intro quote rule is disabled
+    if getattr(config, "enforce_intro_quote_rule", True):
+        return intro_idx
+
+    # ── Extract current intro paragraph text ──
+    _, intro_para = real_paragraphs[intro_idx]
+    intro_text, _ = flatten_paragraph_without_labels(intro_para)
+    intro_text = intro_text.strip()
+    if not intro_text:
+        return intro_idx
+
+    # Condition 1: current intro lacks intro character for the primary text.
+    # A real introduction mentions the author/title AND has a thesis;
+    # a frame paragraph (philosophical, narrative, contextual) typically does not.
+    intro_lower = intro_text.lower()
+
+    # Only check teacher-supplied author names (not auto-guessed ones).
+    # An auto-guessed author may come FROM the frame paragraph itself
+    # (e.g. "Wittgenstein" guessed from a philosophical frame), making the
+    # check circular and defeating frame detection.
+    intro_has_author = False
+    if getattr(config, "_author_is_teacher_supplied", False):
+        for name in (
+            getattr(config, "author_name", None),
+            getattr(config, "author_name_2", None),
+            getattr(config, "author_name_3", None),
+        ):
+            if name and name.lower() in intro_lower:
+                intro_has_author = True
+                break
+            if name and " " in name:
+                last_name = name.strip().split()[-1]
+                if last_name.lower() in intro_lower:
+                    intro_has_author = True
+                    break
+
+    intro_has_title = bool(TITLE_QUOTE_PATTERN.search(intro_text))
+
+    # Check if last sentence has device/strategy words (thesis candidate)
+    intro_quote_spans = compute_quote_spans(intro_text)
+    last_sent_start = _find_last_sentence_start(intro_text, intro_quote_spans)
+    last_sentence = intro_text[last_sent_start:] if last_sent_start < len(intro_text) else intro_text
+    intro_has_thesis = _text_has_device_words(last_sentence)
+
+    # A real intro has BOTH intro character (author/title) AND a thesis.
+    # A frame paragraph may reference an author for context but will lack
+    # a title in quotes and a closed thesis with device words.
+    # Title in quotes is a strong signal on its own — if present with thesis, it's real.
+    # Author alone is not enough (frame may mention a philosopher, critic, etc.)
+    if intro_has_title and intro_has_thesis:
+        return intro_idx  # Has title in quotes + thesis → real intro, not a frame
+    if intro_has_author and intro_has_title:
+        return intro_idx  # Has author + title → real intro, not a frame
+    if intro_has_author and intro_has_thesis:
+        return intro_idx  # Has teacher-supplied author + thesis → real intro
+
+    # ── Find the candidate "next" paragraph ──
+    candidate_idx = None
+    for idx in range(intro_idx + 1, len(real_paragraphs)):
+        if idx in header_indices or idx in bibliography_indices:
+            continue
+        _, p = real_paragraphs[idx]
+        flat, _ = flatten_paragraph_without_labels(p)
+        if not flat.strip():
+            continue
+        if is_probable_title_paragraph(p, config=config):
+            continue
+        candidate_idx = idx
+        break
+
+    if candidate_idx is None:
+        return intro_idx
+
+    # ── Analyze candidate paragraph ──
+    _, cand_para = real_paragraphs[candidate_idx]
+    cand_text, _ = flatten_paragraph_without_labels(cand_para)
+    cand_text = cand_text.strip()
+    if not cand_text:
+        return intro_idx
+
+    cand_quote_spans = compute_quote_spans(cand_text)
+
+    # Find first sentence of candidate (text up to first sentence-ending outside quotes)
+    first_sent_end = None
+    for i, ch in enumerate(cand_text):
+        if ch in {".", "?", "!"} and not pos_in_spans(i, cand_quote_spans):
+            first_sent_end = i + 1
+            break
+    first_sentence = cand_text[:first_sent_end] if first_sent_end else cand_text
+
+    # Condition 3: first sentence has intro character
+    has_title_in_quotes = bool(TITLE_QUOTE_PATTERN.search(first_sentence))
+    has_genre = bool(GENRE_PATTERN.search(first_sentence))
+
+    # Check for teacher-supplied author name(s)
+    has_author = False
+    first_lower = first_sentence.lower()
+    for name in (
+        getattr(config, "author_name", None),
+        getattr(config, "author_name_2", None),
+        getattr(config, "author_name_3", None),
+    ):
+        if name and name.lower() in first_lower:
+            has_author = True
+            break
+        # Also check last-name only (e.g. "Orwell" from "George Orwell")
+        if name and " " in name:
+            last_name = name.strip().split()[-1]
+            if last_name.lower() in first_lower:
+                has_author = True
+                break
+
+    intro_character = has_title_in_quotes or (has_genre and has_author)
+    if not intro_character:
+        return intro_idx
+
+    # Condition 4: candidate's last sentence has device/strategy words
+    cand_last_start = _find_last_sentence_start(cand_text, cand_quote_spans)
+    cand_last_sentence = cand_text[cand_last_start:] if cand_last_start < len(cand_text) else cand_text
+    if not _text_has_device_words(cand_last_sentence):
+        return intro_idx
+
+    # All conditions met — shift intro to the candidate paragraph
+    return candidate_idx
+
+
 def extract_summary_metadata(doc: Document) -> dict:
     """
-    Read the summary table that add_summary_table() injects at the end of the document
-    and return it as a simple JSON-friendly structure.
+    Read the legacy summary table from the end of the document and return it
+    as a simple JSON-friendly structure.  New documents no longer include
+    a summary table, but this function is kept for backward compatibility
+    with previously-marked documents (e.g. the /upload-marked endpoint).
 
     Scans tables from the END backwards and picks the first table whose header row
     is exactly "Issue" and "Explanation".
@@ -7030,7 +8899,35 @@ def mark_docx_bytes(
             if hasattr(config, key):
                 setattr(config, key, value)
 
+    # Track whether author was teacher-supplied (vs auto-guessed).
+    # Frame detection needs this: an auto-guessed author may come FROM the
+    # frame paragraph itself, which would defeat frame detection.
+    if config.author_name:
+        config._author_is_teacher_supplied = True
+
     config.student_mode = not include_summary_table
+
+    # 1b. Auto-detect author/title from the essay text so that
+    #     is_teacher_title_interior() can exempt the guessed title
+    #     during the FIRST mark (not only on recheck).
+    #     Only fills in values that weren't already teacher-supplied.
+    if not config.text_title:
+        try:
+            pre_doc = Document(BytesIO(docx_bytes))
+            pre_text_parts = []
+            for para in pre_doc.paragraphs:
+                t = para.text.strip()
+                if t:
+                    pre_text_parts.append(t)
+            pre_text = "\n".join(pre_text_parts)
+            guesses = guess_author_and_title(pre_text)
+            if guesses["guessed_title"]:
+                config.text_title = guesses["guessed_title"]
+                config.text_is_minor_work = guesses["guessed_is_minor"]
+            if not config.author_name and guesses["guessed_author"]:
+                config.author_name = guesses["guessed_author"]
+        except Exception:
+            pass  # Don't break marking if guessing fails
 
     # 2. Write the uploaded bytes to a temporary .docx file
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp_in:
@@ -7048,9 +8945,9 @@ def mark_docx_bytes(
         with open(tmp_out_path, "rb") as f:
             marked_bytes = f.read()
 
-        # 5. Load the marked doc into python-docx to extract the summary metadata
-        doc = Document(BytesIO(marked_bytes))
-        metadata = extract_summary_metadata(doc)
+        # 5. Build metadata directly from globals (no summary table needed)
+        global DOC_ISSUES_METADATA
+        metadata = {"issues": DOC_ISSUES_METADATA if DOC_ISSUES_METADATA else []}
         techniques_discussed = build_techniques_discussed(docx_bytes, mode)
         if isinstance(metadata, dict):
             metadata["techniques_discussed"] = techniques_discussed
@@ -7062,9 +8959,38 @@ def mark_docx_bytes(
             short_map = load_short_explanations(rules_path)
         except Exception:
             short_map = {}
-        if ARTICLE_ERROR_LABEL not in guidance_map:
-            guidance_map[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_GUIDANCE
-        WEAK_VERB_GUIDANCE = "Replace {FOUND} with a stronger verb (show/use/make/do/get/have)."
+        # Load shared (generalized) labels/explanations for user-facing output
+        try:
+            _shared_issues_api = load_shared_issues(rules_path)
+        except Exception:
+            _shared_issues_api = {}
+        try:
+            _shared_explanations_api = load_shared_explanations(rules_path)
+        except Exception:
+            _shared_explanations_api = {}
+        # Inject hardcoded guidance for labels that aren't in the Excel file
+        _hardcoded_guidance = {
+            ARTICLE_ERROR_LABEL: ARTICLE_ERROR_GUIDANCE,
+            FINAL_SENTENCE_LABEL: FINAL_SENTENCE_GUIDANCE,
+            AUTHOR_REF_LABEL: AUTHOR_REF_GUIDANCE,
+            QUOTATION_START_LABEL: QUOTATION_START_GUIDANCE,
+            NUMBER_RULE_LABEL: NUMBER_RULE_GUIDANCE,
+            ONE_SENTENCE_SUMMARY_LABEL: ONE_SENTENCE_SUMMARY_GUIDANCE,
+            MOVE_TO_TOPIC_LABEL: MOVE_TO_TOPIC_GUIDANCE,
+            ASSIGNMENT_INTRO_LABEL: ASSIGNMENT_INTRO_GUIDANCE,
+            ASSIGNMENT_FIRST_SENTENCE_LABEL: ASSIGNMENT_FIRST_SENTENCE_GUIDANCE,
+            SVA_LABEL: SVA_GUIDANCE,
+            SPELLING_LABEL: SPELLING_GUIDANCE,
+            CONFUSED_WORD_LABEL: CONFUSED_WORD_GUIDANCE,
+            INTRO_COMMA_LABEL: INTRO_COMMA_GUIDANCE,
+            APOSTROPHE_LABEL: APOSTROPHE_GUIDANCE,
+            EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_GUIDANCE,
+            "Noun repetition": "Repeating the same noun {COUNT} times weakens your vocabulary range. Use synonyms, pronouns with clear antecedents, or rephrase to demonstrate analytical variety.",
+        }
+        for _lbl, _guide in _hardcoded_guidance.items():
+            if _lbl not in guidance_map:
+                guidance_map[_lbl] = _guide
+        WEAK_VERB_GUIDANCE = "Weak verbs like {FOUND} lack analytical precision. Choose a verb that captures exactly what the author does: argues, challenges, critiques, explores, illuminates, reveals, underscores. Precise verbs improve your Power score and make your analysis more authoritative."
 
         # Ensure weak-verb guidance is always present (do not include any be-verbs)
         for key in ("Avoid weak verbs", "Refer to the Power Verbs list", "Refer to the Power Verbs List"):
@@ -7077,6 +9003,15 @@ def mark_docx_bytes(
                 if not short_text:
                     short_text = first_sentence(issue.get("explanation", ""))
                 issue["short_explanation"] = short_text
+                # Shared (generalized) versions for user-facing output
+                issue["shared_issue"] = (
+                    _shared_issues_api.get(label, "")
+                    or HARDCODED_SHARED_ISSUES.get(label, "")
+                )
+                issue["shared_explanation"] = (
+                    _shared_explanations_api.get(label, "")
+                    or HARDCODED_SHARED_EXPLANATIONS.get(label, "")
+                )
         
         # 6. Always use DOC_EXAMPLES (the multi-example list collected during marking)
         # DO NOT overwrite with extract_richer_examples() which can only capture
@@ -7085,14 +9020,56 @@ def mark_docx_bytes(
         global DOC_EXAMPLES
         metadata["examples"] = DOC_EXAMPLES if DOC_EXAMPLES else []
 
-        # If the caller doesn't want the summary table inside the returned document
-        # (Student Mode), strip it AFTER extracting metadata.
-        if not include_summary_table:
-            removed = strip_summary_table_in_place(doc)
-            if removed:
-                out = BytesIO()
-                doc.save(out)
-                marked_bytes = out.getvalue()
+        global DOC_SENTENCE_TYPES
+        metadata["sentence_types"] = DOC_SENTENCE_TYPES if DOC_SENTENCE_TYPES else {}
+
+        global DOC_FIRST_SENTENCE_COMPONENTS
+        metadata["first_sentence_components"] = DOC_FIRST_SENTENCE_COMPONENTS or {}
+
+        global DOC_REPEATED_NOUNS
+        # Filter accumulated nouns by document-level threshold
+        if DOC_REPEATED_NOUNS and DOC_TOTAL_WORD_COUNT:
+            if DOC_TOTAL_WORD_COUNT < 300:
+                rep_threshold = max(3, DOC_TOTAL_WORD_COUNT // 100)
+            elif DOC_TOTAL_WORD_COUNT <= 700:
+                rep_threshold = 5
+            else:
+                rep_threshold = 6 + (DOC_TOTAL_WORD_COUNT - 700) // 200
+            DOC_REPEATED_NOUNS = [n for n in DOC_REPEATED_NOUNS if n["count"] >= rep_threshold]
+        metadata["repeated_nouns"] = DOC_REPEATED_NOUNS if DOC_REPEATED_NOUNS else []
+        metadata["word_count"] = DOC_TOTAL_WORD_COUNT
+
+        # 7. Detect lexis terms in the original document text
+        # Extract clean text from the original (unmarked) document for lexis detection
+        try:
+            original_doc = Document(BytesIO(docx_bytes))
+            full_text_parts = []
+            for para in original_doc.paragraphs:
+                para_text = para.text.strip()
+                if para_text:
+                    full_text_parts.append(para_text)
+            full_text = "\n".join(full_text_parts)
+
+            # Detect lexis terms (filters to concept, device, event, person by default)
+            detected_lexis = detect_lexis_in_text(full_text)
+            metadata["detected_lexis"] = detected_lexis
+            # Guess author and title from the first body paragraph
+            try:
+                guesses = guess_author_and_title(full_text)
+                metadata["guessed_author"] = guesses["guessed_author"]
+                metadata["guessed_title"] = guesses["guessed_title"]
+                metadata["guessed_is_minor"] = guesses["guessed_is_minor"]
+            except Exception:
+                metadata["guessed_author"] = ""
+                metadata["guessed_title"] = ""
+                metadata["guessed_is_minor"] = True
+        except Exception as e:
+            # If lexis detection fails, don't break the whole marking process
+            print(f"Warning: Lexis detection failed: {e}")
+            metadata["detected_lexis"] = []
+            metadata["guessed_author"] = ""
+            metadata["guessed_title"] = ""
+            metadata["guessed_is_minor"] = True
 
     finally:
         # 6. Clean up temp files as best we can
@@ -7123,13 +9100,18 @@ def run_marker(
     global THESIS_DEVICE_SEQUENCE, THESIS_TOPIC_ORDER, BODY_PARAGRAPH_COUNT, BRIDGE_PARAGRAPHS, BRIDGE_DEVICE_KEYS
     global BOOKMARK_ID_COUNTER, FOUNDATION1_LABEL_TARGET
     global APPROVED_LABELS
-    global THESIS_PARAGRAPH_INDEX, THESIS_ANCHOR_POS, THESIS_ALL_DEVICE_KEYS, THESIS_TEXT_LOWER
+    global THESIS_PARAGRAPH_INDEX, THESIS_ANCHOR_POS, THESIS_ALL_DEVICE_KEYS, THESIS_TEXT_LOWER, THESIS_TEXT
     global DOC_EXAMPLES, DOC_EXAMPLE_COUNTS, DOC_EXAMPLE_SENT_HASHES
+    global DOC_SENTENCE_TYPES
+    global DOC_FIRST_SENTENCE_COMPONENTS
+    global DOC_TOTAL_WORD_COUNT
+    global DOC_ISSUES_METADATA
 
     THESIS_DEVICE_SEQUENCE = []
     THESIS_TOPIC_ORDER = []
     THESIS_ALL_DEVICE_KEYS = set()
     THESIS_TEXT_LOWER = ""
+    THESIS_TEXT = ""
     BODY_PARAGRAPH_COUNT = 0
     BRIDGE_PARAGRAPHS = set()
     BRIDGE_DEVICE_KEYS = {}
@@ -7140,16 +9122,54 @@ def run_marker(
     DOC_EXAMPLES = []
     DOC_EXAMPLE_COUNTS = {}
     DOC_EXAMPLE_SENT_HASHES = set()
-    
+    DOC_SENTENCE_TYPES = {}
+    DOC_FIRST_SENTENCE_COMPONENTS = None
+    DOC_REPEATED_NOUNS = []
+    DOC_TOTAL_WORD_COUNT = 0
+    DOC_ISSUES_METADATA = []
+
     if config is None:
         # Default behavior remains the existing full analytic mode
         config = get_preset_config("textual_analysis")
     
     rules = load_rules(rules_path)
-    if ARTICLE_ERROR_LABEL not in rules:
-        rules[ARTICLE_ERROR_LABEL] = ARTICLE_ERROR_EXPLANATION
+    # Inject hardcoded explanations for labels that aren't in the Excel file
+    _hardcoded_explanations = {
+        ARTICLE_ERROR_LABEL: ARTICLE_ERROR_EXPLANATION,
+        FINAL_SENTENCE_LABEL: FINAL_SENTENCE_EXPLANATION,
+        AUTHOR_REF_LABEL: AUTHOR_REF_EXPLANATION,
+        QUOTATION_START_LABEL: QUOTATION_START_EXPLANATION,
+        NUMBER_RULE_LABEL: NUMBER_RULE_EXPLANATION,
+        ONE_SENTENCE_SUMMARY_LABEL: ONE_SENTENCE_SUMMARY_EXPLANATION,
+        MOVE_TO_TOPIC_LABEL: MOVE_TO_TOPIC_EXPLANATION,
+        ASSIGNMENT_INTRO_LABEL: ASSIGNMENT_INTRO_EXPLANATION,
+        ASSIGNMENT_FIRST_SENTENCE_LABEL: ASSIGNMENT_FIRST_SENTENCE_EXPLANATION,
+        SVA_LABEL: SVA_EXPLANATION,
+        SPELLING_LABEL: SPELLING_EXPLANATION,
+        CONFUSED_WORD_LABEL: CONFUSED_WORD_EXPLANATION,
+        INTRO_COMMA_LABEL: INTRO_COMMA_EXPLANATION,
+        APOSTROPHE_LABEL: APOSTROPHE_EXPLANATION,
+        EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_EXPLANATION,
+    }
+    for _lbl, _expl in _hardcoded_explanations.items():
+        if _lbl not in rules:
+            rules[_lbl] = _expl
     APPROVED_LABELS = set(rules.keys()) | INLINE_LABEL_ALLOWLIST
     doc = Document(essay_path)
+
+    # Clear Word document headers/footers in student mode to remove MLA info
+    if getattr(config, "student_mode", False):
+        for section in doc.sections:
+            # Clear header
+            if section.header:
+                for para in section.header.paragraphs:
+                    para.clear()
+            # Clear footer (optional - keeps page numbers if needed)
+            # Uncomment next 3 lines if you also want to remove footers:
+            # if section.footer:
+            #     for para in section.footer.paragraphs:
+            #         para.clear()
+
     labels_used = []
 
     from collections import Counter
@@ -7164,7 +9184,7 @@ def run_marker(
     # ------------------------------------------------------------------
     tmp_real_paragraphs = [
         (i, p) for i, p in enumerate(doc.paragraphs)
-        if p.text.strip()
+        if p.text.strip() and not _is_hidden_paragraph(p)
     ]
 
     tmp_header_indices = detect_mla_header_indices(tmp_real_paragraphs, config=config)
@@ -7242,7 +9262,7 @@ def run_marker(
     # Rebuild after possible split
     tmp_real_paragraphs = [
         (i, p) for i, p in enumerate(doc.paragraphs)
-        if p.text.strip()
+        if p.text.strip() and not _is_hidden_paragraph(p)
     ]
     tmp_header_indices = detect_mla_header_indices(tmp_real_paragraphs, config=config)
 
@@ -7351,7 +9371,7 @@ def run_marker(
     # After optional PEEL flattening, recompute real_paragraphs as usual.
     real_paragraphs = [
         (i, p) for i, p in enumerate(doc.paragraphs)
-        if p.text.strip()
+        if p.text.strip() and not _is_hidden_paragraph(p)
     ]
     
     total_real_paras = len(real_paragraphs)
@@ -7362,6 +9382,17 @@ def run_marker(
     # Detect top-of-document MLA-style header lines (name, teacher, course, date).
     # These "garbage" lines should not confuse title/intro detection.
     header_indices = detect_mla_header_indices(real_paragraphs, config=config)
+
+    # ====================================================================
+    # STEP 1b: DETECT AND SKIP BIBLIOGRAPHY / WORKS CITED SECTION
+    # ====================================================================
+    # Detect end-of-document bibliography sections (Works Cited, References,
+    # Bibliography, etc.) so they are not analyzed or labelled.
+    bibliography_indices = detect_bibliography_indices(real_paragraphs, config=config)
+
+    # Adjust total_real_paras so get_paragraph_role correctly identifies the
+    # conclusion as the last non-bibliography paragraph.
+    total_real_paras = total_real_paras - len(bibliography_indices)
 
     # ====================================================================
     # STEP 2: FIND THE INTRODUCTION PARAGRAPH
@@ -7419,6 +9450,16 @@ def run_marker(
         intro_idx = 0
 
     # ====================================================================
+    # STEP 2b: FRAME ESSAY DETECTION
+    # ====================================================================
+    # If the intro paragraph is a literary frame (quotations, no thesis) and
+    # the next paragraph looks like a real introduction (author, title, genre,
+    # thesis with device words), shift intro_idx to that paragraph.
+    intro_idx = detect_frame_intro_shift(
+        real_paragraphs, intro_idx, header_indices, bibliography_indices, config
+    )
+
+    # ====================================================================
     # STEP 3: PROCESS AND MARK EACH PARAGRAPH
     # ====================================================================
     # Loop over real_paragraphs to apply analytic rules.
@@ -7428,11 +9469,23 @@ def run_marker(
     # Foundation 4: Track whether student wrote a first body paragraph
     saw_body_para = False
     prev_body_last_sentence_content_words: set[str] | None = None
-    
+
+    # Pre-compute total document word count for noun repetition threshold
+    # Exclude bibliography paragraphs so citation text doesn't inflate the count.
+    DOC_TOTAL_WORD_COUNT = sum(
+        len(p.text.split())
+        for idx, (_, p) in enumerate(real_paragraphs)
+        if p.text.strip() and idx not in bibliography_indices
+    )
+
     for new_idx, (old_idx, p) in enumerate(real_paragraphs):
         # Skip MLA-style header lines entirely (name, teacher, class, date, etc.)
         # These should not be analyzed or marked in any way.
         if new_idx in header_indices:
+            continue
+
+        # Skip bibliography / Works Cited section entirely.
+        if new_idx in bibliography_indices:
             continue
 
         # If this is a title-like paragraph, enforce essay title format
@@ -7467,48 +9520,52 @@ def run_marker(
             title_marks = []
             title_note = "Essay title format"
 
-            def count_quoted_words(quote_text: str) -> int:
-                scrubbed = re.sub(r"\[[^\]]*\]", "", quote_text)
-                return len(re.findall(r"[A-Za-z']+", scrubbed))
-
-            long_title_quote = False
-            for match in re.finditer(r'"([^"]+)"|“([^”]+)”', flat_text):
-                excerpt = match.group(1) if match.group(1) is not None else match.group(2)
-                if count_quoted_words(excerpt.strip()) > 5:
-                    long_title_quote = True
-                    title_marks.append({
-                        "start": match.start(),
-                        "end": match.end(),
-                        "color": WD_COLOR_INDEX.GRAY_25,
-                    })
-
-            if long_title_quote and title_note not in labels_used:
-                anchor_pos = len(flat_text) + 1
-                title_marks.append({
-                    "start": anchor_pos,
-                    "end": anchor_pos,
-                    "note": title_note,
-                    "color": None,
-                    "label": True,
-                })
-                labels_used.append(title_note)
-
             # ------------------------------------
             # Rule A: Essay title format
             # ------------------------------------
+            # Check the structural pattern FIRST so we can skip the
+            # long-quote heuristic when the title is already well-formed.
             m = TITLE_PATTERN.match(title_text)
             m_no_colon = TITLE_PATTERN_NO_COLON.match(title_text)
             topic_too_thin = False
-
-            
 
             if m:
                 topic_segment = m.group(2).strip()
                 topic_too_thin = topic_segment_is_too_thin(topic_segment)
             elif m_no_colon:
-                # Also check topic segment for no-colon pattern
                 topic_segment = m_no_colon.group(2).strip()
                 topic_too_thin = topic_segment_is_too_thin(topic_segment)
+
+            # A title that matches the colon pattern with a substantive topic
+            # is correctly structured — skip the long-quote heuristic.
+            title_has_valid_structure = bool(m and not topic_too_thin)
+
+            def count_quoted_words(quote_text: str) -> int:
+                scrubbed = re.sub(r"\[[^\]]*\]", "", quote_text)
+                return len(re.findall(r"[A-Za-z']+", scrubbed))
+
+            if not title_has_valid_structure:
+                long_title_quote = False
+                for match in re.finditer(r'"([^"]+)"|"([^"]+)"', flat_text):
+                    excerpt = match.group(1) if match.group(1) is not None else match.group(2)
+                    if count_quoted_words(excerpt.strip()) > 5:
+                        long_title_quote = True
+                        title_marks.append({
+                            "start": match.start(),
+                            "end": match.end(),
+                            "color": WD_COLOR_INDEX.GRAY_25,
+                        })
+
+                if long_title_quote and title_note not in labels_used:
+                    anchor_pos = len(flat_text) + 1
+                    title_marks.append({
+                        "start": anchor_pos,
+                        "end": anchor_pos,
+                        "note": title_note,
+                        "color": None,
+                        "label": True,
+                    })
+                    labels_used.append(title_note)
            
 
             # NEW: if the title explicitly includes any of the configured author names, allow it
@@ -7753,6 +9810,7 @@ def run_marker(
             prev_body_last_sentence_content_words=(
                 prev_body_last_sentence_content_words if paragraph_role == "body" else None
             ),
+            doc_total_word_count=DOC_TOTAL_WORD_COUNT,
         )
         if paragraph_role == "body":
             prev_body_last_sentence_content_words = last_sentence_content_words
@@ -7818,7 +9876,7 @@ def run_marker(
             flat_text, _ = flatten_paragraph_without_labels(thesis_paragraph)
             
             # Define the assignment note
-            assignment_note = "The assignment was to write the introduction and the first topic sentence"
+            assignment_note = ASSIGNMENT_INTRO_LABEL
             
             # Append the label as a run at the end of the thesis sentence
             # Format: " → The assignment was to write the introduction and the first topic sentence"
@@ -7849,7 +9907,7 @@ def run_marker(
         _, target_paragraph = real_paragraphs[target_para_idx]
         
         # Define the standardized assignment note (shorter version)
-        assignment_note = "The assignment is to write the first sentence"
+        assignment_note = ASSIGNMENT_FIRST_SENTENCE_LABEL
         
         # Append the label as a run at the end of that paragraph
         # Format: " → The assignment is to write the first sentence"
@@ -7866,9 +9924,17 @@ def run_marker(
         if assignment_note not in labels_used:
             labels_used.append(assignment_note)
     print(issue_counts.most_common(10))
-    # After processing all real paragraphs and applying marks
-    add_summary_table(doc, labels_used, rules, issue_counts=issue_counts)
 
+    # Build issue metadata directly (replaces the old summary table)
+    unique_labels = []
+    for lbl in labels_used:
+        if lbl and lbl not in unique_labels:
+            unique_labels.append(lbl)
+    unique_labels.sort(key=lambda s: s.split()[0].lower())
+    DOC_ISSUES_METADATA = [
+        {"label": lbl, "explanation": rules.get(lbl, ""), "count": issue_counts.get(lbl, 0)}
+        for lbl in unique_labels
+    ]
 
     output_path = os.path.splitext(essay_path)[0] + "_marked.docx"
     doc.save(output_path)

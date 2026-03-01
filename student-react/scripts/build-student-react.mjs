@@ -56,7 +56,6 @@ const updateBuildIdInHtml = (html, buildId) => {
     next = next.replace(noQuery, `$1?v=${buildId}`);
   });
 
-  next = next.split("__APP_BUILD_ID__").join(buildId);
   return next;
 };
 

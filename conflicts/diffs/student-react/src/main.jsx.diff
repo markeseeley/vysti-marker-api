@@ -1,0 +1,77 @@
+--- A/student-react/src/main.jsx
++++ B/student-react/src/main.jsx
+@@ -1,27 +1,53 @@
+-import { StrictMode } from 'react'
+-import { createRoot } from 'react-dom/client'
+-import { initConfig } from '@shared/runtimeConfig'
+-import './index.css'
+-import App from './App.jsx'
++import { StrictMode } from "react";
++import { createRoot } from "react-dom/client";
++import "./index.css";
++import App from "./App.jsx";
++import ErrorBoundary from "./components/ErrorBoundary.jsx";
++import { getConfig, getConfigError, initConfig } from "./config";
++import { initLogger } from "./lib/logger";
+ 
+-const root = createRoot(document.getElementById("root"));
++const rootEl = document.getElementById("root");
++const root = createRoot(rootEl);
+ 
+-const renderApp = () => {
++const renderLoading = () => {
+   root.render(
+-    <StrictMode>
+-      <App />
+-    </StrictMode>
++    <main className="page student-page student-react-shell">
++      <div className="card form-card">
++        <p>Loading…</p>
++      </div>
++    </main>
+   );
+ };
+ 
+-(async () => {
+-  try {
+-    await initConfig();
+-  } catch (err) {
+-    console.warn("Failed to init runtime config", err);
+-    window.__vystiRuntimeConfigError =
+-      err?.message || "Failed to load runtime config.";
+-  } finally {
+-    renderApp();
+-  }
+-})();
++const searchParams = new URLSearchParams(window.location.search);
++if (searchParams.get("classic") === "1") {
++  window.location.replace("/student.html");
++} else {
++  renderLoading();
++  initConfig()
++    .then(() => {
++      const config = getConfig();
++      const error = getConfigError();
++      if (error) {
++        console.warn("Config error:", error);
++      }
++      initLogger(config);
++      root.render(
++        <StrictMode>
++          <ErrorBoundary>
++            <App />
++          </ErrorBoundary>
++        </StrictMode>
++      );
++    })
++    .catch((err) => {
++      console.error("Config init failed:", err);
++      root.render(
++        <StrictMode>
++          <ErrorBoundary>
++            <App />
++          </ErrorBoundary>
++        </StrictMode>
++      );
++    });
++}

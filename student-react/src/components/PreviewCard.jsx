@@ -21,13 +21,14 @@ export default function PreviewCard({
         const buf = await markedBlob.arrayBuffer();
         if (!isActive) return;
 
-        if (window.docx?.renderAsync) {
-          await window.docx.renderAsync(buf, container, null, { inWrapper: true });
+        const renderAsync = window.docx?.renderAsync || window.docxPreview?.renderAsync;
+        if (renderAsync) {
+          await renderAsync(buf, container, null, { inWrapper: true });
           if (!isActive) return;
           container.contentEditable = "true";
           container.spellcheck = true;
           container.classList.add("preview-editable");
-          container.style.zoom = zoom;
+          container.style.zoom = zoom; // initial zoom; live updates via separate effect
         } else {
           container.innerHTML =
             "<p>Preview not available. Please download the file to view.</p>";
@@ -46,7 +47,13 @@ export default function PreviewCard({
     return () => {
       isActive = false;
     };
-  }, [markedBlob, previewRef, zoom]);
+  }, [markedBlob, previewRef]);
+
+  // Lightweight zoom update — only touches container.style.zoom, never re-renders docx
+  useEffect(() => {
+    const container = previewRef.current;
+    if (container) container.style.zoom = zoom;
+  }, [zoom, previewRef]);
 
   return (
     <section
@@ -54,7 +61,7 @@ export default function PreviewCard({
       id="markedPreviewCard"
       style={{ display: markedBlob ? "block" : "none" }}
     >
-      <div className="preview-header">
+      <div className="preview-header" id="previewCardHeader">
         <h2 className="preview-title">Preview</h2>
 
         <div className="preview-header-right">

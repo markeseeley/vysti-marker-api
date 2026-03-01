@@ -7,15 +7,34 @@
 metaphor,metaphor
 metaphors,metaphor
 metaphoric,metaphor
+paranomasia,paranomasia
+paronomastic,paranomasia
 simile,simile
 imagery,imagery
 symbol,symbolism
+symbols,symbolism
 symbolism,symbolism
+anaphora,anaphora
+anaphoric,anaphora
+oxymoron,oxymoron
+oxymorons,oxymoron
+oxymoronic,oxymoron
+synecdoche,synecdoche
+synecdochic,synecdoche
+metonym,metonymy
+metonymy,metonymy
+metonymic,metonymy
+synesthesia,synesthesia
+synesthetic,synesthesia
+pathetic fallacy,pathetic fallacy
 image,imagery
 hyperbole,hyperbole
+hyperboles,hyperbole
 personification,personification
+personifications,personification
 allegorical symbolism,symbolism
 allegory,allegory
+allegories,allegory
 zoomorphication,zoomorphication
 antithesis,antithesis
 antitheses,antithesis
@@ -37,16 +56,21 @@ tone,tone
 description,description
 classification,classification
 enumeration,enumeration
+enumerating,enumeration
+enumerate,enumeration
 list,list
 listing,listing
 exemplification,exemplification
 narration,narration
 narrative,narrative
+narratives,narrative
 story,story
+stories,story
 
 # From the workbook list: argument / logic / modes
 definition,definition
 comparison,comparison
+comparisons,comparison
 contrast,contrast
 contrasts,contrast
 contrasted,contrast
@@ -56,9 +80,13 @@ declarative,declarative
 hortative,hortative
 interrogative,interrogative
 paradox,paradox
+paradoxes,paradox
 analogy,analogy
+analogies,analogy
 allusion,allusion
+allusions,allusion
 repetition,repetition
+repetitions,repetition
 bathos,bathos
 data,data
 statistic,statistics
@@ -73,12 +101,15 @@ conflation,conflation
 cause,cause
 causal,causal
 argument,argument
+arguments,argument
 argumentation,argumentation
 process,process
 example,example
+examples,example
 
 # Fallacies / appeals / "move" words (we just care that they're rhetorical)
 appeal,appeal
+appeals,appeal
 strawman,strawman
 slippery slope,slippery slope
 red herring,red herring
@@ -118,15 +149,22 @@ parallelism,parallelism
 antimetabole,antimetabole
 hyperbaton,hyperbaton
 tricolon,tricolon
+epistrophe,epistrophe
+epiphora,epistrophe
+zeugma,zeugma
+syllepsis,zeugma
 
 # Sound / patterning
 consonance,consonance
 assonance,assonance
 alliteration,alliteration
 rhyme,rhyme
+rhymes,rhyme
 enjambment,enjambment
 caesura,caesura
 stanza,stanza
+onomatopoeia,onomatopoeia
+onomatopoeic,onomatopoeia
 
 # Wordplay / lexical
 homophone,homophone
@@ -138,6 +176,10 @@ jargon,jargon
 jargons,jargon
 malapropism,malapropism
 catachresis,catachresis
+euphemism,euphemism
+euphemistic,euphemism
+meiosis,meiosis
+understatement,meiosis
 aporia,aporia
 metalepsis,metalepsis
 
@@ -145,6 +187,8 @@ metalepsis,metalepsis
 focalization,focalization
 narrator,narrator
 direct address,direct address
+apostrophe,apostrophe
+apostrophic,apostrophe
 characters,character
 
 # Organization / structure / time
@@ -174,7 +218,9 @@ hamartia,hamartia
 
 # Argument moves
 rebuttal,rebuttal
+rebuttals,rebuttal
 counterclaim,counterclaim
+counterclaims,counterclaim
 rhetorical question,rhetorical question
 rhetorical questions,rhetorical question
 rhetorically questioning,rhetorical question
@@ -189,6 +235,107 @@ ignores questions,avoiding the question
 # Misc rhetorical
 humor,humor
 anticipation,anticipation
+
+# Visual analysis / art & film techniques
+
+# Light & shadow
+chiaroscuro,chiaroscuro
+tenebrism,tenebrism
+tenebristic,tenebrism
+sfumato,sfumato
+
+# Mark-making & texture
+stippling,stippling
+stippled,stippling
+pointillism,pointillism
+pointillist,pointillism
+cross-hatching,cross-hatching
+hatching,cross-hatching
+impasto,impasto
+brushwork,brushwork
+brushstroke,brushwork
+brushstrokes,brushwork
+
+# Composition & framing
+composition,composition
+compositional,composition
+foreground,foreground
+background,background
+graphic weight,graphic weight
+negative space,negative space
+rule of thirds,rule of thirds
+leading lines,leading lines
+golden ratio,golden ratio
+golden section,golden ratio
+foreshortening,foreshortening
+foreshortened,foreshortening
+linear perspective,linear perspective
+aerial perspective,aerial perspective
+vanishing point,vanishing point
+contrapposto,contrapposto
+tableau,tableau
+tableaux,tableau
+silhouette,silhouette
+silhouetted,silhouette
+triptych,triptych
+diptych,diptych
+
+# Color
+color palette,color palette
+monochrome,monochrome
+monochromatic,monochrome
+polychrome,polychrome
+polychromatic,polychrome
+grisaille,grisaille
+chroma,chroma
+saturation,saturation
+
+# Pictorial style / technique
+trompe l'oeil,trompe l'oeil
+iconography,iconography
+iconographic,iconography
+fresco,fresco
+mosaic,mosaic
+collage,collage
+intaglio,intaglio
+woodcut,woodcut
+lithograph,lithograph
+lithography,lithograph
+en plein air,en plein air
+plein air,en plein air
+alla prima,alla prima
+scumbling,scumbling
+pentimento,pentimento
+sgraffito,sgraffito
+gouache,gouache
+encaustic,encaustic
+
+# Film & photography
+mise-en-scène,mise-en-scène
+montage,montage
+close-up,close-up
+long shot,long shot
+wide shot,long shot
+depth of field,depth of field
+tracking shot,tracking shot
+dolly shot,dolly shot
+crane shot,crane shot
+establishing shot,establishing shot
+Dutch angle,Dutch angle
+Dutch tilt,Dutch angle
+canted angle,Dutch angle
+panning,panning
+high angle,high angle
+low angle,low angle
+bird's eye view,high angle
+worm's eye view,low angle
+bokeh,bokeh
+vignetting,vignetting
+jump cut,jump cut
+cross-cutting,cross-cutting
+shot-reverse-shot,shot-reverse-shot
+diegetic,diegetic
+non-diegetic,diegetic
 
 # Synonyms for thesis device words to improve semantic alignment
 # Maps alternative terms students might use to the canonical device names
@@ -234,7 +381,9 @@ gustatory imagery,imagery
 motif,motif
 motifs,motif
 juxtaposition,juxtaposition
+juxtapositions,juxtaposition
 antithetical oppositions,antithesis
+antithetical repetitions,antithesis
 juxtapose,juxtaposition
 juxtaposes,juxtaposition
 juxtaposed,juxtaposition
@@ -358,6 +507,7 @@ anticlimax,bathos
 refutation,rebuttal
 counter,rebuttal
 counterargument,counterclaim
+counterarguments,counterclaim
 response,rebuttal
 humorous,humor
 satire,humor
@@ -385,6 +535,14 @@ similization,simile
 symbolization,symbolism
 allegorization,allegory
 anthropomorphization,personification
+oxymoronic contrast,oxymoron
+synecdoches,synecdoche
+synecdochical,synecdoche
+synecdochically,synecdoche
+metonymies,metonymy
+metonymical,metonymy
+metonymically,metonymy
+metonymic substitution,metonymy
 
 # Diction / syntax / craft nominalizations
 tonal shift,tone
@@ -416,6 +574,37 @@ rhythmic pattern,rhythm
 metrical pattern,meter
 enjambed line,enjambment
 caesural break,caesura
+onomatopoetic,onomatopoeia
+onomatopoeias,onomatopoeia
+onomatopoeically,onomatopoeia
+sound word,onomatopoeia
+sound words,onomatopoeia
+
+# Euphemism / meiosis derivations
+euphemisms,euphemism
+euphemistically,euphemism
+euphemistic language,euphemism
+meiotic,meiosis
+understatements,meiosis
+understated,meiosis
+understating,meiosis
+
+# Epistrophe / zeugma derivations
+epistrophic,epistrophe
+zeugmatic,zeugma
+zeugmatically,zeugma
+
+# Synesthesia / pathetic fallacy derivations
+synaesthesia,synesthesia
+synaesthetic,synesthesia
+synesthetic imagery,synesthesia
+sensory crossover,synesthesia
+
+# Apostrophe (rhetorical device) derivations
+apostrophes,apostrophe
+apostrophize,apostrophe
+apostrophizes,apostrophe
+apostrophizing,apostrophe
 
 # Wordplay / semantic nominalizations
 ambiguation,ambiguity
@@ -449,3 +638,47 @@ peripeteic turn,peripeteia
 anagnoristic moment,anagnorisis
 hubristic action,hubris
 hamartic failure,hamartia
+
+# Visual analysis derivations
+chiaroscurist,chiaroscuro
+light and shadow,chiaroscuro
+light and dark,chiaroscuro
+tenebrist,tenebrism
+pointillistic,pointillism
+pointillistically,pointillism
+stipple,stippling
+cross-hatched,cross-hatching
+crosshatching,cross-hatching
+crosshatch,cross-hatching
+silhouettes,silhouette
+triptychs,triptych
+diptychs,diptych
+bas-relief,bas-relief
+bas relief,bas-relief
+relief sculpture,bas-relief
+contrapposto stance,contrapposto
+lithographs,lithograph
+lithographic,lithograph
+woodcuts,woodcut
+woodblock,woodcut
+woodblock print,woodcut
+pentimenti,pentimento
+mise en scène,mise-en-scène
+mise en scene,mise-en-scène
+staging,mise-en-scène
+montages,montage
+closeup,close-up
+close up,close-up
+jump cuts,jump cut
+iconographies,iconography
+iconographically,iconography
+trompe l'œil,trompe l'oeil
+trompe loeil,trompe l'oeil
+optical illusion,trompe l'oeil
+atmospheric perspective,aerial perspective
+color scheme,color palette
+colour palette,color palette
+colour scheme,color palette
+nondiegetic,diegetic
+non-diegetic sound,diegetic
+diegetic sound,diegetic

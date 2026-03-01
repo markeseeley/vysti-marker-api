@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vysti Marker — Student React Beta</title>
+    <link rel="stylesheet" href="/assets/marker.css" />
+  </head>
+  <body>
+    <main class="page student-page student-react-shell">
+      <div class="card form-card">
+        <h1>React Beta</h1>
+        <p>React Beta — if anything looks wrong, use student.html.</p>
+        <div class="results-actions" style="margin-top: 16px;">
+          <a class="primary-btn" id="openReactBtn" href="/student_react.html">
+            Open React Beta
+          </a>
+          <a class="secondary-btn" href="/student.html">Back to student.html</a>
+        </div>
+        <div id="betaStatus" class="status-area" role="status" aria-live="polite"></div>
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const DEFAULT_CONFIG = {
+        supabaseUrl: "https://divdfodsdtfbdwoqvsfy.supabase.co",
+        supabaseAnonKey:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock"
+      };
+      const redirectTarget = "/student_react.html";
+      const statusEl = document.getElementById("betaStatus");
+
+      const buildRedirectUrl = () =>
+        `/signin.html?redirect=${encodeURIComponent(redirectTarget)}`;
+
+      const loadConfig = async () => {
+        try {
+          const response = await fetch("/student-react-config.json", { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error("Config fetch failed");
+          }
+          const json = await response.json();
+          return { ...DEFAULT_CONFIG, ...json };
+        } catch (err) {
+          statusEl.textContent =
+            "Config missing; using defaults. Contact support if login fails.";
+          return DEFAULT_CONFIG;
+        }
+      };
+
+      const init = async () => {
+        const config = await loadConfig();
+        if (!window.supabase?.createClient) {
+          statusEl.textContent = "Supabase client unavailable.";
+          return;
+        }
+        const supa = window.supabase.createClient(
+          config.supabaseUrl,
+          config.supabaseAnonKey
+        );
+        const { data } = await supa.auth.getSession();
+        if (!data?.session) {
+          window.location.replace(buildRedirectUrl());
+        }
+      };
+
+      init();
+    </script>
+  </body>
+</html>

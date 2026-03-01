@@ -1,31 +1,226 @@
-<!-- Build: ./deploy_student_react.sh (or APP_BUILD_ID=... node student-react/scripts/build-student-react.mjs); output: /assets/student-react/ -->
+<!-- Build: cd student-react && npm install && npm run build (or node student-react/scripts/build-student-react.mjs); output: /assets/student-react/ -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="app-build-id" content="20260129-1855" />
     <title>Vysti Marker — Student (React)</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#141414" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Vysti" />
+    <link rel="apple-touch-icon" href="/assets/pwa/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Source Serif 4 wght 800: render-blocking so drop-zone text never flickers -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,800&display=block"
+    />
+    <!-- DM Sans (all) + Source Serif 4 (400/700/italic) — non-critical, swap OK -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;1,8..60,400&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/marker.css" />
     <link
       rel="stylesheet"
-      href="/assets/student-react/assets/index.css?v=20260129-1855"
+      href="/assets/student-react/assets/main.css?v=1772358609763"
     />
+    <style>
+      /* ── Ambient animations ── */
+      /* Filled dot glow — applied inline by JS every 30s */
+
+      /* ── Custom alert modal ── */
+      .vysti-modal-overlay {
+        position: fixed; inset: 0; z-index: 10000;
+        background: rgba(0,0,0,.35);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity .15s;
+      }
+      .vysti-modal-overlay.visible { opacity: 1; }
+      .vysti-modal {
+        background: #fff; border-radius: 14px; padding: 28px 28px 20px;
+        max-width: 380px; width: 90%; box-shadow: 0 8px 30px rgba(0,0,0,.18);
+        font-family: 'DM Sans', sans-serif; text-align: center;
+      }
+      .vysti-modal-body {
+        font-size: 15px; line-height: 1.5; color: #1a1a1a; margin-bottom: 22px;
+      }
+      .vysti-modal-actions {
+        display: flex; gap: 10px; justify-content: center;
+      }
+      .vysti-modal-actions button {
+        flex: 1; padding: 10px 18px; border-radius: 8px; font-size: 14px;
+        font-weight: 600; cursor: pointer; border: none; transition: opacity .15s;
+      }
+      .vysti-modal-actions button:hover { opacity: .88; }
+      .vysti-modal-ok { background: var(--maroon, #A90D22); color: #fff; }
+    </style>
+    <meta name="app-build-id" content="1772358609763" />
   </head>
   <body>
+    <!-- Custom alert modal -->
+    <div class="vysti-modal-overlay" id="vystiModalOverlay" style="display:none;">
+      <div class="vysti-modal">
+        <div class="vysti-modal-body" id="vystiModalBody"></div>
+        <div class="vysti-modal-actions" id="vystiModalActions"></div>
+      </div>
+    </div>
+    <script>
+      function vystiAlert(message) {
+        return new Promise((resolve) => {
+          const overlay = document.getElementById("vystiModalOverlay");
+          const body = document.getElementById("vystiModalBody");
+          const actions = document.getElementById("vystiModalActions");
+          body.textContent = message;
+          actions.innerHTML = "";
+          const ok = document.createElement("button");
+          ok.className = "vysti-modal-ok";
+          ok.textContent = "OK";
+          function close() {
+            overlay.classList.remove("visible");
+            setTimeout(() => { overlay.style.display = "none"; }, 150);
+            resolve();
+          }
+          ok.addEventListener("click", close);
+          overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+          actions.appendChild(ok);
+          overlay.style.display = "flex";
+          requestAnimationFrame(() => overlay.classList.add("visible"));
+          ok.focus();
+        });
+      }
+    </script>
+
     <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
     <script
       type="module"
-      src="/assets/student-react/main.js?v=20260129-1855"
+      src="/assets/student-react/main.js?v=1772358609763"
     ></script>
+    <script>
+      /* ── Filled-dot glow — the breath of Brahma ── */
+      (function () {
+        var GLOW = {
+          "meter-power":     "rgba(220,53,69,0.8)",
+          "meter-variety":   "rgba(13,110,253,0.8)",
+          "meter-cohesion":  "rgba(25,135,84,0.8)",
+          "meter-precision": "rgba(212,160,0,0.8)"
+        };
+        function glowFor(d) {
+          for (var k in GLOW) { if (d.classList.contains(k)) return GLOW[k]; }
+          return "rgba(0,0,0,0.3)";
+        }
+        function breathe() {
+          var dots = document.querySelectorAll(".quest-dot.meter-filled");
+          if (!dots.length) return;
+          dots.forEach(function (d) {
+            d.style.transition = "filter 0.4s ease-in, transform 0.4s ease-in";
+            d.style.filter = "brightness(1.2) drop-shadow(0 0 5px " + glowFor(d) + ")";
+            d.style.transform = "scale(1.35)";
+          });
+          setTimeout(function () {
+            dots.forEach(function (d) {
+              d.style.transition = "filter 1.8s ease-out, transform 1.8s ease-out";
+              d.style.filter = "";
+              d.style.transform = "";
+            });
+          }, 1400);
+          setTimeout(function () {
+            dots.forEach(function (d) {
+              d.style.transition = "";
+              d.style.filter = "";
+              d.style.transform = "";
+            });
+          }, 3400);
+        }
+        setInterval(breathe, 8000);
+
+        /* ── 100% Meter Celebration ── */
+        var METER_KEYS = ["power", "variety", "cohesion", "precision"];
+        var METER_CLASS = { power: "meter-power", variety: "meter-variety", cohesion: "meter-cohesion", precision: "meter-precision" };
+        var celebrated = {};
+        var celebrating = {};
+
+        function celebrateMeter(meterKey) {
+          if (celebrating[meterKey]) return;
+          celebrating[meterKey] = true;
+          var card = document.getElementById("metric-" + meterKey);
+          if (!card) { celebrating[meterKey] = false; return; }
+          var dots = Array.from(card.querySelectorAll(".quest-dot.meter-filled"));
+          if (!dots.length) { celebrating[meterKey] = false; return; }
+          var color = GLOW[METER_CLASS[meterKey]] || "rgba(0,0,0,0.3)";
+
+          // Phase 1: Sparkle — random rapid flashes for 2s
+          var sparkleCount = 0;
+          var sparkleMax = 10;
+          var sparkleTimer = setInterval(function () {
+            dots.forEach(function (d) {
+              var on = Math.random() > 0.4;
+              d.style.transition = "filter 0.08s, transform 0.08s";
+              d.style.filter = on ? "brightness(1.4) drop-shadow(0 0 6px " + color + ")" : "";
+              d.style.transform = on ? "scale(1.5)" : "";
+            });
+            sparkleCount++;
+            if (sparkleCount >= sparkleMax) clearInterval(sparkleTimer);
+          }, 200);
+
+          // Phase 2: Sustained glow — all dots together
+          setTimeout(function () {
+            dots.forEach(function (d) {
+              d.style.transition = "filter 0.5s ease-in, transform 0.5s ease-in";
+              d.style.filter = "brightness(1.3) drop-shadow(0 0 8px " + color + ")";
+              d.style.transform = "scale(1.4)";
+            });
+          }, 2200);
+
+          // Phase 3: Fade back
+          setTimeout(function () {
+            dots.forEach(function (d) {
+              d.style.transition = "filter 1.8s ease-out, transform 1.8s ease-out";
+              d.style.filter = "";
+              d.style.transform = "";
+            });
+          }, 4200);
+
+          // Cleanup
+          setTimeout(function () {
+            dots.forEach(function (d) {
+              d.style.transition = "";
+              d.style.filter = "";
+              d.style.transform = "";
+            });
+            celebrating[meterKey] = false;
+          }, 6200);
+        }
+
+        // Watch for perfect scores via MutationObserver
+        var observer = new MutationObserver(function () {
+          METER_KEYS.forEach(function (key) {
+            var card = document.getElementById("metric-" + key);
+            if (!card) return;
+            var isPerfect = !!card.querySelector(".metric-score.perfect");
+            if (isPerfect && !celebrated[key]) {
+              celebrated[key] = true;
+              celebrateMeter(key);
+            } else if (!isPerfect) {
+              celebrated[key] = false;
+            }
+          });
+        });
+        observer.observe(document.getElementById("root") || document.body, {
+          childList: true, subtree: true, attributes: true, attributeFilter: ["class"]
+        });
+
+      })();
+    </script>
+    <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});</script>
   </body>
 </html>

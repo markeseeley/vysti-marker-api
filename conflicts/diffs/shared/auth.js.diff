@@ -1,0 +1,11 @@
+--- A/shared/auth.js
++++ B/shared/auth.js
+@@ -27,6 +27,6 @@
+   return `/signin.html?redirect=${encodeURIComponent(returnTo || "")}`;
+ }
+ 
+-export function redirectToSignin(returnTo) {
+-  location.replace(buildSigninUrl(returnTo ?? buildReturnTo()));
++export function redirectToSignin() {
++  location.replace(buildSigninUrl(buildReturnTo()));
+ }

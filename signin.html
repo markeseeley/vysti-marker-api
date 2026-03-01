@@ -1,70 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vysti Marker — Sign in</title>
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 
   <link rel="stylesheet" href="/assets/auth.css" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  
+  <script src="/shared/supabase-init.js"></script>
+  <!-- Turnstile removed for local dev — re-add for production -->
 </head>
 
 <body>
-    <main class="auth-shell">
-        <section class="auth-left" aria-hidden="true">
-            <img class="auth-logo" src="/assets/logo.svg" alt="Vysti" />
-        </section>
-
-        <section class="auth-right">
-        <div class="auth-card">
-            <h1 class="auth-title">Vysti Rules</h1>
-            <p class="auth-subtitle">Sign in to your account</p>
-
-            <div class="field">
-                <label for="email">Email Address</label>
-                <input id="email" type="email" placeholder="Email Address" />
-            </div>
-
-            <div class="field">
-                <label for="password">Password</label>
-                <input id="password" type="password" placeholder="Password" />
-            </div>
-            <button id="signinBtn" type="button">Sign in</button>
-
-
-            <div class="status" id="status"></div>
-        </div>
+  <main class="auth-shell">
+    <section class="auth-left" aria-hidden="true">
+      <img class="auth-logo" src="/assets/logo.svg" alt="Vysti" />
     </section>
-</main>
+
+    <section class="auth-right">
+
+      <!-- ===== STEP 1: Sign-in form ===== -->
+      <div class="auth-card" id="signinCard">
+
+
+        <!-- Google -->
+        <button type="button" id="googleBtn" class="google-btn">
+          <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Sign in with Google
+        </button>
+
+        <div class="divider"><span>or sign in with email</span></div>
+
+        <div class="field">
+          <label for="email">Email Address</label>
+          <input id="email" type="email" placeholder="Email Address" />
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="Password" />
+        </div>
+
+        <a href="#" id="forgotLink" class="forgot-link">Forgot password?</a>
+
+        <button id="signinBtn" type="button">Sign in</button>
+
+        <p class="auth-foot">
+          Don't have an account? <a href="#" id="showSignup">Create one</a>
+        </p>
+
+        <div class="status" id="status"></div>
+      </div>
+
+      <!-- ===== SIGN-UP form ===== -->
+      <div class="auth-card hidden" id="signupCard">
+        <h1 class="auth-title">Create Account</h1>
+        <p class="auth-subtitle">Sign up to get started with Vysti</p>
+
+        <!-- Google -->
+        <button type="button" id="googleSignupBtn" class="google-btn">
+          <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Sign up with Google
+        </button>
+
+        <div class="divider"><span>or sign up with email</span></div>
+
+        <div class="field">
+          <label for="signupName">Full Name</label>
+          <input id="signupName" type="text" placeholder="Your name" autocomplete="name" />
+        </div>
+
+        <div class="field">
+          <label for="signupEmail">Email Address</label>
+          <input id="signupEmail" type="email" placeholder="Email Address" autocomplete="email" />
+        </div>
+
+        <div class="field">
+          <label for="signupDob">Date of Birth</label>
+          <input id="signupDob" type="date" autocomplete="bday" />
+        </div>
+
+        <div class="field">
+          <label for="signupPassword">Password</label>
+          <input id="signupPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+        </div>
+
+        <div class="field">
+          <label for="signupConfirm">Confirm Password</label>
+          <input id="signupConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+        </div>
+
+        <p class="auth-consent">By creating an account, you agree to our <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</p>
+
+        <button id="signupBtn" type="button">Create Account</button>
+
+        <p class="auth-foot">
+          Already have an account? <a href="#" id="showSignin">Sign in</a>
+        </p>
+
+        <div class="status" id="signupStatus"></div>
+      </div>
+
+      <!-- ===== STEP 2: Course code (shown after first sign-in if no enrollment) ===== -->
+      <div class="auth-card hidden" id="courseCard">
+        <h1 class="auth-title">Welcome!</h1>
+        <p class="auth-subtitle">Enter your course code to get started</p>
+
+        <div class="field">
+          <label for="courseCode">Course Code</label>
+          <input id="courseCode" type="text" placeholder="e.g. VYSTI-ENG101-2026" autocomplete="off" />
+        </div>
+
+        <button id="enrollBtn" type="button">Join Course</button>
+
+        <p class="auth-foot">
+          <a href="#" id="skipEnroll">Skip for now</a>
+        </p>
+
+        <div class="status" id="courseStatus"></div>
+      </div>
+
+    </section>
+  </main>
 
   <script>
-    // ===== Supabase config (same as your index.html) =====
-    const SUPABASE_URL = "https://divdfodsdtfbdwoqvsfy.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpdmRmb2RzZHRmYmR3b3F2c2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MjU1OTksImV4cCI6MjA4MTAwMTU5OX0.fnm_9qX5DqdR0j6y-2mRRkwr8Icm1uRNPbUo6lqzock";  // paste your anon key
-    const { createClient } = supabase;
-    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // ===== DOM refs =====
+    const signinCard   = document.getElementById("signinCard");
+    const signupCard   = document.getElementById("signupCard");
+    const courseCard    = document.getElementById("courseCard");
+    const emailEl      = document.getElementById("email");
+    const passEl       = document.getElementById("password");
+    const signinBtn    = document.getElementById("signinBtn");
+    const googleBtn    = document.getElementById("googleBtn");
+    const forgotLink   = document.getElementById("forgotLink");
+    const statusEl     = document.getElementById("status");
+    const showSignup   = document.getElementById("showSignup");
+    const showSignin   = document.getElementById("showSignin");
+    const signupNameEl = document.getElementById("signupName");
+    const signupEmailEl = document.getElementById("signupEmail");
+    const signupDobEl  = document.getElementById("signupDob");
+    const signupPassEl = document.getElementById("signupPassword");
+    const signupConfirmEl = document.getElementById("signupConfirm");
+    const signupBtn    = document.getElementById("signupBtn");
+    const googleSignupBtn = document.getElementById("googleSignupBtn");
+    const signupStatusEl = document.getElementById("signupStatus");
+    const courseCodeEl  = document.getElementById("courseCode");
+    const enrollBtn    = document.getElementById("enrollBtn");
+    const skipEnroll   = document.getElementById("skipEnroll");
+    const courseStatus = document.getElementById("courseStatus");
+    const redirectKey  = "post_login_redirect";
 
-    const emailEl = document.getElementById("email");
-    const passEl = document.getElementById("password");
-    const btn = document.getElementById("signinBtn");
-    const statusEl = document.getElementById("status");
-    const redirectKey = "post_login_redirect";
-
+    // ===== Redirect handling =====
     const searchParams = new URLSearchParams(window.location.search);
     const redirectParam = searchParams.get("redirect");
     if (redirectParam) {
       sessionStorage.setItem(redirectKey, redirectParam);
-    } else {
-      sessionStorage.removeItem(redirectKey);
     }
 
-    const getSafeRedirectTarget = () => {
-      let target = "/index.html";
+    const getSafeRedirectTarget = (defaultTarget = "/student_react.html") => {
+      let target = defaultTarget;
       const raw = sessionStorage.getItem(redirectKey);
       if (raw && raw.startsWith("/") && !raw.startsWith("//")) {
         target = raw;
@@ -73,29 +171,313 @@
       return target;
     };
 
-    btn.addEventListener("click", async () => {
+    // ===== Check if teacher (owns classes) or has enrollment =====
+    async function canSkipEnrollment(userId) {
+      // Teachers who own classes skip enrollment
+      const { data: classes, error: classErr } = await supa
+        .from("classes")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1);
+      if (!classErr && classes && classes.length > 0) return true;
+
+      // Check student enrollment
+      const { data, error } = await supa
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1);
+      if (error) {
+        console.warn("Enrollment check failed:", error.message);
+        return true; // fail open — don't block sign-in
+      }
+      return data && data.length > 0;
+    }
+
+    // ===== Post-auth: check profile products, route accordingly =====
+    async function handlePostAuth(session) {
+      try {
+        const resp = await fetch("/api/profile", {
+          headers: { "Authorization": "Bearer " + session.access_token },
+        });
+
+        if (resp.ok) {
+          const profile = await resp.json();
+          const { has_mark, has_revise, has_write } = profile;
+
+          // No products selected yet → send to product selection
+          if (!has_mark && !has_revise) {
+            window.location.assign("/role.html");
+            return;
+          }
+
+          // Cache products for fast client-side routing
+          localStorage.setItem("vysti_products", JSON.stringify({ has_mark, has_revise, has_write }));
+
+          // Route by product
+          if (has_mark) {
+            localStorage.setItem("vysti_role", "teacher");
+            window.location.assign(getSafeRedirectTarget("/teacher_react.html"));
+          } else {
+            localStorage.setItem("vysti_role", "student");
+            window.location.assign(getSafeRedirectTarget("/student_react.html"));
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn("Profile fetch failed, falling back to enrollment check:", err);
+      }
+
+      // Fallback: legacy enrollment-based routing
+      const enrolled = await canSkipEnrollment(session.user.id);
+      if (enrolled) {
+        window.location.assign(getSafeRedirectTarget());
+      } else {
+        signinCard.classList.add("hidden");
+        courseCard.classList.remove("hidden");
+      }
+    }
+
+    // ===== Google sign-in =====
+    googleBtn.addEventListener("click", async () => {
+      statusEl.textContent = "Redirecting to Google…";
+      const { error } = await supa.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/signin.html",
+        }
+      });
+      if (error) {
+        statusEl.textContent = "Google sign-in error: " + error.message;
+      }
+    });
+
+    // ===== Email/password sign-in =====
+    signinBtn.addEventListener("click", async () => {
       const email = emailEl.value.trim();
       const password = passEl.value.trim();
+      if (!email || !password) {
+        statusEl.textContent = "Please enter email and password.";
+        return;
+      }
 
       statusEl.textContent = "Signing in…";
-      const { error } = await supa.auth.signInWithPassword({ email, password });
+      const { data, error } = await supa.auth.signInWithPassword({ email, password });
 
       if (error) {
         statusEl.textContent = "Login error: " + error.message;
         return;
       }
 
-      statusEl.textContent = "Signed in. Redirecting…";
-      const target = getSafeRedirectTarget();
-      window.location.assign(target);
+      statusEl.textContent = "Signed in. Setting up…";
+      await handlePostAuth(data.session);
     });
 
-    // If already logged in, skip sign-in page
+    // ===== Forgot password =====
+    forgotLink.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const email = emailEl.value.trim();
+      if (!email) {
+        statusEl.textContent = "Enter your email address first, then click Forgot password.";
+        return;
+      }
+      statusEl.textContent = "Sending reset link…";
+      const { error } = await supa.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/signin.html",
+      });
+      if (error) {
+        statusEl.textContent = "Error: " + error.message;
+      } else {
+        statusEl.textContent = "Password reset email sent. Check your inbox.";
+      }
+    });
+
+    // ===== Toggle between sign-in and sign-up =====
+    showSignup.addEventListener("click", (e) => {
+      e.preventDefault();
+      signinCard.classList.add("hidden");
+      signupCard.classList.remove("hidden");
+      statusEl.textContent = "";
+      signupStatusEl.textContent = "";
+    });
+
+    showSignin.addEventListener("click", (e) => {
+      e.preventDefault();
+      signupCard.classList.add("hidden");
+      signinCard.classList.remove("hidden");
+      statusEl.textContent = "";
+      signupStatusEl.textContent = "";
+    });
+
+    // ===== Google sign-up (same OAuth flow) =====
+    googleSignupBtn.addEventListener("click", async () => {
+      signupStatusEl.textContent = "Redirecting to Google…";
+      const { error } = await supa.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/signin.html",
+        }
+      });
+      if (error) {
+        signupStatusEl.textContent = "Google sign-up error: " + error.message;
+      }
+    });
+
+    // ===== Email/password sign-up =====
+    signupBtn.addEventListener("click", async () => {
+      const name = signupNameEl.value.trim();
+      const email = signupEmailEl.value.trim();
+      const dob = signupDobEl.value;
+      const password = signupPassEl.value;
+      const confirm = signupConfirmEl.value;
+
+      if (!name) {
+        signupStatusEl.textContent = "Please enter your name.";
+        return;
+      }
+      if (!email) {
+        signupStatusEl.textContent = "Please enter your email address.";
+        return;
+      }
+      if (!dob) {
+        signupStatusEl.textContent = "Please enter your date of birth.";
+        return;
+      }
+      // Age gate: block self-registration for users under 13
+      const dobDate = new Date(dob + "T00:00:00");
+      const today = new Date();
+      let age = today.getFullYear() - dobDate.getFullYear();
+      const monthDiff = today.getMonth() - dobDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+      }
+      if (age < 13) {
+        signupStatusEl.textContent = "Users under 13 cannot create accounts on their own. Please ask a parent, guardian, or teacher to create an account for you.";
+        return;
+      }
+      if (!password) {
+        signupStatusEl.textContent = "Please enter a password.";
+        return;
+      }
+      if (password.length < 8) {
+        signupStatusEl.textContent = "Password must be at least 8 characters.";
+        return;
+      }
+      if (password !== confirm) {
+        signupStatusEl.textContent = "Passwords do not match.";
+        return;
+      }
+
+      signupStatusEl.textContent = "Creating account…";
+      const { data, error } = await supa.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: name, date_of_birth: dob },
+          emailRedirectTo: window.location.origin + "/signin.html",
+        },
+      });
+
+      if (error) {
+        signupStatusEl.textContent = "Sign-up error: " + error.message;
+        return;
+      }
+
+      // Supabase may require email confirmation
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        signupStatusEl.textContent = "An account with this email already exists. Try signing in.";
+        return;
+      }
+
+      if (data.session) {
+        // Auto-confirmed — proceed to product selection
+        signupStatusEl.textContent = "Account created! Setting up…";
+        await handlePostAuth(data.session);
+      } else {
+        // Email confirmation required
+        signupStatusEl.textContent = "Check your email for a confirmation link to activate your account.";
+      }
+    });
+
+    // ===== Enroll with course code =====
+    enrollBtn.addEventListener("click", async () => {
+      const code = courseCodeEl.value.trim().toUpperCase();
+      if (!code) {
+        courseStatus.textContent = "Please enter a course code.";
+        return;
+      }
+
+      courseStatus.textContent = "Checking code…";
+
+      // Look up the code
+      const { data: courses, error: lookupErr } = await supa
+        .from("course_codes")
+        .select("id, name, max_students, expires_at")
+        .eq("code", code)
+        .limit(1);
+
+      if (lookupErr || !courses || courses.length === 0) {
+        courseStatus.textContent = "Invalid course code. Please check and try again.";
+        return;
+      }
+
+      const course = courses[0];
+
+      // Check expiry
+      if (new Date(course.expires_at) < new Date()) {
+        courseStatus.textContent = "This course code has expired.";
+        return;
+      }
+
+      // Check capacity
+      const { count } = await supa
+        .from("enrollments")
+        .select("id", { count: "exact", head: true })
+        .eq("course_code_id", course.id);
+
+      if (count >= course.max_students) {
+        courseStatus.textContent = "This course is full.";
+        return;
+      }
+
+      // Get current user
+      const { data: { user } } = await supa.auth.getUser();
+      if (!user) {
+        courseStatus.textContent = "Session expired. Please sign in again.";
+        return;
+      }
+
+      // Create enrollment
+      const { error: enrollErr } = await supa
+        .from("enrollments")
+        .insert({ user_id: user.id, course_code_id: course.id });
+
+      if (enrollErr) {
+        if (enrollErr.code === "23505") {
+          courseStatus.textContent = "You are already enrolled in this course.";
+        } else {
+          courseStatus.textContent = "Enrollment error: " + enrollErr.message;
+        }
+        return;
+      }
+
+      courseStatus.textContent = "Enrolled in " + course.name + "! Redirecting…";
+      setTimeout(() => {
+        window.location.assign(getSafeRedirectTarget());
+      }, 1000);
+    });
+
+    // ===== Skip enrollment =====
+    skipEnroll.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.assign(getSafeRedirectTarget());
+    });
+
+    // ===== On page load: check if already signed in =====
     (async () => {
       const { data } = await supa.auth.getSession();
       if (data.session) {
-        const target = getSafeRedirectTarget();
-        window.location.assign(target);
+        await handlePostAuth(data.session);
       }
     })();
   </script>

@@ -6,3 +6,6 @@ pandas
 openpyxl
 python-multipart
 httpx
+slowapi
+language-tool-python
+stripe

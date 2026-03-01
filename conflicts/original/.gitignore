@@ -1,0 +1,27 @@
+# Node
+student-react/node_modules/
+student-react/.vite/
+student-react/.env
+student-react/.env.*
+student-react/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+
+# Local secrets
+cursor api key
+*.env
+.env*
+
+# Local backups (keep out of git)
+backups/
+student_backup*.html
+vysti_api_backup*.py
+power_verbs_*_backup.*

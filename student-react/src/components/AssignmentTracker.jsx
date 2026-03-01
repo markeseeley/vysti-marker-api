@@ -12,7 +12,7 @@ export default function AssignmentTracker({ assignmentName, onChange }) {
         id="assignmentName"
         value={assignmentName}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Assignment 01"
+        placeholder="Assignment name and number"
         aria-label="Assignment name (optional)"
       />
     </div>

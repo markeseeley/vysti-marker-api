@@ -1,0 +1,1077 @@
+:root{
+  --maroon:#A90D22;
+  --bg:#f5f6f8;
+  --card:#ffffff;
+  --border:rgba(0,0,0,.08);
+  --text:#111;
+  --muted:rgba(0,0,0,.6);
+  --shadow: 0 14px 45px rgba(0,0,0,.08);
+  --radius:16px;
+  /* Typography scale (responsive + accessible) */
+  --fs-body: clamp(18px, 1.05rem + 0.25vw, 20px);
+  --fs-sm:   clamp(16px, 0.95rem + 0.18vw, 18px);
+  --fs-xs:   clamp(15px, 0.90rem + 0.12vw, 17px);
+
+  --fs-h1:   clamp(32px, 1.6rem + 1.8vw, 48px);
+  --fs-h2:   clamp(24px, 1.25rem + 1.1vw, 34px);
+  --fs-h3:   clamp(20px, 1.05rem + 0.7vw, 26px);
+  --fs-btn:  clamp(16px, 0.98rem + 0.18vw, 18px);
+  --fs-nav:  clamp(14px, 0.88rem + 0.12vw, 16px);
+
+  --lh-body: 1.55;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, select, textarea {
+  font: inherit;
+}
+.dz-icon{
+  width: 40px;   /* adjust to the exact Figma W/H if it’s different */
+  height: 40px;
+}
+
+/* Top bar */
+.topbar{
+  background: var(--maroon);
+  color:#fff;
+  height:64px;
+  display:flex;
+  align-items:center;
+  padding:0 18px;
+  gap:18px;
+  box-shadow: 0 2px 0 rgba(0,0,0,.08);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.topbar .brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width: 150px;
+}
+.topbar .brand img{
+  height:28px;
+  width:auto;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.18));
+}
+.topbar nav{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  flex:1;
+}
+.topbar a{
+  color: rgba(255,255,255,.85);
+  text-decoration:none;
+  font-weight:600;
+  font-size:var(--fs-nav);
+  padding:10px 12px;
+  border-radius:10px;
+}
+.topbar a.active{
+  background: rgba(255,255,255,.12);
+  color:#fff;
+}
+.topbar a.disabled{
+  opacity:.4;
+  cursor:default;
+}
+.topbar .actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.iconbtn{
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.10);
+  cursor:pointer;
+}
+.topbar-btn{
+  height:36px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.10);
+  color:#fff;
+  font-weight:700;
+  font-size:var(--fs-nav);
+  cursor:pointer;
+}
+.topbar-btn .topbar-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:20px;
+  height:20px;
+  margin-right:6px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.55);
+  font-size:12px;
+  font-weight:700;
+  line-height:1;
+}
+.topbar-btn:hover{ 
+  background: rgba(255,255,255,.16); 
+}
+.topbar-btn:active{
+  transform: translateY(0.5px);
+}
+.keep-working-btn{
+  background: #fff !important;
+  color: var(--maroon, #A90D22) !important;
+  border-color: #fff !important;
+  font-weight: 700;
+}
+.keep-working-btn:hover{
+  background: rgba(255,255,255,.88) !important;
+}
+.keep-working-wrap{
+  position: relative;
+}
+.keep-working-menu{
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.15);
+  list-style: none !important;
+  margin: 0;
+  padding: 6px 0;
+  z-index: 900;
+  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+}
+.keep-working-menu li{
+  list-style: none !important;
+  padding: 0;
+  margin: 0;
+}
+.keep-working-menu li button{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-sm, 14px);
+  color: #222;
+  text-align: left;
+  border-radius: 0;
+  transition: background .15s ease;
+}
+.keep-working-menu li button:hover{
+  background: rgba(169,13,34,.06);
+}
+.kw-file{
+  font-weight: 600;
+  color: var(--maroon, #A90D22);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+.kw-time{
+  font-size: var(--fs-xs, 12px);
+  color: rgba(0,0,0,.45);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+.kw-mode-dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.kw-mode-dot--mark{ background: var(--maroon, #A90D22); }
+.kw-mode-dot--revise{ background: #1565C0; }
+.kw-mode-dot--write{ background: #2E7D32; }
+.kw-mode-label{
+  font-weight: 600;
+  margin-right: 4px;
+}
+.write-save-btn{
+  background: #fff !important;
+  color: #222 !important;
+  border-color: #fff !important;
+  font-weight: 600;
+}
+.write-save-btn:hover{
+  background: rgba(255,255,255,.88) !important;
+}
+.write-save-btn.save-success{
+  color: #16a34a !important;
+}
+.avatar{
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.35);
+  object-fit:cover;
+}
+
+/* Page layout */
+.page{
+  max-width: 1600px;
+  margin: 22px auto;
+  padding: 0 18px 40px;
+}
+
+.marker-grid{
+  display:grid;
+  grid-template-columns: 379px 1fr;
+  grid-template-areas:
+    "form  upload"
+    "form  rules";
+  gap: 18px;
+  align-items:start;
+}
+
+.form-card{ grid-area: form; }
+.upload-card{ grid-area: upload; }
+.rules-card{ grid-area: rules; }
+
+
+
+/* Cards */
+.card{
+  background: #FAFAFB;                 /* Figma */
+  border: 0 solid #000;                /* Figma says border 0 */
+  border-radius: 12px;                 /* Figma */
+  box-shadow: 0 2px 4px 0 rgba(0,0,0,.08); /* Figma */
+}
+
+
+/* Left form card */
+.form-card{
+  grid-area: form;
+  padding: 18px;
+}
+.form-card h2{
+  margin: 0 0 12px;
+  font-size: var(--fs-h3);
+}
+/* Student page: unify card headings */
+.student-page .card h2{
+  font-size: var(--fs-h3);
+  font-weight: 700;
+}
+label{ display:block; font-size:var(--fs-xs); font-weight:600; margin-top:12px; }
+.label-row{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.label-row .type-info{
+  margin-left: 0; /* override the default left-margin when used in label-row */
+}
+input[type="text"], input[type="email"], select{
+  width:100%;
+  height:40px;
+  padding: 0 12px;
+  border:1px solid rgba(0,0,0,.14);
+  border-radius:10px;
+  background:#fff;
+  outline:none;
+}
+input:focus, select:focus{
+  border-color: var(--maroon);
+  box-shadow: 0 0 0 3px rgba(169,13,34,.15);
+}
+
+.primary-btn{
+  margin-top: 16px;
+  width:100%;
+  height:44px;
+  border:0;
+  border-radius:12px;
+  background: var(--maroon);
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+.primary-btn:hover{ filter:brightness(.95); }
+
+.secondary-btn{
+  margin-top: 12px;
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.14);
+  background: #fff;
+  color: rgba(0,0,0,.75);
+  font-weight: 700;
+  cursor: pointer;
+}
+.secondary-btn:hover{ filter:brightness(.98); }
+.secondary-btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+.primary-btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+
+/* Upload card */
+.upload-card{
+  padding: 16px;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.drop-zone{
+  flex: 1;                 /* fill the upload-card */
+  width: 100%;             /* instead of width: min(928px, 100%) */
+  min-height: 220px;       /* keeps it tall */
+  height: auto;            /* instead of fixed 192px */
+
+  padding: 40px 16px;      /* instead of the huge Figma paddings */
+  display:flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+
+  border-radius: 12px;
+  border: 2px dashed #DEE1E6;
+  background: transparent;
+
+  cursor: pointer;
+  user-select: none;
+  margin-top: 6px;
+}
+
+
+.drop-zone.dragover{
+  border-color: var(--maroon);
+  background: rgba(169,13,34,.05);
+}
+.dz-icon{
+  width:40px; height:40px;
+  opacity:.8;
+}
+
+.rules-card{
+  grid-area: rules;
+  width: 100%;
+  min-height: 474px;                 /* keep flexible; Figma says 474 */
+  padding: 16px;
+  background: #FAFAFB;               /* Figma */
+  border-radius: 12px;               /* Figma */
+  border: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08); /* Figma */
+}
+
+.rules-cols{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 40px;   /* Figma */
+  row-gap: 0;
+}
+
+
+.rules-title.spaced{ margin-top: 14px; }
+
+.rules-title{
+  color: #171A1F;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-size: var(--fs-h3);     /* Figma */
+  font-weight: 500;    /* Figma */
+  line-height: 24px;   /* Figma */
+  margin: 0 0 8px;
+}
+
+
+/* Switch look for rule checkboxes (scoped) */
+.rules-card input[type="checkbox"]{
+  appearance: none;
+  width: 44px;               /* Figma */
+  height: 24px;              /* Figma */
+  border-radius: 12px;
+  background: #BCC1CA;       /* Figma off */
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+
+.rules-card input[type="checkbox"]::before{
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;               /* ~circle diameter in Figma svg */
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform .15s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+
+.rules-card input[type="checkbox"]:checked{
+  background: #A90D22;       /* your maroon */
+}
+
+.rules-card input[type="checkbox"]:checked::before{
+  transform: translateX(20px); /* 44 - 20 - 4 = 20 */
+}
+
+
+/* Rule row */
+
+/* Figma row geometry:
+   - Row height: 24
+   - Left gap to toggle: 4
+   - Switch → i: 10
+   - i → label: 4
+   - i size: 16 (toggle/label line-height 24)
+*/
+.rule-row{
+  display:flex;
+  align-items:flex-start;
+  min-height:24px;
+  padding-left:4px;     /* left gap to toggle */
+  margin: 10px 0;       /* keep your vertical spacing; adjust later if needed */
+}
+
+/* switch is already styled elsewhere; this just locks its slot */
+.rule-row > input[type="checkbox"],
+.rule-row > .info{
+  margin-top: 2px; /* nudge to match 24px text line */
+}
+
+
+/* the i column */
+.rule-row > .info{
+  flex: 0 0 16px;
+  width:16px;
+  height:16px;
+  line-height:16px;
+  text-align:center;
+  cursor: help;
+
+  /* IMPORTANT: do NOT use opacity here or the tooltip turns gray */
+  opacity: 1;
+  color: rgba(0,0,0,.55);  /* fades just the "i" */
+  
+  margin-left:10px;
+  margin-right:4px;
+}
+
+
+
+
+
+
+@media (max-width: 980px){
+  .marker-grid{
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "form"
+      "upload"
+      "rules";
+  }
+
+  .rules-cols{
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .drop-zone{
+    padding: 40px 16px;
+    height: auto;
+    min-height: 192px;
+  }
+}
+.hidden-select { 
+  display: none; 
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Shared file list (used by index.html + student.html) */
+.file-list{
+  list-style:none;
+  padding:0;
+  margin:12px 0;
+}
+.file-list li{
+  padding:8px 12px;
+  background:#f8f9fa;
+  border-radius:6px;
+  margin-bottom:6px;
+  font-size:var(--fs-sm);
+}
+
+/* Student status block */
+.status-area{
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  min-height: 40px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.status-area:empty{
+  display: none;
+}
+.status-area.success{ background:#d4edda; color:#155724; }
+.status-area.error{ background:#f8d7da; color:#721c24; }
+
+/* Title type (Minor/Major) radio block */
+.title-type-block {
+  margin-top: 12px;
+}
+
+.title-type-label {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.title-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.type-option {
+  cursor: pointer;
+}
+
+.type-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.type-name {
+  font-weight: 600;
+}
+
+.type-help {
+  display: block;
+  margin-left: 28px; /* pushes help under the label text, not under the radio */
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+  color: #6b7280;
+  line-height: 20px;
+}
+
+.title-type-block input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--maroon);
+}
+
+.type-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.22);
+  color: rgba(0,0,0,.55);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  line-height: 16px;
+  cursor: help;
+}
+.type-info:focus {
+  outline: 2px solid rgba(169,13,34,.30);
+  outline-offset: 2px;
+}
+
+/* Tooltip for Minor/Major options */
+.tt{ position: relative; }
+
+.tt::after{
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 120;
+
+  background: #fff;
+  color: rgba(0,0,0,.75);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+
+  display: block;
+  width: max-content;
+  max-width: 320px;
+  white-space: normal;
+
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+}
+
+.tt:hover::after,
+.tt:focus-within::after{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Rule "i" tooltips: match Minor/Major (black bubble) */
+.rule-row .info.tt::after{
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+
+  background: #fff;
+  color: rgba(0,0,0,.75);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+
+  display: block;
+  width: max-content;
+  max-width: 360px;
+  white-space: normal;
+
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  z-index: 120;
+}
+
+/* Force rule "i" tooltips to show on hover/focus (beats specificity issue) */
+.rule-row .info.tt:hover::after,
+.rule-row .info.tt:focus::after,
+.rule-row .info.tt:focus-within::after{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mode-card{
+  margin-top: 12px;
+  padding: 14px 12px 12px;
+
+  /* black stroke like Work fieldsets */
+  border: 1px solid #000;
+  border-radius: 0px;
+
+  /* match the form feel */
+  background: transparent;
+}
+
+
+.mode-card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mode-badge{
+  display:inline-flex;
+  align-items:center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(169,13,34,0.10);
+  color: #A90D22;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+}
+
+.mode-tag{
+  font-size: var(--fs-xs);
+  color: rgba(0,0,0,0.55);
+  font-weight: 600;
+}
+
+.mode-desc{
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 18px;
+  color: rgba(0,0,0,0.75);
+}
+
+.mode-more{
+  margin-top: 8px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #A90D22;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.mode-details{
+  margin-top: 10px;
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  color: rgba(0,0,0,0.75);
+}
+
+.mode-details ul{
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* ===== Footer (center text + bottom-right logo) ===== */
+.marker-footer{
+  margin-top: 18px;
+  padding: 18px 0 8px;
+
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+
+  color: rgba(0,0,0,.55);
+  font-size: var(--fs-xs);
+}
+
+.footer-copy{
+  grid-column: 2;
+  justify-self: center;
+}
+
+.footer-logo{
+  grid-column: 3;
+  justify-self: end;
+  height: 140px;      /* tweak size here */
+  width: auto;
+  opacity: 1;
+}
+
+@media (max-width: 520px){
+  .marker-footer{
+    grid-template-columns: 1fr;
+    row-gap: 10px;
+    justify-items: center;
+    text-align: center;
+  }
+  .footer-copy{ grid-column: 1; }
+  .footer-logo{ grid-column: 1; justify-self: center; }
+}
+
+/* Preview editing and highlighting */
+.preview-editable {
+  cursor: text;
+}
+
+/* Suppress loud green thesis-device highlights in preview */
+#markedPreview span[style*="background-color:#00B050"],
+#markedPreview span[style*="background-color: #00B050"],
+#markedPreview span[style*="background-color: rgb(0, 176, 80)"],
+#markedPreview span[style*="background-color:rgb(0, 176, 80)"] {
+  background-color: transparent !important;
+}
+
+/* Classic highlight styles */
+.vysti-preview-tech-block {
+  outline: 2px solid #f97316;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff7ed;
+}
+
+.vysti-preview-variety-block {
+  outline: 2px solid #3b82f6;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #eff6ff;
+}
+
+.vysti-preview-hit[data-vysti-device="1"] {
+  background: #fdba74;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+/* Find-in-preview exact sentence highlight */
+span.vysti-preview-hit[data-vysti-hit="1"] {
+  /* Remove yellow box styling */
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+
+  /* Make the highlight "pop" using brand styling */
+  font-family: "Times New Roman", Times, serif !important;
+  font-weight: 700 !important;
+  color: var(--maroon) !important;
+
+  /* Keep safe inheritance for everything else */
+  font-style: inherit;
+  text-decoration: inherit;
+
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Cursor highlight in preview (selection-like) */
+.vysti-preview-hit.vysti-cursor-highlight {
+  background: rgba(0, 120, 215, 0.25) !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 120, 215, 0.35) !important;
+}
+
+/* Optional modifier class for old yellow-box styling (not applied by default) */
+span.vysti-preview-hit[data-vysti-hit="1"].boxed {
+  outline: 2px solid #ffeb3b !important;
+  background: rgba(255, 235, 59, 0.2) !important;
+  box-shadow: 0 0 0 2px #ffeb3b !important;
+  border-radius: 3px !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-weight: inherit !important;
+}
+
+/* Fallback when we can only find the paragraph, not the exact sentence */
+.vysti-preview-hit-block {
+  /* Remove yellow box styling */
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+
+  /* Same brand highlight styling */
+  font-family: "Times New Roman", Times, serif !important;
+  font-weight: 700 !important;
+  color: var(--maroon) !important;
+}
+
+/* Text inserted into Preview via "Apply to Preview" */
+.vysti-applied-rewrite {
+  font-family: "Times New Roman", Times, serif !important;
+  font-size: 12pt !important;
+  font-weight: 400 !important;
+  font-style: inherit;
+  text-decoration: inherit;
+  color: inherit !important;
+  background: transparent !important;
+  outline: none !important;
+}
+
+.vysti-applied-rewrite.vysti-flash-highlight {
+  background: rgba(0, 120, 215, 0.25) !important;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 120, 215, 0.35) !important;
+}
+
+/* =========================
+   Student tour (guided)
+   ========================= */
+.tour-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.06);
+  z-index: 60;
+  pointer-events: none;
+}
+
+.tour-popover{
+  position: fixed;
+  top: 0;
+  left: 0;
+  max-width: 360px;
+  width: min(360px, calc(100vw - 24px));
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+  padding: 16px 16px 14px;
+  z-index: 70;
+  color: var(--text);
+  animation: popoverFadeIn 0.4s cubic-bezier(0, 0, 0.2, 1) both;
+}
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tour-arrow{
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  transform: rotate(45deg);
+  box-shadow: -6px -6px 12px rgba(0,0,0,.06);
+}
+.tour-arrow-down{ top: -6px; }
+.tour-arrow-up{ bottom: -6px; }
+
+.tour-title{
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  margin-bottom: 6px;
+}
+.tour-body{
+  font-size: var(--fs-sm);
+  color: rgba(0,0,0,.75);
+}
+.tour-footer{
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+.tour-step{
+  font-size: var(--fs-xs);
+  color: rgba(0,0,0,.6);
+  font-weight: 600;
+}
+.tour-checkbox-row{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: rgba(0,0,0,.7);
+}
+.tour-checkbox-row input{
+  accent-color: var(--maroon);
+}
+.tour-primary-btn{
+  background: var(--maroon);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(169,13,34,.18);
+}
+.tour-primary-btn:hover{ filter: brightness(.96); }
+
+.tour-close{
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: rgba(0,0,0,.6);
+}
+.tour-close:hover{ color: rgba(0,0,0,.9); }
+
+.brand-confirm-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.15);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.brand-confirm-overlay[hidden]{
+  display: none !important;
+}
+
+.brand-confirm-popover{
+  width: min(420px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+  border: 1px solid rgba(0,0,0,.10);
+  padding: 18px 18px 16px;
+  position: relative;
+  color: var(--text);
+}
+
+.brand-confirm-title{
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  margin-bottom: 8px;
+}
+
+.brand-confirm-body{
+  font-size: var(--fs-sm);
+  color: rgba(0,0,0,.75);
+}
+
+.brand-confirm-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.brand-confirm-ok{
+  background: var(--maroon);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(169,13,34,.18);
+}
+.brand-confirm-ok:hover{ filter: brightness(.96); }
+
+.brand-confirm-cancel{
+  background: transparent;
+  color: rgba(0,0,0,.75);
+  border: 1px solid rgba(0,0,0,.18);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.brand-confirm-cancel:hover{ background: rgba(0,0,0,.04); }
+
+.brand-confirm-close{
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: rgba(0,0,0,.6);
+}
+.brand-confirm-close:hover{ color: rgba(0,0,0,.9); }
+
+.tour-highlight{
+  outline: 3px solid rgba(169,13,34,.65);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgba(169,13,34,.12);
+  border-radius: 8px;
+}

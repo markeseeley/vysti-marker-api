@@ -1,0 +1,37 @@
+--- A/shared/markingApi.js
++++ B/shared/markingApi.js
+@@ -82,7 +82,8 @@
+   return {
+     blob,
+     techniquesHeaderRaw,
+-    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw)
++    techniquesParsed: parseTechniquesHeader(techniquesHeaderRaw),
++    status: response.status
+   };
+ }
+ 
+@@ -136,14 +137,17 @@
+   return response;
+ }
+ 
+-export async function exportDocx({ apiBaseUrl, token, payload }) {
++export async function exportDocx({ apiBaseUrl, token, fileName, text }) {
+   const response = await fetch(`${apiBaseUrl}/export_docx`, {
+     method: "POST",
+     headers: {
+       "Content-Type": "application/json",
+       ...(token ? { Authorization: `Bearer ${token}` } : {})
+     },
+-    body: JSON.stringify(payload)
++    body: JSON.stringify({
++      file_name: fileName,
++      text
++    })
+   });
+ 
+   if (response.status === 401 || response.status === 403) {
+@@ -161,4 +165,3 @@
+ 
+   return response.blob();
+ }
+-

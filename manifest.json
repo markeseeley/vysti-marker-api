@@ -1,0 +1,27 @@
+{
+  "name": "Vysti Marker",
+  "short_name": "Vysti",
+  "description": "Writing analysis and marking tool for teachers and students",
+  "start_url": "/teacher_react.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#141414",
+  "icons": [
+    {
+      "src": "/assets/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
