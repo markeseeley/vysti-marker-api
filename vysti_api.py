@@ -585,7 +585,7 @@ async def _find_user_by_stripe_customer(customer_id: str) -> str | None:
 
 
 class CheckoutRequest(BaseModel):
-    price_id: str
+    price_id: str | None = None
 
 
 @app.post("/api/stripe/checkout")
@@ -649,6 +649,104 @@ async def create_portal_session(
         return_url=request.base_url._url + "student_progress.html",
     )
     return {"portal_url": session.url}
+
+
+@app.post("/api/delete-account")
+@limiter.limit("5/minute")
+async def delete_account(
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Permanently delete the authenticated user's account:
+    1. Cancel active Stripe subscriptions
+    2. Delete all data from app tables
+    3. Delete uploaded files from Supabase Storage
+    4. Delete the auth user record
+    """
+    user_id = user.get("id") if isinstance(user, dict) else None
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Could not determine user")
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Server configuration missing")
+
+    # 1. Cancel active Stripe subscriptions
+    profile = await get_user_profile(user_id)
+    stripe_customer_id = (profile or {}).get("stripe_customer_id")
+    if stripe_customer_id and STRIPE_SECRET_KEY:
+        try:
+            subs = stripe.Subscription.list(customer=stripe_customer_id, status="active")
+            for sub in subs.auto_paging_iter():
+                stripe.Subscription.cancel(sub.id)
+            # Also cancel past_due / trialing
+            for status in ("past_due", "trialing"):
+                subs = stripe.Subscription.list(customer=stripe_customer_id, status=status)
+                for sub in subs.auto_paging_iter():
+                    stripe.Subscription.cancel(sub.id)
+        except Exception as exc:
+            print(f"[delete-account] Stripe cancellation error (non-fatal): {exc}")
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        # 2. Delete data from app tables (child tables first)
+        for table in [
+            "issue_examples",
+            "dismissed_issue_feedback",
+            "revision_drafts",
+            "mark_events",
+        ]:
+            try:
+                await client.delete(
+                    f"{SUPABASE_URL}/rest/v1/{table}",
+                    headers=headers,
+                    params={"user_id": f"eq.{user_id}"},
+                )
+            except Exception as exc:
+                print(f"[delete-account] Error deleting {table}: {exc}")
+
+        # Delete profile row
+        try:
+            await client.delete(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                headers=headers,
+                params={"id": f"eq.{user_id}"},
+            )
+        except Exception as exc:
+            print(f"[delete-account] Error deleting profile: {exc}")
+
+        # 3. Delete uploaded files from Supabase Storage (best-effort)
+        try:
+            list_url = f"{SUPABASE_URL}/storage/v1/object/list/originals"
+            resp = await client.post(
+                list_url,
+                headers={**headers, "Content-Type": "application/json"},
+                json={"prefix": f"{user_id}/", "limit": 1000},
+            )
+            if resp.status_code == 200:
+                files = resp.json()
+                for f in files:
+                    fname = f.get("name", "")
+                    if fname:
+                        del_url = f"{SUPABASE_URL}/storage/v1/object/originals/{user_id}/{fname}"
+                        await client.delete(del_url, headers=headers)
+        except Exception as exc:
+            print(f"[delete-account] Storage cleanup error (non-fatal): {exc}")
+
+        # 4. Delete the auth user via Supabase Admin API
+        try:
+            auth_url = f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+            resp = await client.delete(auth_url, headers=headers)
+            if resp.status_code not in (200, 204):
+                print(f"[delete-account] Auth user deletion returned {resp.status_code}: {resp.text[:200]}")
+        except Exception as exc:
+            print(f"[delete-account] Auth user deletion error: {exc}")
+
+    return {"deleted": True}
 
 
 @app.post("/api/stripe/webhook")

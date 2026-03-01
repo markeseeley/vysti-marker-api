@@ -339,13 +339,7 @@ export default function StudentPage() {
   };
 
   if (isChecking) {
-    return (
-      <main className="page student-page student-react-shell">
-        <div className="card form-card">
-          <p>Checking session...</p>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   if (authError) {
