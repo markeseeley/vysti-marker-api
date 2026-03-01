@@ -387,11 +387,7 @@ export default function TeacherApp() {
 
   // Auth guard
   if (isChecking) {
-    return (
-      <main className="page teacher-page">
-        <div className="card form-card"><p>Checking authentication...</p></div>
-      </main>
-    );
+    return null;
   }
   if (authError) {
     return (

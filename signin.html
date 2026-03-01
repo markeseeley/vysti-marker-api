@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vysti Marker — Sign in</title>
+  <title>Vysti — Endless Insight</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 
@@ -12,20 +12,18 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/shared/supabase-init.js"></script>
-  <!-- Turnstile removed for local dev — re-add for production -->
 </head>
 
 <body>
-  <main class="auth-shell">
-    <section class="auth-left" aria-hidden="true">
-      <img class="auth-logo" src="/assets/logo.svg" alt="Vysti" />
-    </section>
-
-    <section class="auth-right">
+  <!-- ===== HERO: full-width background with centered sign-in ===== -->
+  <section class="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <img class="hero-logo" src="/assets/logo.svg" alt="Vysti" />
+      <p class="hero-tagline">Endless insight.</p>
 
       <!-- ===== STEP 1: Sign-in form ===== -->
       <div class="auth-card" id="signinCard">
-
 
         <!-- Google -->
         <button type="button" id="googleBtn" class="google-btn">
@@ -105,7 +103,7 @@
         <div class="status" id="signupStatus"></div>
       </div>
 
-      <!-- ===== STEP 2: Course code (shown after first sign-in if no enrollment) ===== -->
+      <!-- ===== STEP 2: Course code ===== -->
       <div class="auth-card hidden" id="courseCard">
         <h1 class="auth-title">Welcome!</h1>
         <p class="auth-subtitle">Enter your course code to get started</p>
@@ -123,11 +121,132 @@
 
         <div class="status" id="courseStatus"></div>
       </div>
+    </div>
 
-    </section>
-  </main>
+    <a href="#about" class="hero-scroll-hint" aria-label="Scroll down">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    </a>
+  </section>
+
+  <!-- ===== ABOUT VYSTI ===== -->
+  <section class="landing-section" id="about">
+    <div class="landing-inner">
+      <h2 class="landing-heading">No more guesswork</h2>
+      <p class="landing-subtext">Vysti is not an AI. It's a deterministic writing engine — built on proven linguistic rules, not probabilistic guessing. The same essay produces the same results every time. Consistent, reliable, and transparent analysis you can trust.</p>
+      <div class="landing-metrics-row">
+        <div class="landing-metric">
+          <div class="landing-metric-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--maroon)" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <div class="landing-metric-label">Power</div>
+          <div class="landing-metric-desc">Verb strength and impact</div>
+        </div>
+        <div class="landing-metric">
+          <div class="landing-metric-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--maroon)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+          </div>
+          <div class="landing-metric-label">Variety</div>
+          <div class="landing-metric-desc">Sentence structure diversity</div>
+        </div>
+        <div class="landing-metric">
+          <div class="landing-metric-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--maroon)" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <div class="landing-metric-label">Cohesion</div>
+          <div class="landing-metric-desc">Flow and logical connection</div>
+        </div>
+        <div class="landing-metric">
+          <div class="landing-metric-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--maroon)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          </div>
+          <div class="landing-metric-label">Precision</div>
+          <div class="landing-metric-desc">Word choice accuracy</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOR STUDENTS: REVISE ===== -->
+  <section class="landing-section landing-section-alt" id="revise">
+    <div class="landing-inner landing-feature">
+      <div class="landing-feature-text">
+        <div class="landing-eyebrow">For Students</div>
+        <h2 class="landing-heading">Revise</h2>
+        <p class="landing-subtext">Upload your essay and get instant, rule-based feedback on every paragraph. No hallucinated suggestions — Vysti applies the same measurable standards every time, showing you exactly where your writing falls short and why.</p>
+        <ul class="landing-feature-list">
+          <li>Four performance meters built on concrete writing rules, not opinions</li>
+          <li>Edit in-browser and recheck — same rules, updated scores</li>
+          <li>Every issue links to the exact sentence and explains the rule behind it</li>
+          <li>Download your polished draft when you're done</li>
+        </ul>
+      </div>
+      <div class="landing-feature-visual">
+        <div class="landing-placeholder">
+          <div class="landing-placeholder-inner">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(169,13,34,0.3)" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+            <span>Screenshot coming soon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOR TEACHERS: MARK ===== -->
+  <section class="landing-section" id="mark">
+    <div class="landing-inner landing-feature landing-feature-reverse">
+      <div class="landing-feature-text">
+        <div class="landing-eyebrow">For Teachers</div>
+        <h2 class="landing-heading">Mark</h2>
+        <p class="landing-subtext">Upload a class set and get every essay scored against identical standards in minutes. Because Vysti is rule-based, every student is measured the same way — no mood, no bias, no inconsistency. You add the human touch; Vysti handles the consistency.</p>
+        <ul class="landing-feature-list">
+          <li>Batch-mark an entire class in one upload</li>
+          <li>Built-in annotation toolkit: highlights, strikethrough, comments</li>
+          <li>Deterministic score card — same essay, same result, every time</li>
+          <li>Download marked essays ready to return to students</li>
+        </ul>
+      </div>
+      <div class="landing-feature-visual">
+        <div class="landing-placeholder">
+          <div class="landing-placeholder-inner">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(169,13,34,0.3)" stroke-width="1.5" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Screenshot coming soon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="landing-section landing-cta">
+    <div class="landing-inner">
+      <h2 class="landing-heading">Try Vysti free</h2>
+      <p class="landing-subtext">Upload your first essay at no cost. No credit card required.</p>
+      <a href="#" class="landing-cta-btn" id="ctaScrollTop">Get started</a>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="landing-footer">
+    <div class="landing-footer-inner">
+      <span>&copy; 2026 Vysti</span>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+    </div>
+  </footer>
 
   <script>
+    // ===== CTA scroll-to-top =====
+    document.getElementById("ctaScrollTop").addEventListener("click", (e) => {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Focus the sign-up form
+      setTimeout(() => {
+        signinCard.classList.add("hidden");
+        signupCard.classList.remove("hidden");
+        document.getElementById("signupName").focus();
+      }, 600);
+    });
+
     // ===== DOM refs =====
     const signinCard   = document.getElementById("signinCard");
     const signupCard   = document.getElementById("signupCard");
@@ -173,7 +292,6 @@
 
     // ===== Check if teacher (owns classes) or has enrollment =====
     async function canSkipEnrollment(userId) {
-      // Teachers who own classes skip enrollment
       const { data: classes, error: classErr } = await supa
         .from("classes")
         .select("id")
@@ -181,7 +299,6 @@
         .limit(1);
       if (!classErr && classes && classes.length > 0) return true;
 
-      // Check student enrollment
       const { data, error } = await supa
         .from("enrollments")
         .select("id")
@@ -189,7 +306,7 @@
         .limit(1);
       if (error) {
         console.warn("Enrollment check failed:", error.message);
-        return true; // fail open — don't block sign-in
+        return true;
       }
       return data && data.length > 0;
     }
@@ -205,16 +322,13 @@
           const profile = await resp.json();
           const { has_mark, has_revise, has_write } = profile;
 
-          // No products selected yet → send to product selection
           if (!has_mark && !has_revise) {
             window.location.assign("/role.html");
             return;
           }
 
-          // Cache products for fast client-side routing
           localStorage.setItem("vysti_products", JSON.stringify({ has_mark, has_revise, has_write }));
 
-          // Route by product
           if (has_mark) {
             localStorage.setItem("vysti_role", "teacher");
             window.location.assign(getSafeRedirectTarget("/teacher_react.html"));
@@ -228,7 +342,6 @@
         console.warn("Profile fetch failed, falling back to enrollment check:", err);
       }
 
-      // Fallback: legacy enrollment-based routing
       const enrolled = await canSkipEnrollment(session.user.id);
       if (enrolled) {
         window.location.assign(getSafeRedirectTarget());
@@ -240,7 +353,7 @@
 
     // ===== Google sign-in =====
     googleBtn.addEventListener("click", async () => {
-      statusEl.textContent = "Redirecting to Google…";
+      statusEl.textContent = "Redirecting to Google\u2026";
       const { error } = await supa.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -261,7 +374,7 @@
         return;
       }
 
-      statusEl.textContent = "Signing in…";
+      statusEl.textContent = "Signing in\u2026";
       const { data, error } = await supa.auth.signInWithPassword({ email, password });
 
       if (error) {
@@ -269,7 +382,7 @@
         return;
       }
 
-      statusEl.textContent = "Signed in. Setting up…";
+      statusEl.textContent = "Signed in. Setting up\u2026";
       await handlePostAuth(data.session);
     });
 
@@ -281,7 +394,7 @@
         statusEl.textContent = "Enter your email address first, then click Forgot password.";
         return;
       }
-      statusEl.textContent = "Sending reset link…";
+      statusEl.textContent = "Sending reset link\u2026";
       const { error } = await supa.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + "/signin.html",
       });
@@ -309,9 +422,9 @@
       signupStatusEl.textContent = "";
     });
 
-    // ===== Google sign-up (same OAuth flow) =====
+    // ===== Google sign-up =====
     googleSignupBtn.addEventListener("click", async () => {
-      signupStatusEl.textContent = "Redirecting to Google…";
+      signupStatusEl.textContent = "Redirecting to Google\u2026";
       const { error } = await supa.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -343,7 +456,6 @@
         signupStatusEl.textContent = "Please enter your date of birth.";
         return;
       }
-      // Age gate: block self-registration for users under 13
       const dobDate = new Date(dob + "T00:00:00");
       const today = new Date();
       let age = today.getFullYear() - dobDate.getFullYear();
@@ -368,7 +480,7 @@
         return;
       }
 
-      signupStatusEl.textContent = "Creating account…";
+      signupStatusEl.textContent = "Creating account\u2026";
       const { data, error } = await supa.auth.signUp({
         email,
         password,
@@ -383,18 +495,15 @@
         return;
       }
 
-      // Supabase may require email confirmation
       if (data.user && data.user.identities && data.user.identities.length === 0) {
         signupStatusEl.textContent = "An account with this email already exists. Try signing in.";
         return;
       }
 
       if (data.session) {
-        // Auto-confirmed — proceed to product selection
-        signupStatusEl.textContent = "Account created! Setting up…";
+        signupStatusEl.textContent = "Account created! Setting up\u2026";
         await handlePostAuth(data.session);
       } else {
-        // Email confirmation required
         signupStatusEl.textContent = "Check your email for a confirmation link to activate your account.";
       }
     });
@@ -407,9 +516,8 @@
         return;
       }
 
-      courseStatus.textContent = "Checking code…";
+      courseStatus.textContent = "Checking code\u2026";
 
-      // Look up the code
       const { data: courses, error: lookupErr } = await supa
         .from("course_codes")
         .select("id, name, max_students, expires_at")
@@ -423,13 +531,11 @@
 
       const course = courses[0];
 
-      // Check expiry
       if (new Date(course.expires_at) < new Date()) {
         courseStatus.textContent = "This course code has expired.";
         return;
       }
 
-      // Check capacity
       const { count } = await supa
         .from("enrollments")
         .select("id", { count: "exact", head: true })
@@ -440,14 +546,12 @@
         return;
       }
 
-      // Get current user
       const { data: { user } } = await supa.auth.getUser();
       if (!user) {
         courseStatus.textContent = "Session expired. Please sign in again.";
         return;
       }
 
-      // Create enrollment
       const { error: enrollErr } = await supa
         .from("enrollments")
         .insert({ user_id: user.id, course_code_id: course.id });
@@ -461,7 +565,7 @@
         return;
       }
 
-      courseStatus.textContent = "Enrolled in " + course.name + "! Redirecting…";
+      courseStatus.textContent = "Enrolled in " + course.name + "! Redirecting\u2026";
       setTimeout(() => {
         window.location.assign(getSafeRedirectTarget());
       }, 1000);
