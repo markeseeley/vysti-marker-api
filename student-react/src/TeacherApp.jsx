@@ -305,7 +305,7 @@ export default function TeacherApp() {
     // Free tier: block if already used their mark — redirect to subscribe
     if (entitlement.subscription_tier === "free" && entitlement.marks_used >= entitlement.marks_limit) {
       alert("Subscribe to mark more essays.");
-      window.location.assign("/role.html");
+      window.location.assign("/profile_react.html?upgrade=mark");
       return;
     }
 
