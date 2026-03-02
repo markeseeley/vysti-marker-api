@@ -143,6 +143,40 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(169,13,34,.18);
 }
 
+/* Password toggle */
+.field-password {
+  position: relative;
+}
+
+.field-password input {
+  padding-right: 44px;
+}
+
+button.pw-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px;
+  margin: 0;
+  width: auto;
+  cursor: pointer;
+  color: rgba(0,0,0,.35);
+  transition: color .15s;
+  display: flex;
+  align-items: center;
+  box-shadow: none;
+}
+
+button.pw-toggle:hover {
+  color: rgba(0,0,0,.6);
+  filter: none;
+  background: none;
+}
+
 /* Primary button (maroon) */
 button {
   width: 100%;

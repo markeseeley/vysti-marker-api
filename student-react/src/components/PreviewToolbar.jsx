@@ -912,13 +912,12 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
           <div className="preview-toolbar-sep" />
           <button
             type="button"
-            className={`preview-toolbar-btn preview-toolbar-recheck${isFreeStudent ? " preview-toolbar-locked" : ""}`}
-            title={isFreeStudent ? "Subscribe to unlock rechecking" : "Re-analyze your essay with current changes"}
+            className="preview-toolbar-btn preview-toolbar-recheck"
+            title="Re-analyze your essay with current changes"
             aria-label="Recheck essay"
-            disabled={!isFreeStudent && (isRechecking || (!hasRevisedSinceMark && !worksChanged))}
-            onClick={isFreeStudent ? () => onPaywall?.("recheck") : onRecheck}
+            disabled={isRechecking || (!hasRevisedSinceMark && !worksChanged)}
+            onClick={onRecheck}
           >
-            {isFreeStudent && <span className="toolbar-lock-icon" aria-hidden="true">&#x1F512;</span>}
             {isRechecking ? "Processing..." : "Recheck"}
           </button>
         </>

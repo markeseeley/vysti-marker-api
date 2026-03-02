@@ -15,6 +15,7 @@ export default function ClassOverview({
   dispatch,
   derived,
   onMarkAll,
+  entitlement,
 }) {
   const {
     mode,
@@ -43,6 +44,13 @@ export default function ClassOverview({
   }, [mode]);
 
   const handleFilesAdded = (newRawFiles) => {
+    // Block file upload if free tier is exhausted
+    if (entitlement?.subscription_tier === "free" && entitlement.marks_used >= entitlement.marks_limit) {
+      alert("Subscribe to mark more essays.");
+      window.location.assign("/role.html");
+      return;
+    }
+
     const parsed = newRawFiles.map((file) => {
       const p = parseFilename(file.name);
       return {

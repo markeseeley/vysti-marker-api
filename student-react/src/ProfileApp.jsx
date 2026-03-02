@@ -7,7 +7,7 @@ import Footer from "./components/Footer";
 import "./ProfileApp.css";
 
 export default function ProfileApp() {
-  const { supa, isChecking: authChecking } = useAuthSession("profile");
+  const { supa, isChecking: authChecking, products } = useAuthSession("profile");
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -126,8 +126,12 @@ export default function ProfileApp() {
           <img src="/assets/logo.svg" alt="Vysti" />
         </div>
         <nav>
-          <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
-          <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
+          {products?.has_mark
+            ? <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
+            : <a className="disabled upgrade" title="Upgrade to unlock Mark" onClick={() => window.location.assign("/profile_react.html?upgrade=mark")}>Mark</a>}
+          {products?.has_revise
+            ? <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
+            : <a className="disabled upgrade" title="Upgrade to unlock Revise" onClick={() => window.location.assign("/profile_react.html?upgrade=revise")}>Revise</a>}
           <a className="disabled" title="Coming soon..." aria-disabled="true">Write</a>
           <a href="/student_progress.html" title="Track your writing progress">Progress</a>
         </nav>

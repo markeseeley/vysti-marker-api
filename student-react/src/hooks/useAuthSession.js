@@ -46,7 +46,7 @@ export function useAuthSession(role = "student") {
           }
         } catch {}
 
-        // Fetch entitlement data from profile API
+        // Fetch entitlement + product data from profile API
         try {
           const apiBase = getApiBaseUrl();
           const profileResp = await fetch(`${apiBase}/api/profile`, {
@@ -59,6 +59,14 @@ export function useAuthSession(role = "student") {
               marks_used: profileData.marks_used || 0,
               marks_limit: 1,
             });
+            // Update products from API (source of truth) and sync localStorage
+            const apiProducts = {
+              has_mark: !!profileData.has_mark,
+              has_revise: !!profileData.has_revise,
+              has_write: !!profileData.has_write,
+            };
+            setProducts(apiProducts);
+            try { localStorage.setItem("vysti_products", JSON.stringify(apiProducts)); } catch {}
           }
         } catch (e) {
           // Non-critical: entitlement defaults to free tier
@@ -97,6 +105,7 @@ export function useAuthSession(role = "student") {
     authError,
     products,
     entitlement,
+    setEntitlement,
     redirectToSignin
   };
 }

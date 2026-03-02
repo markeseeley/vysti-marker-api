@@ -41,12 +41,17 @@
 
         <div class="field">
           <label for="email">Email Address</label>
-          <input id="email" type="email" placeholder="Email Address" />
+          <input id="email" type="email" placeholder="Email Address" autocomplete="email" />
         </div>
 
         <div class="field">
           <label for="password">Password</label>
-          <input id="password" type="password" placeholder="Password" />
+          <div class="field-password">
+            <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+            <button type="button" class="pw-toggle" data-target="password" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <a href="#" id="forgotLink" class="forgot-link">Forgot password?</a>
@@ -58,6 +63,13 @@
         </p>
 
         <div class="status" id="status"></div>
+
+        <!-- Dev-only: test as new user (localhost only) -->
+        <div id="devPanel" class="hidden" style="margin-top:18px;padding:14px;border:2px dashed #A90D22;border-radius:10px;background:#fff8f8;">
+          <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#A90D22;">DEV TESTING</p>
+          <p style="margin:0 0 10px;font-size:12px;color:var(--muted);">Sign in with your real account, then click below to reset your profile to new-user state and go through role selection + free tier.</p>
+          <button type="button" id="devNewUserBtn" style="background:#A90D22;font-size:13px;margin-top:0;padding:10px 14px;">Test as New User</button>
+        </div>
       </div>
 
       <!-- ===== SIGN-UP form ===== -->
@@ -90,12 +102,22 @@
 
         <div class="field">
           <label for="signupPassword">Password</label>
-          <input id="signupPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+          <div class="field-password">
+            <input id="signupPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" data-target="signupPassword" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="field">
           <label for="signupConfirm">Confirm Password</label>
-          <input id="signupConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+          <div class="field-password">
+            <input id="signupConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" data-target="signupConfirm" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <p class="auth-consent">By creating an account, you agree to our <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</p>
@@ -116,12 +138,22 @@
 
         <div class="field">
           <label for="resetPassword">New Password</label>
-          <input id="resetPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+          <div class="field-password">
+            <input id="resetPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" data-target="resetPassword" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="field">
           <label for="resetConfirm">Confirm New Password</label>
-          <input id="resetConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+          <div class="field-password">
+            <input id="resetConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" data-target="resetConfirm" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
 
         <button id="resetBtn" type="button">Update Password</button>
@@ -251,6 +283,19 @@
   </footer>
 
   <script>
+    // ===== Password visibility toggle =====
+    document.querySelectorAll(".pw-toggle").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        // Swap icon: eye → eye-off
+        btn.innerHTML = showing
+          ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+          : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+      });
+    });
+
     // ===== CTA scroll-to-top =====
     document.getElementById("ctaScrollTop").addEventListener("click", (e) => {
       e.preventDefault();
@@ -339,36 +384,33 @@
           headers: { "Authorization": "Bearer " + session.access_token },
         });
 
-        if (resp.ok) {
-          const profile = await resp.json();
-          const { has_mark, has_revise, has_write } = profile;
-
-          if (!has_mark && !has_revise) {
-            window.location.assign("/role.html");
-            return;
-          }
-
-          localStorage.setItem("vysti_products", JSON.stringify({ has_mark, has_revise, has_write }));
-
-          if (has_mark) {
-            localStorage.setItem("vysti_role", "teacher");
-            window.location.assign(getSafeRedirectTarget("/teacher_react.html"));
-          } else {
-            localStorage.setItem("vysti_role", "student");
-            window.location.assign(getSafeRedirectTarget("/student_react.html"));
-          }
+        if (!resp.ok) {
+          console.warn("Profile fetch returned", resp.status, "— redirecting to role selection");
+          window.location.assign("/role.html");
           return;
         }
-      } catch (err) {
-        console.warn("Profile fetch failed, falling back to enrollment check:", err);
-      }
 
-      const enrolled = await canSkipEnrollment(session.user.id);
-      if (enrolled) {
-        window.location.assign(getSafeRedirectTarget());
-      } else {
-        signinCard.classList.add("hidden");
-        courseCard.classList.remove("hidden");
+        const profile = await resp.json();
+        const { has_mark, has_revise, has_write } = profile;
+
+        if (!has_mark && !has_revise) {
+          window.location.assign("/role.html");
+          return;
+        }
+
+        localStorage.setItem("vysti_products", JSON.stringify({ has_mark, has_revise, has_write }));
+
+        if (has_mark) {
+          localStorage.setItem("vysti_role", "teacher");
+          window.location.assign(getSafeRedirectTarget("/teacher_react.html"));
+        } else {
+          localStorage.setItem("vysti_role", "student");
+          window.location.assign(getSafeRedirectTarget("/student_react.html"));
+        }
+        return;
+      } catch (err) {
+        console.warn("Profile fetch failed, redirecting to role selection:", err);
+        window.location.assign("/role.html");
       }
     }
 
@@ -637,6 +679,52 @@
     skipEnroll.addEventListener("click", (e) => {
       e.preventDefault();
       window.location.assign(getSafeRedirectTarget());
+    });
+
+    // ===== Dev panel: only show on localhost =====
+    const isLocalDev = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if (isLocalDev) {
+      document.getElementById("devPanel").classList.remove("hidden");
+    }
+
+    document.getElementById("devNewUserBtn").addEventListener("click", async () => {
+      const devStatus = statusEl;
+      const email = emailEl.value.trim();
+      const password = passEl.value.trim();
+
+      if (!email || !password) {
+        devStatus.textContent = "Enter your email and password above first.";
+        return;
+      }
+
+      devStatus.textContent = "Signing in\u2026";
+      // Prevent onAuthStateChange from calling handlePostAuth before reset
+      authHandled = true;
+      const { data, error } = await supa.auth.signInWithPassword({ email, password });
+      if (error) {
+        authHandled = false;  // Re-enable normal auth flow
+        devStatus.textContent = "Sign-in failed: " + error.message;
+        return;
+      }
+
+      devStatus.textContent = "Resetting profile to new-user state\u2026";
+      const resp = await fetch("/api/dev/reset-user", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + data.session.access_token },
+      });
+      if (!resp.ok) {
+        devStatus.textContent = "Reset failed: " + (await resp.text());
+        return;
+      }
+
+      // Clear localStorage so the app sees a fresh user
+      localStorage.removeItem("vysti_role");
+      localStorage.removeItem("vysti_products");
+
+      devStatus.textContent = "Reset complete! Redirecting to role selection\u2026";
+      setTimeout(() => {
+        window.location.assign("/role.html");
+      }, 800);
     });
 
     // ===== On page load: check if already signed in =====

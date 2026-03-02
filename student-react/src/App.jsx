@@ -2655,6 +2655,7 @@ function App() {
         )}
         onKeepWorking={handleKeepWorking}
         keepWorkingItems={keepWorkingItems}
+        products={products}
       />
 
       <StudentTour

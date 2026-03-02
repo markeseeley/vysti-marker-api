@@ -138,17 +138,17 @@
 </head>
 <body>
   <div class="role-card">
-    <h1 class="role-title">Choose your plan</h1>
-    <p class="role-subtitle">What would you like to do with Vysti?</p>
+    <h1 class="role-title">How will you use Vysti?</h1>
+    <p class="role-subtitle">Pick your role to get started — try it free, no credit card required.</p>
 
     <div class="role-buttons">
       <button id="markBtn" class="role-btn" type="button">
-        <span class="role-btn-name">Mark — $11.99/mo</span>
+        <span class="role-btn-name">Mark</span>
         <span class="role-btn-desc">Batch-mark student essays with Vysti's marking engine. Track class progress over time.</span>
         <span class="role-btn-tag">For Teachers</span>
       </button>
       <button id="reviseBtn" class="role-btn" type="button">
-        <span class="role-btn-name">Revise — $8.99/mo</span>
+        <span class="role-btn-name">Revise</span>
         <span class="role-btn-desc">Get feedback on your writing and practice revision with guided exercises.</span>
         <span class="role-btn-tag">For Students</span>
       </button>
@@ -158,7 +158,7 @@
       <button id="bothBtn" class="role-both-link" type="button">I need both</button>
     </div>
 
-    <p class="role-note">You can add the other plan later from your account settings.</p>
+    <p class="role-note">You can upgrade anytime.</p>
 
     <button id="logoutBtn" class="logout-btn" type="button">Sign Out</button>
     <div id="statusMsg" class="role-status"></div>
@@ -171,10 +171,6 @@
     const logoutBtn = document.getElementById("logoutBtn");
     const statusMsg = document.getElementById("statusMsg");
 
-    // Price IDs (from Stripe product catalog)
-    const PRICE_MARK = "price_1T668o05dveHz2frQ0A6yljL";
-    const PRICE_REVISE = "price_1T668o05dveHz2frBXPt1CyJ";
-
     // ===== Auth guard =====
     let sessionToken = null;
     (async () => {
@@ -184,80 +180,55 @@
         return;
       }
       sessionToken = data.session.access_token;
-
-      // Handle return from Stripe checkout
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("checkout") === "success") {
-        statusMsg.textContent = "Payment confirmed! Setting up your account\u2026";
-        // Fetch updated profile and route
-        try {
-          const resp = await fetch("/api/profile", {
-            headers: { "Authorization": "Bearer " + sessionToken },
-          });
-          if (resp.ok) {
-            const profile = await resp.json();
-            localStorage.setItem("vysti_products", JSON.stringify({
-              has_mark: profile.has_mark,
-              has_revise: profile.has_revise,
-              has_write: profile.has_write || false,
-            }));
-            if (profile.has_mark) {
-              localStorage.setItem("vysti_role", "teacher");
-              window.location.assign("/teacher_react.html");
-            } else {
-              localStorage.setItem("vysti_role", "student");
-              window.location.assign("/student_react.html");
-            }
-            return;
-          }
-        } catch (err) {
-          console.warn("Profile fetch after checkout failed:", err);
-        }
-        statusMsg.textContent = "Payment received. Please select your plan to continue.";
-        // Clear the query string
-        history.replaceState(null, "", "/role.html");
-      } else if (params.get("checkout") === "cancelled") {
-        statusMsg.textContent = "Checkout was cancelled. You can try again.";
-        history.replaceState(null, "", "/role.html");
-      }
     })();
 
-    // ===== Start Stripe Checkout =====
-    async function startCheckout(priceId) {
+    // ===== Select role (free tier — no payment) =====
+    async function selectRole(products) {
       if (!sessionToken) return;
       markBtn.disabled = reviseBtn.disabled = true;
       bothBtn.disabled = true;
-      statusMsg.textContent = "Redirecting to checkout\u2026";
+      statusMsg.textContent = "Setting up your account\u2026";
 
       try {
-        const resp = await fetch("/api/stripe/checkout", {
-          method: "POST",
+        const resp = await fetch("/api/profile", {
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + sessionToken,
           },
-          body: JSON.stringify({ price_id: priceId }),
+          body: JSON.stringify(products),
         });
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          throw new Error(err.detail || "Checkout failed");
+          throw new Error(err.detail || "Failed to save role");
         }
 
-        const { checkout_url } = await resp.json();
-        window.location.assign(checkout_url);
+        const profile = await resp.json();
+        localStorage.setItem("vysti_products", JSON.stringify({
+          has_mark: profile.has_mark,
+          has_revise: profile.has_revise,
+          has_write: profile.has_write || false,
+        }));
+
+        if (profile.has_mark) {
+          localStorage.setItem("vysti_role", "teacher");
+          window.location.assign("/teacher_react.html");
+        } else {
+          localStorage.setItem("vysti_role", "student");
+          window.location.assign("/student_react.html");
+        }
       } catch (err) {
-        console.error("Checkout error:", err);
+        console.error("Role selection error:", err);
         statusMsg.textContent = err.message || "Something went wrong. Please try again.";
         markBtn.disabled = reviseBtn.disabled = false;
         bothBtn.disabled = false;
       }
     }
 
-    markBtn.addEventListener("click", () => startCheckout(PRICE_MARK));
-    reviseBtn.addEventListener("click", () => startCheckout(PRICE_REVISE));
-    // "Both" — for now, start with Mark checkout. They can add Revise later.
-    bothBtn.addEventListener("click", () => startCheckout(PRICE_MARK));
+    markBtn.addEventListener("click", () => selectRole({ has_mark: true }));
+    reviseBtn.addEventListener("click", () => selectRole({ has_revise: true }));
+    bothBtn.addEventListener("click", () => selectRole({ has_mark: true, has_revise: true }));
 
     // ===== Logout =====
     logoutBtn.addEventListener("click", async () => {

@@ -507,8 +507,41 @@ async def update_profile(
     if resp.status_code not in (200, 204):
         raise HTTPException(status_code=502, detail="Failed to update profile")
 
-    rows = resp.json()
-    return rows[0] if rows else {"ok": True}
+    # 204 has no body; only parse JSON from 200
+    if resp.status_code == 200:
+        rows = resp.json()
+        if rows:
+            return rows[0]
+
+    # PATCH matched 0 rows — profile doesn't exist yet. Create it.
+    email = user.get("email", "")
+    meta = user.get("user_metadata") or {}
+    insert_payload = {
+        "id": user_id,
+        "email": email,
+        "display_name": meta.get("display_name") or meta.get("full_name", ""),
+        "has_mark": False,
+        "has_revise": False,
+        "has_write": False,
+        "subscription_status": "none",
+        "subscription_tier": "free",
+    }
+    insert_payload.update(patch)
+    insert_url = f"{SUPABASE_URL}/rest/v1/profiles"
+    async with httpx.AsyncClient(timeout=5) as client:
+        ins_resp = await client.post(insert_url, json=insert_payload, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        })
+    if 200 <= ins_resp.status_code < 300:
+        ins_rows = ins_resp.json()
+        if ins_rows:
+            return ins_rows[0]
+
+    # Last fallback: return the patch data so the frontend can proceed
+    return insert_payload
 
 
 def require_product(*products: str):
@@ -539,6 +572,55 @@ def require_product(*products: str):
             )
         return user
     return _check
+
+
+# ===== Dev-only: reset user for testing (localhost only) =====
+
+@app.post("/api/dev/reset-user")
+async def dev_reset_user(
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Reset the current user's profile to 'brand-new' state.
+    Only works on localhost — blocked in production."""
+    host = request.headers.get("host", "")
+    if not host.startswith("localhost") and not host.startswith("127.0.0.1"):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Could not determine user")
+
+    # Reset profile to fresh signup state
+    reset_fields = {
+        "has_mark": False,
+        "has_revise": False,
+        "has_write": False,
+        "subscription_status": "none",
+        "subscription_tier": "free",
+        "onboarded_at": None,
+        "stripe_customer_id": None,
+        "subscription_plan": None,
+        "subscription_ends_at": None,
+        "trial_ends_at": None,
+    }
+    url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.patch(url, json=reset_fields, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+        })
+
+    # Delete all mark_events so usage counter resets
+    events_url = f"{SUPABASE_URL}/rest/v1/mark_events?user_id=eq.{user_id}"
+    async with httpx.AsyncClient(timeout=5) as client:
+        await client.delete(events_url, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        })
+
+    return {"ok": True, "message": "Profile reset to new-user state. Clear localStorage and refresh."}
 
 
 # ===== Stripe endpoints =====
@@ -1043,7 +1125,7 @@ async def mark_essay(
     request: Request,
     file: UploadFile = File(...),
     mode: str = Form("textual_analysis"),
-    user: dict = Depends(require_product("mark")),
+    user: dict = Depends(require_product("mark", "revise")),
     include_summary_table: bool = Form(True),
     student_mode: bool | None = Form(None),
     return_metadata: bool = Form(False),  # NEW: Return JSON with metadata
@@ -3084,20 +3166,6 @@ async def mark_text(
     _MAX_TEXT_CHARS = 50_000
     if body.text and len(body.text) > _MAX_TEXT_CHARS:
         raise HTTPException(status_code=400, detail=f"Text exceeds {_MAX_TEXT_CHARS} character limit.")
-
-    # 0b. Free-tier recheck gate (students only — teachers can recheck their single essay)
-    _mt_user_id = user.get("id") if isinstance(user, dict) else None
-    if _mt_user_id:
-        _mt_profile = await get_user_profile(_mt_user_id)
-        _mt_tier = (_mt_profile or {}).get("subscription_tier", "free")
-        if _mt_tier == "free" and (_mt_profile or {}).get("has_revise", False):
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Subscribe to unlock rechecking.",
-                    "code": "RECHECK_BLOCKED",
-                },
-            )
 
     # 1. Create .docx from text
     docx_bytes = build_doc_from_text(body.text)

@@ -9,7 +9,7 @@ function truncateFileName(name, max = 28) {
 
 const MAX_DROPDOWN_DRAFTS = 5;
 
-export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts, onKeepWorking, keepWorkingItems }) {
+export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts, onKeepWorking, keepWorkingItems, products }) {
   const drafts = Array.isArray(pendingSavedDrafts) ? pendingSavedDrafts : [];
   const crossApp = Array.isArray(keepWorkingItems) ? keepWorkingItems : [];
 
@@ -36,7 +36,9 @@ export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts
       </div>
 
       <nav>
-        <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
+        {products?.has_mark
+          ? <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
+          : <a className="disabled upgrade" title="Upgrade to unlock Mark" onClick={() => window.location.assign("/profile_react.html?upgrade=mark")}>Mark</a>}
         <a href="/student_react.html" className="active" title="Upload your essay for feedback">Revise</a>
         <a className="disabled" title="Coming soon..." aria-disabled="true">Write</a>
         <a href="/student_progress.html" title="Track your writing progress">Progress</a>

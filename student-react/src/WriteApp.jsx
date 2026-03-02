@@ -54,7 +54,7 @@ export function peekWriteDraft(uid) {
 }
 
 export default function WriteApp() {
-  const { supa, isChecking: authChecking } = useAuthSession();
+  const { supa, isChecking: authChecking, products } = useAuthSession();
   const [state, dispatch] = useWriteReducer();
   const [authReady, setAuthReady] = useState(false);
   const [deviceCount, setDeviceCount] = useState(0);
@@ -255,6 +255,7 @@ export default function WriteApp() {
         saveState={saveState}
         canSave={Boolean(state.text.trim())}
         keepWorkingItems={keepWorkingItems}
+        products={products}
       />
 
       <main className="page write-page">

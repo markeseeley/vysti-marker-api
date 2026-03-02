@@ -106,6 +106,14 @@ button, input, select, textarea {
   border-color: rgba(255,255,255,.28);
   color: rgba(255,255,255,.85);
 }
+.topbar a.disabled.upgrade{
+  cursor:pointer;
+}
+.topbar a.disabled.upgrade:hover{
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.35);
+  opacity:.6;
+}
 .topbar .actions{
   display:flex;
   align-items:center;

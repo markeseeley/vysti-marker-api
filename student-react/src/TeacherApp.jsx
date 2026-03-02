@@ -25,7 +25,7 @@ import { getApiUrls } from "./config";
 import { parseFilename } from "./lib/filenameParser";
 
 export default function TeacherApp() {
-  const { supa, isChecking, authError, products, entitlement } = useAuthSession("teacher");
+  const { supa, isChecking, authError, products, entitlement, setEntitlement } = useAuthSession("teacher");
   const [state, dispatch, derived] = useTeacherReducer();
   const [userId, setUserId] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
@@ -356,6 +356,9 @@ export default function TeacherApp() {
 
         if (!firstMarkedId) firstMarkedId = f.id;
 
+        // Update entitlement count so free-tier pre-check stays current
+        setEntitlement((prev) => ({ ...prev, marks_used: prev.marks_used + 1 }));
+
       } catch (err) {
         console.error("Mark failed for", f.fileName, err);
         dispatch({ type: "FILE_ERROR", id: f.id, error: err.message });
@@ -429,6 +432,7 @@ export default function TeacherApp() {
             dispatch={dispatch}
             derived={derived}
             onMarkAll={handleMarkAll}
+            entitlement={entitlement}
           />
         )}
       </main>
