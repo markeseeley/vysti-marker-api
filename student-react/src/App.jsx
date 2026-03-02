@@ -302,6 +302,22 @@ function App() {
     }
   }, [isChecking, products]);
 
+  // ── Detect Stripe checkout return ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (checkout === "success") {
+      setStatus({ message: "Payment successful! You now have full access.", kind: "success" });
+    } else if (checkout === "cancelled") {
+      setStatus({ message: "Checkout was cancelled. You can try again any time.", kind: "info" });
+    }
+    if (checkout) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("checkout");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, []);
+
   useEffect(() => {
     try {
       setMetricsCollapsed(localStorage.getItem(METRIC_DETAILS_COLLAPSE_KEY) === "1");
@@ -660,7 +676,7 @@ function App() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ return_path: "/student_react.html" }),
         });
         if (resp.ok) {
           const { checkout_url } = await resp.json();

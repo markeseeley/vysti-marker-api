@@ -668,6 +668,7 @@ async def _find_user_by_stripe_customer(customer_id: str) -> str | None:
 
 class CheckoutRequest(BaseModel):
     price_id: str | None = None
+    return_path: str | None = None
 
 
 @app.post("/api/stripe/checkout")
@@ -702,13 +703,22 @@ async def create_checkout_session(
     if not price:
         raise HTTPException(status_code=400, detail="No pricing configured")
 
+    # Determine where Stripe redirects after checkout.
+    # Only allow known local paths to prevent open-redirect attacks.
+    allowed_return_pages = {
+        "/teacher_react.html", "/student_react.html",
+        "/profile_react.html", "/write_react.html",
+    }
+    return_page = body.return_path if body.return_path in allowed_return_pages else "/profile_react.html"
+    base = str(request.base_url).rstrip("/")
+
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": price, "quantity": 1}],
         allow_promotion_codes=True,
-        success_url=request.base_url._url + "role.html?checkout=success",
-        cancel_url=request.base_url._url + "role.html?checkout=cancelled",
+        success_url=f"{base}{return_page}?checkout=success",
+        cancel_url=f"{base}{return_page}?checkout=cancelled",
         metadata={"supabase_user_id": user_id},
     )
 

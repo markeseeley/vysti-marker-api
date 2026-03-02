@@ -12,6 +12,26 @@ export default function ProfileApp() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [token, setToken] = useState(null);
+  const [checkoutBanner, setCheckoutBanner] = useState(null);
+
+  // Detect Stripe checkout return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (checkout === "success") {
+      setCheckoutBanner("success");
+    } else if (checkout === "cancelled") {
+      setCheckoutBanner("cancelled");
+    }
+    if (checkout) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("checkout");
+      // Keep other params like ?upgrade=mark
+      window.history.replaceState({}, "", url.pathname + url.search);
+      const t = setTimeout(() => setCheckoutBanner(null), 8000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   useEffect(() => {
     if (!authChecking && supa) {
@@ -85,7 +105,7 @@ export default function ProfileApp() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ return_path: "/profile_react.html" }),
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
@@ -139,6 +159,22 @@ export default function ProfileApp() {
           <UserMenu onSignOut={handleSignOut} />
         </div>
       </header>
+
+      {checkoutBanner && (
+        <div className={`checkout-banner checkout-banner--${checkoutBanner}`} role="status">
+          <span>
+            {checkoutBanner === "success"
+              ? "Payment successful! You now have full access."
+              : "Checkout was cancelled. You can try again any time."}
+          </span>
+          <button
+            type="button"
+            className="checkout-banner-close"
+            aria-label="Dismiss"
+            onClick={() => setCheckoutBanner(null)}
+          >&times;</button>
+        </div>
+      )}
 
       <ProfilePage
         user={user}
