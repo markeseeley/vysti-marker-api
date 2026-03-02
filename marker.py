@@ -7004,11 +7004,10 @@ def analyze_text(
 
             (1), (1-3), (1, 2, 3)
             (Kristof 4), (Baron 12-13), (Kristof and Smith 4-5)
+            (Smith 3; Jones 5)
 
-        Any number that lives between matching parentheses and is preceded
-        (inside the same parentheses) by an author-ish chunk but not followed
-        by more letters is treated as a citation and exempt from the
-        1–10 spelling rule.
+        Any number that lives between matching parentheses and appears in a
+        citation-shaped segment is exempt from the 1–10 spelling rule.
         """
         n = len(flat)
 
@@ -7036,25 +7035,41 @@ def analyze_text(
         if re.fullmatch(r"[0-9][0-9\s,.-]*", inside):
             return True
 
-        # MLA-style: some non-digit content (author name, etc.) followed by
-        # a page number, with no letters after the page number.
-        first_digit = re.search(r"\d", inside)
-        if not first_digit:
-            return False
+        # Split on semicolons for multi-source citations like (Smith 3; Jones 5).
+        # Check each segment independently.
+        segments = inside.split(";")
+        # Find which segment contains the number being tested
+        # by mapping back to absolute positions.
+        seg_offset = left + 1  # absolute position of start of inside content
+        for seg in segments:
+            # Account for leading whitespace in segment
+            seg_stripped = seg.strip()
+            seg_abs_start = flat.index(seg_stripped, seg_offset) if seg_stripped else seg_offset
+            seg_abs_end = seg_abs_start + len(seg_stripped)
+            seg_offset = seg_abs_end + 1  # skip past ';'
 
-        before = inside[: first_digit.start()]
-        after = inside[first_digit.start():]
+            # Is the tested number inside this segment?
+            if start >= seg_abs_start and end <= seg_abs_end:
+                # Check this segment for author + page pattern
+                first_digit = re.search(r"\d", seg_stripped)
+                if not first_digit:
+                    return False
 
-        # Require at least one letter before the digits (author-ish chunk)
-        if not re.search(r"[A-Za-z]", before):
-            return False
+                before = seg_stripped[: first_digit.start()]
+                after = seg_stripped[first_digit.start():]
 
-        # After the page number we only allow digits and basic separators,
-        # not more letters.
-        if re.search(r"[A-Za-z]", after):
-            return False
+                # Require at least one letter before the digits (author-ish chunk)
+                if not re.search(r"[A-Za-z]", before):
+                    return False
 
-        return True
+                # After the page number we only allow digits and basic separators,
+                # not more letters.
+                if re.search(r"[A-Za-z]", after):
+                    return False
+
+                return True
+
+        return False
 
     def _is_comma_formatted_number(text: str, m_start: int, m_end: int) -> bool:
         """Return True if the digit at [m_start:m_end) is part of a comma-formatted number like 3,200 or 10,000."""
@@ -7089,6 +7104,10 @@ def analyze_text(
             ("About 1.3 million people.", False),
             ("She had a 3.5 GPA.", False),
             ("See Section 4.2 for details.", False),
+            ("This is shown (Kristof 4).", False),
+            ("This is shown (Smith 3; Jones 5).", False),
+            ("This is shown (Smith and Baron 7).", False),
+            ("This is shown (qtd. in Smith 3).", False),
         ]
         for sample_text, should_flag in checks:
             flagged = False
