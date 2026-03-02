@@ -642,15 +642,35 @@ function App() {
     setStatus({ message, kind: "success" });
   };
 
-  const handlePaywall = (feature) => {
+  const handlePaywall = async (feature) => {
     const messages = {
       recheck: "Subscribe to unlock rechecking.",
       download: "Subscribe to download your essay.",
     };
     const msg = messages[feature] || "Subscribe to unlock this feature.";
     setError(msg);
+    // Try direct Stripe checkout; fall back to profile page
+    try {
+      const { data } = await supa.auth.getSession();
+      const token = data?.session?.access_token;
+      if (token) {
+        const resp = await fetch(`${apiBase}/api/stripe/checkout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        });
+        if (resp.ok) {
+          const { checkout_url } = await resp.json();
+          window.location.href = checkout_url;
+          return;
+        }
+      }
+    } catch {}
     setTimeout(() => {
-      window.location.assign("/role.html");
+      window.location.assign("/profile_react.html");
     }, 1800);
   };
 
