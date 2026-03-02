@@ -994,6 +994,7 @@ def compute_scores(
     structure_ratio = structure_ok / body_count if body_count else 1
     variety_base = round(100 * (0.40 * tech_ratio + 0.45 * evidence_dev_ratio + 0.15 * structure_ratio))
     dev_count = _sum_label_counts(DEVELOPMENT_LABELS, counts) if has_precision_counts else 0
+    dev_count_dd = _sum_label_counts_deduped(DEVELOPMENT_LABELS, counts, cap=2) if has_precision_counts else 0
     dev_penalty = _capped_penalty(dev_count, 5, 20)
     variety_score = _clamp(round(variety_base - dev_penalty), 0, 100)
 
@@ -1048,10 +1049,14 @@ def compute_scores(
         variety_bonus = round(min(variety_base / 100, 1.0) * 5, 1)
 
         precision_score = _clamp(round(100 - penalty + pv_bonus + variety_bonus), 0, 100)
+        # Don't let bonuses push score to 100 while deduped issues remain —
+        # dots use deduped counts, so score and dots must agree.
+        if precision_score == 100 and (concision_dd + clarity_dd + conventions_dd) > 0:
+            precision_score = 99
         precision_details = {
-            "concisionCount": concision, "clarityCount": clarity,
+            "concisionCount": concision_dd, "clarityCount": clarity_dd,
             "unnecessaryCount": unnecessary, "wordyCount": wordy,
-            "impreciseCount": imprecise, "conventionsCount": conventions,
+            "impreciseCount": imprecise, "conventionsCount": conventions_dd,
             "penalty": round(penalty, 1),
             "powerVerbBonus": pv_bonus,
             "varietyBonus": variety_bonus,
@@ -1096,7 +1101,7 @@ def compute_scores(
                 "sentenceTypes": _sent_types,
                 "totalSentenceCount": total_sentence_count,
                 "techniquesUnavailable": not techniques_available,
-                "developmentCount": dev_count,
+                "developmentCount": dev_count_dd,
                 "developmentPenalty": dev_penalty,
             },
         },
