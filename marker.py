@@ -2909,6 +2909,54 @@ def flatten_paragraph_without_labels(paragraph):
     return flat_text, segments
 
 
+def merge_sentences_around_known_names(sentences, flat_text, known_names):
+    """Merge sentences that were split within a known author or title name.
+
+    When spaCy treats a period after an initial (e.g. "M.") as a sentence
+    boundary, the author's full name gets split across two sentences.  This
+    post-processing step finds exact occurrences of *known_names* in
+    *flat_text* and merges any sentence boundary that falls inside one of
+    those spans.
+    """
+    if not known_names or not sentences:
+        return sentences
+
+    text_lower = flat_text.lower()
+    protected_spans: list[tuple[int, int]] = []
+    for name in known_names:
+        if not name:
+            continue
+        name_lower = name.lower()
+        start = 0
+        while True:
+            idx = text_lower.find(name_lower, start)
+            if idx == -1:
+                break
+            protected_spans.append((idx, idx + len(name)))
+            start = idx + 1
+
+    if not protected_spans:
+        return sentences
+
+    merged: list[tuple[int, int]] = []
+    i = 0
+    while i < len(sentences):
+        s_start, s_end = sentences[i]
+        while i + 1 < len(sentences):
+            boundary_in_protected = any(
+                ps < s_end < pe for ps, pe in protected_spans
+            )
+            if boundary_in_protected:
+                _, next_end = sentences[i + 1]
+                s_end = next_end
+                i += 1
+            else:
+                break
+        merged.append((s_start, s_end))
+        i += 1
+    return merged
+
+
 def spacy_parse(text):
     """
     Returns:
@@ -3562,6 +3610,19 @@ def analyze_text(
     # -----------------------
     doc, tokens, sentences = spacy_parse(flat_text)
 
+    # Merge sentences that were split within known author/title names
+    if config is not None:
+        _known_names = [n for n in (
+            getattr(config, "author_name", None),
+            getattr(config, "author_name_2", None),
+            getattr(config, "author_name_3", None),
+            getattr(config, "text_title", None),
+            getattr(config, "text_title_2", None),
+            getattr(config, "text_title_3", None),
+        ) if n]
+        if _known_names:
+            sentences = merge_sentences_around_known_names(sentences, flat_text, _known_names)
+
     # Classify sentence types for this paragraph (simple/compound/complex/compound-complex)
     global DOC_SENTENCE_TYPES
     if paragraph_index is not None and sentences:
@@ -3646,11 +3707,15 @@ def analyze_text(
                     best_span = None
                     best_sim = 0.0
 
+                    # Dynamic window: names like "M. F. K. Fisher" need more than 3 tokens
+                    _author_parts = len(re.findall(r"[A-Za-z]+", author_target))
+                    _max_window = max(3, _author_parts + 1)
+
                     n = len(first_tokens)
                     for i in range(n):
                         if not looks_name_like(first_tokens[i]):
                             continue
-                        for length in (1, 2, 3):
+                        for length in range(1, _max_window + 1):
                             j = i + length
                             if j > n:
                                 break
@@ -4078,13 +4143,17 @@ def analyze_text(
                 best_span = None
                 best_sim = 0.0
 
+                # Dynamic window: names like "M. F. K. Fisher" need more than 3 tokens
+                _author_parts = len(re.findall(r"[A-Za-z]+", author_target))
+                _max_window = max(3, _author_parts + 1)
+
                 n = len(first_tokens)
                 for i in range(n):
                     # Only start on name-like tokens
                     if not looks_name_like(first_tokens[i]):
                         continue
 
-                    for length in (1, 2, 3):
+                    for length in range(1, _max_window + 1):
                         j = i + length
                         if j > n:
                             break
