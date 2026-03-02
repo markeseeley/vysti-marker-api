@@ -744,7 +744,15 @@ async def _find_user_by_stripe_customer(customer_id: str) -> str | None:
 
 class CheckoutRequest(BaseModel):
     price_id: str | None = None
+    product: str | None = None  # "mark" | "revise" | "both"
     return_path: str | None = None
+
+
+_PRODUCT_TO_PRICE = {
+    "mark": STRIPE_PRICE_MARK,
+    "revise": STRIPE_PRICE_REVISE,
+    "both": STRIPE_PRICE_BOTH,
+}
 
 
 @app.post("/api/stripe/checkout")
@@ -778,7 +786,7 @@ async def create_checkout_session(
             "stripe_customer_id": customer_id,
         })
 
-    price = body.price_id or STRIPE_PRICE_BOTH
+    price = body.price_id or _PRODUCT_TO_PRICE.get(body.product or "") or STRIPE_PRICE_BOTH
     if not price:
         raise HTTPException(status_code=400, detail="No pricing configured")
 

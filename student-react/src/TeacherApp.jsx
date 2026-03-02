@@ -22,6 +22,7 @@ import {
 import { findAllRevisionDrafts } from "./services/revisionDraftStore";
 import { peekWriteDraft } from "./WriteApp";
 import { getApiUrls } from "./config";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { parseFilename } from "./lib/filenameParser";
 
 export default function TeacherApp() {
@@ -363,8 +364,29 @@ export default function TeacherApp() {
         console.error("Mark failed for", f.fileName, err);
         dispatch({ type: "FILE_ERROR", id: f.id, error: err.message });
         if (err?.isEntitlementError) {
-          alert("Subscribe to mark more essays.");
-          window.location.assign("/role.html");
+          // Redirect to Stripe checkout for Mark product
+          try {
+            const { data } = await supa.auth.getSession();
+            const tkn = data?.session?.access_token;
+            if (tkn) {
+              const apiBase = getApiBaseUrl();
+              const resp = await fetch(`${apiBase}/api/stripe/checkout`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${tkn}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ product: "mark", return_path: "/teacher_react.html" }),
+              });
+              if (resp.ok) {
+                const { checkout_url } = await resp.json();
+                window.location.href = checkout_url;
+                break;
+              }
+            }
+          } catch {}
+          // Fallback: send to profile page
+          window.location.assign("/profile_react.html?upgrade=mark");
           break;
         }
       }

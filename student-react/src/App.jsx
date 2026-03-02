@@ -663,6 +663,7 @@ function App() {
 
   const handlePaywall = async (feature) => {
     const messages = {
+      upload: "Subscribe for unlimited essay uploads.",
       recheck: "Subscribe to unlock rechecking.",
       download: "Subscribe to download your essay.",
     };
@@ -679,7 +680,7 @@ function App() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ return_path: "/student_react.html" }),
+          body: JSON.stringify({ product: "revise", return_path: "/student_react.html" }),
         });
         if (resp.ok) {
           const { checkout_url } = await resp.json();
@@ -1010,7 +1011,7 @@ function App() {
       } else if (err?.code === "ABORTED") {
         setStatus({ message: "Canceled.", kind: "info" });
       } else if (err?.isEntitlementError) {
-        setError(err.message);
+        handlePaywall("upload");
       } else {
         const message = err?.message || "Failed to mark essay. Please try again.";
         setLastMarkStatus({ status: err?.status ?? null, ok: false });
@@ -1170,7 +1171,7 @@ function App() {
       } else if (err?.code === "ABORTED") {
         setStatus({ message: "Canceled.", kind: "info" });
       } else if (err?.isEntitlementError) {
-        setError(err.message);
+        handlePaywall("recheck");
       } else {
         const message = err?.message || "Failed to recheck essay. Please try again.";
         setError(message, err);
@@ -2602,7 +2603,7 @@ function App() {
       );
 
       if (response.status === 402) {
-        setError("Subscribe to download your essay.");
+        handlePaywall("download");
         return;
       }
 

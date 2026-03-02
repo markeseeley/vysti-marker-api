@@ -61,6 +61,7 @@ export default function ProfilePage({
   onSignOut, onPasswordUpdate,
   onManageBilling, onUpgrade, onDeleteAccount,
   onAvatarUpload,
+  upgradeHint,
 }) {
   const [pwSection, setPwSection] = useState(false);
   const [newPw, setNewPw] = useState("");
@@ -139,11 +140,11 @@ export default function ProfilePage({
     }
   };
 
-  const handleUpgradeClick = async () => {
+  const handleUpgradeClick = async (product) => {
     setBillingBusy(true);
     setBillingError("");
     try {
-      await onUpgrade();
+      await onUpgrade(product);
     } catch (err) {
       setBillingError(err?.message || "Could not start checkout.");
       setBillingBusy(false);
@@ -266,8 +267,8 @@ export default function ProfilePage({
             {billingError && (
               <p className="pw-status pw-status-error">{billingError}</p>
             )}
-            <div style={{ marginTop: 16 }}>
-              {isPaid ? (
+            {isPaid ? (
+              <div style={{ marginTop: 16 }}>
                 <button
                   className="profile-btn"
                   onClick={handleBillingClick}
@@ -275,16 +276,45 @@ export default function ProfilePage({
                 >
                   {billingBusy ? "Opening\u2026" : "Manage Billing"}
                 </button>
-              ) : (
-                <button
-                  className="profile-btn profile-btn-primary"
-                  onClick={handleUpgradeClick}
-                  disabled={billingBusy}
-                >
-                  {billingBusy ? "Loading\u2026" : "Upgrade"}
-                </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="upgrade-options">
+                <h3>Choose a plan</h3>
+                <div className="upgrade-cards">
+                  <button
+                    className={`upgrade-card${upgradeHint === "revise" ? " upgrade-card--highlighted" : ""}`}
+                    onClick={() => handleUpgradeClick("revise")}
+                    disabled={billingBusy}
+                  >
+                    <strong>Revise</strong>
+                    <span className="upgrade-card-audience">For students</span>
+                    <span className="upgrade-card-price">$8.99/mo</span>
+                    <span className="upgrade-card-desc">Upload essays, get feedback, and improve</span>
+                  </button>
+                  <button
+                    className={`upgrade-card${upgradeHint === "mark" ? " upgrade-card--highlighted" : ""}`}
+                    onClick={() => handleUpgradeClick("mark")}
+                    disabled={billingBusy}
+                  >
+                    <strong>Mark</strong>
+                    <span className="upgrade-card-audience">For teachers</span>
+                    <span className="upgrade-card-price">$11.99/mo</span>
+                    <span className="upgrade-card-desc">Grade student essays with detailed feedback</span>
+                  </button>
+                  <button
+                    className={`upgrade-card upgrade-card--featured${upgradeHint === "both" || !upgradeHint ? " upgrade-card--highlighted" : ""}`}
+                    onClick={() => handleUpgradeClick("both")}
+                    disabled={billingBusy}
+                  >
+                    <strong>Both</strong>
+                    <span className="upgrade-card-audience">Mark + Revise</span>
+                    <span className="upgrade-card-price">$14.99/mo</span>
+                    <span className="upgrade-card-desc">Full access to all features</span>
+                  </button>
+                </div>
+                {billingBusy && <p className="upgrade-loading">Redirecting to checkout\u2026</p>}
+              </div>
+            )}
           </section>
         )}
 

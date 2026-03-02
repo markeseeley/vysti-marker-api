@@ -12,7 +12,7 @@ export default function ProfileApp() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [token, setToken] = useState(null);
-  // Read checkout param synchronously during render (survives re-renders)
+  // Read checkout param synchronously (survives re-renders)
   const [checkoutBanner, setCheckoutBanner] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
@@ -24,6 +24,11 @@ export default function ProfileApp() {
       return checkout;
     }
     return null;
+  });
+  // Read ?upgrade=mark|revise to highlight the right product card
+  const [upgradeHint] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("upgrade"); // "mark", "revise", or null
   });
 
   // Auto-dismiss checkout banner after 8 seconds
@@ -96,7 +101,7 @@ export default function ProfileApp() {
     window.location.href = portal_url;
   }, [token]);
 
-  const handleUpgrade = useCallback(async () => {
+  const handleUpgrade = useCallback(async (product) => {
     if (!token) return;
     const apiBase = getApiBaseUrl();
     const resp = await fetch(`${apiBase}/api/stripe/checkout`, {
@@ -105,7 +110,7 @@ export default function ProfileApp() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ return_path: "/profile_react.html" }),
+      body: JSON.stringify({ product: product || "both", return_path: "/profile_react.html" }),
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
@@ -203,6 +208,7 @@ export default function ProfileApp() {
         onUpgrade={handleUpgrade}
         onDeleteAccount={handleDeleteAccount}
         onAvatarUpload={handleAvatarUpload}
+        upgradeHint={upgradeHint}
       />
 
       <Footer />
