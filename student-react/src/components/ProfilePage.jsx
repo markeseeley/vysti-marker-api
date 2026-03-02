@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 function getProvider(user) {
   if (!user) return "Unknown";
@@ -13,7 +13,8 @@ function getDisplayName(user) {
   return meta.full_name || meta.name || "";
 }
 
-function getAvatarUrl(user) {
+function getAvatarUrl(user, profile) {
+  if (profile?.avatar_url) return profile.avatar_url;
   if (!user) return null;
   const meta = user.user_metadata || {};
   return meta.avatar_url || meta.picture || null;
@@ -59,6 +60,7 @@ export default function ProfilePage({
   user, profile,
   onSignOut, onPasswordUpdate,
   onManageBilling, onUpgrade, onDeleteAccount,
+  onAvatarUpload,
 }) {
   const [pwSection, setPwSection] = useState(false);
   const [newPw, setNewPw] = useState("");
@@ -74,10 +76,27 @@ export default function ProfilePage({
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState("");
 
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = useRef(null);
+
   const provider = getProvider(user);
   const displayName = getDisplayName(user);
-  const avatarUrl = getAvatarUrl(user);
+  const avatarUrl = getAvatarUrl(user, profile);
   const isEmailUser = provider === "Email";
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !onAvatarUpload) return;
+    setAvatarBusy(true);
+    try {
+      await onAvatarUpload(file);
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setAvatarBusy(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   const tier = profile?.subscription_tier || "free";
   const isPaid = tier === "paid";
@@ -151,7 +170,14 @@ export default function ProfilePage({
     <main className="page profile-page">
       <div className="profile-container">
         <div className="profile-header">
-          <div className="profile-avatar-wrap">
+          <div
+            className={`profile-avatar-wrap${avatarBusy ? " profile-avatar-uploading" : ""}`}
+            onClick={() => avatarInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            title="Change profile photo"
+            onKeyDown={(e) => { if (e.key === "Enter") avatarInputRef.current?.click(); }}
+          >
             {avatarUrl ? (
               <img className="profile-avatar" src={avatarUrl} alt="" />
             ) : (
@@ -162,6 +188,19 @@ export default function ProfilePage({
                 </svg>
               </div>
             )}
+            <div className="profile-avatar-overlay">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              hidden
+              onChange={handleAvatarChange}
+            />
           </div>
           <div className="profile-header-info">
             <h1>{displayName || user?.email || "Your Profile"}</h1>

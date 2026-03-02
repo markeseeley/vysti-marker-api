@@ -63,6 +63,9 @@
 }
 .profile-avatar-wrap {
   flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+  border-radius: 999px;
 }
 .profile-avatar {
   width: 72px;
@@ -77,6 +80,39 @@
   justify-content: center;
   background: rgba(169, 13, 34, 0.08);
   color: var(--maroon, #A90D22);
+}
+.profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.profile-avatar-wrap:hover .profile-avatar-overlay,
+.profile-avatar-wrap:focus-visible .profile-avatar-overlay {
+  opacity: 1;
+}
+.profile-avatar-uploading {
+  pointer-events: none;
+}
+.profile-avatar-uploading .profile-avatar,
+.profile-avatar-uploading .profile-avatar-placeholder {
+  opacity: 0.5;
+}
+.profile-avatar-uploading .profile-avatar-overlay {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.55);
+}
+@keyframes avatar-spin {
+  to { transform: rotate(360deg); }
+}
+.profile-avatar-uploading .profile-avatar-overlay svg {
+  animation: avatar-spin 1s linear infinite;
 }
 .profile-header-info h1 {
   margin: 0;

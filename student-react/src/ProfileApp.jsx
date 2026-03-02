@@ -135,6 +135,24 @@ export default function ProfileApp() {
     window.location.replace("/signin.html");
   }, [token]);
 
+  const handleAvatarUpload = useCallback(async (file) => {
+    if (!token) return;
+    const apiBase = getApiBaseUrl();
+    const fd = new FormData();
+    fd.append("file", file);
+    const resp = await fetch(`${apiBase}/api/avatar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Avatar upload failed");
+    }
+    const { avatar_url } = await resp.json();
+    setProfile((prev) => ({ ...prev, avatar_url }));
+  }, [token]);
+
   if (!authReady) {
     return null;
   }
@@ -184,6 +202,7 @@ export default function ProfileApp() {
         onManageBilling={handleManageBilling}
         onUpgrade={handleUpgrade}
         onDeleteAccount={handleDeleteAccount}
+        onAvatarUpload={handleAvatarUpload}
       />
 
       <Footer />

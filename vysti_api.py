@@ -55,7 +55,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob:",
+        "img-src 'self' data: blob: https://*.googleusercontent.com https://*.supabase.co",
         "connect-src 'self' https://*.supabase.co https://checkout.stripe.com",
         "frame-src https://challenges.cloudflare.com",
         "object-src 'none'",
@@ -545,6 +545,79 @@ async def update_profile(
 
     # Last fallback: return the patch data so the frontend can proceed
     return insert_payload
+
+
+_AVATAR_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+_AVATAR_ALLOWED_TYPES = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+}
+
+
+@app.post("/api/avatar")
+@limiter.limit("10/minute")
+async def upload_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """Upload a custom profile avatar image."""
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Could not determine user")
+
+    content_type = (file.content_type or "").lower()
+    ext = _AVATAR_ALLOWED_TYPES.get(content_type)
+    if not ext:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPEG, PNG, GIF, and WebP images are allowed.",
+        )
+
+    image_bytes = await file.read()
+    if len(image_bytes) > _AVATAR_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="Image must be under 2 MB.")
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Storage not configured")
+
+    storage_path = f"{user_id}/avatar.{ext}"
+    storage_url = f"{SUPABASE_URL}/storage/v1/object/avatars/{storage_path}"
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            storage_url,
+            content=image_bytes,
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": content_type,
+                "x-upsert": "true",
+            },
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail="Failed to upload avatar")
+
+    public_url = (
+        f"{SUPABASE_URL}/storage/v1/object/public/avatars/{storage_path}"
+    )
+
+    # Save URL to profiles table
+    profile_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+    async with httpx.AsyncClient(timeout=5) as client:
+        await client.patch(
+            profile_url,
+            json={"avatar_url": public_url},
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+            },
+        )
+
+    return {"avatar_url": public_url}
 
 
 def require_product(*products: str):
