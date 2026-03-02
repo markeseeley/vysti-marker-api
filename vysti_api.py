@@ -745,7 +745,7 @@ async def create_portal_session(
 
     session = stripe.billing_portal.Session.create(
         customer=customer_id,
-        return_url=request.base_url._url + "student_progress.html",
+        return_url=str(request.base_url).rstrip("/") + "/profile_react.html",
     )
     return {"portal_url": session.url}
 
