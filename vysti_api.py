@@ -731,6 +731,8 @@ async def create_checkout_session(
     except stripe.StripeError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
+    return {"checkout_url": session.url}
+
 
 @app.post("/api/stripe/portal")
 @limiter.limit("10/minute")
