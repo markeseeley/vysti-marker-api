@@ -33,7 +33,7 @@ export function getApiBaseUrl(fallback = "") {
     if (typeof window !== "undefined") {
       const h = window.location.hostname;
       if (h !== "localhost" && h !== "127.0.0.1") {
-        return "";          // production: same-origin relative URLs
+        return window.location.origin;   // production: use actual origin
       }
     }
   }
