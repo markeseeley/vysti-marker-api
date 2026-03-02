@@ -693,10 +693,13 @@ async def create_checkout_session(
     customer_id = (profile or {}).get("stripe_customer_id")
 
     if not customer_id:
-        customer = stripe.Customer.create(
-            email=email,
-            metadata={"supabase_user_id": user_id},
-        )
+        try:
+            customer = stripe.Customer.create(
+                email=email,
+                metadata={"supabase_user_id": user_id},
+            )
+        except stripe.StripeError as e:
+            raise HTTPException(status_code=502, detail=f"Stripe customer creation failed: {e}")
         customer_id = customer.id
         await _update_profile_fields(user_id, {
             "stripe_customer_id": customer_id,
