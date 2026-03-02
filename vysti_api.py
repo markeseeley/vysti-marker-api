@@ -715,17 +715,18 @@ async def create_checkout_session(
     return_page = body.return_path if body.return_path in allowed_return_pages else "/profile_react.html"
     base = str(request.base_url).rstrip("/")
 
-    session = stripe.checkout.Session.create(
-        customer=customer_id,
-        mode="subscription",
-        line_items=[{"price": price, "quantity": 1}],
-        allow_promotion_codes=True,
-        success_url=f"{base}{return_page}?checkout=success",
-        cancel_url=f"{base}{return_page}?checkout=cancelled",
-        metadata={"supabase_user_id": user_id},
-    )
-
-    return {"checkout_url": session.url}
+    try:
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            mode="subscription",
+            line_items=[{"price": price, "quantity": 1}],
+            allow_promotion_codes=True,
+            success_url=f"{base}{return_page}?checkout=success",
+            cancel_url=f"{base}{return_page}?checkout=cancelled",
+            metadata={"supabase_user_id": user_id},
+        )
+    except stripe.StripeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.post("/api/stripe/portal")
