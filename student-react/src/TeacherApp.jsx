@@ -437,6 +437,7 @@ export default function TeacherApp() {
         onResumeSession={handleResumeSession}
         onDismissSession={handleDismissSession}
         keepWorkingItems={keepWorkingItems}
+        products={products}
       />
 
       <main className="page teacher-page">
