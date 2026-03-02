@@ -23,7 +23,7 @@ from fastapi import (
     HTTPException,
     status,
 )
-from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
@@ -951,7 +951,7 @@ async def stripe_webhook(request: Request):
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "Vysti marker API is running"}
+    return RedirectResponse(url="/signin.html")
 
 
 @app.get("/student_react.html")
