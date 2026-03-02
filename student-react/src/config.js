@@ -83,9 +83,7 @@ export function getConfigError() {
 }
 
 export const getApiUrls = () => {
-  const { apiBaseUrl } = getConfig();
-  const base = apiBaseUrl || getApiBaseUrl("");
-  const normalizedBase = base ? String(base).replace(/\/$/, "") : "";
+  const normalizedBase = getApiBaseUrl("");
   return {
     markUrl: `${normalizedBase}/mark`,
     markTextUrl: `${normalizedBase}/mark_text`
