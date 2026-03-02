@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/assets/auth.css" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="/shared/supabase-init.js"></script>
 </head>
 
@@ -55,6 +56,8 @@
         </div>
 
         <a href="#" id="forgotLink" class="forgot-link">Forgot password?</a>
+
+        <div class="cf-turnstile" id="turnstileSignin" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSigninTurnstile" data-theme="light"></div>
 
         <button id="signinBtn" type="button">Sign in</button>
 
@@ -121,6 +124,8 @@
         </div>
 
         <p class="auth-consent">By creating an account, you agree to our <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</p>
+
+        <div class="cf-turnstile" id="turnstileSignup" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSignupTurnstile" data-theme="light"></div>
 
         <button id="signupBtn" type="button">Create Account</button>
 
@@ -308,6 +313,12 @@
       }, 600);
     });
 
+    // ===== Turnstile CAPTCHA tokens =====
+    let signinCaptchaToken = "";
+    let signupCaptchaToken = "";
+    window.onSigninTurnstile = (token) => { signinCaptchaToken = token; };
+    window.onSignupTurnstile = (token) => { signupCaptchaToken = token; };
+
     // ===== DOM refs =====
     const signinCard   = document.getElementById("signinCard");
     const signupCard   = document.getElementById("signupCard");
@@ -437,8 +448,19 @@
         return;
       }
 
+      if (!signinCaptchaToken) {
+        statusEl.textContent = "Please complete the CAPTCHA verification.";
+        return;
+      }
+
       statusEl.textContent = "Signing in\u2026";
-      const { data, error } = await supa.auth.signInWithPassword({ email, password });
+      const { data, error } = await supa.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken: signinCaptchaToken },
+      });
+      signinCaptchaToken = "";
+      if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignin");
 
       if (error) {
         if (error.message === "Invalid login credentials") {
@@ -584,15 +606,23 @@
         return;
       }
 
+      if (!signupCaptchaToken) {
+        signupStatusEl.textContent = "Please complete the CAPTCHA verification.";
+        return;
+      }
+
       signupStatusEl.textContent = "Creating account\u2026";
       const { data, error } = await supa.auth.signUp({
         email,
         password,
         options: {
+          captchaToken: signupCaptchaToken,
           data: { display_name: name, date_of_birth: dob },
           emailRedirectTo: window.location.origin + "/signin.html",
         },
       });
+      signupCaptchaToken = "";
+      if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignup");
 
       if (error) {
         signupStatusEl.textContent = "Sign-up error: " + error.message;
@@ -697,10 +727,21 @@
         return;
       }
 
+      if (!signinCaptchaToken) {
+        devStatus.textContent = "Complete the CAPTCHA above first.";
+        return;
+      }
+
       devStatus.textContent = "Signing in\u2026";
       // Prevent onAuthStateChange from calling handlePostAuth before reset
       authHandled = true;
-      const { data, error } = await supa.auth.signInWithPassword({ email, password });
+      const { data, error } = await supa.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken: signinCaptchaToken },
+      });
+      signinCaptchaToken = "";
+      if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignin");
       if (error) {
         authHandled = false;  // Re-enable normal auth flow
         devStatus.textContent = "Sign-in failed: " + error.message;
