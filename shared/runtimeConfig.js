@@ -26,8 +26,18 @@ export function getConfig() {
   return _config || window.__vystiRuntimeConfig || {};
 }
 
-export function getApiBaseUrl(fallback = "https://vysti-rules.onrender.com") {
-  const base = getConfig().apiBaseUrl || fallback;
+export function getApiBaseUrl(fallback = "") {
+  const configBase = getConfig().apiBaseUrl;
+  // Config points to localhost — only use it when actually running locally
+  if (configBase && configBase.includes("localhost")) {
+    if (typeof window !== "undefined") {
+      const h = window.location.hostname;
+      if (h !== "localhost" && h !== "127.0.0.1") {
+        return "";          // production: same-origin relative URLs
+      }
+    }
+  }
+  const base = configBase || fallback;
   return String(base).replace(/\/$/, "");
 }
 

@@ -490,10 +490,13 @@ async def update_profile(
         if any(patch.get(k) for k in ("has_mark", "has_revise", "has_write")):
             patch["onboarded_at"] = datetime.datetime.utcnow().isoformat()
 
-    # Until Stripe is integrated, product selection = active access on free tier
+    # Set subscription_status to active on product selection, but never
+    # downgrade an existing paid tier back to free.
     if any(patch.get(k) for k in ("has_mark", "has_revise", "has_write")):
-        patch["subscription_status"] = "active"
-        patch.setdefault("subscription_tier", "free")
+        patch.setdefault("subscription_status", "active")
+        existing_tier = (profile or {}).get("subscription_tier", "free")
+        if existing_tier != "paid":
+            patch.setdefault("subscription_tier", "free")
 
     url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
     async with httpx.AsyncClient(timeout=5) as client:

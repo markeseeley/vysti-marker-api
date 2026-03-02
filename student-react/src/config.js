@@ -87,8 +87,8 @@ export const getApiUrls = () => {
   const base = apiBaseUrl || getApiBaseUrl("");
   const normalizedBase = base ? String(base).replace(/\/$/, "") : "";
   return {
-    markUrl: normalizedBase ? `${normalizedBase}/mark` : "",
-    markTextUrl: normalizedBase ? `${normalizedBase}/mark_text` : ""
+    markUrl: `${normalizedBase}/mark`,
+    markTextUrl: `${normalizedBase}/mark_text`
   };
 };
 
