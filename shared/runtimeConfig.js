@@ -38,7 +38,12 @@ export function getApiBaseUrl(fallback = "") {
     }
   }
   const base = configBase || fallback;
-  return String(base).replace(/\/$/, "");
+  const result = String(base).replace(/\/$/, "");
+  // Safety net: never return empty/falsy in a browser context
+  if (!result && typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return result;
 }
 
 export function isSharedCoreEnabled() {
