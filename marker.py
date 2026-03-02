@@ -46,6 +46,13 @@ def get_language_tool():
     """Lazy-load LanguageTool. Import is deferred so marker.py works even without Java."""
     global _language_tool_instance
     if _language_tool_instance is None:
+        # Quick check: Java must be installed for LanguageTool to work.
+        # Skip entirely if Java is missing (avoids a long hang on Render).
+        import shutil
+        if not shutil.which("java"):
+            print("⚠️  Java not found — LanguageTool disabled (grammar checks skipped)")
+            _language_tool_instance = False
+            return None
         try:
             import language_tool_python
             _language_tool_instance = language_tool_python.LanguageTool('en-US')
