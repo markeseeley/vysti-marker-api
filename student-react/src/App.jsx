@@ -295,7 +295,9 @@ function App() {
   // ── Product guard: redirect if user lacks Revise product ──
   useEffect(() => {
     if (isChecking) return;
-    if (!products.has_revise && products.has_mark) {
+    if (!products.has_revise && !products.has_mark) {
+      window.location.assign("/role.html");
+    } else if (!products.has_revise && products.has_mark) {
       window.location.assign("/teacher_react.html");
     }
   }, [isChecking, products]);

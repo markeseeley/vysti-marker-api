@@ -40,7 +40,9 @@ export default function TeacherApp() {
   // ── Product guard: redirect if user lacks Mark product ──
   useEffect(() => {
     if (isChecking) return;
-    if (products.has_mark === false && products.has_revise === true) {
+    if (!products.has_mark && !products.has_revise) {
+      window.location.assign("/role.html");
+    } else if (products.has_mark === false && products.has_revise === true) {
       window.location.assign("/student_react.html");
     }
   }, [isChecking, products]);
