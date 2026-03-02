@@ -235,13 +235,7 @@ export default function WriteApp() {
   }, [supa]);
 
   if (!authReady) {
-    return (
-      <main className="page student-page student-react-shell">
-        <div className="card form-card">
-          <p>Loading…</p>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   return (

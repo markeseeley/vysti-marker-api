@@ -11,13 +11,7 @@ const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
 
 const renderLoading = () => {
-  root.render(
-    <main className="page teacher-page">
-      <div className="card form-card">
-        <p>Loading…</p>
-      </div>
-    </main>
-  );
+  root.render(null);
 };
 
 renderLoading();

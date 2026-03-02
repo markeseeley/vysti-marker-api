@@ -11,13 +11,7 @@ const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
 
 const renderLoading = () => {
-  root.render(
-    <main className="page student-page student-react-shell">
-      <div className="card form-card">
-        <p>Loading…</p>
-      </div>
-    </main>
-  );
+  root.render(null);
 };
 
 const searchParams = new URLSearchParams(window.location.search);
