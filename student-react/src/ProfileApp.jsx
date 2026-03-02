@@ -12,26 +12,26 @@ export default function ProfileApp() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [token, setToken] = useState(null);
-  const [checkoutBanner, setCheckoutBanner] = useState(null);
-
-  // Detect Stripe checkout return
-  useEffect(() => {
+  // Read checkout param synchronously during render (survives re-renders)
+  const [checkoutBanner, setCheckoutBanner] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
-    if (checkout === "success") {
-      setCheckoutBanner("success");
-    } else if (checkout === "cancelled") {
-      setCheckoutBanner("cancelled");
-    }
-    if (checkout) {
+    if (checkout === "success" || checkout === "cancelled") {
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
       // Keep other params like ?upgrade=mark
       window.history.replaceState({}, "", url.pathname + url.search);
-      const t = setTimeout(() => setCheckoutBanner(null), 8000);
-      return () => clearTimeout(t);
+      return checkout;
     }
-  }, []);
+    return null;
+  });
+
+  // Auto-dismiss checkout banner after 8 seconds
+  useEffect(() => {
+    if (!checkoutBanner) return;
+    const t = setTimeout(() => setCheckoutBanner(null), 8000);
+    return () => clearTimeout(t);
+  }, [checkoutBanner]);
 
   useEffect(() => {
     if (!authChecking && supa) {

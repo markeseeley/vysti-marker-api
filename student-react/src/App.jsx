@@ -302,21 +302,24 @@ function App() {
     }
   }, [isChecking, products]);
 
-  // ── Detect Stripe checkout return ──
-  useEffect(() => {
+  // ── Detect Stripe checkout return (read URL synchronously in state init) ──
+  const [checkoutParam] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    const checkout = params.get("checkout");
-    if (checkout === "success") {
-      setStatus({ message: "Payment successful! You now have full access.", kind: "success" });
-    } else if (checkout === "cancelled") {
-      setStatus({ message: "Checkout was cancelled. You can try again any time.", kind: "info" });
-    }
-    if (checkout) {
+    const v = params.get("checkout");
+    if (v) {
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.pathname + url.search);
     }
-  }, []);
+    return v;
+  });
+  useEffect(() => {
+    if (checkoutParam === "success") {
+      setStatus({ message: "Payment successful! You now have full access.", kind: "success" });
+    } else if (checkoutParam === "cancelled") {
+      setStatus({ message: "Checkout was cancelled. You can try again any time.", kind: "info" });
+    }
+  }, [checkoutParam]);
 
   useEffect(() => {
     try {
