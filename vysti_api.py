@@ -478,8 +478,8 @@ async def update_profile(
         patch["display_name"] = body.display_name[:200]
     if body.date_of_birth is not None:
         patch["date_of_birth"] = body.date_of_birth
-    if body.subscription_tier is not None and body.subscription_tier in ("free", "paid"):
-        patch["subscription_tier"] = body.subscription_tier
+    # NOTE: subscription_tier is NOT user-settable — only the Stripe webhook
+    # may change it.  Accepting it here would let any user bypass the paywall.
 
     if not patch:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -3166,17 +3166,33 @@ async def mark_text(
 ):
     """
     Mark text content by creating a .docx in memory and running the marking pipeline.
-    
+
     Request JSON:
     {
       "file_name": "OriginalFileName.docx",
       "text": "Full essay text with paragraphs",
       "mode": "student"
     }
-    
+
     Returns the marked .docx bytes (same as /mark).
     """
-    # 0. Text length limit (50,000 chars ≈ 8,000 words)
+    # 0a. Free-tier usage check (same guard as /mark)
+    _mt_user_id = user.get("id") if isinstance(user, dict) else None
+    if _mt_user_id:
+        _mt_profile = await get_user_profile(_mt_user_id)
+        _mt_tier = (_mt_profile or {}).get("subscription_tier", "free")
+        if _mt_tier == "free":
+            _mt_used = await count_user_marks(_mt_user_id)
+            if _mt_used >= _FREE_TIER_MARK_LIMIT:
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "message": "Subscribe for unlimited essay marking.",
+                        "code": "USAGE_LIMIT",
+                    },
+                )
+
+    # 0b. Text length limit (50,000 chars ≈ 8,000 words)
     _MAX_TEXT_CHARS = 50_000
     if body.text and len(body.text) > _MAX_TEXT_CHARS:
         raise HTTPException(status_code=400, detail=f"Text exceeds {_MAX_TEXT_CHARS} character limit.")
@@ -3378,7 +3394,23 @@ async def check_text(
     Same marking pipeline as /mark_text but returns structured JSON instead
     of a .docx binary — designed for the live Write page.
     """
-    # 0. Text length limit (50,000 chars ≈ 8,000 words)
+    # 0a. Free-tier usage check (same guard as /mark)
+    _ct_user_id = user.get("id") if isinstance(user, dict) else None
+    if _ct_user_id:
+        _ct_profile = await get_user_profile(_ct_user_id)
+        _ct_tier = (_ct_profile or {}).get("subscription_tier", "free")
+        if _ct_tier == "free":
+            _ct_used = await count_user_marks(_ct_user_id)
+            if _ct_used >= _FREE_TIER_MARK_LIMIT:
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "message": "Subscribe for unlimited text checking.",
+                        "code": "USAGE_LIMIT",
+                    },
+                )
+
+    # 0b. Text length limit (50,000 chars ≈ 8,000 words)
     _MAX_TEXT_CHARS = 50_000
     if body.text and len(body.text) > _MAX_TEXT_CHARS:
         raise HTTPException(status_code=400, detail=f"Text exceeds {_MAX_TEXT_CHARS} character limit.")

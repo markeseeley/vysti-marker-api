@@ -1,4 +1,4 @@
-import { getApiUrls } from "../config";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { extractErrorMessage, fetchWithTimeout, isAuthExpired } from "../lib/request";
 
 export async function checkText({ supa, text, mode, signal, timeoutMs = 30000 }) {
@@ -7,8 +7,7 @@ export async function checkText({ supa, text, mode, signal, timeoutMs = 30000 })
   const { data, error } = await supa.auth.getSession();
   if (error || !data?.session) throw new Error("Session expired. Please sign in again.");
 
-  const { markTextUrl } = getApiUrls();
-  const apiBase = markTextUrl ? markTextUrl.replace(/\/mark_text$/, "") : "";
+  const apiBase = getApiBaseUrl();
   if (!apiBase) throw new Error("Missing API configuration.");
 
   const response = await fetchWithTimeout(
