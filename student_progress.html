@@ -1361,9 +1361,144 @@
     /* Hide class-lens-only columns by default */
     .class-lens-col { display: none; }
 
+    /* ── Semester Comment Modal ── */
+    .semester-overlay {
+      position: fixed; inset: 0; z-index: 10001;
+      background: rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .15s;
+    }
+    .semester-overlay.visible { opacity: 1; pointer-events: auto; }
+    .semester-modal {
+      background: #fff; border-radius: 16px; padding: 28px;
+      max-width: 620px; width: 92%; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,.22);
+      font-family: 'DM Sans', sans-serif;
+    }
+    .semester-modal-title {
+      font-family: 'Source Serif 4', 'Georgia', serif;
+      font-size: 18px; font-weight: 700; color: #1a1a1a;
+      margin: 0 0 20px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .semester-modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 22px; color: rgba(0,0,0,.4); line-height: 1; padding: 0 4px;
+    }
+    .semester-modal-close:hover { color: #1a1a1a; }
+    .semester-section {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      background: #fafafa;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 10px;
+    }
+    .semester-section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: rgba(0,0,0,.45); margin-bottom: 8px;
+    }
+    .semester-section-stats {
+      font-size: 12px; color: rgba(0,0,0,.45); margin-bottom: 8px;
+    }
+    .semester-pills {
+      display: flex; flex-wrap: wrap; gap: 0;
+      background: rgba(0,0,0,.06); border-radius: 20px; padding: 3px;
+      margin-bottom: 10px; width: fit-content;
+    }
+    .semester-pill {
+      padding: 5px 12px; border: none; border-radius: 17px;
+      background: transparent; font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 600; color: rgba(0,0,0,.5);
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .semester-pill.active {
+      background: var(--maroon, #A90D22); color: #fff;
+      box-shadow: 0 1px 4px rgba(169,13,34,.25);
+    }
+    .semester-pill:not(.active):hover { color: #1a1a1a; }
+    .semester-pill .rec-dot {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--maroon, #A90D22); margin-left: 4px; vertical-align: middle;
+    }
+    .semester-pill.active .rec-dot { background: #fff; }
+    .semester-section-text {
+      font-size: 13px; color: #1a1a1a; line-height: 1.5;
+      min-height: 20px;
+    }
+    .semester-combined-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: rgba(0,0,0,.45); margin-bottom: 6px;
+    }
+    .semester-combined-textarea {
+      width: 100%; min-height: 120px; padding: 12px 14px;
+      border: 1px solid rgba(0,0,0,.14); border-radius: 10px;
+      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      line-height: 1.55; resize: vertical; box-sizing: border-box;
+    }
+    .semester-combined-textarea:focus { border-color: var(--maroon); outline: none; }
+    .semester-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 16px; gap: 8px;
+    }
+    .semester-actions-right { display: flex; gap: 8px; }
+    .semester-btn {
+      padding: 8px 18px; border-radius: 10px;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .15s; border: 1px solid rgba(0,0,0,.14);
+      background: #fff; color: #1a1a1a;
+    }
+    .semester-btn:hover { border-color: var(--maroon); color: var(--maroon); }
+    .semester-btn-primary {
+      background: var(--maroon, #A90D22); color: #fff; border-color: var(--maroon, #A90D22);
+    }
+    .semester-btn-primary:hover { background: #8a0b1c; border-color: #8a0b1c; color: #fff; }
+    .semester-btn.copied {
+      border-color: rgb(25,135,84); background: rgba(25,135,84,.06); color: rgb(25,135,84);
+    }
+    .semester-no-data {
+      font-size: 13px; color: rgba(0,0,0,.45); text-align: center;
+      padding: 20px 0; font-style: italic;
+    }
+    .semester-course-input {
+      width: 100%; box-sizing: border-box; margin-top: 6px;
+      border: 1px solid rgba(0,0,0,.14); border-radius: 8px;
+      padding: 6px 10px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+    }
+    .semester-course-input:focus { border-color: var(--maroon); outline: none; }
+
+    /* ── Roster chip comment icon ── */
+    .roster-chip-comment {
+      display: none; background: none; border: none; cursor: pointer;
+      color: rgba(0,0,0,.25); font-size: 16px; padding: 0 2px;
+      margin-left: auto; flex-shrink: 0; transition: color .15s;
+    }
+    .roster-chip-comment:hover { color: var(--maroon, #A90D22); }
+    .roster-chip-comment.has-comment { color: var(--maroon, #A90D22); opacity: .7; }
+    .roster-chip-comment.has-comment:hover { opacity: 1; }
+    .roster-section:not(.editing) .roster-chip-comment { display: block; }
+
+    /* ── Export All Comments button ── */
+    .roster-export-btn {
+      display: none; background: none; border: 1px solid rgba(0,0,0,.14);
+      border-radius: 8px; padding: 5px 12px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+      color: rgba(0,0,0,.5); cursor: pointer; transition: all .15s;
+    }
+    .roster-export-btn:hover { border-color: var(--maroon); color: var(--maroon); }
+
   </style>
 </head>
 <body>
+  <!-- Semester Comment Modal -->
+  <div class="semester-overlay" id="semesterOverlay">
+    <div class="semester-modal" id="semesterModal">
+      <div class="semester-modal-title">
+        <span id="semesterTitle">Semester Comment</span>
+        <button class="semester-modal-close" id="semesterClose">&times;</button>
+      </div>
+      <div id="semesterBody"></div>
+    </div>
+  </div>
+
   <!-- Custom confirm/alert modal -->
   <div class="vysti-modal-overlay" id="vystiModalOverlay" style="display:none;">
     <div class="vysti-modal">
@@ -1584,6 +1719,7 @@
             Class Roster <span class="roster-badge" id="rosterBadge"></span>
           </div>
           <div class="roster-actions">
+            <button type="button" class="roster-export-btn" id="rosterExportComments">Export All Comments</button>
             <button type="button" class="roster-edit-btn" id="rosterEditToggle">Edit Roster</button>
           </div>
         </div>
@@ -2715,13 +2851,14 @@
       try {
         const { data, error } = await supa
           .from("class_students")
-          .select("student_name, notes")
+          .select("student_name, notes, semester_comment")
           .eq("class_id", classId)
           .order("student_name");
 
         rosterStudents = (data || []).map(s => ({
           student_name: s.student_name,
-          notes: s.notes || ""
+          notes: s.notes || "",
+          semester_comment: s.semester_comment || ""
         }));
       } catch (err) {
         console.warn("Failed to load roster:", err);
@@ -2820,8 +2957,22 @@
           badge.textContent = "(" + grid.querySelectorAll(".roster-chip").length + ")";
         });
 
+        // Comment icon (visible only outside edit mode via CSS)
+        const commentBtn = document.createElement("button");
+        commentBtn.type = "button";
+        commentBtn.className = "roster-chip-comment";
+        const rosterEntry = rosterStudents.find(s => s.student_name === name);
+        if (rosterEntry && rosterEntry.semester_comment) commentBtn.classList.add("has-comment");
+        commentBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+        commentBtn.title = "Semester comment";
+        commentBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openSemesterCommentModal(name);
+        });
+
         chip.appendChild(avatar);
         chip.appendChild(info);
+        chip.appendChild(commentBtn);
         chip.appendChild(removeBtn);
 
         // Click to filter (view mode only)
@@ -2839,7 +2990,523 @@
 
         grid.appendChild(chip);
       });
+
+      // Show Export All Comments button if any saved comments exist
+      const exportBtn = document.getElementById("rosterExportComments");
+      if (exportBtn) {
+        const hasAny = rosterStudents.some(s => s.semester_comment);
+        exportBtn.style.display = hasAny ? "inline-block" : "none";
+      }
     }
+
+    // ===== Semester Comment Generator =====
+    const SC_METER_NAMES = { power: "Power", variety: "Analysis", cohesion: "Cohesion", precision: "Precision" };
+    const SC_METER_KEYS = ["power", "variety", "cohesion", "precision"];
+
+    function computeSemesterStats(studentName, rows) {
+      const sorted = [...rows].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      const essayCount = sorted.length;
+
+      // Trend
+      let trend = "neutral", trendDelta = 0, firstTotalLabels = 0, lastTotalLabels = 0;
+      if (essayCount >= 2) {
+        firstTotalLabels = sorted[0].total_labels || 0;
+        lastTotalLabels = sorted[sorted.length - 1].total_labels || 0;
+        trendDelta = lastTotalLabels - firstTotalLabels;
+        if (trendDelta < 0) trend = "improved";
+        else if (trendDelta > 0) trend = "regressed";
+      }
+
+      // Per-meter totals (cumulative label counts)
+      const meterTotals = { power: 0, variety: 0, cohesion: 0, precision: 0 };
+      const labelTotals = {};
+      sorted.forEach(row => {
+        const buckets = bucketCountsFromRow(row);
+        buckets.forEach((v, k) => { if (meterTotals[k] !== undefined) meterTotals[k] += v; });
+        if (row.label_counts) {
+          Object.entries(row.label_counts).forEach(([l, c]) => {
+            labelTotals[l] = (labelTotals[l] || 0) + (Number(c) || 0);
+          });
+        }
+      });
+
+      // Strongest / weakest meter
+      const meterArr = SC_METER_KEYS.map(k => ({ key: k, total: meterTotals[k] }));
+      meterArr.sort((a, b) => a.total - b.total);
+      const strongestMeter = SC_METER_NAMES[meterArr[0].key];
+      const weakestMeter = SC_METER_NAMES[meterArr[meterArr.length - 1].key];
+
+      // Improved meter (compare first half vs second half)
+      let improvedMeter = strongestMeter;
+      if (essayCount >= 2) {
+        const mid = Math.floor(essayCount / 2);
+        const firstHalf = sorted.slice(0, mid), secondHalf = sorted.slice(mid);
+        const halfTotals = (half) => {
+          const t = { power: 0, variety: 0, cohesion: 0, precision: 0 };
+          half.forEach(r => { const b = bucketCountsFromRow(r); b.forEach((v, k) => { if (t[k] !== undefined) t[k] += v; }); });
+          return t;
+        };
+        const fh = halfTotals(firstHalf), sh = halfTotals(secondHalf);
+        let bestDelta = 0;
+        SC_METER_KEYS.forEach(k => {
+          const d = fh[k] - sh[k]; // positive = improved
+          if (d > bestDelta) { bestDelta = d; improvedMeter = SC_METER_NAMES[k]; }
+        });
+      }
+
+      // Top issue
+      const topEntries = Object.entries(labelTotals).sort((a, b) => b[1] - a[1]);
+      const topIssue = topEntries.length > 0 ? topEntries[0][0] : "";
+      const topIssueCount = topEntries.length > 0 ? topEntries[0][1] : 0;
+
+      // Scores
+      let hasScores = false, avgOverallScore = 0, bestScore = 0, bestAssignment = "";
+      const overalls = [];
+      sorted.forEach(row => {
+        const overall = computeFrOverall(row.scores, row.mode);
+        if (overall != null) {
+          hasScores = true;
+          overalls.push(overall);
+          if (overall > bestScore) {
+            bestScore = overall;
+            bestAssignment = row.assignment_display || row.file_name || "";
+          }
+        }
+      });
+      if (overalls.length) avgOverallScore = Math.round(overalls.reduce((a, b) => a + b, 0) / overalls.length);
+
+      return {
+        studentName, essayCount,
+        assignmentNames: sorted.map(r => r.assignment_display),
+        trend, trendDelta, firstTotalLabels, lastTotalLabels,
+        strongestMeter, weakestMeter, improvedMeter,
+        topIssue, topIssueCount,
+        hasScores, avgOverallScore, bestScore, bestAssignment,
+      };
+    }
+
+    // ── Semester Comment Bank ──
+    const SEMESTER_COMMENT_BANK = {
+      greeting: {
+        tiers: ["Warm", "Encouraging", "Commending"],
+        templates: {
+          Warm: [
+            "It was a pleasure to have {name} in class this semester.",
+            "Great to have {name} in class this semester.",
+            "{name} has been a valued member of the class this semester.",
+          ],
+          Encouraging: [
+            "I\u2019ve enjoyed working with {name} this semester and watching their willingness to engage with challenging material.",
+            "It\u2019s been good to have {name} in class \u2014 their effort this semester has not gone unnoticed.",
+            "I appreciate {name}\u2019s commitment to their writing this semester, and look forward to seeing continued growth.",
+          ],
+          Commending: [
+            "It has been a real pleasure to have {name} in class this semester \u2014 their commitment to improving their writing has been outstanding.",
+            "{name} has been one of the strongest writers in the class this semester, and a pleasure to teach.",
+            "I\u2019ve been impressed by {name}\u2019s dedication and growth this semester \u2014 they should be proud of their progress.",
+          ],
+        },
+      },
+      progress: {
+        tiers: ["Strong", "Steady", "Consistent", "Inconsistent", "Needs dev."],
+        templates: {
+          Strong: [
+            "{name} has made excellent progress this semester, reducing issues from {firstTotal} to {lastTotal}. Their {strongestMeter} has been a consistent strength.",
+            "There has been outstanding improvement in {name}\u2019s writing this semester. Issue counts dropped from {firstTotal} to {lastTotal}, with notable gains in {improvedMeter}.",
+            "{name}\u2019s development this semester has been impressive \u2014 a clear upward trajectory, with {strongestMeter} standing out as a particular strength.",
+          ],
+          Steady: [
+            "{name} has made steady progress this semester. While there is still room for improvement in {weakestMeter}, their overall trajectory is positive.",
+            "I\u2019ve seen consistent improvement in {name}\u2019s writing over the course of the semester, particularly in {strongestMeter}.",
+            "{name} has shown a positive trend this semester, moving from {firstTotal} to {lastTotal} issues. Continued focus on {weakestMeter} will help sustain this momentum.",
+          ],
+          Consistent: [
+            "{name} has maintained a consistent standard throughout the semester. Their {strongestMeter} remains solid, though more focused attention on {weakestMeter} would help lift their writing further.",
+            "{name}\u2019s writing has been reliable this semester, with {strongestMeter} as a particular strength. Pushing harder on {weakestMeter} will open the door to further growth.",
+            "{name} has produced work at a steady level this semester. To take the next step, focused practice on {weakestMeter} would be beneficial.",
+          ],
+          Inconsistent: [
+            "{name} has shown ability in {strongestMeter} this semester, but their progress has been inconsistent. Greater regularity in applying feedback \u2014 particularly around {weakestMeter} \u2014 would help them build on their strengths.",
+            "{name}\u2019s writing has been uneven this semester. Some assignments show real promise, but recurring issues in {weakestMeter} suggest that feedback is not being applied consistently between tasks.",
+            "{name} has demonstrated capability in certain areas, but needs to bring more consistency to their work. {topIssue} ({topIssueCount} instances) remains a recurring concern.",
+          ],
+          "Needs dev.": [
+            "{name} still has significant room for growth. Their writing shows recurring issues in {weakestMeter}, with {topIssue} being the most frequent concern ({topIssueCount} instances). Focused practice will be important going forward.",
+            "{name}\u2019s writing needs continued development, particularly in {weakestMeter}. With {topIssueCount} instances of {topIssue} across the semester, this should be a primary focus area.",
+            "{name} has work to do to bring their writing up to the expected standard. Regular practice and careful attention to {weakestMeter} feedback will be essential for improvement.",
+          ],
+        },
+      },
+      completion: {
+        tiers: ["All + strong", "All + growth", "Missing work"],
+        templates: {
+          "All + strong": [
+            "{name} completed all assignments this semester, achieving a personal best of {bestScore}% on {bestAssignment}. This level of commitment is exactly what leads to long-term improvement.",
+            "Full marks for commitment \u2014 {name} submitted every assignment and reached {bestScore}% on {bestAssignment}.",
+            "{name} showed excellent discipline, completing all tasks with a high of {bestScore}% on {bestAssignment}.",
+          ],
+          "All + growth": [
+            "{name} submitted all assignments this semester, which shows strong commitment. With continued practice and careful attention to {weakestMeter}, these scores will continue to improve.",
+            "I commend {name} for completing every assignment this semester. The consistent practice will pay off \u2014 staying focused on {weakestMeter} will help lift these scores.",
+            "{name} completed all set work, demonstrating good work ethic. Improvement in {weakestMeter} remains the clearest path to higher scores.",
+          ],
+          "Missing work": [
+            "{name} completed {essayCount} assignments this semester. Consistent practice is essential for building strong analytical writing skills \u2014 I encourage {name} to prioritise completing all set work.",
+            "With {essayCount} assignments submitted, {name} missed opportunities for feedback and practice. Completing all work is crucial for development.",
+            "{name} submitted {essayCount} tasks this semester. Regular, consistent writing practice is the single most important factor in improvement.",
+          ],
+        },
+      },
+      nextSteps: {
+        tiers: ["Continue", "Focus area", "Course rec"],
+        templates: {
+          Continue: [
+            "I encourage {name} to continue building on this strong foundation. Focusing on {weakestMeter} will help take their writing to the next level.",
+            "{name} is well placed to excel. Maintaining the habits that led to this progress, while sharpening {weakestMeter}, will lead to further growth.",
+            "I look forward to seeing {name} continue to develop. They have a strong base \u2014 pushing on {weakestMeter} is the natural next step.",
+          ],
+          "Focus area": [
+            "Next semester, I recommend {name} focus on {weakestMeter}, particularly {topIssue}. Regular practice with targeted feedback will make a real difference.",
+            "{name} should prioritise {weakestMeter} going forward. Reviewing feedback on {topIssue} before each new assignment would be a practical first step.",
+            "The most impactful thing {name} can do next semester is address {weakestMeter}. Keeping a checklist of common errors ({topIssue} in particular) and reviewing it before submitting work would help.",
+          ],
+          "Course rec": [
+            "I recommend {name} enrol in {courseName} to continue developing their analytical writing skills with structured, personalised feedback.",
+            "To build on this semester\u2019s work, I strongly recommend {name} join {courseName} for continued, guided writing development.",
+            "{name} would benefit greatly from enrolling in {courseName}, which will provide the structured practice needed to continue improving.",
+          ],
+        },
+      },
+    };
+
+    function scFillTemplate(template, vars) {
+      let result = template;
+      for (const [key, value] of Object.entries(vars)) {
+        result = result.replace(new RegExp("\\{" + key + "\\}", "g"), String(value));
+      }
+      return result;
+    }
+
+    function scPickRandom(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function scAutoSelectTiers(stats) {
+      const tiers = {};
+
+      // Greeting
+      if (stats.avgOverallScore >= 80 || (stats.trend === "improved" && stats.trendDelta <= -8)) {
+        tiers.greeting = "Commending";
+      } else if (stats.essayCount <= 2 || stats.avgOverallScore < 55) {
+        tiers.greeting = "Encouraging";
+      } else {
+        tiers.greeting = "Warm";
+      }
+
+      // Progress
+      let progressIdx;
+      if (stats.trendDelta <= -5) progressIdx = 0;
+      else if (stats.trendDelta <= -1) progressIdx = 1;
+      else if (stats.trendDelta <= 0 || stats.essayCount < 2) progressIdx = 2;
+      else if (stats.trendDelta <= 4) progressIdx = 3;
+      else progressIdx = 4;
+      // Score modifier
+      if (stats.hasScores && stats.avgOverallScore >= 75 && progressIdx > 0) progressIdx--;
+      if (stats.hasScores && stats.avgOverallScore < 45 && progressIdx < 4) progressIdx++;
+      tiers.progress = SEMESTER_COMMENT_BANK.progress.tiers[progressIdx];
+
+      // Completion — default based on score
+      if (stats.bestScore >= 75) tiers.completion = "All + strong";
+      else tiers.completion = "All + growth";
+
+      // Next steps
+      if (stats.hasScores && stats.avgOverallScore >= 70) tiers.nextSteps = "Continue";
+      else tiers.nextSteps = "Focus area";
+
+      return tiers;
+    }
+
+    function scBuildVars(stats, courseName) {
+      return {
+        name: stats.studentName,
+        essayCount: String(stats.essayCount),
+        firstTotal: String(stats.firstTotalLabels),
+        lastTotal: String(stats.lastTotalLabels),
+        strongestMeter: stats.strongestMeter,
+        weakestMeter: stats.weakestMeter,
+        improvedMeter: stats.improvedMeter,
+        topIssue: stats.topIssue,
+        topIssueCount: String(stats.topIssueCount),
+        bestScore: String(stats.bestScore),
+        bestAssignment: stats.bestAssignment,
+        courseName: courseName || "our next course",
+      };
+    }
+
+    function scGenerateSection(sectionKey, tier, vars) {
+      const templates = SEMESTER_COMMENT_BANK[sectionKey]?.templates?.[tier];
+      if (!templates || !templates.length) return "";
+      return scFillTemplate(scPickRandom(templates), vars);
+    }
+
+    // ── Modal logic ──
+    let _scState = null; // { stats, tiers, recommendedTiers, texts, vars, studentName, courseName }
+
+    function openSemesterCommentModal(studentName) {
+      const rows = allData.filter(r => r.student_name === studentName);
+      const overlay = document.getElementById("semesterOverlay");
+      const body = document.getElementById("semesterBody");
+      const title = document.getElementById("semesterTitle");
+      title.textContent = "Semester Comment for " + studentName;
+
+      if (rows.length === 0) {
+        body.innerHTML = '<div class="semester-no-data">No marking data available for this student. You can write a comment manually below.</div>' +
+          '<div class="semester-combined-label">COMMENT</div>' +
+          '<textarea class="semester-combined-textarea" id="semesterCombined" placeholder="Write a comment\u2026"></textarea>' +
+          '<div class="semester-actions"><div></div><div class="semester-actions-right">' +
+          '<button class="semester-btn" id="semesterCopy">Copy</button>' +
+          '<button class="semester-btn semester-btn-primary" id="semesterSave">Save</button></div></div>';
+        // Load saved comment if exists
+        const roster = rosterStudents.find(s => s.student_name === studentName);
+        if (roster?.semester_comment) {
+          document.getElementById("semesterCombined").value = roster.semester_comment;
+        }
+        _scState = { studentName, stats: null };
+        _scBindActions();
+        overlay.classList.add("visible");
+        return;
+      }
+
+      const stats = computeSemesterStats(studentName, rows);
+      const recommendedTiers = scAutoSelectTiers(stats);
+      const tiers = { ...recommendedTiers };
+      const courseName = "";
+      const vars = scBuildVars(stats, courseName);
+
+      _scState = { stats, tiers, recommendedTiers, vars, studentName, courseName };
+      _scRenderModal(body, stats);
+      overlay.classList.add("visible");
+    }
+
+    function _scRenderModal(body, stats) {
+      const st = _scState;
+      const sections = ["greeting", "progress", "completion", "nextSteps"];
+      const sectionLabels = { greeting: "GREETING", progress: "PROGRESS", completion: "COMPLETION", nextSteps: "NEXT STEPS" };
+
+      // Generate initial texts
+      st.texts = {};
+      sections.forEach(key => {
+        st.texts[key] = scGenerateSection(key, st.tiers[key], st.vars);
+      });
+
+      let html = '';
+
+      // Stats summary
+      html += '<div class="semester-section-stats">' +
+        stats.essayCount + ' essay' + (stats.essayCount !== 1 ? 's' : '') +
+        (stats.hasScores ? ' \u00b7 Avg score: ' + stats.avgOverallScore + '%' : '') +
+        (stats.bestScore > 0 ? ' \u00b7 Best: ' + stats.bestScore + '%' : '') +
+        ' \u00b7 Trend: ' + (stats.trend === 'improved' ? '\u25BC' + Math.abs(stats.trendDelta) + ' improved' :
+          stats.trend === 'regressed' ? '\u25B2' + stats.trendDelta + ' regressed' : '\u2014 consistent') +
+        '</div>';
+
+      sections.forEach(key => {
+        const bank = SEMESTER_COMMENT_BANK[key];
+        html += '<div class="semester-section" data-section="' + key + '">';
+        html += '<div class="semester-section-label">' + sectionLabels[key] + '</div>';
+        html += '<div class="semester-pills">';
+        bank.tiers.forEach(tier => {
+          const isActive = st.tiers[key] === tier;
+          const isRec = st.recommendedTiers[key] === tier;
+          html += '<button class="semester-pill' + (isActive ? ' active' : '') + '" data-section="' + key + '" data-tier="' + tier + '">'
+            + tier + (isRec ? '<span class="rec-dot"></span>' : '') + '</button>';
+        });
+        html += '</div>';
+        html += '<div class="semester-section-text" id="scText_' + key + '">' + _scEsc(st.texts[key]) + '</div>';
+        // Course name input for nextSteps Course rec tier
+        if (key === "nextSteps") {
+          html += '<input class="semester-course-input" id="semesterCourseInput" placeholder="Course name (optional)" style="display:' + (st.tiers.nextSteps === "Course rec" ? "block" : "none") + ';" />';
+        }
+        html += '</div>';
+      });
+
+      html += '<div class="semester-combined-label">COMBINED PREVIEW</div>';
+      html += '<textarea class="semester-combined-textarea" id="semesterCombined">' + _scEsc(_scCombineTexts()) + '</textarea>';
+      html += '<div class="semester-actions">' +
+        '<button class="semester-btn" id="semesterRegenerate">Regenerate</button>' +
+        '<div class="semester-actions-right">' +
+        '<button class="semester-btn" id="semesterCopy">Copy</button>' +
+        '<button class="semester-btn semester-btn-primary" id="semesterSave">Save</button>' +
+        '</div></div>';
+
+      body.innerHTML = html;
+
+      // Load saved comment if exists (use that instead of generated)
+      const roster = rosterStudents.find(s => s.student_name === st.studentName);
+      if (roster?.semester_comment) {
+        document.getElementById("semesterCombined").value = roster.semester_comment;
+      }
+
+      // Bind pill clicks
+      body.querySelectorAll(".semester-pill").forEach(pill => {
+        pill.addEventListener("click", () => {
+          const section = pill.dataset.section;
+          const tier = pill.dataset.tier;
+          st.tiers[section] = tier;
+          // Update course name visibility
+          if (section === "nextSteps") {
+            const ci = document.getElementById("semesterCourseInput");
+            if (ci) ci.style.display = tier === "Course rec" ? "block" : "none";
+          }
+          // Update vars with course name
+          st.vars = scBuildVars(st.stats, document.getElementById("semesterCourseInput")?.value || st.courseName);
+          st.texts[section] = scGenerateSection(section, tier, st.vars);
+          document.getElementById("scText_" + section).textContent = st.texts[section];
+          document.getElementById("semesterCombined").value = _scCombineTexts();
+          // Update active pills for this section
+          body.querySelectorAll('.semester-pill[data-section="' + section + '"]').forEach(p => {
+            p.classList.toggle("active", p.dataset.tier === tier);
+          });
+        });
+      });
+
+      // Course name input updates
+      const courseInput = document.getElementById("semesterCourseInput");
+      if (courseInput) {
+        courseInput.addEventListener("input", () => {
+          st.courseName = courseInput.value;
+          st.vars = scBuildVars(st.stats, courseInput.value);
+          if (st.tiers.nextSteps === "Course rec") {
+            st.texts.nextSteps = scGenerateSection("nextSteps", "Course rec", st.vars);
+            document.getElementById("scText_nextSteps").textContent = st.texts.nextSteps;
+            document.getElementById("semesterCombined").value = _scCombineTexts();
+          }
+        });
+      }
+
+      _scBindActions();
+    }
+
+    function _scBindActions() {
+      const st = _scState;
+      // Regenerate
+      const regenBtn = document.getElementById("semesterRegenerate");
+      if (regenBtn) {
+        regenBtn.addEventListener("click", () => {
+          if (!st.stats) return;
+          st.vars = scBuildVars(st.stats, document.getElementById("semesterCourseInput")?.value || st.courseName);
+          ["greeting", "progress", "completion", "nextSteps"].forEach(key => {
+            st.texts[key] = scGenerateSection(key, st.tiers[key], st.vars);
+            const el = document.getElementById("scText_" + key);
+            if (el) el.textContent = st.texts[key];
+          });
+          document.getElementById("semesterCombined").value = _scCombineTexts();
+        });
+      }
+
+      // Copy
+      document.getElementById("semesterCopy")?.addEventListener("click", async () => {
+        const text = document.getElementById("semesterCombined").value;
+        try {
+          await navigator.clipboard.writeText(text);
+          const btn = document.getElementById("semesterCopy");
+          btn.classList.add("copied");
+          btn.textContent = "Copied!";
+          setTimeout(() => { btn.classList.remove("copied"); btn.textContent = "Copy"; }, 1500);
+        } catch (e) { console.warn("Copy failed:", e); }
+      });
+
+      // Save
+      document.getElementById("semesterSave")?.addEventListener("click", async () => {
+        const text = document.getElementById("semesterCombined").value;
+        const btn = document.getElementById("semesterSave");
+        btn.disabled = true; btn.textContent = "Saving\u2026";
+        try {
+          const selectedClass = classFilter ? classFilter.value : "";
+          if (!selectedClass || selectedClass === "__unassigned__") throw new Error("No class selected");
+
+          // Check if student exists in roster; if not, create
+          const roster = rosterStudents.find(s => s.student_name === st.studentName);
+          if (roster) {
+            await supa.from("class_students")
+              .update({ semester_comment: text })
+              .eq("class_id", selectedClass)
+              .eq("student_name", st.studentName);
+            roster.semester_comment = text;
+          } else {
+            const { data: sessionData } = await supa.auth.getSession();
+            const userId = sessionData?.session?.user?.id;
+            if (userId) {
+              await supa.from("class_students").insert({
+                user_id: userId, class_id: selectedClass,
+                student_name: st.studentName, semester_comment: text,
+              });
+              rosterStudents.push({ student_name: st.studentName, notes: "", semester_comment: text });
+            }
+          }
+          btn.textContent = "Saved!";
+          setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1200);
+          // Update roster chip icon
+          renderRoster();
+        } catch (e) {
+          console.error("Save failed:", e);
+          btn.textContent = "Error";
+          setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1500);
+        }
+      });
+    }
+
+    function _scCombineTexts() {
+      if (!_scState?.texts) return "";
+      const parts = [];
+      ["greeting", "progress", "completion", "nextSteps"].forEach(key => {
+        if (_scState.texts[key]) parts.push(_scState.texts[key]);
+      });
+      return parts.join(" ");
+    }
+
+    function _scEsc(text) {
+      const d = document.createElement("div");
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    // Close modal
+    document.getElementById("semesterClose")?.addEventListener("click", () => {
+      document.getElementById("semesterOverlay").classList.remove("visible");
+    });
+    document.getElementById("semesterOverlay")?.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) {
+        e.currentTarget.classList.remove("visible");
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        document.getElementById("semesterOverlay")?.classList.remove("visible");
+      }
+    });
+
+    // Export All Comments
+    document.getElementById("rosterExportComments")?.addEventListener("click", () => {
+      const lines = [];
+      rosterStudents.forEach(s => {
+        if (s.semester_comment) {
+          lines.push(s.student_name + "\t" + s.semester_comment);
+        }
+      });
+      if (!lines.length) {
+        vystiAlert("No semester comments saved yet.");
+        return;
+      }
+      const text = lines.join("\n");
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "semester_comments.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
 
     // ===== Workflow Cards (To Review / In Progress / Completed) =====
     function renderWorkflowCards() {
@@ -5457,16 +6124,27 @@
         }
 
         // Sync student roster:
-        // 1. Delete existing students for this class
+        // 1. Preserve semester_comment values before delete
+        const { data: existingStudents } = await supa
+          .from("class_students")
+          .select("student_name, semester_comment")
+          .eq("class_id", classId);
+        const savedComments = new Map();
+        (existingStudents || []).forEach(s => {
+          if (s.semester_comment) savedComments.set(s.student_name, s.semester_comment);
+        });
+
+        // 2. Delete existing students for this class
         await supa.from("class_students").delete().eq("class_id", classId);
 
-        // 2. Insert current roster
+        // 3. Insert current roster (merging back preserved semester comments)
         if (students.length > 0) {
           const rows = students.map(s => ({
             user_id: userId,
             class_id: classId,
             student_name: s.name,
             notes: s.notes || null,
+            semester_comment: savedComments.get(s.name) || null,
           }));
           await supa.from("class_students").insert(rows);
         }
