@@ -51,7 +51,22 @@ export default function ClassOverview({
       return;
     }
 
-    const parsed = newRawFiles.map((file) => {
+    // Limit files to remaining free tier allowance
+    let accepted = newRawFiles;
+    if (entitlement?.subscription_tier === "free") {
+      const remaining = Math.max(0, (entitlement.marks_limit || 1) - (entitlement.marks_used || 0) - files.length);
+      if (remaining < accepted.length) {
+        accepted = accepted.slice(0, remaining);
+        if (remaining === 0) {
+          alert("Free tier allows 1 essay. Subscribe for unlimited uploads.");
+          window.location.assign("/profile_react.html?upgrade=mark");
+          return;
+        }
+        alert(`Free tier: only ${remaining} essay allowed. ${accepted.length} file accepted.`);
+      }
+    }
+
+    const parsed = accepted.map((file) => {
       const p = parseFilename(file.name);
       return {
         file,

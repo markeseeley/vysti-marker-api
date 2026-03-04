@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vysti — Endless Insight</title>
+  <title>Vysti — Writing feedback you can trust</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 
@@ -22,180 +22,257 @@
 </head>
 
 <body>
-  <!-- ===== HERO: full-width background with centered sign-in ===== -->
-  <section class="hero">
-    <div class="hero-overlay"></div>
-    <div class="hero-content">
-      <img class="hero-logo" src="/assets/logo.svg" alt="Vysti" />
-      <p class="hero-tagline">Endless insight.</p>
+  <!-- ===== STICKY NAV ===== -->
+  <nav class="nav" id="mainNav">
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <img class="nav-logo" src="/assets/logo.svg" alt="Vysti" />
+      </a>
+      <div class="nav-links">
+        <a href="#about">How it works</a>
+        <a href="#revise">For Students</a>
+        <a href="#mark">For Teachers</a>
+      </div>
+      <div class="nav-actions">
+        <button type="button" class="nav-login" id="navLogin">Log in</button>
+        <button type="button" class="nav-cta" id="navSignup">Get Started Free</button>
+      </div>
+      <button type="button" class="nav-menu" id="navMenuBtn" aria-label="Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+    <div class="nav-mobile hidden" id="navMobile">
+      <a href="#about" class="nav-mobile-link">How it works</a>
+      <a href="#revise" class="nav-mobile-link">For Students</a>
+      <a href="#mark" class="nav-mobile-link">For Teachers</a>
+      <div class="nav-mobile-divider"></div>
+      <button type="button" class="nav-mobile-login" id="navMobileLogin">Log in</button>
+      <button type="button" class="nav-mobile-cta" id="navMobileSignup">Get Started Free</button>
+    </div>
+  </nav>
 
-      <!-- ===== STEP 1: Sign-in form ===== -->
-      <div class="auth-card" id="signinCard">
-
-        <!-- Google -->
-        <button type="button" id="googleBtn" class="google-btn">
-          <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          Sign in with Google
+  <!-- ===== AUTH OVERLAY ===== -->
+  <div class="auth-overlay hidden" id="authOverlay">
+    <div class="auth-backdrop" id="authBackdrop"></div>
+    <div class="auth-overlay-scroll">
+      <div class="auth-overlay-center">
+        <button type="button" class="auth-close" id="authClose" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
 
-        <div class="divider"><span>or sign in with email</span></div>
+        <!-- ===== SIGN-IN CARD ===== -->
+        <div class="auth-card" id="signinCard">
+          <h1 class="auth-title">Sign in</h1>
+          <p class="auth-subtitle">Welcome back to Vysti</p>
 
-        <div class="field">
-          <label for="email">Email Address</label>
-          <input id="email" type="email" placeholder="Email Address" autocomplete="email" />
-        </div>
+          <button type="button" id="googleBtn" class="google-btn">
+            <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Sign in with Google
+          </button>
 
-        <div class="field">
-          <label for="password">Password</label>
-          <div class="field-password">
-            <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
-            <button type="button" class="pw-toggle" data-target="password" aria-label="Show password">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="divider"><span>or sign in with email</span></div>
+
+          <div class="field">
+            <label for="email">Email Address</label>
+            <input id="email" type="email" placeholder="Email Address" autocomplete="email" />
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="field-password">
+              <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+              <button type="button" class="pw-toggle" data-target="password" aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <a href="#" id="forgotLink" class="forgot-link">Forgot password?</a>
+
+          <div class="cf-turnstile" id="turnstileSignin" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSigninTurnstile" data-theme="light"></div>
+
+          <button id="signinBtn" type="button">Sign in</button>
+
+          <p class="auth-foot">
+            Don't have an account? <a href="#" id="showSignup">Create one</a>
+          </p>
+
+          <div class="status" id="status"></div>
+
+          <!-- Dev-only: test as new user (localhost only) -->
+          <div id="devPanel" class="hidden" style="margin-top:18px;padding:14px;border:2px dashed #A90D22;border-radius:10px;background:#fff8f8;">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#A90D22;">DEV TESTING</p>
+            <p style="margin:0 0 10px;font-size:12px;color:var(--muted);">Sign in with your real account, then click below to reset your profile to new-user state and go through role selection + free tier.</p>
+            <button type="button" id="devNewUserBtn" style="background:#A90D22;font-size:13px;margin-top:0;padding:10px 14px;">Test as New User</button>
           </div>
         </div>
 
-        <a href="#" id="forgotLink" class="forgot-link">Forgot password?</a>
+        <!-- ===== SIGN-UP CARD ===== -->
+        <div class="auth-card hidden" id="signupCard">
+          <h1 class="auth-title">Create Account</h1>
+          <p class="auth-subtitle">Sign up to get started with Vysti</p>
 
-        <div class="cf-turnstile" id="turnstileSignin" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSigninTurnstile" data-theme="light"></div>
+          <button type="button" id="googleSignupBtn" class="google-btn">
+            <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Sign up with Google
+          </button>
 
-        <button id="signinBtn" type="button">Sign in</button>
+          <div class="divider"><span>or sign up with email</span></div>
 
-        <p class="auth-foot">
-          Don't have an account? <a href="#" id="showSignup">Create one</a>
-        </p>
-
-        <div class="status" id="status"></div>
-
-        <!-- Dev-only: test as new user (localhost only) -->
-        <div id="devPanel" class="hidden" style="margin-top:18px;padding:14px;border:2px dashed #A90D22;border-radius:10px;background:#fff8f8;">
-          <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#A90D22;">DEV TESTING</p>
-          <p style="margin:0 0 10px;font-size:12px;color:var(--muted);">Sign in with your real account, then click below to reset your profile to new-user state and go through role selection + free tier.</p>
-          <button type="button" id="devNewUserBtn" style="background:#A90D22;font-size:13px;margin-top:0;padding:10px 14px;">Test as New User</button>
-        </div>
-      </div>
-
-      <!-- ===== SIGN-UP form ===== -->
-      <div class="auth-card hidden" id="signupCard">
-        <h1 class="auth-title">Create Account</h1>
-        <p class="auth-subtitle">Sign up to get started with Vysti</p>
-
-        <!-- Google -->
-        <button type="button" id="googleSignupBtn" class="google-btn">
-          <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.01 24.01 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          Sign up with Google
-        </button>
-
-        <div class="divider"><span>or sign up with email</span></div>
-
-        <div class="field">
-          <label for="signupName">Full Name</label>
-          <input id="signupName" type="text" placeholder="Your name" autocomplete="name" />
-        </div>
-
-        <div class="field">
-          <label for="signupEmail">Email Address</label>
-          <input id="signupEmail" type="email" placeholder="Email Address" autocomplete="email" />
-        </div>
-
-        <div class="field">
-          <label for="signupDob">Date of Birth</label>
-          <input id="signupDob" type="date" autocomplete="bday" />
-        </div>
-
-        <div class="field">
-          <label for="signupPassword">Password</label>
-          <div class="field-password">
-            <input id="signupPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
-            <button type="button" class="pw-toggle" data-target="signupPassword" aria-label="Show password">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="field">
+            <label for="signupName">Full Name</label>
+            <input id="signupName" type="text" placeholder="Your name" autocomplete="name" />
           </div>
-        </div>
 
-        <div class="field">
-          <label for="signupConfirm">Confirm Password</label>
-          <div class="field-password">
-            <input id="signupConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
-            <button type="button" class="pw-toggle" data-target="signupConfirm" aria-label="Show password">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="field">
+            <label for="signupEmail">Email Address</label>
+            <input id="signupEmail" type="email" placeholder="Email Address" autocomplete="email" />
           </div>
-        </div>
 
-        <p class="auth-consent">By creating an account, you agree to our <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</p>
-
-        <div class="cf-turnstile" id="turnstileSignup" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSignupTurnstile" data-theme="light"></div>
-
-        <button id="signupBtn" type="button">Create Account</button>
-
-        <p class="auth-foot">
-          Already have an account? <a href="#" id="showSignin">Sign in</a>
-        </p>
-
-        <div class="status" id="signupStatus"></div>
-      </div>
-
-      <!-- ===== RESET PASSWORD form ===== -->
-      <div class="auth-card hidden" id="resetCard">
-        <h1 class="auth-title">Reset Password</h1>
-        <p class="auth-subtitle">Enter your new password below</p>
-
-        <div class="field">
-          <label for="resetPassword">New Password</label>
-          <div class="field-password">
-            <input id="resetPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
-            <button type="button" class="pw-toggle" data-target="resetPassword" aria-label="Show password">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="field">
+            <label for="signupDob">Date of Birth</label>
+            <input id="signupDob" type="date" autocomplete="bday" />
           </div>
-        </div>
 
-        <div class="field">
-          <label for="resetConfirm">Confirm New Password</label>
-          <div class="field-password">
-            <input id="resetConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
-            <button type="button" class="pw-toggle" data-target="resetConfirm" aria-label="Show password">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+          <div class="field">
+            <label for="signupPassword">Password</label>
+            <div class="field-password">
+              <input id="signupPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+              <button type="button" class="pw-toggle" data-target="signupPassword" aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
+
+          <div class="field">
+            <label for="signupConfirm">Confirm Password</label>
+            <div class="field-password">
+              <input id="signupConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+              <button type="button" class="pw-toggle" data-target="signupConfirm" aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <p class="auth-consent">By creating an account, you agree to our <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</p>
+
+          <div class="cf-turnstile" id="turnstileSignup" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSignupTurnstile" data-theme="light"></div>
+
+          <button id="signupBtn" type="button">Create Account</button>
+
+          <p class="auth-foot">
+            Already have an account? <a href="#" id="showSignin">Sign in</a>
+          </p>
+
+          <div class="status" id="signupStatus"></div>
         </div>
 
-        <button id="resetBtn" type="button">Update Password</button>
+        <!-- ===== RESET PASSWORD CARD ===== -->
+        <div class="auth-card hidden" id="resetCard">
+          <h1 class="auth-title">Reset Password</h1>
+          <p class="auth-subtitle">Enter your new password below</p>
 
-        <div class="status" id="resetStatus"></div>
-      </div>
+          <div class="field">
+            <label for="resetPassword">New Password</label>
+            <div class="field-password">
+              <input id="resetPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" />
+              <button type="button" class="pw-toggle" data-target="resetPassword" aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
 
-      <!-- ===== STEP 2: Course code ===== -->
-      <div class="auth-card hidden" id="courseCard">
-        <h1 class="auth-title">Welcome!</h1>
-        <p class="auth-subtitle">Enter your course code to get started</p>
+          <div class="field">
+            <label for="resetConfirm">Confirm New Password</label>
+            <div class="field-password">
+              <input id="resetConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+              <button type="button" class="pw-toggle" data-target="resetConfirm" aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
 
-        <div class="field">
-          <label for="courseCode">Course Code</label>
-          <input id="courseCode" type="text" placeholder="e.g. VYSTI-ENG101-2026" autocomplete="off" />
+          <button id="resetBtn" type="button">Update Password</button>
+
+          <div class="status" id="resetStatus"></div>
         </div>
 
-        <button id="enrollBtn" type="button">Join Course</button>
+        <!-- ===== COURSE CODE CARD ===== -->
+        <div class="auth-card hidden" id="courseCard">
+          <h1 class="auth-title">Welcome!</h1>
+          <p class="auth-subtitle">Enter your course code to get started</p>
 
-        <p class="auth-foot">
-          <a href="#" id="skipEnroll">Skip for now</a>
-        </p>
+          <div class="field">
+            <label for="courseCode">Course Code</label>
+            <input id="courseCode" type="text" placeholder="e.g. VYSTI-ENG101-2026" autocomplete="off" />
+          </div>
 
-        <div class="status" id="courseStatus"></div>
+          <button id="enrollBtn" type="button">Join Course</button>
+
+          <p class="auth-foot">
+            <a href="#" id="skipEnroll">Skip for now</a>
+          </p>
+
+          <div class="status" id="courseStatus"></div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <a href="#about" class="hero-scroll-hint" aria-label="Scroll down">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-    </a>
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <p class="hero-eyebrow">For Students &amp; Teachers</p>
+        <h1 class="hero-headline">Writing feedback<br/>you can trust</h1>
+        <p class="hero-sub">Vysti is a deterministic writing engine &mdash; not AI. Built by veteran teachers, it delivers consistent, transparent analysis of student writing. Same essay, same score, every time.</p>
+        <div class="hero-actions">
+          <button type="button" class="hero-cta" id="heroCta">Get Started Free</button>
+          <a href="#about" class="hero-learn">See how it works <span>&darr;</span></a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-video-wrap">
+          <video autoplay loop muted playsinline>
+            <source src="/assets/landing/hero-demo.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <!-- ===== ABOUT VYSTI ===== -->
-  <section class="landing-section" id="about">
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="landing-section landing-section-alt" id="about">
     <div class="landing-inner">
-      <h2 class="landing-heading">No more guesswork</h2>
-      <p class="landing-subtext">Vysti is not an AI. It's a deterministic writing engine — built on rules developed by veteran teachers, not probabilistic guessing. The same essay produces the same results every time. Consistent, reliable, and transparent analysis you can trust.</p>
+      <div class="steps-header">
+        <h2 class="landing-heading">How Vysti works</h2>
+        <p class="landing-subtext">Three steps. Consistent results. No guesswork.</p>
+      </div>
+      <div class="steps-row">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3 class="step-title">Upload</h3>
+          <p class="step-desc">Drop in an essay or a full class set &mdash; .docx files, any length.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3 class="step-title">Analyse</h3>
+          <p class="step-desc">Vysti applies 100+ deterministic rules across four scoring dimensions.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3 class="step-title">Improve</h3>
+          <p class="step-desc">Students revise with targeted feedback. Teachers return scored, annotated essays.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOUR METRICS ===== -->
+  <section class="landing-section" id="metrics">
+    <div class="landing-inner">
+      <h2 class="landing-heading">Four dimensions of writing quality</h2>
+      <p class="landing-subtext">Every essay is scored on the same four metrics &mdash; rules, not opinions.</p>
       <div class="landing-metrics-row">
         <div class="landing-metric">
           <div class="landing-metric-icon">
@@ -234,17 +311,19 @@
     <div class="landing-inner landing-feature">
       <div class="landing-feature-text">
         <div class="landing-eyebrow">For Students</div>
-        <h2 class="landing-heading">Revise</h2>
-        <p class="landing-subtext">Upload your essay and get instant, rule-based feedback on every paragraph. No hallucinated suggestions — Vysti applies the same measurable standards every time, showing you exactly where your writing falls short and why.</p>
+        <h2 class="landing-heading">Revise with confidence</h2>
+        <p class="landing-subtext">Upload your essay and get instant, rule-based feedback on every paragraph. Vysti shows you exactly what to fix and why &mdash; then lets you edit and recheck until you're satisfied.</p>
         <ul class="landing-feature-list">
-          <li>Four performance meters built on concrete writing rules, not opinions</li>
-          <li>Edit in-browser and recheck — same rules, updated scores</li>
-          <li>Every issue links to the exact sentence and explains the rule behind it</li>
+          <li>Four performance meters based on concrete rules, not opinions</li>
+          <li>Edit in-browser and recheck &mdash; same rules, updated score</li>
+          <li>Every issue links to the exact sentence with the rule behind it</li>
           <li>Download your polished draft when you're done</li>
         </ul>
       </div>
       <div class="landing-feature-visual">
-        <img class="landing-screenshot" src="/assets/landing/revise-dashboard.png" alt="Vysti Revise — student dashboard with score and focus area meters" />
+        <video class="landing-video" autoplay loop muted playsinline>
+          <source src="/assets/landing/revise-demo.mp4" type="video/mp4" />
+        </video>
       </div>
     </div>
   </section>
@@ -254,17 +333,19 @@
     <div class="landing-inner landing-feature landing-feature-reverse">
       <div class="landing-feature-text">
         <div class="landing-eyebrow">For Teachers</div>
-        <h2 class="landing-heading">Mark</h2>
-        <p class="landing-subtext">Upload a class set and get every essay scored against identical standards in minutes. Because Vysti is rule-based, every student is measured the same way — no mood, no bias, no inconsistency. You add the human touch; Vysti handles the consistency.</p>
+        <h2 class="landing-heading">Mark an entire class in minutes</h2>
+        <p class="landing-subtext">Upload a class set and get every essay scored against identical standards. Vysti handles the consistency so you can focus on the human touch.</p>
         <ul class="landing-feature-list">
           <li>Batch-mark an entire class in one upload</li>
-          <li>Built-in annotation toolkit: highlights, strikethrough, comments</li>
-          <li>Deterministic score card — same essay, same result, every time</li>
+          <li>Annotation toolkit: highlights, strikethroughs, comments</li>
+          <li>Deterministic score card &mdash; same essay, same result, every time</li>
           <li>Download marked essays ready to return to students</li>
         </ul>
       </div>
       <div class="landing-feature-visual">
-        <img class="landing-screenshot" src="/assets/landing/teacher-preview.png" alt="Vysti Mark — teacher annotation view with highlights and comments" />
+        <video class="landing-video" autoplay loop muted playsinline>
+          <source src="/assets/landing/mark-demo.mp4" type="video/mp4" />
+        </video>
       </div>
     </div>
   </section>
@@ -294,23 +375,10 @@
         const input = document.getElementById(btn.dataset.target);
         const showing = input.type === "text";
         input.type = showing ? "password" : "text";
-        // Swap icon: eye → eye-off
         btn.innerHTML = showing
           ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
           : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
       });
-    });
-
-    // ===== CTA scroll-to-top =====
-    document.getElementById("ctaScrollTop").addEventListener("click", (e) => {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      // Focus the sign-up form
-      setTimeout(() => {
-        signinCard.classList.add("hidden");
-        signupCard.classList.remove("hidden");
-        document.getElementById("signupName").focus();
-      }, 600);
     });
 
     // ===== Turnstile CAPTCHA tokens =====
@@ -349,6 +417,64 @@
     const skipEnroll   = document.getElementById("skipEnroll");
     const courseStatus = document.getElementById("courseStatus");
     const redirectKey  = "post_login_redirect";
+
+    // ===== Auth overlay controls =====
+    const authOverlay = document.getElementById("authOverlay");
+    const allAuthCards = [signinCard, signupCard, resetCard, courseCard];
+
+    function openAuth(mode) {
+      allAuthCards.forEach(c => c.classList.add("hidden"));
+      if (mode === "signup") signupCard.classList.remove("hidden");
+      else if (mode === "reset") resetCard.classList.remove("hidden");
+      else if (mode === "course") courseCard.classList.remove("hidden");
+      else signinCard.classList.remove("hidden");
+      authOverlay.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeAuth() {
+      authOverlay.classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+
+    // Nav buttons
+    document.getElementById("navLogin").addEventListener("click", () => openAuth("signin"));
+    document.getElementById("navSignup").addEventListener("click", () => openAuth("signup"));
+    document.getElementById("heroCta").addEventListener("click", () => openAuth("signup"));
+    document.getElementById("authClose").addEventListener("click", closeAuth);
+    document.getElementById("authBackdrop").addEventListener("click", closeAuth);
+
+    // Mobile nav
+    document.getElementById("navMenuBtn").addEventListener("click", () => {
+      document.getElementById("navMobile").classList.toggle("hidden");
+    });
+    document.getElementById("navMobileLogin").addEventListener("click", () => {
+      document.getElementById("navMobile").classList.add("hidden");
+      openAuth("signin");
+    });
+    document.getElementById("navMobileSignup").addEventListener("click", () => {
+      document.getElementById("navMobile").classList.add("hidden");
+      openAuth("signup");
+    });
+    // Close mobile nav when a section link is clicked
+    document.querySelectorAll(".nav-mobile-link").forEach(a => {
+      a.addEventListener("click", () => {
+        document.getElementById("navMobile").classList.add("hidden");
+      });
+    });
+
+    // Escape key closes overlay
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !authOverlay.classList.contains("hidden")) {
+        closeAuth();
+      }
+    });
+
+    // ===== CTA button =====
+    document.getElementById("ctaScrollTop").addEventListener("click", (e) => {
+      e.preventDefault();
+      openAuth("signup");
+    });
 
     // ===== Redirect handling =====
     const searchParams = new URLSearchParams(window.location.search);
@@ -524,8 +650,7 @@
         } else {
           resetStatusEl.textContent = "Password updated! Please sign in with your new password.";
           setTimeout(() => {
-            resetCard.classList.add("hidden");
-            signinCard.classList.remove("hidden");
+            openAuth("signin");
           }, 2000);
         }
       }
@@ -727,18 +852,13 @@
         return;
       }
 
-      if (!signinCaptchaToken) {
-        devStatus.textContent = "Complete the CAPTCHA above first.";
-        return;
-      }
-
       devStatus.textContent = "Signing in\u2026";
       // Prevent onAuthStateChange from calling handlePostAuth before reset
       authHandled = true;
       const { data, error } = await supa.auth.signInWithPassword({
         email,
         password,
-        options: { captchaToken: signinCaptchaToken },
+        options: signinCaptchaToken ? { captchaToken: signinCaptchaToken } : {},
       });
       signinCaptchaToken = "";
       if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignin");
@@ -769,19 +889,12 @@
     });
 
     // ===== On page load: check if already signed in =====
-    // Also handles email confirmation redirects (Supabase returns
-    // #access_token=... in the URL; the client exchanges it async,
-    // then fires SIGNED_IN via onAuthStateChange).
     let authHandled = false;
     supa.auth.onAuthStateChange(async (event, session) => {
       if (authHandled) return;
       if (event === "PASSWORD_RECOVERY") {
-        // User clicked reset link — show the new-password form
         authHandled = true;
-        signinCard.classList.add("hidden");
-        signupCard.classList.add("hidden");
-        courseCard.classList.add("hidden");
-        resetCard.classList.remove("hidden");
+        openAuth("reset");
         resetPassEl.focus();
         return;
       }
