@@ -297,6 +297,20 @@ class SourceWork(BaseModel):
 class UpdateMarkEventRequest(BaseModel):
     file_name: str
     mark_event_id: str | None = None  # UUID — if set, target this specific record instead of file_name
+
+
+class ErrorReportRequest(BaseModel):
+    message: str
+    debug_info: dict | None = None
+    page_url: str | None = None
+
+
+class AutoErrorLogRequest(BaseModel):
+    error_type: str
+    message: str
+    details: dict | None = None
+    page_url: str | None = None
+    build_id: str | None = None
     assignment_name: str | None = None
     essay_title: str | None = None
     source_works: list[SourceWork] | None = None
@@ -697,6 +711,97 @@ async def dev_reset_user(
         })
 
     return {"ok": True, "message": "Profile reset to new-user state. Clear localStorage and refresh."}
+
+
+# ===== Error reporting endpoints =====
+
+@app.post("/api/report-error")
+@limiter.limit("10/minute")
+async def report_error(
+    request: Request,
+    body: ErrorReportRequest,
+    user=Depends(get_current_user),
+):
+    """Accept a user-submitted error/issue report."""
+    user_id = user.get("id") if isinstance(user, dict) else None
+    email = user.get("email") if isinstance(user, dict) else None
+
+    if not body.message or not body.message.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        print(f"[ERROR_REPORT] user={user_id} msg={body.message[:200]}")
+        return {"ok": True}
+
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "message": body.message[:2000],
+        "debug_info": body.debug_info,
+        "page_url": body.page_url,
+    }
+
+    try:
+        db_url = f"{SUPABASE_URL}/rest/v1/error_reports"
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.post(
+                db_url,
+                json=payload,
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+            )
+            if resp.status_code >= 300:
+                print(f"[ERROR_REPORT] Supabase insert failed: {resp.status_code}")
+    except Exception as e:
+        print(f"[ERROR_REPORT] Insert error: {repr(e)}")
+
+    return {"ok": True}
+
+
+@app.post("/api/log-error")
+@limiter.limit("20/minute")
+async def log_error_endpoint(
+    request: Request,
+    body: AutoErrorLogRequest,
+    user=Depends(get_current_user),
+):
+    """Auto-log critical frontend errors to Supabase."""
+    user_id = user.get("id") if isinstance(user, dict) else None
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        print(f"[AUTO_ERROR] type={body.error_type} msg={body.message[:200]}")
+        return {"ok": True}
+
+    payload = {
+        "user_id": user_id,
+        "error_type": body.error_type,
+        "message": body.message[:2000],
+        "details": body.details,
+        "page_url": body.page_url,
+        "build_id": body.build_id,
+    }
+
+    try:
+        db_url = f"{SUPABASE_URL}/rest/v1/error_logs"
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(
+                db_url,
+                json=payload,
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+            )
+    except Exception as e:
+        print(f"[AUTO_ERROR] Insert error: {repr(e)}")
+
+    return {"ok": True}
 
 
 # ===== Stripe endpoints =====

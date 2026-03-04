@@ -1116,6 +1116,50 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-meter="OTHER"] {
   font-size: var(--fs-sm);
 }
 
+.modal-card input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-card textarea {
+  min-height: 100px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  padding: 10px 12px;
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  resize: vertical;
+}
+
+/* UserMenu modals — must sit above topbar (z-index: 1000) */
+.um-modal-backdrop {
+  z-index: 10001;
+}
+
+.um-modal-body {
+  font-size: var(--fs-sm);
+  color: rgba(0, 0, 0, 0.7);
+  margin: 0;
+}
+
+.um-modal-hint {
+  font-size: var(--fs-xs, 12px);
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0;
+}
+
+.um-modal-success {
+  font-size: var(--fs-sm);
+  color: #2e7d32;
+  margin: 0;
+}
+
+.um-modal-error {
+  font-size: var(--fs-sm);
+  color: #c62828;
+  margin: 0;
+}
+
 .dismiss-modal .modal-question {
   font-weight: 600;
   font-size: var(--fs-sm);

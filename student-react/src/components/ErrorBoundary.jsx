@@ -1,6 +1,6 @@
 import { Component } from "react";
 import { getConfig } from "../config";
-import { getDebugInfo } from "../lib/logger";
+import { getDebugInfo, logCriticalError } from "../lib/logger";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -19,6 +19,11 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error("Student React render error", error);
+    logCriticalError("React render crash", {
+      errorType: "render_crash",
+      error: error?.message,
+      componentStack: info?.componentStack?.slice(0, 500),
+    });
     this.setState({
       componentStack: info?.componentStack || "",
       errorStack: error?.stack || ""

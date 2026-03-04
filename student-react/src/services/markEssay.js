@@ -1,6 +1,6 @@
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { buildMarkFormData } from "@shared/markingApi";
-import { logError, logEvent } from "../lib/logger";
+import { logError, logCriticalError, logEvent } from "../lib/logger";
 import { extractErrorMessage, fetchWithTimeout, isAuthExpired } from "../lib/request";
 
 function throwIfEntitlementError(response) {
@@ -110,7 +110,7 @@ export async function markEssay({
       logError("Session expired during mark");
       throw new Error("Session expired. Please sign in again.");
     }
-    logError("Mark failed", { error: err?.message });
+    logCriticalError("Mark failed", { errorType: "mark_failure", error: err?.message });
     throw err;
   }
 }
@@ -196,7 +196,7 @@ export async function markText({
       logError("Session expired during recheck");
       throw new Error("Session expired. Please sign in again.");
     }
-    logError("Recheck failed", { error: err?.message });
+    logCriticalError("Recheck failed", { errorType: "recheck_failure", error: err?.message });
     throw err;
   }
 }

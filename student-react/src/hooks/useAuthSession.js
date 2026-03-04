@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { redirectToSignin } from "../lib/auth";
-import { logEvent, logError } from "../lib/logger";
+import { logEvent, logCriticalError } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 
@@ -24,7 +24,7 @@ export function useAuthSession(role = "student") {
     if (!client) {
       setAuthError("Supabase client not available.");
       setIsChecking(false);
-      logError("Supabase client not available");
+      logCriticalError("Supabase client not available", { errorType: "auth_init" });
       return undefined;
     }
 
@@ -83,7 +83,7 @@ export function useAuthSession(role = "student") {
           setAuthError("Unable to verify session. Please refresh.");
           setIsChecking(false);
         }
-        logError("Auth check failed", { error: err?.message });
+        logCriticalError("Auth check failed", { errorType: "auth_failure", error: err?.message });
       }
     };
 
