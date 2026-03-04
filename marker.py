@@ -3402,6 +3402,13 @@ def collect_text_title_format_marks(
     # Loop over all teacher-supplied works
     for work in works:
         title_text = work.title
+        # Only check the first occurrence of each title across the entire
+        # document.  If the student got it right the first time, trust them
+        # for the rest (avoids false positives like "Harlem" the location
+        # being flagged after "Harlem" the poem was already quoted correctly).
+        title_key = f"__title_checked:{title_text}"
+        if title_key in labels_used:
+            continue
         pattern = re.compile(re.escape(title_text), re.IGNORECASE)
 
         # IMPORTANT: we want to skip clearly non-title uses where the matched
@@ -3418,18 +3425,19 @@ def collect_text_title_format_marks(
                 if matched_text == matched_text.lower():
                     continue
 
-                # NEW: only treat exact-case matches as actual references to the title.
-                # This prevents phrases like "The knife" from being flagged when the
-                # configured title is "The Knife".
+                # Only treat exact-case matches as actual references to the title.
                 if matched_text != title_text:
                     continue
+
+                # First valid occurrence — mark this title as checked
+                labels_used.append(title_key)
 
                 inside_double = pos_in_spans(start, spans) and pos_in_spans(end - 1, spans)
                 italic = is_span_italic(start, end)
 
                 # Correct formatting: inside double quotes and not italic
                 if inside_double and not italic:
-                    continue
+                    break  # Correctly formatted, skip all subsequent
 
                 first_time = note not in labels_used
                 mark = {
@@ -3442,41 +3450,43 @@ def collect_text_title_format_marks(
                     mark["label"] = True
                     labels_used.append(note)
                 marks.append(mark)
+                break  # Only flag first occurrence
         else:
             note = "The title of major works should be italicized"
             is_single_word = " " not in title_text
-            
+
             # For single-word titles, apply special heuristic to avoid false positives
             # from character-name uses (e.g., "Antigone" as character vs. *Antigone* as title)
             if is_single_word and paragraph_role == "intro" and sentences:
                 # Only enforce in intro paragraph's first sentence
                 first_start, first_end = sentences[0]
-                
+
                 # Collect all exact-case matches within the first sentence
                 first_sentence_matches = []
                 for m in pattern.finditer(flat_text):
                     start, end = m.start(), m.end()
                     matched_text = flat_text[start:end]
-                    
+
                     # Only exact-case matches
                     if matched_text != title_text:
                         continue
-                    
+
                     # Skip possessive forms
                     next_two = flat_text[end:end+2] if end + 2 <= len(flat_text) else ""
                     if next_two in ("'s", "\u2019s"):
                         continue
-                    
+
                     # Only consider matches within the first sentence
                     if start < first_start or start >= first_end:
                         continue
-                    
+
                     first_sentence_matches.append((start, end))
-                
+
                 # If there are matches in the first sentence, check if any are italicized
                 if first_sentence_matches:
+                    labels_used.append(title_key)
                     has_italicized = any(is_span_italic(start, end) for start, end in first_sentence_matches)
-                    
+
                     if has_italicized:
                         # At least one italicized occurrence exists → don't flag any unitalicized ones
                         # (they're likely character-name uses)
@@ -3502,12 +3512,10 @@ def collect_text_title_format_marks(
                 continue
             elif is_single_word:
                 # Single-word title in other contexts (e.g., title lines, or intro without sentences)
-                # → use standard enforcement (no special heuristic needed)
                 for m in pattern.finditer(flat_text):
                     start, end = m.start(), m.end()
                     matched_text = flat_text[start:end]
 
-                    # Only exact-case matches
                     if matched_text != title_text:
                         continue
 
@@ -3516,9 +3524,12 @@ def collect_text_title_format_marks(
                     if next_two in ("'s", "\u2019s"):
                         continue
 
+                    # First valid occurrence — mark this title as checked
+                    labels_used.append(title_key)
+
                     # If the span is fully italicized, it's correct
                     if is_span_italic(start, end):
-                        continue
+                        break  # Correctly formatted, skip all subsequent
 
                     first_time = note not in labels_used
                     mark = {
@@ -3531,19 +3542,22 @@ def collect_text_title_format_marks(
                         mark["label"] = True
                         labels_used.append(note)
                     marks.append(mark)
+                    break  # Only flag first occurrence
             else:
-                # Multi-word title: keep current behavior (enforce italics everywhere)
+                # Multi-word title: only check first occurrence
                 for m in pattern.finditer(flat_text):
                     start, end = m.start(), m.end()
                     matched_text = flat_text[start:end]
 
-                    # NEW: only enforce formatting for exact-case matches of the title.
                     if matched_text != title_text:
                         continue
 
+                    # First valid occurrence — mark this title as checked
+                    labels_used.append(title_key)
+
                     # If the span is fully italicized, it's correct
                     if is_span_italic(start, end):
-                        continue
+                        break  # Correctly formatted, skip all subsequent
 
                     first_time = note not in labels_used
                     mark = {
@@ -3556,6 +3570,7 @@ def collect_text_title_format_marks(
                         mark["label"] = True
                         labels_used.append(note)
                     marks.append(mark)
+                    break  # Only flag first occurrence
 
     return marks
 
