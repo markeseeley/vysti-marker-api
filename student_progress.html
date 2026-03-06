@@ -2300,6 +2300,7 @@
         .order("created_at", { ascending: false });
 
       ownedClasses = classes || [];
+      populateClassFilters();
 
       // Read URL params for deep-linking (?lens=classes&class_id=UUID)
       const urlLens = getUrlParam("lens");
