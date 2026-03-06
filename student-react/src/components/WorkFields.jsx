@@ -20,7 +20,7 @@ function pickPlaceholders(count) {
   return shuffled.slice(0, count);
 }
 
-export default function WorkFields({ works, onUpdate, maxWorks = 3 }) {
+export default function WorkFields({ works, onUpdate, maxWorks = 5 }) {
   // Pick once per mount so placeholders stay stable while the user interacts
   const placeholders = useMemo(() => pickPlaceholders(maxWorks), [maxWorks]);
   // Track which extra works are collapsed (Work 1 always open)
