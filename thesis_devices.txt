@@ -508,7 +508,6 @@ refutation,rebuttal
 counter,rebuttal
 counterargument,counterclaim
 counterarguments,counterclaim
-response,rebuttal
 humorous,humor
 satire,humor
 satirical,humor
