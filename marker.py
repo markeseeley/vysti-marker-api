@@ -1710,6 +1710,17 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_essay_title_format = False
         cfg.enforce_essay_title_capitalization = False
 
+    elif mode == "write_body":
+        # Same flags as foundation_4/5: thesis + body rules ON,
+        # but still no essay-title requirements (conclusion not expected yet).
+        cfg.enforce_essay_title_format = False
+        cfg.enforce_essay_title_capitalization = False
+
+    elif mode == "write_conclusion":
+        # Full essay rules — same as textual_analysis (all defaults True).
+        # Distinct mode string so foundation-specific guards don't trigger.
+        pass
+
     elif mode == "peel_paragraph":
         # Single PEEL paragraph: Point–Evidence–Explanation–Link.
         # We want body-paragraph evidence rules, but we *do not* want
@@ -2685,12 +2696,17 @@ def run_is_italic(run) -> bool:
     Return True if this run should be treated as italic, either because
     its direct font formatting is italic or because its character style
     is italic (e.g., Word's Emphasis style).
-    """
-    # Direct formatting
-    if bool(run.font.italic):
-        return True
 
-    # Style-level formatting (e.g. Emphasis)
+    Direct formatting (w:i) always wins over style-level formatting.
+    A run with w:i val="0" is explicitly NOT italic even if its character
+    style (e.g. Emphasis) would otherwise be italic.
+    """
+    direct = run.font.italic
+    if direct is not None:
+        # Explicitly set — honours both True (italic) and False (not italic)
+        return bool(direct)
+
+    # No direct override — fall back to character style (e.g. Emphasis)
     style = getattr(run, "style", None)
     if style is not None:
         try:
