@@ -6177,7 +6177,10 @@
         }
       } catch (err) {
         console.error("Save class failed:", err);
-        await vystiAlert("Failed to save class. Please try again.");
+        const isDuplicate = err?.code === "23505" && err?.message?.includes("classes_user_id_class_name_uniq");
+        await vystiAlert(isDuplicate
+          ? "A class with that name already exists. Please choose a different name."
+          : "Failed to save class. Please try again.");
       } finally {
         classMgmtSaveBtn.disabled = false;
         classMgmtSaveBtn.textContent = editingClassId ? "Save" : "Create";
@@ -6265,6 +6268,10 @@
         // Edit button — close manage modal, navigate to class inline roster
         row.querySelector(".manage-class-edit-btn").addEventListener("click", () => {
           closeManageClasses();
+          if (currentLens !== "classes") {
+            switchLens("classes");
+          }
+          populateClassFilters();
           if (classFilter) classFilter.value = cls.id;
           loadData();
         });
