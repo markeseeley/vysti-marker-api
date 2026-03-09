@@ -285,6 +285,15 @@ function App() {
     [mode]
   );
 
+  // Enable Recheck when assignment mode changes after essay is already marked
+  const prevModeRef = useRef(mode);
+  useEffect(() => {
+    if (prevModeRef.current !== mode) {
+      prevModeRef.current = mode;
+      if (markedBlob) setHasRevisedSinceMark(true);
+    }
+  }, [mode, markedBlob]);
+
   const totalIssues = useMemo(() => {
     return Object.values(mciLabelCounts || {}).reduce(
       (sum, count) => sum + (Number(count) || 0),
