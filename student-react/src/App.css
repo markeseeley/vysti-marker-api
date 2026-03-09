@@ -1652,6 +1652,24 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-meter="OTHER"] {
   cursor: not-allowed;
 }
 
+.recheck-processing {
+  color: var(--accent, #1a73e8);
+  font-weight: 600;
+}
+
+.dot-pulse::after {
+  content: "";
+  animation: dotPulse 1.2s steps(4, end) infinite;
+}
+
+@keyframes dotPulse {
+  0%   { content: ""; }
+  25%  { content: "."; }
+  50%  { content: ".."; }
+  75%  { content: "..."; }
+  100% { content: ""; }
+}
+
 .preview-toolbar-save {
   padding: 4px 12px !important;
   font-size: 13px;

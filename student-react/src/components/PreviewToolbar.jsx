@@ -918,7 +918,7 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
             disabled={isRechecking || (!hasRevisedSinceMark && !worksChanged)}
             onClick={onRecheck}
           >
-            {isRechecking ? "Processing..." : "Recheck"}
+            {isRechecking ? <span className="recheck-processing">Processing<span className="dot-pulse" /></span> : "Recheck"}
           </button>
         </>
       )}
