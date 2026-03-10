@@ -3489,9 +3489,10 @@ async def mark_text(
 
             # Clear old mark_events for this user/file to ensure fresh start
             delete_url = f"{SUPABASE_URL}/rest/v1/mark_events"
+            encoded_fn = urllib.parse.quote(body.file_name or "", safe="")
             async with httpx.AsyncClient(timeout=5) as client:
                 await client.delete(
-                    f"{delete_url}?user_id=eq.{user_id}&file_name=eq.{body.file_name}",
+                    f"{delete_url}?user_id=eq.{user_id}&file_name=eq.{encoded_fn}",
                     headers={
                         "apikey": SUPABASE_SERVICE_KEY,
                         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
@@ -3535,9 +3536,10 @@ async def mark_text(
             if user_id:
                 # Clear old cached examples for this user/file to ensure fresh start
                 delete_url = f"{SUPABASE_URL}/rest/v1/issue_examples"
+                encoded_fn2 = urllib.parse.quote(body.file_name or "", safe="")
                 async with httpx.AsyncClient(timeout=5) as client:
                     await client.delete(
-                        f"{delete_url}?user_id=eq.{user_id}&file_name=eq.{body.file_name}",
+                        f"{delete_url}?user_id=eq.{user_id}&file_name=eq.{encoded_fn2}",
                         headers={
                             "apikey": SUPABASE_SERVICE_KEY,
                             "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
