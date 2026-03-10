@@ -251,19 +251,14 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
           },
           body: JSON.stringify({ file_name: outputName, text, comment: commentText || "" }),
         });
-        console.log("[EXPORT PREP] API response:", resp.status, "docId:", docId);
         if (resp.ok) {
           const blob = await resp.blob();
           // Only store if we're still on the same document
           if (doc.id === docId) {
             preparedExportRef.current = { docId, blob, name: outputName };
-            console.log("[EXPORT PREP] Blob stored for docId:", docId);
           }
-        } else {
-          console.warn("[EXPORT PREP] API failed:", resp.status, await resp.text());
         }
-      } catch (err) {
-        console.error("[EXPORT PREP] Error:", err);
+      } catch {
         // Best-effort — download will still work via fallback
       }
     }, 800);
@@ -738,14 +733,11 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       ? prepared.blob
       : null;
 
-    console.log("[EXPORT DEBUG] fileHandle:", !!fileHandle, "preparedBlob:", !!downloadMe, "docId match:", prepared?.docId === doc.id);
-
     // If we have NO file handle AND no prepared blob, the user gesture will
     // expire the moment we await anything.  Download the raw marked blob
     // synchronously now (without teacher comments) so the download actually
     // triggers, then kick off background preparation for next time.
     if (!fileHandle && !downloadMe) {
-      console.log("[EXPORT DEBUG] FALLBACK: no fileHandle, no prepared blob → raw markedBlob");
       if (doc.markedBlob) {
         const result = triggerDownload(doc.markedBlob, outputName);
         setDownloadResult(result, outputName);
@@ -761,7 +753,6 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     if (!downloadMe && supa && previewRef.current) {
       try {
         const text = extractTextWithTeacherAnnotations(previewRef.current);
-        console.log("[EXPORT DEBUG] Live API path — extracted text length:", text?.length, "first 200 chars:", text?.slice(0, 200));
         if (text) {
           const ibScores = computeIBScores(doc.labelCounts, doc.wordCount);
           const commentText = doc.teacherComment?.includeInDownload !== false
@@ -769,7 +760,6 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             : "";
           const { data: sess } = await supa.auth.getSession();
           const apiBase = getApiBaseUrl();
-          console.log("[EXPORT DEBUG] session:", !!sess?.session, "apiBase:", apiBase);
           if (sess?.session && apiBase) {
             const resp = await fetch(`${apiBase}/export_teacher_docx`, {
               method: "POST",
@@ -779,24 +769,16 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
               },
               body: JSON.stringify({ file_name: outputName, text, comment: commentText || "" }),
             });
-            console.log("[EXPORT DEBUG] API response:", resp.status, resp.ok);
             if (resp.ok) downloadMe = await resp.blob();
-            else console.log("[EXPORT DEBUG] API error body:", await resp.text());
           }
         }
-      } catch (err) {
-        console.error("[EXPORT DEBUG] Live API error:", err);
+      } catch {
         // Fall through to raw markedBlob
       }
     }
 
     // Last resort: raw marked blob (without teacher comments)
-    if (!downloadMe) {
-      console.log("[EXPORT DEBUG] Using raw markedBlob (no teacher annotations)");
-      downloadMe = doc.markedBlob;
-    } else {
-      console.log("[EXPORT DEBUG] Using API-generated blob with teacher annotations");
-    }
+    if (!downloadMe) downloadMe = doc.markedBlob;
     if (!downloadMe) return;
 
     // Write to the Save As file handle, or fall back to triggerDownload.

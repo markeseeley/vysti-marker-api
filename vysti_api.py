@@ -2913,6 +2913,13 @@ def build_teacher_doc_from_text(text: str, comment: str = "") -> bytes:
     """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
+    # Strip null bytes and XML-incompatible control characters (U+0000–U+0008,
+    # U+000B–U+000C, U+000E–U+001F) that can leak from docx-preview DOM text.
+    # lxml/python-docx raises ValueError if these are present.
+    _ctrl_re = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+    text = _ctrl_re.sub("", text)
+    comment = _ctrl_re.sub("", comment)
+
     # Safety net: strip rewrite-practice tags
     text = re.sub(
         r"\s*\*\s*Rewrite this paragraph for practice\s*\*\s*",
