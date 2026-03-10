@@ -325,12 +325,18 @@ class AutoErrorLogRequest(BaseModel):
 
 
 async def get_current_user(
+    request: Request,
     cred: HTTPAuthorizationCredentials = Depends(auth_scheme),
 ):
     """
     Validate the Supabase JWT by calling Supabase's Auth API.
     Returns the user dict if valid; otherwise raises 401.
     """
+    # Localhost dev bypass — skip JWT validation for local testing
+    host = request.headers.get("host", "")
+    if (host.startswith("localhost") or host.startswith("127.0.0.1")) and (cred is None or cred.credentials == "dev"):
+        return {"id": "local-dev", "email": "dev@localhost"}
+
     if cred is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -438,8 +444,8 @@ async def get_profile(
             "id": user_id,
             "email": email,
             "display_name": display_name,
-            "has_mark": False,
-            "has_revise": False,
+            "has_mark": True,
+            "has_revise": True,
             "has_write": False,
             "subscription_status": "none",
             "subscription_tier": "free",
@@ -644,6 +650,9 @@ def require_product(*products: str):
         user_id = user.get("id")
         if not user_id:
             raise HTTPException(status_code=401, detail="Could not determine user")
+        # Localhost dev bypass — skip product check
+        if user_id == "local-dev":
+            return user
         profile = await get_user_profile(user_id)
         if not profile:
             raise HTTPException(
@@ -950,6 +959,7 @@ async def delete_account(
 ):
     """
     Permanently delete the authenticated user's account:
+    0. Store deletion feedback (reason / details)
     1. Cancel active Stripe subscriptions
     2. Delete all data from app tables
     3. Delete uploaded files from Supabase Storage
@@ -961,6 +971,33 @@ async def delete_account(
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(status_code=500, detail="Server configuration missing")
+
+    # 0. Store deletion feedback before we delete anything
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    feedback_reason = (body.get("reason") or "")[:500]
+    feedback_details = (body.get("details") or "")[:2000]
+    if feedback_reason:
+        try:
+            async with httpx.AsyncClient(timeout=10) as fb_client:
+                await fb_client.post(
+                    f"{SUPABASE_URL}/rest/v1/deletion_feedback",
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal",
+                    },
+                    json={
+                        "user_id": user_id,
+                        "reason": feedback_reason,
+                        "details": feedback_details or None,
+                    },
+                )
+        except Exception as exc:
+            print(f"[delete-account] Feedback save error (non-fatal): {exc}")
 
     # 1. Cancel active Stripe subscriptions
     profile = await get_user_profile(user_id)
@@ -3587,7 +3624,7 @@ async def check_text(
     """
     # 0a. Free-tier usage check (same guard as /mark)
     _ct_user_id = user.get("id") if isinstance(user, dict) else None
-    if _ct_user_id:
+    if _ct_user_id and _ct_user_id != "local-dev":
         _ct_profile = await get_user_profile(_ct_user_id)
         _ct_tier = (_ct_profile or {}).get("subscription_tier", "free")
         if _ct_tier == "free":

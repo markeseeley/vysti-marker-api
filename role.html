@@ -183,7 +183,7 @@
     })();
 
     // ===== Select role (free tier — no payment) =====
-    async function selectRole(products) {
+    async function selectRole(products, landing) {
       if (!sessionToken) return;
       markBtn.disabled = reviseBtn.disabled = true;
       bothBtn.disabled = true;
@@ -211,13 +211,8 @@
           has_write: profile.has_write || false,
         }));
 
-        if (profile.has_mark) {
-          localStorage.setItem("vysti_role", "teacher");
-          window.location.assign("/teacher_react.html");
-        } else {
-          localStorage.setItem("vysti_role", "student");
-          window.location.assign("/student_react.html");
-        }
+        localStorage.setItem("vysti_role", landing === "teacher" ? "teacher" : "student");
+        window.location.assign(landing === "teacher" ? "/teacher_react.html" : "/student_react.html");
       } catch (err) {
         console.error("Role selection error:", err);
         statusMsg.textContent = err.message || "Something went wrong. Please try again.";
@@ -226,9 +221,9 @@
       }
     }
 
-    markBtn.addEventListener("click", () => selectRole({ has_mark: true }));
-    reviseBtn.addEventListener("click", () => selectRole({ has_revise: true }));
-    bothBtn.addEventListener("click", () => selectRole({ has_mark: true, has_revise: true }));
+    markBtn.addEventListener("click", () => selectRole({ has_mark: true, has_revise: true }, "teacher"));
+    reviseBtn.addEventListener("click", () => selectRole({ has_mark: true, has_revise: true }, "student"));
+    bothBtn.addEventListener("click", () => selectRole({ has_mark: true, has_revise: true }, "teacher"));
 
     // ===== Logout =====
     logoutBtn.addEventListener("click", async () => {

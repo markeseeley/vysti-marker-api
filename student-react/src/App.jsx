@@ -303,13 +303,11 @@ function App() {
     );
   }, [mciLabelCounts]);
 
-  // ── Product guard: redirect if user lacks Revise product ──
+  // ── Product guard: redirect to role selection if not onboarded ──
   useEffect(() => {
     if (isChecking) return;
     if (!products.has_revise && !products.has_mark) {
       window.location.assign("/role.html");
-    } else if (!products.has_revise && products.has_mark) {
-      window.location.assign("/teacher_react.html");
     }
   }, [isChecking, products]);
 
@@ -2677,7 +2675,6 @@ function App() {
         )}
         onKeepWorking={handleKeepWorking}
         keepWorkingItems={keepWorkingItems}
-        products={products}
         entitlement={entitlement}
         onSubscribe={() => setShowPaywall(true)}
       />

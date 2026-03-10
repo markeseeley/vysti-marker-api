@@ -8,7 +8,6 @@ export default function TeacherTopbar({
   onResumeSession,
   onDismissSession,
   keepWorkingItems,
-  products,
   entitlement,
   onSubscribe,
 }) {
@@ -21,9 +20,7 @@ export default function TeacherTopbar({
 
       <nav>
         <a href="/teacher_react.html" className="active" title="Upload and grade student essays">Mark</a>
-        {products?.has_revise
-          ? <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
-          : <a className="disabled upgrade" title="Upgrade to unlock Revise" onClick={() => window.location.assign("/profile_react.html?upgrade=revise")}>Revise</a>}
+        <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
         <a className="disabled" title="Coming soon..." aria-disabled="true">Write</a>
         <a href="/student_progress.html" title="Track your writing progress">Progress</a>
       </nav>
