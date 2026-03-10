@@ -1963,16 +1963,9 @@ async def export_teacher_docx(
     if not body.text or not body.text.strip():
         raise HTTPException(status_code=400, detail="Missing text")
 
-    # Free tier: block teacher downloads
-    _exp_uid = user.get("id")
-    if _exp_uid:
-        _exp_profile = await get_user_profile(_exp_uid)
-        _exp_tier = (_exp_profile or {}).get("subscription_tier", "free")
-        if _exp_tier == "free":
-            raise HTTPException(
-                status_code=402,
-                detail={"message": "Subscribe to download marked essays.", "code": "USAGE_LIMIT"},
-            )
+    # No free-tier guard here: marking itself is already gated by the mark
+    # limit, so once a teacher has marked an essay they should always be
+    # able to download the result — regardless of tier.
 
     docx_bytes = build_teacher_doc_from_text(body.text, body.comment or "")
 
