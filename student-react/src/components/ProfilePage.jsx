@@ -33,15 +33,14 @@ function formatDate(dateStr) {
   }
 }
 
-function getRoleName() {
-  try {
-    const role = localStorage.getItem("vysti_role");
-    if (role === "teacher") return "Teacher";
-    if (role === "student") return "Student";
-    return "Not set";
-  } catch {
-    return "Not set";
-  }
+function getProductName(profile) {
+  if (!profile) return null;
+  const hasMark = !!profile.has_mark;
+  const hasRevise = !!profile.has_revise;
+  if (hasMark && hasRevise) return "Mark & Revise";
+  if (hasMark) return "Mark";
+  if (hasRevise) return "Revise";
+  return null;
 }
 
 function formatStatus(status) {
@@ -103,6 +102,7 @@ export default function ProfilePage({
 
   const tier = profile?.subscription_tier || "free";
   const isPaid = tier === "paid";
+  const productName = getProductName(profile);
   const status = formatStatus(profile?.subscription_status);
   const marksUsed = profile?.marks_used ?? 0;
 
@@ -240,10 +240,6 @@ export default function ProfilePage({
             </span>
           </div>
           <div className="profile-field">
-            <span className="profile-label">Role</span>
-            <span className="profile-value">{getRoleName()}</span>
-          </div>
-          <div className="profile-field">
             <span className="profile-label">Member since</span>
             <span className="profile-value">{formatDate(user?.created_at)}</span>
           </div>
@@ -260,7 +256,7 @@ export default function ProfilePage({
               <span className="profile-label">Plan</span>
               <span className="profile-value">
                 <span className={`subscription-badge ${isPaid ? "subscription-badge-paid" : "subscription-badge-free"}`}>
-                  {isPaid ? "Paid" : "Free"}
+                  {isPaid ? (productName || "Paid") : "Free"}
                 </span>
               </span>
             </div>

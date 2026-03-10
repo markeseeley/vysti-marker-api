@@ -518,6 +518,8 @@
 
     // ===== Post-auth: check profile products, route accordingly =====
     async function handlePostAuth(session) {
+      // Hide page content immediately so user doesn't see signin page while redirecting
+      document.body.style.visibility = "hidden";
       try {
         const resp = await fetch("/api/profile", {
           headers: { "Authorization": "Bearer " + session.access_token },

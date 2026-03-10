@@ -817,13 +817,16 @@ async def log_error_endpoint(
 
 # Map price IDs to product flags
 def _price_to_products(price_id: str) -> dict:
-    """Return the product flags for a given Stripe price ID."""
+    """Return the product flags for a given Stripe price ID.
+    Always returns BOTH flags so the patch resets access to exactly
+    what was purchased (prevents leftover free-tier flags).
+    """
     if price_id == STRIPE_PRICE_BOTH:
         return {"has_mark": True, "has_revise": True}
     elif price_id == STRIPE_PRICE_MARK:
-        return {"has_mark": True}
+        return {"has_mark": True, "has_revise": False}
     elif price_id == STRIPE_PRICE_REVISE:
-        return {"has_revise": True}
+        return {"has_mark": False, "has_revise": True}
     return {}
 
 
