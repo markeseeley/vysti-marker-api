@@ -1176,6 +1176,10 @@ async def stripe_webhook(request: Request):
         if user_id:
             await _update_profile_fields(user_id, {
                 "subscription_status": "past_due",
+                "subscription_tier": "free",
+                "has_mark": False,
+                "has_revise": False,
+                "has_write": False,
             })
 
     return {"received": True}
@@ -1958,6 +1962,17 @@ async def export_teacher_docx(
     """
     if not body.text or not body.text.strip():
         raise HTTPException(status_code=400, detail="Missing text")
+
+    # Free tier: block teacher downloads
+    _exp_uid = user.get("id")
+    if _exp_uid:
+        _exp_profile = await get_user_profile(_exp_uid)
+        _exp_tier = (_exp_profile or {}).get("subscription_tier", "free")
+        if _exp_tier == "free":
+            raise HTTPException(
+                status_code=402,
+                detail={"message": "Subscribe to download marked essays.", "code": "USAGE_LIMIT"},
+            )
 
     docx_bytes = build_teacher_doc_from_text(body.text, body.comment or "")
 
