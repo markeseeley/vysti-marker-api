@@ -24,6 +24,7 @@ import { peekWriteDraft } from "./WriteApp";
 import { getApiUrls } from "./config";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { parseFilename } from "./lib/filenameParser";
+import PaywallModal from "./components/PaywallModal";
 
 export default function TeacherApp() {
   const { supa, isChecking, authError, products, entitlement, setEntitlement } = useAuthSession("teacher");
@@ -31,6 +32,7 @@ export default function TeacherApp() {
   const [userId, setUserId] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Refs for auto-save throttle
   const saveThrottleRef = useRef(null);
@@ -303,10 +305,9 @@ export default function TeacherApp() {
   const handleMarkAll = useCallback(async () => {
     if (!supa || state.files.length === 0 || state.isProcessing) return;
 
-    // Free tier: block if already used their mark — redirect to subscribe
+    // Free tier: block if already used their mark — show paywall modal
     if (entitlement.subscription_tier === "free" && entitlement.marks_used >= entitlement.marks_limit) {
-      alert("Subscribe to mark more essays.");
-      window.location.assign("/profile_react.html?upgrade=mark");
+      setShowPaywall(true);
       return;
     }
 
@@ -461,6 +462,11 @@ export default function TeacherApp() {
       </main>
 
       <Footer />
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        returnPath="/teacher_react.html"
+      />
     </>
   );
 }

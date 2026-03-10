@@ -69,7 +69,9 @@ export default function ProfilePage({
   const [pwStatus, setPwStatus] = useState({ type: "", msg: "" });
   const [pwBusy, setPwBusy] = useState(false);
 
-  const [deleteSection, setDeleteSection] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(0); // 0=hidden, 1=reason, 2=confirm
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteDetails, setDeleteDetails] = useState("");
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [deleteStatus, setDeleteStatus] = useState({ type: "", msg: "" });
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -160,11 +162,19 @@ export default function ProfilePage({
     setDeleteBusy(true);
     setDeleteStatus({ type: "", msg: "" });
     try {
-      await onDeleteAccount();
+      await onDeleteAccount({ reason: deleteReason, details: deleteDetails });
     } catch (err) {
       setDeleteStatus({ type: "error", msg: err?.message || "Account deletion failed." });
       setDeleteBusy(false);
     }
+  };
+
+  const resetDeleteFlow = () => {
+    setDeleteStep(0);
+    setDeleteReason("");
+    setDeleteDetails("");
+    setDeleteConfirmEmail("");
+    setDeleteStatus({ type: "", msg: "" });
   };
 
   return (
@@ -312,7 +322,7 @@ export default function ProfilePage({
                     <span className="upgrade-card-desc">Full access to all features</span>
                   </button>
                 </div>
-                {billingBusy && <p className="upgrade-loading">Redirecting to checkout\u2026</p>}
+                {billingBusy && <p className="upgrade-loading">{"Redirecting to checkout\u2026"}</p>}
               </div>
             )}
           </section>
@@ -373,15 +383,70 @@ export default function ProfilePage({
         </section>
 
         <section className="profile-card profile-danger">
-          <h2>Danger Zone</h2>
-          {!deleteSection ? (
+          <h2>Delete Account</h2>
+          {deleteStep === 0 && (
             <button
               className="profile-btn profile-btn-danger"
-              onClick={() => setDeleteSection(true)}
+              onClick={() => setDeleteStep(1)}
             >
               Delete account
             </button>
-          ) : (
+          )}
+          {deleteStep === 1 && (
+            <div className="delete-confirm">
+              <p className="delete-warning">
+                Are you sure you want to delete your account? We&rsquo;d love to know
+                why so we can improve.
+              </p>
+              <div className="delete-reasons">
+                {[
+                  "I don't need it anymore",
+                  "Too expensive",
+                  "Missing features I need",
+                  "Switching to another tool",
+                  "Other",
+                ].map((r) => (
+                  <label key={r} className="delete-reason-option">
+                    <input
+                      type="radio"
+                      name="delete-reason"
+                      value={r}
+                      checked={deleteReason === r}
+                      onChange={() => setDeleteReason(r)}
+                    />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+              {deleteReason && (
+                <div className="pw-field">
+                  <label htmlFor="delete-details">Anything else you&rsquo;d like to share? (optional)</label>
+                  <input
+                    id="delete-details"
+                    type="text"
+                    value={deleteDetails}
+                    onChange={(e) => setDeleteDetails(e.target.value)}
+                    placeholder="Tell us more..."
+                    autoComplete="off"
+                  />
+                </div>
+              )}
+              <div className="pw-actions">
+                <button
+                  type="button"
+                  className="profile-btn profile-btn-danger"
+                  disabled={!deleteReason}
+                  onClick={() => setDeleteStep(2)}
+                >
+                  Continue
+                </button>
+                <button type="button" className="profile-btn" onClick={resetDeleteFlow}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {deleteStep === 2 && (
             <form onSubmit={handleDeleteSubmit} className="delete-confirm">
               <p className="delete-warning">
                 This will permanently delete your account, all essays, and cancel
@@ -409,11 +474,7 @@ export default function ProfilePage({
                 >
                   {deleteBusy ? "Deleting\u2026" : "Permanently delete"}
                 </button>
-                <button
-                  type="button"
-                  className="profile-btn"
-                  onClick={() => { setDeleteSection(false); setDeleteConfirmEmail(""); setDeleteStatus({ type: "", msg: "" }); }}
-                >
+                <button type="button" className="profile-btn" onClick={resetDeleteFlow}>
                   Cancel
                 </button>
               </div>

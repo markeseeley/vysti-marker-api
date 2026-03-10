@@ -20,6 +20,7 @@ import DraftRestoreBanner from "./components/DraftRestoreBanner";
 import AttemptHistoryPanel from "./components/AttemptHistoryPanel";
 import MetricInfoPopover from "./components/MetricInfoPopover";
 import PowerVerbsPopover from "./components/PowerVerbsPopover";
+import PaywallModal from "./components/PaywallModal";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { logEvent, logError } from "./lib/logger";
 import { DEFAULT_ZOOM, MODE_RULE_DEFAULTS, MODES, getConfig, getConfigError } from "./config";
@@ -124,6 +125,7 @@ function App() {
   const [hasRevisedSinceMark, setHasRevisedSinceMark] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showMlaModal, setShowMlaModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [markedFilenameBase, setMarkedFilenameBase] = useState("");
   const [mciLabelCounts, setMciLabelCounts] = useState({});
   const [mciLabelCountsRaw, setMciLabelCountsRaw] = useState({});
@@ -670,37 +672,8 @@ function App() {
     setStatus({ message, kind: "success" });
   };
 
-  const handlePaywall = async (feature) => {
-    const messages = {
-      upload: "Subscribe for unlimited essay uploads.",
-      recheck: "Subscribe to unlock rechecking.",
-      download: "Subscribe to download your essay.",
-    };
-    const msg = messages[feature] || "Subscribe to unlock this feature.";
-    setError(msg);
-    // Try direct Stripe checkout; fall back to profile page
-    try {
-      const { data } = await supa.auth.getSession();
-      const token = data?.session?.access_token;
-      if (token) {
-        const resp = await fetch(`${apiBase}/api/stripe/checkout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ product: "revise", return_path: "/student_react.html" }),
-        });
-        if (resp.ok) {
-          const { checkout_url } = await resp.json();
-          window.location.href = checkout_url;
-          return;
-        }
-      }
-    } catch {}
-    setTimeout(() => {
-      window.location.assign("/profile_react.html");
-    }, 1800);
+  const handlePaywall = () => {
+    setShowPaywall(true);
   };
 
   const clearStatus = () => {
@@ -3052,6 +3025,11 @@ function App() {
         onDownloadMla={(fields) =>
           handleDownloadRevised({ includeMla: true, fields })
         }
+      />
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        returnPath="/student_react.html"
       />
     </div>
   );
