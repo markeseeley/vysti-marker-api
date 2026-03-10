@@ -2678,6 +2678,8 @@ function App() {
         onKeepWorking={handleKeepWorking}
         keepWorkingItems={keepWorkingItems}
         products={products}
+        entitlement={entitlement}
+        onSubscribe={() => setShowPaywall(true)}
       />
 
       <StudentTour

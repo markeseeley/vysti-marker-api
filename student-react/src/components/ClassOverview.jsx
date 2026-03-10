@@ -16,6 +16,7 @@ export default function ClassOverview({
   derived,
   onMarkAll,
   entitlement,
+  onPaywall,
 }) {
   const {
     mode,
@@ -46,8 +47,7 @@ export default function ClassOverview({
   const handleFilesAdded = (newRawFiles) => {
     // Block file upload if free tier is exhausted
     if (entitlement?.subscription_tier === "free" && entitlement.marks_used >= entitlement.marks_limit) {
-      alert("Subscribe to mark more essays.");
-      window.location.assign("/profile_react.html?upgrade=mark");
+      onPaywall?.();
       return;
     }
 
@@ -58,11 +58,9 @@ export default function ClassOverview({
       if (remaining < accepted.length) {
         accepted = accepted.slice(0, remaining);
         if (remaining === 0) {
-          alert("Free tier allows 1 essay. Subscribe for unlimited uploads.");
-          window.location.assign("/profile_react.html?upgrade=mark");
+          onPaywall?.();
           return;
         }
-        alert(`Free tier: only ${remaining} essay allowed. ${accepted.length} file accepted.`);
       }
     }
 

@@ -439,6 +439,8 @@ export default function TeacherApp() {
         onDismissSession={handleDismissSession}
         keepWorkingItems={keepWorkingItems}
         products={products}
+        entitlement={entitlement}
+        onSubscribe={() => setShowPaywall(true)}
       />
 
       <main className="page teacher-page">
@@ -457,6 +459,7 @@ export default function TeacherApp() {
             derived={derived}
             onMarkAll={handleMarkAll}
             entitlement={entitlement}
+            onPaywall={() => setShowPaywall(true)}
           />
         )}
       </main>

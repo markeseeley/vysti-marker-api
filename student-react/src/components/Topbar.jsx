@@ -9,7 +9,8 @@ function truncateFileName(name, max = 28) {
 
 const MAX_DROPDOWN_DRAFTS = 5;
 
-export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts, onKeepWorking, keepWorkingItems, products }) {
+export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts, onKeepWorking, keepWorkingItems, products, entitlement, onSubscribe }) {
+  const isFree = entitlement?.subscription_tier === "free";
   const drafts = Array.isArray(pendingSavedDrafts) ? pendingSavedDrafts : [];
   const crossApp = Array.isArray(keepWorkingItems) ? keepWorkingItems : [];
 
@@ -46,6 +47,15 @@ export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts
 
       <div className="actions">
         <KeepWorkingMenu items={combinedItems} />
+        {isFree && onSubscribe && (
+          <button
+            className="topbar-btn subscribe-btn"
+            type="button"
+            onClick={onSubscribe}
+          >
+            Subscribe
+          </button>
+        )}
         <button
           className="iconbtn"
           type="button"

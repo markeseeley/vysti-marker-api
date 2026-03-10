@@ -1160,6 +1160,22 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-meter="OTHER"] {
   margin: 0;
 }
 
+/* ── Subscribe button in topbar (free tier) ── */
+.subscribe-btn {
+  background: var(--maroon, #A90D22);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+.subscribe-btn:hover { background: #8b0a1c; }
+
 /* ── Paywall / upgrade cards (shared across apps) ── */
 .paywall-modal-backdrop {
   z-index: 10001;

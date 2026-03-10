@@ -9,7 +9,10 @@ export default function TeacherTopbar({
   onDismissSession,
   keepWorkingItems,
   products,
+  entitlement,
+  onSubscribe,
 }) {
+  const isFree = entitlement?.subscription_tier === "free";
   return (
     <header className="topbar">
       <div className="brand">
@@ -48,6 +51,15 @@ export default function TeacherTopbar({
           </div>
         )}
         <KeepWorkingMenu items={keepWorkingItems} />
+        {isFree && onSubscribe && (
+          <button
+            className="topbar-btn subscribe-btn"
+            type="button"
+            onClick={onSubscribe}
+          >
+            Subscribe
+          </button>
+        )}
         <button
           className="iconbtn"
           type="button"
