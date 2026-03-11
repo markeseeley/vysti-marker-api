@@ -409,6 +409,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived }) 
     const container = previewRef.current;
     const teacherAnnotations = [];
     if (container) {
+      // Arrow marks (→ labels)
       const selector = 'span[data-vysti-teacher="1"][data-vysti-label], span.vysti-teacher-mark[data-vysti-label]';
       for (const span of container.querySelectorAll(selector)) {
         const text = (span.textContent || "").trim();
@@ -420,6 +421,14 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived }) 
           ? (wrapper.textContent || "").trim()
           : "";
         teacherAnnotations.push({ label, wrappedText });
+      }
+
+      // Inline comments (✎ pencil comments from SelectionPopover)
+      for (const span of container.querySelectorAll('span[data-vysti-comment]')) {
+        const comment = span.getAttribute("data-vysti-comment") || "";
+        if (!comment) continue;
+        const wrappedText = span.getAttribute("data-vysti-comment-anchor") || (span.textContent || "").trim();
+        teacherAnnotations.push({ label: `💬 ${comment}`, wrappedText });
       }
     }
 

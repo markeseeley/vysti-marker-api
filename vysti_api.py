@@ -304,6 +304,16 @@ class SourceWork(BaseModel):
 class UpdateMarkEventRequest(BaseModel):
     file_name: str
     mark_event_id: str | None = None  # UUID — if set, target this specific record instead of file_name
+    assignment_name: str | None = None
+    essay_title: str | None = None
+    source_works: list[SourceWork] | None = None
+    notes: str | None = None
+    student_name: str | None = None
+    class_id: str | None = None
+    teacher_comment: str | None = None
+    review_status: str | None = None
+    score: int | None = None
+    created_at: str | None = None
 
 
 class ErrorReportRequest(BaseModel):
@@ -2433,7 +2443,7 @@ async def update_mark_event(
                     f"{SUPABASE_URL}/rest/v1/issue_examples",
                     headers=headers,
                     params=ie_params,
-                    json={"assignment_name": request.assignment_name},
+                    json={"assignment_name": body.assignment_name},
                 )
             except Exception as exc:
                 if _DEBUG: print(f"[update_mark_event] issue_examples sync: {exc}")
