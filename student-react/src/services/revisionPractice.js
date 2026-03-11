@@ -6,9 +6,8 @@ import {
 
 export { canonicalLabel };
 
-export function isSuppressedStudentModeLabel(label) {
-  const t = canonicalLabel(label);
-  return t.includes("first sentence") && t.includes("author") && t.includes("full name");
+export function isSuppressedStudentModeLabel(/* label */) {
+  return false;
 }
 
 const coerceObject = (value) => {
