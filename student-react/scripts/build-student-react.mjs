@@ -13,7 +13,7 @@ const indexCssPath = path.resolve(
   "assets",
   "student-react",
   "assets",
-  "index.css"
+  "main.css"
 );
 
 const pad2 = (value) => String(value).padStart(2, "0");
@@ -42,7 +42,7 @@ const updateBuildIdInHtml = (html, buildId) => {
 
   const assets = [
     "/assets/student-react/main.js",
-    "/assets/student-react/assets/index.css"
+    "/assets/student-react/assets/main.css"
   ];
 
   assets.forEach((assetPath) => {
@@ -83,7 +83,7 @@ const main = () => {
     throw new Error("Expected assets/student-react/main.js to exist after build.");
   }
   if (!fs.existsSync(indexCssPath)) {
-    throw new Error("Expected assets/student-react/assets/index.css to exist after build.");
+    throw new Error("Expected assets/student-react/assets/main.css to exist after build.");
   }
 
   console.log(`[build] Student React built with buildId=${buildId}`);

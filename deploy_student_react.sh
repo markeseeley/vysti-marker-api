@@ -156,12 +156,12 @@ preflight() {
     if ! grep -q "assets/student-react/main.js" "${ROOT}/student_react.html" 2>/dev/null; then
       missing_refs=1
     fi
-    if ! grep -q "assets/student-react/assets/index.css" "${ROOT}/student_react.html" 2>/dev/null; then
+    if ! grep -q "assets/student-react/assets/main.css" "${ROOT}/student_react.html" 2>/dev/null; then
       missing_refs=1
     fi
     if [ "${missing_refs}" -eq 1 ]; then
       echo "WARN: student_react.html missing expected asset paths."
-      echo "      Expected: assets/student-react/main.js and assets/student-react/assets/index.css"
+      echo "      Expected: assets/student-react/main.js and assets/student-react/assets/main.css"
     fi
   fi
 
@@ -278,10 +278,10 @@ APP_BUILD_ID="${APP_BUILD_ID}" node "${ROOT}/student-react/scripts/build-student
 
 echo "==> Verifying expected outputs..."
 test -f "${ROOT}/assets/student-react/main.js"
-test -f "${ROOT}/assets/student-react/assets/index.css"
+test -f "${ROOT}/assets/student-react/assets/main.css"
 
 echo "==> Staging deploy artifacts..."
-git -C "${ROOT}" add student_react.html teacher_react.html assets/student-react
+git -C "${ROOT}" add student_react.html teacher_react.html profile_react.html write_react.html assets/student-react
 
 if [ -f "${ROOT}/assets/cache-buster.js" ]; then
   git -C "${ROOT}" add assets/cache-buster.js
@@ -289,7 +289,7 @@ fi
 
 echo "✅ Build complete. Build ID: ${APP_BUILD_ID}"
 echo "   - assets/student-react/main.js"
-echo "   - assets/student-react/assets/index.css"
+echo "   - assets/student-react/assets/main.css"
 echo
 echo "Next commands:"
 echo "  git status"
