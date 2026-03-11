@@ -1646,19 +1646,9 @@ button.loading-cursor::after {
   display: none;
 }
 
-/* Show the work inputs in teacher preview so teachers can update author/title and recheck */
-.teacher-detail .preview-tools {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Hide the student metric scores (Power, Variety, etc.) — not useful for teachers */
-.teacher-detail .preview-metrics-wrap {
-  display: none;
-}
-
-/* Hide the hint dock in teacher mode */
+/* Hide metrics, hint dock, and originally preview-tools in teacher mode.
+   preview-tools is re-shown via inline style in PreviewPanel when isTeacher + works are present. */
+.teacher-detail .preview-metrics-wrap,
 .teacher-detail .preview-hint-dock {
   display: none;
 }

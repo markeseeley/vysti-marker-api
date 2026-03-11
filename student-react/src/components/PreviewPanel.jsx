@@ -182,7 +182,7 @@ export default function PreviewPanel({
               </div>
             </div>
           ) : null}
-          <div className="preview-tools">
+          <div className="preview-tools" style={isTeacher && works ? { display: "flex", flexDirection: "column", gap: "6px" } : undefined}>
             {/* Collapsed chips for non-active works (only when 2+ works) */}
             {worksLen > 1 && (
               <div className="preview-work-chips">
