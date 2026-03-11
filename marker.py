@@ -1003,6 +1003,8 @@ INLINE_LABEL_ALLOWLIST = {
     INTRO_COMMA_LABEL,
     APOSTROPHE_LABEL,
     EXPLAIN_EVIDENCE_LABEL,
+    "Avoid subjective language",
+    "Delete",
 }
 APPROVED_LABELS = None
 ARTICLE_ERROR_EXPLANATION = "Use a before consonants and an before vowels."
@@ -4096,17 +4098,13 @@ def analyze_text(
             if in_teacher_title(start) or in_teacher_title(end - 1):
                 continue
 
-            rule_note_subjective = "Avoid subjective language"
             marks.append({
                 "start": start,
                 "end": end,
-                "note": rule_note_subjective,
+                "note": "Avoid subjective language",
                 "color": WD_COLOR_INDEX.RED,
                 "strike": True,
-                "label": rule_note_subjective not in labels_used,
             })
-            if rule_note_subjective not in labels_used:
-                labels_used.append(rule_note_subjective)
 
     # Apply structural quotation rules based on paragraph role
     if paragraph_role == "intro":
@@ -6613,17 +6611,13 @@ def analyze_text(
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
             continue
 
-        rule_note_delete = "Delete"
         marks.append({
             "start": match_start,
             "end": match_end,
-            "note": rule_note_delete,
+            "note": "Delete",
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
-            "label": rule_note_delete not in labels_used,
         })
-        if rule_note_delete not in labels_used:
-            labels_used.append(rule_note_delete)
 
     rule_note_in_conclusion = "Use a boundary statement when transitioning between paragraphs"
 
@@ -9282,6 +9276,8 @@ def run_marker(
         INTRO_COMMA_LABEL: INTRO_COMMA_EXPLANATION,
         APOSTROPHE_LABEL: APOSTROPHE_EXPLANATION,
         EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_EXPLANATION,
+        "Avoid subjective language": "Words like 'great', 'successful', and 'compelling' are subjective evaluations. Remove them and let your analysis speak for itself.",
+        "Delete": "This word or phrase adds no analytical value. Delete it to tighten your prose.",
     }
     for _lbl, _expl in _hardcoded_explanations.items():
         if _lbl not in rules:
