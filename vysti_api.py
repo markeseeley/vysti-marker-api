@@ -134,7 +134,7 @@ def _strip_ip_from_examples(examples: list) -> list:
     topics, thesis, confidence) while keeping what the UI needs (label, sentence,
     paragraph_index, shared_issue, original_phrase).
     """
-    _INTERNAL_FIELDS = {"found_value", "topics", "thesis", "confidence"}
+    _INTERNAL_FIELDS = {"topics", "thesis", "confidence"}
     stripped = []
     for ex in examples:
         if not isinstance(ex, dict):

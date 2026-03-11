@@ -1752,22 +1752,14 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-meter="OTHER"] {
   cursor: not-allowed;
 }
 
-.recheck-processing {
-  color: var(--accent, #1a73e8);
-  font-weight: 600;
+.preview-toolbar-recheck.is-rechecking {
+  color: var(--accent, #1a73e8) !important;
+  animation: recheckPulse 1.2s ease-in-out infinite;
 }
 
-.dot-pulse::after {
-  content: "";
-  animation: dotPulse 1.2s steps(4, end) infinite;
-}
-
-@keyframes dotPulse {
-  0%   { content: ""; }
-  25%  { content: "."; }
-  50%  { content: ".."; }
-  75%  { content: "..."; }
-  100% { content: ""; }
+@keyframes recheckPulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
 }
 
 .preview-toolbar-save {

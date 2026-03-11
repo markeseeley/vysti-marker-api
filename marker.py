@@ -4105,7 +4105,10 @@ def analyze_text(
                 "note": "Avoid subjective language",
                 "color": WD_COLOR_INDEX.RED,
                 "strike": True,
+                "found_value": token.text,
             })
+            if "Avoid subjective language" not in labels_used:
+                labels_used.append("Avoid subjective language")
 
     # Apply structural quotation rules based on paragraph role
     if paragraph_role == "intro":
@@ -6618,7 +6621,10 @@ def analyze_text(
             "note": "Delete",
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
+            "found_value": flat_text[match_start:match_end],
         })
+        if "Delete" not in labels_used:
+            labels_used.append("Delete")
 
     rule_note_in_conclusion = "Use a boundary statement when transitioning between paragraphs"
 
@@ -6706,6 +6712,7 @@ def analyze_text(
             "note": rule_note_logical,
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
+            "found_value": match.group(1),
             # no "label": key here – we only want red strikethrough in the text
         })
 
@@ -9113,6 +9120,9 @@ def mark_docx_bytes(
             APOSTROPHE_LABEL: APOSTROPHE_GUIDANCE,
             EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_GUIDANCE,
             "Noun repetition": "Repeating the same noun {COUNT} times weakens your vocabulary range. Use synonyms, pronouns with clear antecedents, or rephrase to demonstrate analytical variety.",
+            "Avoid subjective language": "The word <b>{FOUND}</b> is a subjective evaluation — it tells the reader what to think instead of showing them through analysis. Delete it and let the evidence speak for itself. For example, instead of 'Shakespeare's <i>great</i> use of imagery,' write 'Shakespeare's use of imagery reveals…' Your analysis is stronger when it explains <i>how</i> and <i>why</i> rather than making value judgments.",
+            "Delete": "<b>{FOUND}</b> adds no analytical meaning to your sentence. Read the sentence without it — you'll find it says the same thing more clearly. Cutting unnecessary words tightens your prose and keeps your reader focused on your argument.",
+            "Avoid the words 'therefore', 'thereby', 'hence', and 'thus'": "The word <b>{FOUND}</b> acts as a shortcut that tells the reader a logical connection exists without actually showing it. Replace it by spelling out the relationship between your ideas. For example, instead of 'The author uses symbolism; <i>therefore</i>, the theme is clear,' write 'The author's symbolism of the broken mirror reinforces the theme of fractured identity.' Show the connection — don't just announce it.",
         }
         for _lbl, _guide in _hardcoded_guidance.items():
             if _lbl not in guidance_map:

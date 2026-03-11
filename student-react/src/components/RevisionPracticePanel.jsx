@@ -408,9 +408,10 @@ export default function RevisionPracticePanel({
     const match = Object.keys(labelCounts || {}).find(
       (label) => normalizeLabelTrim(label) === normalizedOverride
     );
-    if (match) {
-      setSelectedLabel(match);
-    }
+    // Always honour the override — use the exact match from labelCounts if
+    // available, otherwise fall back to the raw override string so the panel
+    // still navigates even when the label isn't in the stored label_counts.
+    setSelectedLabel(match || selectedLabelOverride);
   }, [selectedLabelOverride, labelCounts]);
 
   useEffect(() => {

@@ -912,13 +912,13 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
           <div className="preview-toolbar-sep" />
           <button
             type="button"
-            className="preview-toolbar-btn preview-toolbar-recheck"
+            className={`preview-toolbar-btn preview-toolbar-recheck${isRechecking ? " is-rechecking" : ""}`}
             title="Re-analyze your essay with current changes"
             aria-label="Recheck essay"
             disabled={isRechecking || (!hasRevisedSinceMark && !worksChanged)}
             onClick={onRecheck}
           >
-            {isRechecking ? <span className="recheck-processing">Processing<span className="dot-pulse" /></span> : "Recheck"}
+            Recheck
           </button>
         </>
       )}
