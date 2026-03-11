@@ -57,11 +57,12 @@ const interactivePostPreviewSteps = [
     nudgeText: "Click one of the colored bars in the chart above.",
     highlightClass: "tour-highlight-glow"
   },
-  // 2 — Explain the zoom-in chart (also advances if user clicks a bar)
+  // 2 — Explain the zoom-in chart (must click a bar to advance)
   {
     type: "info",
     anchor: ".mci-detail",
     actionKey: "mciSelectedLabel",
+    requireAction: true,
     title: "Zoom-in chart",
     body:
       "Each bar here is a specific writing issue Vysti found. Click any bar to start guided revision practice for that issue."
@@ -83,9 +84,10 @@ const interactivePostPreviewSteps = [
     anchor: "#revisionPracticeCard",
     actionKey: "applyToPreview",
     requireAction: true,
+    highlightChild: ".apply-to-preview-btn",
     title: "Nice work!",
     body:
-      "Your rewrite was approved! Now click \u2018Apply to Preview\u2019 to replace the original sentence in your essay.",
+      "Your rewrite was approved! Now click the highlighted \u2018Apply to Preview\u2019 button to replace the original sentence in your essay.",
     _rejectedTitle: "Not quite \u2014 try again",
     _rejectedBody:
       "Your rewrite wasn\u2019t approved yet. Edit the sentence and click \u2018Check rewrite\u2019 again.",
@@ -97,24 +99,33 @@ const interactivePostPreviewSteps = [
     anchor: "#revisionPracticeCard",
     title: "You repaired your first issue!",
     body:
-      "That\u2019s exactly how revision works in Vysti: pick an issue, rewrite, check, apply. Keep going through more issues to improve your score. Don\u2019t agree with Vysti? That\u2019s fine \u2014 you can click Dismiss to tell us why.",
+      "That\u2019s exactly how revision works in Vysti: pick an issue, rewrite, check, apply. Keep going through more issues to improve your score.",
     celebrate: true
   },
-  // 6 — Meters, highlights, color coding
+  // 6 — Preview explanation
   {
     type: "info",
-    anchor: "#previewMetricsWrap",
-    title: "Scores and highlights",
+    anchor: "#markedPreviewCard",
+    title: "Your Preview",
     body:
-      "Your meters show Power, Analysis, Cohesion, and Precision. In the Preview, issues are highlighted by color: red for Power, blue for Analysis, green for Cohesion, and gold for Precision. Single-click to edit text. Double-click a highlight to open revision guidance. Tap the (i) button on any meter for tips."
+      "Your issues are color-coded to match their meters: red for Power, blue for Analysis, green for Cohesion, and gold for Precision. You can revise directly here or use the Revision Practice guidance above."
   },
-  // 7 — Recheck + Download wrap-up
+  // 7 — Recheck
+  {
+    type: "info",
+    anchor: "#recheckDocumentBtn",
+    highlightClass: "tour-highlight-glow",
+    title: "Recheck your essay",
+    body:
+      "After making changes, click \u2018Recheck my essay\u2019 to update your scores and see your improvement."
+  },
+  // 8 — Download wrap-up
   {
     type: "info",
     anchor: "#recheckDocumentBtn",
     title: "Keep improving",
     body:
-      "After editing, click \u2018Recheck my essay\u2019 to refresh your scores. When you\u2019re happy, download your revised essay as a clean .docx file. You\u2019ve got this!"
+      "Keep revising and rechecking to improve your scores. When you\u2019re happy, download your revised essay as a clean .docx file. You\u2019ve got this!"
   }
 ];
 
@@ -147,6 +158,7 @@ function StudentTour(
   const startedThisLoad = useRef(false);
   const anchorRef = useRef(null);
   const highlightedRef = useRef(null);
+  const highlightedChildRef = useRef(null);
   const popoverRef = useRef(null);
   const arrowRef = useRef(null);
   const rafRef = useRef(0);
@@ -170,6 +182,10 @@ function StudentTour(
         "tour-highlight", "tour-highlight-glow", "tour-action-target"
       );
       highlightedRef.current = null;
+    }
+    if (highlightedChildRef.current) {
+      highlightedChildRef.current.classList.remove("tour-highlight-glow");
+      highlightedChildRef.current = null;
     }
   }, []);
 
@@ -367,6 +383,15 @@ function StudentTour(
       // Apply highlight class
       const hlClass = step?.highlightClass || "tour-highlight";
       anchor.classList.add(hlClass);
+
+      // Highlight a child element (e.g. a specific button inside the anchor)
+      if (step?.highlightChild) {
+        const child = anchor.querySelector(step.highlightChild);
+        if (child) {
+          child.classList.add("tour-highlight-glow");
+          highlightedChildRef.current = child;
+        }
+      }
 
       // Set waiting state for any step with an actionKey
       // When rejected, _rejectedActionKey overrides the default actionKey
