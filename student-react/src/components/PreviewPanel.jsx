@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useDocxPreview } from "../hooks/useDocxPreview";
 import PreviewMetrics from "./PreviewMetrics";
 import PreviewHintDock from "./PreviewHintDock";
@@ -9,6 +9,19 @@ import DismissedIssuesPanel from "./DismissedIssuesPanel";
 import { Search, Download } from "./Icons";
 import { downloadBlob } from "@shared/download";
 import { MODES } from "../config";
+
+const PLACEHOLDER_WORKS = [
+  { author: "Toni Morrison", title: "Beloved" },
+  { author: "Gabriel García Márquez", title: "One Hundred Years of Solitude" },
+  { author: "Sylvia Plath", title: "Lady Lazarus" },
+  { author: "William Shakespeare", title: "Hamlet" },
+  { author: "Mary Shelley", title: "Frankenstein" },
+  { author: "F. Scott Fitzgerald", title: "The Great Gatsby" },
+  { author: "Chinua Achebe", title: "Things Fall Apart" },
+  { author: "Margaret Atwood", title: "The Handmaid's Tale" },
+  { author: "Kazuo Ishiguro", title: "Never Let Me Go" },
+  { author: "Emily Dickinson", title: "Because I could not stop for Death" },
+];
 
 export default function PreviewPanel({
   isTeacher = false,
@@ -86,6 +99,12 @@ export default function PreviewPanel({
   const dismissedCount = (dismissedIssues || []).filter(
     (r) => r?.file_name === selectedFileName
   ).length;
+
+  // ── Randomized placeholders (stable per mount) ──
+  const placeholder = useMemo(() => {
+    const idx = Math.floor(Math.random() * PLACEHOLDER_WORKS.length);
+    return PLACEHOLDER_WORKS[idx];
+  }, []);
 
   // ── Multi-work helpers ──
   const activeWork = works?.[activeWorkIndex] || works?.[0] || { author: "", title: "", isMinor: true };
@@ -226,7 +245,7 @@ export default function PreviewPanel({
                   type="text"
                   className="preview-work-input"
                   name="preview-work-author"
-                  placeholder="Author"
+                  placeholder={`e.g. ${placeholder.author}`}
                   maxLength={250}
                   value={activeWork.author || ""}
                   onChange={(e) => updateWork(activeWorkIndex, "author", e.target.value)}
@@ -238,7 +257,7 @@ export default function PreviewPanel({
                   type="text"
                   className="preview-work-input"
                   name="preview-work-title"
-                  placeholder="Title"
+                  placeholder={`e.g. ${placeholder.title}`}
                   maxLength={300}
                   value={activeWork.title || ""}
                   onChange={(e) => updateWork(activeWorkIndex, "title", e.target.value)}
