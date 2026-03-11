@@ -33,6 +33,10 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived }) 
   const downloadUrlRef = useRef(null);
   const powerVerbsRef = useRef(null);
   const thesisLexiconRef = useRef(null);
+  const [activeWorkIndex, setActiveWorkIndex] = useState(0);
+  // Snapshot works at mark time so we can detect changes
+  const worksAtMarkRef = useRef(JSON.stringify(state.works));
+  const worksChanged = JSON.stringify(state.works) !== worksAtMarkRef.current;
 
   // ── Mode info for card ──
   const modeInfo = useMemo(() => {
@@ -272,6 +276,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived }) 
         payload,
       });
 
+      worksAtMarkRef.current = JSON.stringify(state.works);
       dispatch({
         type: "FILE_RECHECKED",
         id: doc.id,
@@ -814,10 +819,11 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived }) 
         onClearPreview={() => {}}
         onPreviewError={handlePreviewError}
         selectedFileName={doc.fileName}
-        works={null}
-        activeWorkIndex={0}
-        onWorksChange={null}
-        onActiveWorkIndexChange={null}
+        works={state.works}
+        activeWorkIndex={activeWorkIndex}
+        onWorksChange={(next) => dispatch({ type: "SET_WORKS", payload: next })}
+        onActiveWorkIndexChange={setActiveWorkIndex}
+        worksChanged={worksChanged}
         onLabelDismiss={handleLabelDismiss}
         onRendered={handleRenderedWithSnapshot}
         onUndo={handleUndo}
