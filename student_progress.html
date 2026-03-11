@@ -1476,6 +1476,23 @@
     .roster-chip-comment.has-comment:hover { opacity: 1; }
     .roster-section:not(.editing) .roster-chip-comment { display: block; }
 
+    /* ── Roster chip comment preview ── */
+    .roster-chip-comment-preview {
+      font-size: 11px;
+      color: rgba(0,0,0,.45);
+      line-height: 1.4;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      white-space: normal;
+      font-style: italic;
+    }
+    .roster-chip-comment-preview:empty { display: none; }
+    .roster-section.editing .roster-chip-comment-preview { display: none !important; }
+
     /* ── Export All Comments button ── */
     .roster-export-btn {
       display: none; background: none; border: 1px solid rgba(0,0,0,.14);
@@ -1492,7 +1509,7 @@
   <div class="semester-overlay" id="semesterOverlay">
     <div class="semester-modal" id="semesterModal">
       <div class="semester-modal-title">
-        <span id="semesterTitle">Semester Comment</span>
+        <span id="semesterTitle">Comment</span>
         <button class="semester-modal-close" id="semesterClose">&times;</button>
       </div>
       <div id="semesterBody"></div>
@@ -2944,6 +2961,15 @@
         info.appendChild(nameEl);
         info.appendChild(statsEl);
 
+        // Comment preview (visible below stats when comment exists)
+        const commentPreview = document.createElement("div");
+        commentPreview.className = "roster-chip-comment-preview";
+        const rosterEntryForPreview = rosterStudents.find(s => s.student_name === name);
+        if (rosterEntryForPreview && rosterEntryForPreview.semester_comment) {
+          commentPreview.textContent = rosterEntryForPreview.semester_comment;
+        }
+        info.appendChild(commentPreview);
+
         // Remove button (visible only in edit mode via CSS)
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
@@ -2965,7 +2991,7 @@
         const rosterEntry = rosterStudents.find(s => s.student_name === name);
         if (rosterEntry && rosterEntry.semester_comment) commentBtn.classList.add("has-comment");
         commentBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-        commentBtn.title = "Semester comment";
+        commentBtn.title = "Comment";
         commentBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           openSemesterCommentModal(name);
@@ -3258,7 +3284,7 @@
       const overlay = document.getElementById("semesterOverlay");
       const body = document.getElementById("semesterBody");
       const title = document.getElementById("semesterTitle");
-      title.textContent = "Semester Comment for " + studentName;
+      title.textContent = "Comment for " + studentName;
 
       if (rows.length === 0) {
         body.innerHTML = '<div class="semester-no-data">No marking data available for this student. You can write a comment manually below.</div>' +
