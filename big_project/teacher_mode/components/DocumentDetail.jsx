@@ -6,6 +6,7 @@ import TeacherScoreCard from "./TeacherScoreCard";
 import TeacherDocumentsCard from "./TeacherDocumentsCard";
 import TeacherCommentNotebook from "./TeacherCommentNotebook";
 import { formatCommentForDownload } from "../lib/commentBank";
+import { markTeacherEssay } from "../services/markTeacher";
 import { computeIBScores } from "../lib/ibScoring";
 import { fetchStudentContext, persistTeacherComment } from "../lib/studentContext";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
@@ -165,6 +166,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [docScore, setDocScore] = useState(null);
   const [activeWorkIndex, setActiveWorkIndex] = useState(0);
+  const [isRechecking, setIsRechecking] = useState(false);
   const saveProgressTimerRef = useRef(null);
   const autoSaveIntervalRef = useRef(null);
   const downloadGuardTimerRef = useRef(null);
@@ -317,6 +319,38 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     // to the raw markedBlob which lacks teacher annotations.
     prepareMarkedExport();
   }, [doc, dispatch, prepareMarkedExport]);
+
+  // ── Recheck: re-mark the essay with updated works/rules ──
+  const handleRecheck = useCallback(async () => {
+    if (!doc || !doc.file || !supa || isRechecking) return;
+    setIsRechecking(true);
+    try {
+      const result = await markTeacherEssay({
+        supa,
+        file: doc.file,
+        mode: state.mode,
+        rules: state.rules,
+        works: doc.works || state.works,
+        studentName: doc.studentName,
+        assignmentName: doc.assignmentName,
+        classId: doc.classId || state.classId,
+      });
+      dispatch({
+        type: "FILE_MARKED",
+        id: doc.id,
+        mode: state.mode,
+        blob: result.blob,
+        downloadUrl: result.downloadUrl,
+        metadata: result.metadata,
+      });
+      preparedExportRef.current = null;
+      preparedReportRef.current = null;
+    } catch (err) {
+      console.error("Recheck failed:", err);
+    } finally {
+      setIsRechecking(false);
+    }
+  }, [doc, supa, state.mode, state.rules, state.works, state.classId, isRechecking, dispatch]);
 
   // ── Undo helpers ──
   const saveUndoSnapshot = useCallback(() => {
@@ -1705,6 +1739,8 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
         onOpenRevisionFromLabel={null}
         isProcessing={false}
         onEdit={handleEdit}
+        onRecheck={handleRecheck}
+        isRechecking={isRechecking}
         onDownloadMarked={handleDownloadMarked}
         onDownloadRevised={handleDownloadRevised}
         isDownloading={state.isDownloading}
