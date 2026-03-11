@@ -30,6 +30,11 @@ export function useAuthSession(role = "student") {
 
     const runGuard = async () => {
       try {
+        // Skip auth on localhost for local development
+        if (window.location.hostname === "localhost") {
+          if (guardActive.current) setIsChecking(false);
+          return;
+        }
         logEvent("auth_check_start");
         const { data } = await client.auth.getSession();
         if (!data?.session) {

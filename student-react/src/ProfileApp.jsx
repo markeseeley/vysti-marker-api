@@ -120,7 +120,7 @@ export default function ProfileApp() {
     window.location.href = checkout_url;
   }, [token]);
 
-  const handleDeleteAccount = useCallback(async () => {
+  const handleDeleteAccount = useCallback(async ({ reason, details } = {}) => {
     if (!token) return;
     const apiBase = getApiBaseUrl();
     const resp = await fetch(`${apiBase}/api/delete-account`, {
@@ -129,6 +129,7 @@ export default function ProfileApp() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ reason: reason || "", details: details || "" }),
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));

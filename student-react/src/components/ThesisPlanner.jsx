@@ -21,18 +21,28 @@ function getLastName(fullName) {
  */
 export default function ThesisPlanner({
   authorName,
-  devices = ["", "", ""],
+  devices = [""],
   onDevicesChange,
 }) {
   const [open, setOpen] = useState(false);
   const [argument, setArgument] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const safeDevices = devices && devices.length >= 3 ? devices : ["", "", ""];
+  const safeDevices = devices && devices.length >= 1 ? devices : [""];
 
   const updateDevice = (index, value) => {
     const next = [...safeDevices];
     next[index] = value;
+    onDevicesChange(next);
+  };
+
+  const addDevice = () => {
+    if (safeDevices.length < 5) onDevicesChange([...safeDevices, ""]);
+  };
+
+  const removeDevice = (index) => {
+    if (safeDevices.length <= 1) return;
+    const next = safeDevices.filter((_, i) => i !== index);
     onDevicesChange(next);
   };
 
@@ -104,27 +114,45 @@ export default function ThesisPlanner({
       </div>
 
       <div className="thesis-planner-fields">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="thesis-planner-field">
+        {safeDevices.map((val, i) => (
+          <div key={i} className="thesis-planner-field thesis-planner-device-row">
             <label className="thesis-planner-field-label">
               Device / Strategy {i + 1}
             </label>
-            <input
-              type="text"
-              className="thesis-planner-input"
-              name={`thesis-device-${i + 1}`}
-              placeholder={
-                i === 0
-                  ? "a spatial organization"
-                  : i === 1
-                    ? "metaphorical analogies"
-                    : "an ironic inversion"
-              }
-              value={safeDevices[i]}
-              onChange={(e) => updateDevice(i, e.target.value)}
-            />
+            <div className="thesis-planner-input-row">
+              <input
+                type="text"
+                className="thesis-planner-input"
+                name={`thesis-device-${i + 1}`}
+                placeholder={
+                  i === 0
+                    ? "a spatial organization"
+                    : i === 1
+                      ? "metaphorical analogies"
+                      : "an ironic inversion"
+                }
+                value={val}
+                onChange={(e) => updateDevice(i, e.target.value)}
+              />
+              {safeDevices.length > 1 && (
+                <button
+                  type="button"
+                  className="thesis-planner-remove-device"
+                  onClick={() => removeDevice(i)}
+                  aria-label={`Remove device ${i + 1}`}
+                  title="Remove"
+                >&times;</button>
+              )}
+            </div>
           </div>
         ))}
+        {safeDevices.length < 5 && (
+          <button
+            type="button"
+            className="thesis-planner-add-device"
+            onClick={addDevice}
+          >+ Add device</button>
+        )}
 
         <div className="thesis-planner-field thesis-planner-argument">
           <label className="thesis-planner-field-label">

@@ -412,7 +412,7 @@ function AzDictionaryView({
   );
 }
 
-export default function LexisModal({ isOpen, onClose, detectedLexis = [], onFindInPreview }) {
+export default function LexisModal({ isOpen, onClose, detectedLexis = [], onFindInPreview, initialView = "detected" }) {
   const [expandedTerm, setExpandedTerm] = useState(null);
   const [browsedTerm, setBrowsedTerm] = useState(null); // fetched related-term data
   const [browseLoading, setBrowseLoading] = useState(false);
@@ -427,7 +427,7 @@ export default function LexisModal({ isOpen, onClose, detectedLexis = [], onFind
   const positioned = useRef(false);
 
   /* ── A-Z Dictionary state ── */
-  const [viewMode, setViewMode] = useState("detected"); // "detected" | "az"
+  const [viewMode, setViewMode] = useState(initialView); // "detected" | "az"
   const [azTerms, setAzTerms] = useState(null); // null = not loaded, [] = loaded
   const [azLoading, setAzLoading] = useState(false);
   const [azError, setAzError] = useState(null);
@@ -537,6 +537,11 @@ export default function LexisModal({ isOpen, onClose, detectedLexis = [], onFind
         setAzLoading(false);
       });
   }, [azTerms]);
+
+  // Auto-load A-Z data when opening in az mode
+  useEffect(() => {
+    if (isOpen && viewMode === "az") loadAzData();
+  }, [isOpen, viewMode, loadAzData]);
 
   const handleAzToggle = () => {
     if (viewMode === "az") {

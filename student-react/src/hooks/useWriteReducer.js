@@ -6,6 +6,7 @@ const initialState = {
   assignmentName: "",
   authorName: "",
   textTitle: "",
+  textIsMinor: true,
   isChecking: false,
   checkError: null,
   issues: [],
@@ -17,6 +18,7 @@ const initialState = {
   metrics: null,
   mciExpandedMetric: null,
   firstSentenceComponents: {},
+  hasChecked: false,
 };
 
 function writeReducer(state, action) {
@@ -31,6 +33,8 @@ function writeReducer(state, action) {
       return { ...state, authorName: action.payload };
     case "SET_TEXT_TITLE":
       return { ...state, textTitle: action.payload };
+    case "SET_TEXT_IS_MINOR":
+      return { ...state, textIsMinor: action.payload };
     case "CHECK_START":
       return { ...state, isChecking: true, checkError: null };
     case "CHECK_SUCCESS":
@@ -38,6 +42,7 @@ function writeReducer(state, action) {
         ...state,
         isChecking: false,
         checkError: null,
+        hasChecked: true,
         issues: action.payload.issues || [],
         examples: action.payload.examples || [],
         labelCounts: action.payload.label_counts || {},
@@ -59,6 +64,7 @@ function writeReducer(state, action) {
         text: action.payload.text || "",
         authorName: action.payload.authorName || "",
         textTitle: action.payload.textTitle || "",
+        textIsMinor: action.payload.textIsMinor ?? true,
       };
     default:
       return state;

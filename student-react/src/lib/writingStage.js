@@ -39,6 +39,13 @@ export const STAGE_ORDER = [
   STAGE_CONCLUSION,
 ];
 
+/** Return the next stage after the given one, or null if already at the end. */
+export function nextStage(stage) {
+  const idx = STAGE_ORDER.indexOf(stage);
+  if (idx < 0 || idx >= STAGE_ORDER.length - 1) return null;
+  return STAGE_ORDER[idx + 1];
+}
+
 // ── Label classification patterns ──
 
 /** Labels relevant when only the first sentence has been written (Foundation 1) */
@@ -48,6 +55,8 @@ const FIRST_SENTENCE_PATTERNS = [
   /author's name/i,
   /genre/i,
   /title.*text/i,
+  /title.*minor works/i,
+  /title.*major works/i,
   /concrete.*summary/i,
   /the author/i, // "Use the author's name instead of 'the author'"
 ];
@@ -86,12 +95,14 @@ const EVIDENCE_PATTERNS = [
   /floating quotation/i,
   /process.*inserting.*evidence/i,
   /explain.*significance/i,
+  /significance.*evidence/i,
   /shorten.*modify.*integrat/i,
   /cite.*quotation/i,
   /quotation.*topic sentence/i,
   /quotation.*final sentence/i,
   /begin.*sentence.*quotation/i,
   /undeveloped/i,
+  /evidence.*development/i,
 ];
 
 /** Labels relevant for conclusion & title (Foundation 6) */
@@ -101,6 +112,13 @@ const CONCLUSION_PATTERNS = [
   /capitalize.*title/i,
   /title.*major works/i,
   /title.*minor works/i,
+];
+
+/** Conclusion-only labels that should NOT appear during body paragraph writing */
+const CONCLUSION_ONLY_PATTERNS = [
+  /conclusion/i,
+  /essay title/i,
+  /capitalize.*title/i,
 ];
 
 // ── Sentence counting utility ──
@@ -130,9 +148,11 @@ export function countSentences(text) {
  * The resolveStage() function can then promote forward when issues clear.
  *
  * @param {string} text - The student's current text
+ * @param {object} [opts] - Optional hints
+ * @param {number} [opts.deviceCount] - Number of thesis devices (predicts body paragraph count)
  * @returns {string} One of the STAGE_* constants
  */
-export function detectStage(text) {
+export function detectStage(text, { deviceCount = 0 } = {}) {
   const trimmed = (text || "").trim();
   if (!trimmed || trimmed.length < 20) return STAGE_EMPTY;
 
@@ -146,21 +166,26 @@ export function detectStage(text) {
 
   // ── Multi-paragraph: Foundation 4-6 territory ──
   if (paraCount >= 2) {
-    // 3+ paragraphs and the last paragraph looks like a conclusion
-    // (it's a separate paragraph after at least one body paragraph)
-    if (paraCount >= 3) {
-      // Check if there's meaningful body content (not just a topic sentence)
+    // Determine minimum paragraphs before a conclusion is possible:
+    // intro (1) + expected body paragraphs + conclusion (1).
+    // If deviceCount is known, expect that many body paragraphs.
+    // Otherwise default to at least 2 body paragraphs (4 total).
+    const expectedBodyParas = deviceCount > 0 ? deviceCount : 2;
+    const minParasForConclusion = expectedBodyParas + 2; // intro + body + conclusion
+
+    if (paraCount >= minParasForConclusion) {
+      // Check if ALL body paragraphs are substantial (not just one)
       const bodyParagraphs = paragraphs.slice(1, -1);
-      const hasSubstantialBody = bodyParagraphs.some(
+      const allBodySubstantial = bodyParagraphs.every(
         (p) => countSentences(p) >= 3
       );
 
-      if (hasSubstantialBody) {
-        // Check if the last paragraph looks like a conclusion
-        // (separate paragraph after body content)
+      if (allBodySubstantial) {
         const lastPara = paragraphs[paraCount - 1];
         const lastSentences = countSentences(lastPara);
-        if (lastSentences >= 2) {
+        // Conclusion paragraphs typically don't contain quotations
+        const lastHasQuotes = /[""\u201C\u201D]/.test(lastPara);
+        if (lastSentences >= 2 && !lastHasQuotes) {
           return STAGE_CONCLUSION;
         }
       }
@@ -218,7 +243,8 @@ function matchesAny(label, patterns) {
  * @param {number}  [opts.deviceCount]   - Number of filled thesis devices
  * @returns {string} Potentially promoted stage
  */
-export function resolveStage(structuralStage, rawIssues, hasChecked, { sentenceCount = 0, deviceCount = 0 } = {}) {
+export function resolveStage(structuralStage, rawIssues, hasChecked, opts = {}) {
+  const { sentenceCount = 0, deviceCount = 0 } = opts;
   if (!hasChecked) return structuralStage;
 
   const issues = rawIssues || [];
@@ -261,12 +287,27 @@ export function resolveStage(structuralStage, rawIssues, hasChecked, { sentenceC
     if (!hasTopicIssues) return STAGE_BODY_EVIDENCE;
   }
 
-  // Body evidence passes → advance guide to conclusion
-  if (structuralStage === STAGE_BODY_EVIDENCE) {
-    const hasEvidenceIssues = issues.some((i) =>
-      matchesAny(i.label, EVIDENCE_PATTERNS)
-    );
-    if (!hasEvidenceIssues) return STAGE_CONCLUSION;
+  // Body evidence → conclusion: promote when expected body paragraphs
+  // are developed (enough sentences and quotations) so the guide tells the
+  // student to write a conclusion, even before detectStage sees one.
+  //
+  // When deviceCount is known, check exactly that many body paragraphs.
+  // When unknown, check that at least one body paragraph is developed.
+  // We only check the first N (expected) paragraphs so that a new
+  // conclusion-in-progress paragraph doesn't pull the stage back down.
+  if (structuralStage === STAGE_BODY_EVIDENCE && opts?.bodyParaStats) {
+    const stats = opts.bodyParaStats;
+    if (deviceCount > 0 && stats.length >= deviceCount) {
+      const allDeveloped = stats.slice(0, deviceCount).every(
+        (s) => s.sentences >= 5 && s.quotePairs >= 2
+      );
+      if (allDeveloped) return STAGE_CONCLUSION;
+    } else if (deviceCount === 0 && stats.length > 0) {
+      const anyDeveloped = stats.some(
+        (s) => s.sentences >= 5 && s.quotePairs >= 2
+      );
+      if (anyDeveloped) return STAGE_CONCLUSION;
+    }
   }
 
   return structuralStage;
@@ -275,10 +316,19 @@ export function resolveStage(structuralStage, rawIssues, hasChecked, { sentenceC
 /**
  * Determine if a label is allowed at the given stage.
  * Each stage inherits all labels from previous stages and adds its own.
+ * Internal labels (prefixed with __) are never shown.
  */
 function isLabelAllowedAtStage(label, stage) {
+  // Never show internal labels (e.g., __title_checked:Strangers)
+  if (label.startsWith("__")) return false;
+
   // Conclusion / full analysis — show everything
-  if (stage === STAGE_CONCLUSION || stage === STAGE_BODY_EVIDENCE) return true;
+  if (stage === STAGE_CONCLUSION) return true;
+
+  // Body evidence — show everything EXCEPT conclusion-only labels
+  if (stage === STAGE_BODY_EVIDENCE) {
+    return !matchesAny(label, CONCLUSION_ONLY_PATTERNS);
+  }
 
   if (stage === STAGE_FIRST_SENTENCE) {
     return matchesAny(label, FIRST_SENTENCE_PATTERNS);
@@ -320,12 +370,6 @@ function isLabelAllowedAtStage(label, stage) {
  * @returns {{ issues: Array, labelCounts: Object, totalLabels: number }}
  */
 export function filterByStage(issues, labelCounts, stage) {
-  // Full analysis stages — no filtering
-  if (stage === STAGE_BODY_EVIDENCE || stage === STAGE_CONCLUSION) {
-    const totalLabels = Object.values(labelCounts || {}).reduce((a, b) => a + b, 0);
-    return { issues, labelCounts, totalLabels };
-  }
-
   const filteredIssues = (issues || []).filter((issue) =>
     isLabelAllowedAtStage(issue.label, stage)
   );

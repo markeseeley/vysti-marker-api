@@ -154,7 +154,12 @@ app = FastAPI(
 
 # ===== Rate limiting (per-user via JWT, fallback to IP) =====
 def _get_user_rate_limit_key(request: Request) -> str:
-    """Extract user ID from JWT for per-user rate limiting; fall back to IP."""
+    """Extract user ID from JWT or API key prefix for per-caller rate limiting."""
+    # API key clients: rate limit by key prefix
+    api_key = request.headers.get("X-API-Key", "")
+    if api_key:
+        return f"apikey:{hashlib.sha256(api_key.encode()).hexdigest()[:16]}"
+    # Supabase JWT users: rate limit by user ID
     try:
         auth = request.headers.get("authorization", "")
         if auth.startswith("Bearer "):
@@ -189,7 +194,7 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 app.add_middleware(_SecurityHeadersMiddleware)
 
@@ -3704,7 +3709,7 @@ async def check_revision(
 async def mark_text(
     request: Request,
     body: MarkTextRequest,
-    user: dict = Depends(require_product("mark", "revise")),
+    user: dict = Depends(require_api_product("mark", "revise")),
 ):
     """
     Mark text content by creating a .docx in memory and running the marking pipeline.
@@ -3718,21 +3723,25 @@ async def mark_text(
 
     Returns the marked .docx bytes (same as /mark).
     """
-    # 0a. Free-tier usage check (same guard as /mark)
-    _mt_user_id = user.get("id") if isinstance(user, dict) else None
-    if _mt_user_id:
-        _mt_profile = await get_user_profile(_mt_user_id)
-        _mt_tier = (_mt_profile or {}).get("subscription_tier", "free")
-        if _mt_tier == "free":
-            _mt_used = await count_user_marks(_mt_user_id)
-            if _mt_used >= _FREE_TIER_MARK_LIMIT:
-                raise HTTPException(
-                    status_code=402,
-                    detail={
-                        "message": "Subscribe for unlimited essay marking.",
-                        "code": "USAGE_LIMIT",
-                    },
-                )
+    _is_api_client = user.get("_is_api_client", False) if isinstance(user, dict) else False
+    _api_start_time = time.time()
+
+    # 0a. Free-tier usage check — skip for API key clients (quota checked in middleware)
+    if not _is_api_client:
+        _mt_user_id = user.get("id") if isinstance(user, dict) else None
+        if _mt_user_id:
+            _mt_profile = await get_user_profile(_mt_user_id)
+            _mt_tier = (_mt_profile or {}).get("subscription_tier", "free")
+            if _mt_tier == "free":
+                _mt_used = await count_user_marks(_mt_user_id)
+                if _mt_used >= _FREE_TIER_MARK_LIMIT:
+                    raise HTTPException(
+                        status_code=402,
+                        detail={
+                            "message": "Subscribe for unlimited essay marking.",
+                            "code": "USAGE_LIMIT",
+                        },
+                    )
 
     # 0b. Text length limit (50,000 chars ≈ 8,000 words)
     _MAX_TEXT_CHARS = 50_000
@@ -3777,10 +3786,10 @@ async def mark_text(
     
     total_labels = sum(label_counter.values())
     
-    # 5. Log to Supabase mark_events (best-effort)
+    # 5. Log to Supabase mark_events (best-effort) — skip for API key clients
     mark_event_id = None
     try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client:
             user_id = user.get("id") if isinstance(user, dict) else None
 
             # Clear old mark_events for this user/file to ensure fresh start
@@ -3890,6 +3899,19 @@ async def mark_text(
     base_name = clean_name.rsplit(".", 1)[0] if clean_name else "essay"
     output_filename = f"{base_name}_marked.docx"
 
+    # Log API key usage (best-effort, non-blocking)
+    if _is_api_client:
+        _api_elapsed = int((time.time() - _api_start_time) * 1000)
+        await _log_api_usage(
+            api_key_id=user.get("_api_key_id", ""),
+            endpoint="/mark_text",
+            status_code=200,
+            chars_processed=len(body.text or ""),
+            response_ms=_api_elapsed,
+            client_ip=get_remote_address(request),
+            metadata={"mode": mode, "total_labels": total_labels},
+        )
+
     if body.return_metadata:
         import base64
         enriched = dict(metadata) if isinstance(metadata, dict) else {}
@@ -3913,6 +3935,9 @@ async def mark_text(
             enriched["issues"] = _strip_ip_from_issues(enriched["issues"])
         if "examples" in enriched:
             enriched["examples"] = _strip_ip_from_examples(enriched["examples"])
+        # For API clients, strip mark_event_id (internal tracking)
+        if _is_api_client:
+            enriched.pop("mark_event_id", None)
         return JSONResponse({
             "document": base64.b64encode(marked_bytes).decode('utf-8'),
             "filename": output_filename,
@@ -3931,28 +3956,32 @@ async def mark_text(
 async def check_text(
     request: Request,
     body: MarkTextRequest,
-    user: dict = Depends(require_product("mark", "revise")),
+    user: dict = Depends(require_api_product("mark", "revise")),
 ):
     """
     Analyse text and return JSON feedback (issues, examples, label counts).
     Same marking pipeline as /mark_text but returns structured JSON instead
     of a .docx binary — designed for the live Write page.
     """
-    # 0a. Free-tier usage check (same guard as /mark)
-    _ct_user_id = user.get("id") if isinstance(user, dict) else None
-    if _ct_user_id and _ct_user_id != "local-dev":
-        _ct_profile = await get_user_profile(_ct_user_id)
-        _ct_tier = (_ct_profile or {}).get("subscription_tier", "free")
-        if _ct_tier == "free":
-            _ct_used = await count_user_marks(_ct_user_id)
-            if _ct_used >= _FREE_TIER_MARK_LIMIT:
-                raise HTTPException(
-                    status_code=402,
-                    detail={
-                        "message": "Subscribe for unlimited text checking.",
-                        "code": "USAGE_LIMIT",
-                    },
-                )
+    _is_api_client = user.get("_is_api_client", False) if isinstance(user, dict) else False
+    _api_start_time = time.time()
+
+    # 0a. Free-tier usage check — skip for API key clients
+    if not _is_api_client:
+        _ct_user_id = user.get("id") if isinstance(user, dict) else None
+        if _ct_user_id and _ct_user_id != "local-dev":
+            _ct_profile = await get_user_profile(_ct_user_id)
+            _ct_tier = (_ct_profile or {}).get("subscription_tier", "free")
+            if _ct_tier == "free":
+                _ct_used = await count_user_marks(_ct_user_id)
+                if _ct_used >= _FREE_TIER_MARK_LIMIT:
+                    raise HTTPException(
+                        status_code=402,
+                        detail={
+                            "message": "Subscribe for unlimited text checking.",
+                            "code": "USAGE_LIMIT",
+                        },
+                    )
 
     # 0b. Text length limit (50,000 chars ≈ 8,000 words)
     _MAX_TEXT_CHARS = 50_000
@@ -4019,10 +4048,10 @@ async def check_text(
     except Exception:
         pass
 
-    # 7. Log to Supabase mark_events (best-effort)
+    # 7. Log to Supabase mark_events (best-effort) — skip for API key clients
     mark_event_id = None
     try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client:
             user_id = user.get("id") if isinstance(user, dict) else None
             db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
             payload = {
@@ -4055,9 +4084,9 @@ async def check_text(
     except Exception as e:
         print("Failed to log mark_event (check_text):", repr(e))
 
-    # 8. Log examples to Supabase issue_examples (best-effort)
+    # 8. Log examples to Supabase issue_examples (best-effort) — skip for API clients
     try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY and examples:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and examples and not _is_api_client:
             user_id = user.get("id") if isinstance(user, dict) else None
             if user_id:
                 example_rows = []
@@ -4098,8 +4127,21 @@ async def check_text(
     except Exception as e:
         print("Failed to log issue_examples (check_text):", repr(e))
 
-    # 9. Return JSON response (strip proprietary fields)
-    return JSONResponse(_sanitize_for_json({
+    # 9. Log API key usage (best-effort)
+    if _is_api_client:
+        _api_elapsed = int((time.time() - _api_start_time) * 1000)
+        await _log_api_usage(
+            api_key_id=user.get("_api_key_id", ""),
+            endpoint="/check_text",
+            status_code=200,
+            chars_processed=len(body.text or ""),
+            response_ms=_api_elapsed,
+            client_ip=get_remote_address(request),
+            metadata={"mode": mode, "total_labels": total_labels, "word_count": word_count},
+        )
+
+    # 10. Return JSON response (strip proprietary fields)
+    _response_data = {
         "issues": _strip_ip_from_issues(issues),
         "examples": _strip_ip_from_examples(examples),
         "label_counts": dict(label_counter),
@@ -4107,8 +4149,11 @@ async def check_text(
         "techniques_discussed": techniques_discussed,
         "total_labels": total_labels,
         "word_count": word_count,
-        "mark_event_id": mark_event_id,
         "sentence_types": {str(k): v for k, v in sentence_types.items()},
         "first_sentence_components": first_sentence_components,
         "scores": scores,
-    }))
+    }
+    # For regular users, include mark_event_id; strip it for API clients
+    if not _is_api_client:
+        _response_data["mark_event_id"] = mark_event_id
+    return JSONResponse(_sanitize_for_json(_response_data))

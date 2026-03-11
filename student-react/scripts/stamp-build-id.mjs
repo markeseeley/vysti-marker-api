@@ -96,7 +96,7 @@ async function main() {
   ];
   const writeAssets = [
     "/assets/student-react/write-main.js",
-    "/assets/student-react/assets/write-main.css"
+    "/assets/student-react/assets/WriteApp.css"
   ];
   const teacherAssets = [
     "/assets/student-react/teacher-main.js",

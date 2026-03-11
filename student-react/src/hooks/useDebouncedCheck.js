@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
 import { checkText } from "../services/checkText";
 
-export function useDebouncedCheck({ text, mode, supa, dispatch, debounceMs = 2700 }) {
+export function useDebouncedCheck({ text, mode, supa, dispatch, titles, debounceMs = 2700 }) {
   const timerRef = useRef(null);
   const abortRef = useRef(null);
   const lastSentRef = useRef("");
+  const lastKeyRef = useRef("");
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -14,8 +15,9 @@ export function useDebouncedCheck({ text, mode, supa, dispatch, debounceMs = 270
     // Don't check if text is too short
     if (trimmed.length < 50) return undefined;
 
-    // Don't re-check if text hasn't changed since last check
-    if (trimmed === lastSentRef.current) return undefined;
+    // Re-check if text OR titles/mode changed
+    const checkKey = `${trimmed}|${mode}|${JSON.stringify(titles)}`;
+    if (checkKey === lastKeyRef.current) return undefined;
 
     timerRef.current = setTimeout(async () => {
       // Abort previous in-flight request
@@ -26,12 +28,14 @@ export function useDebouncedCheck({ text, mode, supa, dispatch, debounceMs = 270
 
       dispatch({ type: "CHECK_START" });
       lastSentRef.current = trimmed;
+      lastKeyRef.current = checkKey;
 
       try {
         const result = await checkText({
           supa,
           text: trimmed,
           mode,
+          titles,
           signal: controller.signal,
         });
         dispatch({ type: "CHECK_SUCCESS", payload: result });
@@ -45,7 +49,7 @@ export function useDebouncedCheck({ text, mode, supa, dispatch, debounceMs = 270
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [text, mode, supa, dispatch, debounceMs]);
+  }, [text, mode, supa, dispatch, titles, debounceMs]);
 
   // Cleanup on unmount
   useEffect(() => {

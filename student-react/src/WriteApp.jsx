@@ -7,7 +7,7 @@ import { getConfig } from "./config";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { exportDocx } from "@shared/markingApi";
 import { downloadBlob } from "@shared/download";
-import { detectStage, resolveStage, filterByStage, countSentences, STAGE_FIRST_SENTENCE, STAGE_CLOSED_THESIS, STAGE_INTRO_SUMMARY } from "./lib/writingStage";
+import { detectStage, resolveStage, filterByStage, countSentences, nextStage, STAGE_ORDER, STAGE_FIRST_SENTENCE, STAGE_CLOSED_THESIS, STAGE_INTRO_SUMMARY, STAGE_TOPIC_SENTENCE, STAGE_BODY_EVIDENCE, STAGE_CONCLUSION } from "./lib/writingStage";
 import { peekTeacherSession } from "./services/teacherSessionStore";
 import { findAllRevisionDrafts } from "./services/revisionDraftStore";
 import WriteTopbar from "./components/WriteTopbar";
@@ -58,14 +58,22 @@ export default function WriteApp() {
   const [state, dispatch] = useWriteReducer();
   const [authReady, setAuthReady] = useState(false);
   const [deviceCount, setDeviceCount] = useState(0);
+  const [stageOverride, setStageOverride] = useState(null);
   const [userId, setUserId] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
   const saveTimerRef = useRef(null);
   const draftRestoredRef = useRef(false);
+  const editorWrapRef = useRef(null);
 
   // Extract userId on auth ready
+  const isLocalDev = window.location.hostname === "localhost";
   useEffect(() => {
+    if (isLocalDev) {
+      setAuthReady(true);
+      setUserId("local-dev");
+      return;
+    }
     if (!authChecking && supa) {
       setAuthReady(true);
       (async () => {
@@ -75,7 +83,7 @@ export default function WriteApp() {
         } catch {}
       })();
     }
-  }, [authChecking, supa]);
+  }, [authChecking, supa, isLocalDev]);
 
   // Restore draft from localStorage on mount
   useEffect(() => {
@@ -163,8 +171,35 @@ export default function WriteApp() {
   // Sentence count (for intro summary guidance)
   const sentenceCount = useMemo(() => countSentences(state.text || ""), [state.text]);
 
+  // Extract thesis sentence (last sentence of first paragraph)
+  const thesisSentence = useMemo(() => {
+    const trimmed = (state.text || "").trim();
+    if (!trimmed) return "";
+    const paragraphs = trimmed.split(/\n\s*\n|\n/).map(p => p.trim()).filter(p => p.length > 0);
+    if (paragraphs.length === 0) return "";
+    const intro = paragraphs[0];
+    const sentences = intro.match(/[^.!?]+[.!?]+/g);
+    if (!sentences || sentences.length === 0) return "";
+    return sentences[sentences.length - 1].trim();
+  }, [state.text]);
+
+  // Per-body-paragraph quote counts (for CEECR guidance)
+  const bodyParaStats = useMemo(() => {
+    const trimmed = (state.text || "").trim();
+    if (!trimmed) return [];
+    const paragraphs = trimmed.split(/\n\s*\n|\n/).map(p => p.trim()).filter(p => p.length > 0);
+    if (paragraphs.length < 2) return [];
+    // Body paragraphs = everything after the first (intro) paragraph, excluding a potential conclusion
+    return paragraphs.slice(1).map(p => {
+      const quotes = (p.match(/[""\u201C\u201D]/g) || []).length;
+      const quotePairs = Math.floor(quotes / 2);
+      const sentences = countSentences(p);
+      return { quotePairs, sentences };
+    });
+  }, [state.text]);
+
   // Writing stage detection + progressive mode selection
-  const structuralStage = useMemo(() => detectStage(state.text), [state.text]);
+  const structuralStage = useMemo(() => detectStage(state.text, { deviceCount }), [state.text, deviceCount]);
   const apiMode = useMemo(() => {
     switch (structuralStage) {
       case STAGE_FIRST_SENTENCE:
@@ -172,10 +207,21 @@ export default function WriteApp() {
       case STAGE_CLOSED_THESIS:
       case STAGE_INTRO_SUMMARY:
         return "write_intro";
+      case STAGE_TOPIC_SENTENCE:
+      case STAGE_BODY_EVIDENCE:
+        return "write_body";
+      case STAGE_CONCLUSION:
+        return "write_conclusion";
       default:
         return "textual_analysis";
     }
   }, [structuralStage]);
+
+  // Build titles array for the API (tells backend minor vs major work)
+  const titles = useMemo(() => {
+    if (!state.authorName && !state.textTitle) return undefined;
+    return [{ author: state.authorName || "", title: state.textTitle || "", is_minor: state.textIsMinor }];
+  }, [state.authorName, state.textTitle, state.textIsMinor]);
 
   // Debounced analysis — mode follows structural stage
   useDebouncedCheck({
@@ -183,16 +229,106 @@ export default function WriteApp() {
     mode: apiMode,
     supa,
     dispatch,
+    titles,
   });
 
-  const stage = useMemo(
-    () => resolveStage(structuralStage, state.issues, Boolean(state.markEventId), { sentenceCount, deviceCount }),
-    [structuralStage, state.issues, state.markEventId, sentenceCount, deviceCount]
+  const computedStage = useMemo(
+    () => resolveStage(structuralStage, state.issues, state.hasChecked, { sentenceCount, deviceCount, bodyParaStats }),
+    [structuralStage, state.issues, state.hasChecked, sentenceCount, deviceCount, bodyParaStats]
   );
+
+  // Apply manual override: use whichever is further ahead
+  const stage = useMemo(() => {
+    if (!stageOverride) return computedStage;
+    const compIdx = STAGE_ORDER.indexOf(computedStage);
+    const overIdx = STAGE_ORDER.indexOf(stageOverride);
+    return overIdx > compIdx ? stageOverride : computedStage;
+  }, [computedStage, stageOverride]);
+
+  // Clear override when computed stage catches up or passes it
+  useEffect(() => {
+    if (stageOverride) {
+      const compIdx = STAGE_ORDER.indexOf(computedStage);
+      const overIdx = STAGE_ORDER.indexOf(stageOverride);
+      if (compIdx >= overIdx) setStageOverride(null);
+    }
+  }, [computedStage, stageOverride]);
+
+  const handleSkipStage = useCallback(() => {
+    const next = nextStage(stage);
+    if (next) setStageOverride(next);
+  }, [stage]);
   const filtered = useMemo(
     () => filterByStage(state.issues, state.labelCounts, stage),
     [state.issues, state.labelCounts, stage]
   );
+
+  // Jump to issue in editor when sidebar issue is clicked
+  const handleIssueClick = useCallback((label) => {
+    // Find an example sentence for this label
+    const example = (state.examples || []).find(
+      (ex) => ex.label === label && ex.sentence
+    );
+    if (!example) return;
+
+    // Find the sentence text in the editor DOM
+    const editorEl = editorWrapRef.current?.querySelector(".write-editor-area");
+    if (!editorEl) return;
+
+    const snippet = example.sentence.trim();
+    // Walk text nodes to find a match
+    const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
+    let node;
+    let found = false;
+    while ((node = walker.nextNode())) {
+      const idx = node.textContent.indexOf(snippet);
+      if (idx >= 0) {
+        // Create a range around the matched text
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + snippet.length);
+
+        // Scroll the match into view
+        const rect = range.getBoundingClientRect();
+        const container = editorEl;
+        const containerRect = container.getBoundingClientRect();
+        if (rect.top < containerRect.top || rect.bottom > containerRect.bottom) {
+          const scrollTarget = rect.top - containerRect.top + container.scrollTop - 60;
+          container.scrollTo({ top: scrollTarget, behavior: "smooth" });
+        }
+
+        // Flash highlight using a temporary mark element
+        const mark = document.createElement("mark");
+        mark.className = "write-issue-flash";
+        range.surroundContents(mark);
+        setTimeout(() => {
+          // Unwrap the mark, keeping the text
+          const parent = mark.parentNode;
+          if (parent) {
+            while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+            parent.removeChild(mark);
+          }
+        }, 1500);
+
+        found = true;
+        break;
+      }
+    }
+
+    // If snippet spans multiple text nodes, try matching across a paragraph
+    if (!found) {
+      const paragraphs = editorEl.querySelectorAll("p");
+      for (const p of paragraphs) {
+        const pText = p.textContent || "";
+        if (pText.includes(snippet)) {
+          p.scrollIntoView({ behavior: "smooth", block: "center" });
+          p.classList.add("write-issue-flash-para");
+          setTimeout(() => p.classList.remove("write-issue-flash-para"), 1500);
+          break;
+        }
+      }
+    }
+  }, [state.examples]);
 
   // Download handler
   const handleDownload = useCallback(async () => {
@@ -255,7 +391,7 @@ export default function WriteApp() {
       <main className="page write-page">
         <div className="write-grid">
           <section className="write-left">
-            <div className="card write-editor-card">
+            <div className="card write-editor-card" ref={editorWrapRef}>
               <WriteEditor
                 text={state.text}
                 onChange={(value) => dispatch({ type: "SET_TEXT", payload: value })}
@@ -265,6 +401,7 @@ export default function WriteApp() {
                 onAuthorNameChange={(v) => dispatch({ type: "SET_AUTHOR_NAME", payload: v })}
                 textTitle={state.textTitle}
                 onTextTitleChange={(v) => dispatch({ type: "SET_TEXT_TITLE", payload: v })}
+                metrics={state.metrics}
               />
             </div>
           </section>
@@ -286,8 +423,16 @@ export default function WriteApp() {
               structuralStage={structuralStage}
               firstSentenceComponents={state.firstSentenceComponents}
               authorName={state.authorName}
+              textTitle={state.textTitle}
+              textIsMinor={state.textIsMinor}
+              onTextIsMinorChange={(val) => dispatch({ type: "SET_TEXT_IS_MINOR", payload: val })}
               sentenceCount={sentenceCount}
               onDeviceCountChange={setDeviceCount}
+              bodyParaStats={bodyParaStats}
+              thesisSentence={thesisSentence}
+              onIssueClick={handleIssueClick}
+              onSkipStage={handleSkipStage}
+              essayText={state.text}
             />
           </aside>
         </div>
