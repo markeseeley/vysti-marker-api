@@ -188,6 +188,32 @@ export function extractTextWithTeacherAnnotations(containerEl) {
     b.textContent = `{b:${text}}`;
   }
 
+  // ── 3a2. Convert italic text ──
+  // docx-preview renders Word italics as <i>, <em>, or <span style="font-style:italic">.
+  // Wrap italic text in {i:text} markers so the backend can restore run.italic in the .docx.
+  // Process <i> and <em> tags first, then check for inline font-style on spans.
+  for (const el of clone.querySelectorAll("i, em")) {
+    if (el.closest("[data-vysti-teacher-highlight]")) continue;
+    if (el.closest("[data-vysti-comment]")) continue;
+    const text = el.textContent || "";
+    if (!text.trim()) continue;
+    // Don't double-wrap if already inside another marker
+    if (/^\{[a-z~]/.test(text.trim())) continue;
+    el.textContent = `{i:${text}}`;
+  }
+  // Catch spans with inline font-style: italic (some docx renderers use this)
+  for (const span of clone.querySelectorAll("span")) {
+    if ((span.style.fontStyle || "").includes("italic")) {
+      if (span.closest("[data-vysti-teacher-highlight]")) continue;
+      if (span.closest("[data-vysti-comment]")) continue;
+      if (span.hasAttribute("data-vysti-teacher-highlight")) continue;
+      const text = span.textContent || "";
+      if (!text.trim()) continue;
+      if (/^\{[a-z~]/.test(text.trim())) continue;
+      span.textContent = `{i:${text}}`;
+    }
+  }
+
   // ── 3b. Convert star marks (before generic highlights) ──
   for (const span of clone.querySelectorAll("span[data-vysti-star-mark='1']")) {
     const text = (span.textContent || "").trim();

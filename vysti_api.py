@@ -7,6 +7,8 @@ import os
 import io
 import json
 import base64
+import hashlib
+import time
 from io import BytesIO
 from scoring import compute_scores as _compute_scores
 import urllib.parse
@@ -370,6 +372,197 @@ async def get_current_user(
         )
 
     return resp.json()
+
+
+# ── API Key Authentication (B2B licensing) ───────────────────────────
+
+async def _lookup_api_key(raw_key: str) -> dict | None:
+    """Look up an API key by its SHA-256 hash. Returns the api_keys row or None."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return None
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    url = f"{SUPABASE_URL}/rest/v1/api_keys?key_hash=eq.{key_hash}&select=*"
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(url, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        })
+    if resp.status_code != 200:
+        return None
+    rows = resp.json()
+    return rows[0] if rows else None
+
+
+async def get_api_client(request: Request) -> dict | None:
+    """
+    Check if the request carries a valid X-API-Key header.
+    Returns an api_keys row dict if valid, None if no key present.
+    Raises 401/403 if the key is present but invalid/expired/revoked.
+    """
+    raw_key = request.headers.get("X-API-Key")
+    if not raw_key:
+        return None
+
+    api_key = await _lookup_api_key(raw_key)
+
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+
+    if not api_key.get("is_active", False):
+        raise HTTPException(status_code=403, detail="API key has been revoked.")
+
+    # Check expiry
+    expires = api_key.get("expires_at")
+    if expires:
+        from datetime import datetime, timezone
+        try:
+            exp_dt = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) > exp_dt:
+                raise HTTPException(status_code=403, detail="API key has expired.")
+        except (ValueError, TypeError):
+            pass
+
+    # Check IP allowlist
+    allowed_ips = api_key.get("allowed_ips")
+    if allowed_ips:
+        client_ip = get_remote_address(request)
+        if client_ip not in allowed_ips:
+            raise HTTPException(
+                status_code=403,
+                detail="Request from unauthorized IP address.",
+            )
+
+    # Check monthly quota
+    monthly_quota = api_key.get("monthly_quota")
+    if monthly_quota is not None:
+        usage_count = await _count_api_usage_this_month(api_key["id"])
+        if usage_count >= monthly_quota:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Monthly quota of {monthly_quota} requests exceeded.",
+            )
+
+    return api_key
+
+
+async def _count_api_usage_this_month(api_key_id: str) -> int:
+    """Count API usage for the current calendar month."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return 0
+    now = datetime.datetime.now(datetime.timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    url = (
+        f"{SUPABASE_URL}/rest/v1/api_usage"
+        f"?api_key_id=eq.{api_key_id}"
+        f"&created_at=gte.{month_start}"
+        f"&select=id"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Prefer": "count=exact",
+                "Range-Unit": "items",
+                "Range": "0-0",
+            })
+        content_range = resp.headers.get("content-range", "")
+        return int(content_range.split("/")[-1])
+    except (ValueError, IndexError, Exception):
+        return 0
+
+
+async def _log_api_usage(
+    api_key_id: str,
+    endpoint: str,
+    status_code: int,
+    chars_processed: int,
+    response_ms: int,
+    client_ip: str,
+    metadata: dict | None = None,
+):
+    """Log an API-key request to the api_usage table (best-effort)."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/api_usage"
+        payload = {
+            "api_key_id": api_key_id,
+            "endpoint": endpoint,
+            "status_code": status_code,
+            "chars_processed": chars_processed,
+            "response_ms": response_ms,
+            "client_ip": client_ip,
+            "metadata": metadata,
+        }
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(url, json=payload, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            })
+    except Exception as e:
+        print("Failed to log api_usage:", repr(e))
+
+
+def require_api_product(*products: str):
+    """
+    FastAPI dependency that accepts EITHER a Supabase JWT user OR an API key.
+    API key clients bypass product checks (their access is controlled by
+    allowed_endpoints in the api_keys table).
+    Existing Supabase users go through the normal product check.
+    """
+    async def _check(
+        request: Request,
+        cred: HTTPAuthorizationCredentials = Depends(auth_scheme),
+    ):
+        # 1. Try API key first
+        api_client = await get_api_client(request)
+        if api_client:
+            # Check endpoint access
+            endpoint = request.url.path
+            allowed = api_client.get("allowed_endpoints", [])
+            if allowed and endpoint not in allowed:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"API key does not have access to {endpoint}.",
+                )
+            # Return a synthetic user dict that marks this as an API client
+            return {
+                "id": f"apikey:{api_client['id']}",
+                "email": api_client.get("contact_email", ""),
+                "_is_api_client": True,
+                "_api_key_id": api_client["id"],
+                "_api_key_rate_limit": api_client.get("rate_limit", 20),
+                "_client_name": api_client.get("client_name", ""),
+            }
+
+        # 2. Fall back to normal Supabase JWT auth
+        user = await get_current_user(request, cred)
+        user_id = user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Could not determine user")
+        if user_id == "local-dev":
+            return user
+        profile = await get_user_profile(user_id)
+        if not profile:
+            raise HTTPException(
+                status_code=403,
+                detail="No profile found. Please complete onboarding.",
+            )
+        product_map = {
+            "mark": profile.get("has_mark", False),
+            "revise": profile.get("has_revise", False),
+            "write": profile.get("has_write", False),
+        }
+        if not any(product_map.get(p, False) for p in products):
+            raise HTTPException(
+                status_code=403,
+                detail=f"This feature requires one of: {', '.join(products)}",
+            )
+        return user
+    return _check
 
 
 # ── Profile helpers & endpoints ──────────────────────────────────────
@@ -952,6 +1145,100 @@ async def create_portal_session(
         return_url=str(request.base_url).rstrip("/") + "/profile_react.html",
     )
     return {"portal_url": session.url}
+
+
+# ── Course-code enrollment ──────────────────────────────────────────
+
+class EnrollRequest(BaseModel):
+    code: str
+
+
+@app.post("/api/enroll")
+@limiter.limit("10/minute")
+async def enroll_with_course_code(
+    request: Request,
+    body: EnrollRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Redeem a course code: validate, enroll, and grant paid access."""
+    code = body.code.strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Course code is required")
+
+    user_id = user.get("id")
+
+    # 1. Look up the course code
+    url = (
+        f"{SUPABASE_URL}/rest/v1/course_codes"
+        f"?code=eq.{urllib.parse.quote(code, safe='')}&select=id,name,max_students,expires_at"
+    )
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(url, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        })
+    courses = resp.json() if resp.status_code == 200 else []
+    if not courses:
+        raise HTTPException(status_code=404, detail="Invalid course code")
+
+    course = courses[0]
+
+    # 2. Check expiry
+    from datetime import datetime, timezone
+    if course.get("expires_at"):
+        expires = datetime.fromisoformat(course["expires_at"].replace("Z", "+00:00"))
+        if expires < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="This course code has expired")
+
+    # 3. Check capacity
+    count_url = (
+        f"{SUPABASE_URL}/rest/v1/enrollments"
+        f"?course_code_id=eq.{course['id']}&select=id"
+    )
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(count_url, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Prefer": "count=exact",
+            "Range-Unit": "items",
+            "Range": "0-0",
+        })
+    count = 0
+    cr = resp.headers.get("content-range", "")
+    if "/" in cr:
+        try:
+            count = int(cr.split("/")[1])
+        except (ValueError, IndexError):
+            pass
+    if course.get("max_students") and count >= course["max_students"]:
+        raise HTTPException(status_code=409, detail="This course is full")
+
+    # 4. Create enrollment (unique constraint prevents duplicates)
+    enroll_url = f"{SUPABASE_URL}/rest/v1/enrollments"
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.post(enroll_url, json={
+            "user_id": user_id,
+            "course_code_id": course["id"],
+        }, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        })
+    if resp.status_code == 409 or (resp.status_code >= 400 and "23505" in resp.text):
+        raise HTTPException(status_code=409, detail="You are already enrolled in this course")
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Enrollment failed")
+
+    # 5. Grant paid access
+    await _update_profile_fields(user_id, {
+        "subscription_tier": "paid",
+        "subscription_status": "active",
+        "has_mark": True,
+        "has_revise": True,
+    })
+
+    return {"enrolled": True, "course_name": course.get("name", code)}
 
 
 @app.post("/api/delete-account")
@@ -2797,6 +3084,7 @@ _NEGATIVE_RE = re.compile(r"\{-([^}]+)\}")                           # {-☹} ne
 _UNHAPPY_RE = re.compile(r"\{unhappy:([^}]+)\}")                     # {unhappy:text} unhappy highlight
 _COMMENT_RE = re.compile(r"\{c\|([^|]*)\|([^}]+)\}")               # {c|anchor|comment} (anchor may be empty)
 _BOLD_RE = re.compile(r"\{b:([^}]+)\}")                              # {b:text}  teacher bold
+_ITALIC_RE = re.compile(r"\{i:([^}]+)\}")                            # {i:text}  italic text
 _UNDERLINE_RE = re.compile(r"\{u:([^}]+)\}")                         # {u:text}  solid underline
 _CARET_RE = re.compile(r"\{\^\}")                                    # {^}       missing element
 _STAR_RE = re.compile(r"\{star:([^}]+)\}")                           # {star:text} exemplary highlight
@@ -2819,6 +3107,7 @@ _COMBINED_RE = re.compile(
     r"|\{g:[^}]+\}"                            # {g:gray highlight}
     r"|\{gr:[^}]+\}"                           # {gr:green highlight}
     r"|\{b:[^}]+\}"                            # {b:text} teacher bold
+    r"|\{i:[^}]+\}"                            # {i:text} italic text
     r"|\{u:[^}]+\}"                            # {u:text} solid underline
     r"|\{ins:[^}]+\}"                          # {ins:text} teacher insert
     r"|\{sup:[^}]+\}"                          # {sup:label} custom superscript
@@ -2967,6 +3256,7 @@ def build_teacher_doc_from_text(text: str, comment: str = "") -> bytes:
             negative_m = _NEGATIVE_RE.match(segment)
             unhappy_m = _UNHAPPY_RE.match(segment)
             bold_m = _BOLD_RE.match(segment)
+            italic_m = _ITALIC_RE.match(segment)
             underline_m = _UNDERLINE_RE.match(segment)
             caret_m = _CARET_RE.match(segment)
             star_m = _STAR_RE.match(segment)
@@ -3049,6 +3339,12 @@ def build_teacher_doc_from_text(text: str, comment: str = "") -> bytes:
                 run.bold = True
                 run.font.color.rgb = RGBColor(211, 47, 47)  # #D32F2F
                 run.font.highlight_color = WD_COLOR_INDEX.YELLOW
+                run.font.size = Pt(12)
+                run.font.name = "Times New Roman"
+            elif italic_m:
+                # Italic text (preserved from original Word doc or teacher edit)
+                run = para.add_run(italic_m.group(1))
+                run.italic = True
                 run.font.size = Pt(12)
                 run.font.name = "Times New Roman"
             elif underline_m:

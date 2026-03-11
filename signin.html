@@ -781,57 +781,35 @@
 
       courseStatus.textContent = "Checking code\u2026";
 
-      const { data: courses, error: lookupErr } = await supa
-        .from("course_codes")
-        .select("id, name, max_students, expires_at")
-        .eq("code", code)
-        .limit(1);
-
-      if (lookupErr || !courses || courses.length === 0) {
-        courseStatus.textContent = "Invalid course code. Please check and try again.";
-        return;
-      }
-
-      const course = courses[0];
-
-      if (new Date(course.expires_at) < new Date()) {
-        courseStatus.textContent = "This course code has expired.";
-        return;
-      }
-
-      const { count } = await supa
-        .from("enrollments")
-        .select("id", { count: "exact", head: true })
-        .eq("course_code_id", course.id);
-
-      if (count >= course.max_students) {
-        courseStatus.textContent = "This course is full.";
-        return;
-      }
-
-      const { data: { user } } = await supa.auth.getUser();
-      if (!user) {
+      const { data: { session } } = await supa.auth.getSession();
+      if (!session) {
         courseStatus.textContent = "Session expired. Please sign in again.";
         return;
       }
 
-      const { error: enrollErr } = await supa
-        .from("enrollments")
-        .insert({ user_id: user.id, course_code_id: course.id });
+      try {
+        const resp = await fetch("/api/enroll", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + session.access_token,
+          },
+          body: JSON.stringify({ code }),
+        });
+        const data = await resp.json();
 
-      if (enrollErr) {
-        if (enrollErr.code === "23505") {
-          courseStatus.textContent = "You are already enrolled in this course.";
-        } else {
-          courseStatus.textContent = "Enrollment error: " + enrollErr.message;
+        if (!resp.ok) {
+          courseStatus.textContent = data.detail || "Enrollment failed. Please try again.";
+          return;
         }
-        return;
-      }
 
-      courseStatus.textContent = "Enrolled in " + course.name + "! Redirecting\u2026";
-      setTimeout(() => {
-        window.location.assign(getSafeRedirectTarget());
-      }, 1000);
+        courseStatus.textContent = "Enrolled in " + data.course_name + "! Redirecting\u2026";
+        setTimeout(() => {
+          window.location.assign(getSafeRedirectTarget());
+        }, 1000);
+      } catch (err) {
+        courseStatus.textContent = "Network error. Please try again.";
+      }
     });
 
     // ===== Skip enrollment =====
