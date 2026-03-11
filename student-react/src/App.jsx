@@ -424,15 +424,10 @@ function App() {
         }
         if (!isActive) return;
         if (!result?.markEvent) {
-          setMciError(
-            "Revision data is still syncing — try Recheck or click Refresh."
-          );
-          setMciLabelCountsRaw({});
-          setMciLabelCounts({});
-          setMciIssues([]);
-          setMciIssuesRich([]);
-          setMciMarkEventId(null);
-          setCurrentMarkEvent(null);
+          // Don't clear existing chart data — the mark/recheck handler
+          // already populated it eagerly from the API response.  Clearing
+          // here would cause the chart to flicker empty during the brief
+          // window between Supabase delete and insert of the new mark event.
           return;
         }
         setMciLabelCountsRaw(result.labelCountsFiltered || {});
@@ -952,6 +947,16 @@ function App() {
       setMarkedBlob(blob);
       setMarkMetadata(metadata);
       if (metadata?.scores) setStudentMetrics(metadata.scores);
+      // Eagerly populate chart data from the API response so the focus-area
+      // chart renders immediately without waiting for the Supabase round-trip.
+      if (metadata?.label_counts) {
+        setMciLabelCountsRaw(metadata.label_counts);
+        setMciLabelCounts(metadata.label_counts);
+      }
+      if (metadata?.issues) setMciIssuesRich(metadata.issues);
+      if (metadata?.mark_event_id) {
+        setMciMarkEventId(metadata.mark_event_id);
+      }
       // Cache spelling suggestions in a ref so they survive the Supabase round-trip
       // (Supabase doesn't store the suggestions column)
       if (metadata?.examples?.length) {
@@ -1119,6 +1124,16 @@ function App() {
       if (metadata) {
         setMarkMetadata(metadata);
         if (metadata?.scores) setStudentMetrics(metadata.scores);
+        // Eagerly populate chart data from the API response so the focus-area
+        // chart renders immediately without waiting for the Supabase round-trip.
+        if (metadata?.label_counts) {
+          setMciLabelCountsRaw(metadata.label_counts);
+          setMciLabelCounts(metadata.label_counts);
+        }
+        if (metadata?.issues) setMciIssuesRich(metadata.issues);
+        if (metadata?.mark_event_id) {
+          setMciMarkEventId(metadata.mark_event_id);
+        }
         if (metadata?.examples?.length) {
           const sugMap = new Map();
           for (const ex of metadata.examples) {
@@ -1142,8 +1157,6 @@ function App() {
         refreshAttemptHistory();
       }
       setSuccess("Rechecked ✅");
-      // Force a delayed MCI re-fetch to pick up the newly-saved mark event
-      setTimeout(() => setMciRefreshToken((prev) => prev + 1), 1500);
     } catch (err) {
       console.error("Recheck failed", err);
       if (err?.code === "TIMEOUT") {
