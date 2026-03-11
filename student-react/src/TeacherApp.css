@@ -1646,9 +1646,11 @@ button.loading-cursor::after {
   display: none;
 }
 
-/* Hide the work inputs + tools container in teacher mode (author/title set in config panel) */
+/* Show the work inputs in teacher preview so teachers can update author/title and recheck */
 .teacher-detail .preview-tools {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* Hide the student metric scores (Power, Variety, etc.) — not useful for teachers */
