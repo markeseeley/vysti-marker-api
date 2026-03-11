@@ -46,7 +46,17 @@ const interactivePostPreviewSteps = [
     body:
       "Here are your results. Remember, Vysti checks mechanics, structure, and style \u2014 not the content of your ideas. That\u2019s for your teacher to evaluate."
   },
-  // 1 — ACTION: click a metric bar to expand the zoom-in chart
+  // 1 — Meters explanation
+  {
+    type: "info",
+    anchor: "#previewMetricsWrap",
+    title: "Your meters",
+    body:
+      "These four meters measure different aspects of your writing: Power, Variety, Cohesion, and Precision. Each meter shows your score and the specific issues Vysti found. Click the colored pills inside any meter to jump straight to that issue in your essay.",
+    highlightChild: "#metric-power",
+    highlightClass: "tour-highlight"
+  },
+  // 2 — ACTION: click a metric bar to expand the zoom-in chart
   {
     type: "action",
     anchor: "#mostCommonIssuesWrap",
@@ -57,7 +67,7 @@ const interactivePostPreviewSteps = [
     nudgeText: "Click one of the colored bars in the chart above.",
     highlightClass: "tour-highlight-glow"
   },
-  // 2 — Explain the zoom-in chart (must click a bar to advance)
+  // 3 — Explain the zoom-in chart (must click a bar to advance)
   {
     type: "info",
     anchor: ".mci-detail",
@@ -67,7 +77,7 @@ const interactivePostPreviewSteps = [
     body:
       "Each bar here is a specific writing issue Vysti found. Click any bar to start guided revision practice for that issue."
   },
-  // 3 — Revision practice (auto-selects a repairable issue, advances on Check rewrite)
+  // 4 — Revision practice (auto-selects a repairable issue, advances on Check rewrite)
   {
     type: "info",
     anchor: "#revisionPracticeCard",
@@ -79,7 +89,7 @@ const interactivePostPreviewSteps = [
     body:
       "We\u2019ve picked an issue you can fix right here. Read the guidance on the left, then edit the sentence on the right. When you\u2019re ready, click the highlighted \u2018Check rewrite\u2019 button."
   },
-  // 4 — Dynamic: approved → listen for Apply to Preview, rejected → listen for Check rewrite
+  // 5 — Dynamic: approved → listen for Apply to Preview, rejected → listen for Check rewrite
   {
     type: "info",
     anchor: "#revisionPracticeCard",
@@ -94,7 +104,7 @@ const interactivePostPreviewSteps = [
       "Your rewrite wasn\u2019t approved yet. Edit the sentence and click \u2018Check rewrite\u2019 again.",
     _rejectedActionKey: "checkRewriteResult"
   },
-  // 5 — Celebration!
+  // 6 — Celebration!
   {
     type: "info",
     anchor: "#revisionPracticeCard",
@@ -103,15 +113,15 @@ const interactivePostPreviewSteps = [
       "That\u2019s exactly how revision works in Vysti: pick an issue, rewrite, check, apply. Keep going through more issues to improve your score.",
     celebrate: true
   },
-  // 6 — Preview explanation
+  // 7 — Preview explanation
   {
     type: "info",
     anchor: "#markedPreview",
     title: "Your Preview",
     body:
-      "Your issues are color-coded to match their meters: red for Power, blue for Analysis, green for Cohesion, and gold for Precision. You can revise directly here or use the Revision Practice guidance above."
+      "Your issues are color-coded to match their meters: red for Power, blue for Variety, green for Cohesion, and gold for Precision. You can revise directly here or use the Revision Practice guidance above."
   },
-  // 7 — Recheck
+  // 8 — Recheck
   {
     type: "info",
     anchor: "#recheckDocumentBtn",
@@ -120,7 +130,7 @@ const interactivePostPreviewSteps = [
     body:
       "After making changes, click \u2018Recheck my essay\u2019 to update your scores and see your improvement."
   },
-  // 8 — Download wrap-up
+  // 9 — Download wrap-up
   {
     type: "info",
     anchor: "#recheckDocumentBtn",
