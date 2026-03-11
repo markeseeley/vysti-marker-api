@@ -4096,15 +4096,17 @@ def analyze_text(
             if in_teacher_title(start) or in_teacher_title(end - 1):
                 continue
 
+            rule_note_subjective = "Avoid subjective language"
             marks.append({
                 "start": start,
                 "end": end,
-                "note": "",  # no inline comment text
+                "note": rule_note_subjective,
                 "color": WD_COLOR_INDEX.RED,
                 "strike": True,
-                # critically: no "label" key → no yellow label and
-                # no addition to labels_used/summary table
+                "label": rule_note_subjective not in labels_used,
             })
+            if rule_note_subjective not in labels_used:
+                labels_used.append(rule_note_subjective)
 
     # Apply structural quotation rules based on paragraph role
     if paragraph_role == "intro":
@@ -6611,13 +6613,17 @@ def analyze_text(
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
             continue
 
+        rule_note_delete = "Delete"
         marks.append({
             "start": match_start,
             "end": match_end,
+            "note": rule_note_delete,
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
-            # no "label": this prevents a yellow arrow comment
+            "label": rule_note_delete not in labels_used,
         })
+        if rule_note_delete not in labels_used:
+            labels_used.append(rule_note_delete)
 
     rule_note_in_conclusion = "Use a boundary statement when transitioning between paragraphs"
 
