@@ -1005,6 +1005,7 @@ INLINE_LABEL_ALLOWLIST = {
     EXPLAIN_EVIDENCE_LABEL,
     "Avoid subjective language",
     "Delete",
+    "Avoid the words 'therefore', 'thereby', 'hence', and 'thus'",
 }
 APPROVED_LABELS = None
 ARTICLE_ERROR_EXPLANATION = "Use a before consonants and an before vowels."
@@ -9278,6 +9279,7 @@ def run_marker(
         EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_EXPLANATION,
         "Avoid subjective language": "Words like 'great', 'successful', and 'compelling' are subjective evaluations. Remove them and let your analysis speak for itself.",
         "Delete": "This word or phrase adds no analytical value. Delete it to tighten your prose.",
+        "Avoid the words 'therefore', 'thereby', 'hence', and 'thus'": "These logical connectors weaken academic prose. Replace them with analysis that shows the connection between ideas.",
     }
     for _lbl, _expl in _hardcoded_explanations.items():
         if _lbl not in rules:
