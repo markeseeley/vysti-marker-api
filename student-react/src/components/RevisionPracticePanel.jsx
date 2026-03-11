@@ -1401,7 +1401,7 @@ export default function RevisionPracticePanel({
                       Find in preview
                     </button>
                     <button
-                      className={`example-btn${
+                      className={`example-btn check-rewrite-btn${
                         activeStatus.loading ? " is-loading loading-cursor" : ""
                       }`}
                       type="button"

@@ -74,9 +74,10 @@ const interactivePostPreviewSteps = [
     selectRevisionLabel: true,
     actionKey: "checkRewriteResult",
     requireAction: true,
+    highlightChild: ".check-rewrite-btn",
     title: "Let\u2019s repair an issue",
     body:
-      "We\u2019ve picked an issue you can fix right here. Read the guidance on the left, then edit the sentence on the right. When you\u2019re ready, click \u2018Check rewrite\u2019."
+      "We\u2019ve picked an issue you can fix right here. Read the guidance on the left, then edit the sentence on the right. When you\u2019re ready, click the highlighted \u2018Check rewrite\u2019 button."
   },
   // 4 — Dynamic: approved → listen for Apply to Preview, rejected → listen for Check rewrite
   {
@@ -105,7 +106,7 @@ const interactivePostPreviewSteps = [
   // 6 — Preview explanation
   {
     type: "info",
-    anchor: "#markedPreviewCard",
+    anchor: "#markedPreview",
     title: "Your Preview",
     body:
       "Your issues are color-coded to match their meters: red for Power, blue for Analysis, green for Cohesion, and gold for Precision. You can revise directly here or use the Revision Practice guidance above."
@@ -522,14 +523,8 @@ function StudentTour(
     <>
       <div className="tour-overlay" />
 
-      {showCelebration ? (
-        <div className="tour-celebration" aria-hidden="true">
-          <div className="tour-celebration-burst" />
-        </div>
-      ) : null}
-
       <div
-        className={`tour-popover${showCelebration ? " tour-popover-celebrate" : ""}`}
+        className="tour-popover"
         role="dialog"
         aria-live="polite"
         ref={popoverRef}
@@ -543,10 +538,6 @@ function StudentTour(
           &times;
         </button>
         <div className={`tour-arrow ${arrowDirClass}`} ref={arrowRef} />
-
-        {showCelebration ? (
-          <div className="tour-celebrate-icon" aria-hidden="true">&#127881;</div>
-        ) : null}
 
         <div className="tour-title">{displayTitle}</div>
         <div className="tour-body">{displayBody}</div>

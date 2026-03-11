@@ -912,6 +912,7 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
           <div className="preview-toolbar-sep" />
           <button
             type="button"
+            id="recheckDocumentBtn"
             className={`preview-toolbar-btn preview-toolbar-recheck${isRechecking ? " is-rechecking" : ""}`}
             title="Re-analyze your essay with current changes"
             aria-label="Recheck essay"
