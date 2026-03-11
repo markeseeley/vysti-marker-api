@@ -72,6 +72,7 @@ const interactivePostPreviewSteps = [
     anchor: "#revisionPracticeCard",
     selectRevisionLabel: true,
     actionKey: "checkRewriteResult",
+    requireAction: true,
     title: "Let\u2019s repair an issue",
     body:
       "We\u2019ve picked an issue you can fix right here. Read the guidance on the left, then edit the sentence on the right. When you\u2019re ready, click \u2018Check rewrite\u2019."
@@ -81,6 +82,7 @@ const interactivePostPreviewSteps = [
     type: "info",
     anchor: "#revisionPracticeCard",
     actionKey: "applyToPreview",
+    requireAction: true,
     title: "Nice work!",
     body:
       "Your rewrite was approved! Now click \u2018Apply to Preview\u2019 to replace the original sentence in your essay.",
@@ -488,6 +490,9 @@ function StudentTour(
     displayBody = currentStep._rejectedBody;
   }
 
+  // Hide Next button when step requires the action to be completed (but show "Try again" on rejection)
+  const hideNextBtn = isAction || (currentStep?.requireAction && waitingForAction && !isRejected);
+
   return (
     <>
       <div className="tour-overlay" />
@@ -530,7 +535,7 @@ function StudentTour(
         <div className="tour-footer">
           <div className="tour-step">{stepLabel}</div>
 
-          {!isAction ? (
+          {!hideNextBtn ? (
             <label className="tour-checkbox-row" htmlFor="tourHideCheckbox">
               <input
                 id="tourHideCheckbox"
@@ -548,7 +553,7 @@ function StudentTour(
             </label>
           ) : null}
 
-          {!isAction ? (
+          {!hideNextBtn ? (
             <button
               className="tour-primary-btn"
               type="button"
