@@ -491,7 +491,7 @@ function StudentTour(
   }
 
   // Hide Next button when step requires the action to be completed (but show "Try again" on rejection)
-  const hideNextBtn = isAction || (currentStep?.requireAction && waitingForAction && !isRejected);
+  const hideNextBtn = isAction || (currentStep?.requireAction && !isRejected);
 
   return (
     <>
