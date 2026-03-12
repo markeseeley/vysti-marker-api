@@ -256,7 +256,7 @@
         </div>
         <p class="camera-cta-heading">Got a handwritten essay?</p>
         <p class="camera-cta-sub">Snap a photo and get your score in seconds.</p>
-        <a href="/student_react.html" class="camera-cta-btn">Mark Your Essay</a>
+        <button type="button" class="camera-cta-btn" id="cameraCameraBtn">Mark Your Essay</button>
       </div>
       <!-- Desktop: QR code -->
       <div class="camera-cta-desktop">
@@ -471,6 +471,10 @@
     document.getElementById("navLogin").addEventListener("click", () => openAuth("signin"));
     document.getElementById("navSignup").addEventListener("click", () => openAuth("signup"));
     document.getElementById("heroCta").addEventListener("click", () => openAuth("signup"));
+    document.getElementById("cameraCameraBtn").addEventListener("click", () => {
+      sessionStorage.setItem(redirectKey, "/student_react.html");
+      openAuth("signup");
+    });
     document.getElementById("authClose").addEventListener("click", closeAuth);
     document.getElementById("authBackdrop").addEventListener("click", closeAuth);
 
