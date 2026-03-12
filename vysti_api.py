@@ -281,6 +281,21 @@ class MarkTextRequest(BaseModel):
     student_mode: bool = True
     include_summary_table: bool | None = False
     return_metadata: bool = False
+    # Teacher rule overrides (optional — sent by teacher recheck)
+    forbid_personal_pronouns: bool | None = None
+    forbid_audience_reference: bool | None = None
+    enforce_closed_thesis: bool | None = None
+    require_body_evidence: bool | None = None
+    allow_intro_summary_quotes: bool | None = None
+    enforce_intro_quote_rule: bool | None = None
+    enforce_long_quote_rule: bool | None = None
+    enforce_contractions_rule: bool | None = None
+    enforce_which_rule: bool | None = None
+    enforce_weak_verbs_rule: bool | None = None
+    enforce_fact_proof_rule: bool | None = None
+    enforce_human_people_rule: bool | None = None
+    enforce_vague_terms_rule: bool | None = None
+    highlight_thesis_devices: bool | None = None
 
 
 class ExportDocxRequest(BaseModel):
@@ -3793,9 +3808,23 @@ async def mark_text(
     # 1. Create .docx from text
     docx_bytes = build_doc_from_text(body.text)
 
-    # 2. Build teacher_config from body.titles
+    # 2. Build teacher_config from body.titles + optional rule overrides
     teacher_config = build_teacher_config_from_titles(body.titles) or {}
     teacher_config["student_mode"] = body.student_mode
+    # Apply teacher rule overrides when present (sent by teacher recheck)
+    _rule_fields = [
+        "forbid_personal_pronouns", "forbid_audience_reference",
+        "enforce_closed_thesis", "require_body_evidence",
+        "allow_intro_summary_quotes", "enforce_intro_quote_rule",
+        "enforce_long_quote_rule", "enforce_contractions_rule",
+        "enforce_which_rule", "enforce_weak_verbs_rule",
+        "enforce_fact_proof_rule", "enforce_human_people_rule",
+        "enforce_vague_terms_rule", "highlight_thesis_devices",
+    ]
+    for _rf in _rule_fields:
+        _rv = getattr(body, _rf, None)
+        if _rv is not None:
+            teacher_config[_rf] = _rv
 
     # 3. Call mark_docx_bytes (same pipeline as /mark)
     mark_docx_bytes, _ = get_engine()

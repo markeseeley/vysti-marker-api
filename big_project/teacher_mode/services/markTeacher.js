@@ -1,4 +1,5 @@
-import { getApiUrls, getApiBaseUrl } from "../config";
+import { getApiUrls } from "@student/config";
+import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { buildTeacherFormData } from "../lib/teacherFormData";
 
 /**
