@@ -931,7 +931,7 @@ a:hover { text-decoration: underline; }
    ============================================================ */
 
 .camera-cta {
-  padding: 0 20px 48px;
+  padding: 48px 20px;
   background: #fff;
 }
 

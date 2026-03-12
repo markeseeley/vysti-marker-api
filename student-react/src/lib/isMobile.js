@@ -9,6 +9,9 @@
  * This function returns true ONLY for phones.
  */
 export function isMobilePhone() {
+  // Dev/testing override: ?mobile=1 forces mobile view on any device
+  if (new URLSearchParams(window.location.search).get("mobile") === "1") return true;
+
   const ua = navigator.userAgent;
   // iPhone, iPod, or Android phone (not tablet)
   if (/iPhone|iPod/i.test(ua)) return true;
