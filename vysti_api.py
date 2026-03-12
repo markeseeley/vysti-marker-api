@@ -12,6 +12,7 @@ import time
 from io import BytesIO
 from scoring import compute_scores as _compute_scores
 from pdf_extract import extract_text_from_pdf, PDFExtractionError
+from ocr_transcribe import transcribe_scanned_pdf
 import urllib.parse
 
 import httpx
@@ -1760,7 +1761,17 @@ async def mark_essay(
         try:
             _pdf_text = extract_text_from_pdf(contents)
         except PDFExtractionError as exc:
-            return JSONResponse(status_code=400, content={"error": str(exc)})
+            # Scanned/image PDF → try OCR transcription
+            if "scanned" in str(exc).lower() or "image-based" in str(exc).lower():
+                try:
+                    _pdf_text = await transcribe_scanned_pdf(contents)
+                except Exception as ocr_exc:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": str(ocr_exc)},
+                    )
+            else:
+                return JSONResponse(status_code=400, content={"error": str(exc)})
         contents = build_doc_from_text(_pdf_text)
         _pdf_converted = True
 
