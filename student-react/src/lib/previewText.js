@@ -38,6 +38,23 @@ export function extractPreviewTextFromContainer(containerEl) {
     }
   }
 
+  // Pick up teacher-typed content in <div> elements (Chrome creates divs,
+  // not <p>, when pressing Enter in contentEditable).  Only leaf divs — ones
+  // with no block descendants — so we don't duplicate docx-preview wrappers.
+  if (paragraphs.length === 0) {
+    for (const div of containerEl.querySelectorAll("div")) {
+      if (div.closest("table") || div.closest(".docx-table")) continue;
+      if (div.querySelector("p, li, div, table, section, article")) continue;
+      let text = extractCleanTextFromElement(div, { preserveLineBreaks: true });
+      if (!text) continue;
+      text = stripVystiInlineArtifacts(text);
+      if (!text) continue;
+      const trimmed = text.trim();
+      if (trimmed === "Issue" || trimmed === "Explanation" || trimmed === "Issue Explanation") continue;
+      paragraphs.push(trimmed);
+    }
+  }
+
   if (paragraphs.length === 0) {
     let allText = extractCleanTextFromElement(containerEl, { preserveLineBreaks: true });
 
@@ -47,9 +64,11 @@ export function extractPreviewTextFromContainer(containerEl) {
     // Detect if the extracted text is CSS/garbage (not real content)
     if (allText) {
       const trimmed = allText.trim();
-      // Check if it looks like CSS properties or styling code
-      const looksLikeCSS = /^[\s\S]*?\{[\s\S]*?\}/.test(trimmed) ||
-                           /^\.docx|^#docx|background:|padding:|margin:|display:|flex-flow:/i.test(trimmed);
+      // Check if it looks like CSS properties or styling code — only reject
+      // if it STARTS with CSS-like content (not if essay text happens to
+      // contain a word like "background")
+      const looksLikeCSS = /^\s*[.#@][a-zA-Z][\w-]*\s*\{/.test(trimmed) ||
+                           /^\s*(?:background|padding|margin|display|flex-flow)\s*:/i.test(trimmed);
       if (looksLikeCSS) {
         return null; // Reject CSS content
       }

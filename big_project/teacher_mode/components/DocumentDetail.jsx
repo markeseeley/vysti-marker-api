@@ -6,7 +6,7 @@ import TeacherScoreCard from "./TeacherScoreCard";
 import TeacherDocumentsCard from "./TeacherDocumentsCard";
 import TeacherCommentNotebook from "./TeacherCommentNotebook";
 import { formatCommentForDownload } from "../lib/commentBank";
-import { markTeacherEssay, recheckTeacherText } from "../services/markTeacher";
+import { recheckTeacherText } from "../services/markTeacher";
 import { computeIBScores } from "../lib/ibScoring";
 import { fetchStudentContext, persistTeacherComment } from "../lib/studentContext";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
@@ -326,39 +326,35 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
 
     // Extract the current preview text (includes any teacher edits)
     const container = previewRef.current;
+    console.log("[Recheck] container ref:", container ? "found" : "null");
+    if (container) {
+      const pCount = container.querySelectorAll("p, li").length;
+      console.log("[Recheck] <p>/<li> elements in container:", pCount);
+    }
     const previewText = container
       ? extractPreviewTextFromContainer(container)
       : null;
+    console.log("[Recheck] extracted text length:", previewText?.length ?? 0, "| first 120:", previewText?.slice(0, 120));
 
     // If we have preview text, use /mark_text (respects edits).
     // Fall back to original file upload if preview is empty.
     setIsRechecking(true);
     try {
       let result;
-      if (previewText?.trim()) {
-        result = await recheckTeacherText({
-          supa,
-          text: previewText,
-          fileName: doc.fileName || "essay.docx",
-          mode: state.mode,
-          rules: state.rules,
-          works: doc.works || state.works,
-        });
-      } else if (doc.file) {
-        result = await markTeacherEssay({
-          supa,
-          file: doc.file,
-          mode: state.mode,
-          rules: state.rules,
-          works: doc.works || state.works,
-          studentName: doc.studentName,
-          assignmentName: doc.assignmentName,
-          classId: doc.classId || state.classId,
-        });
-      } else {
-        console.error("Recheck: no preview text or original file available");
+      if (!previewText?.trim()) {
+        console.error("[Recheck] Preview text extraction returned empty — cannot recheck");
+        setIsRechecking(false);
         return;
       }
+      console.log("[Recheck] Using /mark_text with edited preview text");
+      result = await recheckTeacherText({
+        supa,
+        text: previewText,
+        fileName: doc.fileName || "essay.docx",
+        mode: state.mode,
+        rules: state.rules,
+        works: doc.works || state.works,
+      });
       dispatch({
         type: "FILE_MARKED",
         id: doc.id,
