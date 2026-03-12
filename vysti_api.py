@@ -204,6 +204,13 @@ app.add_middleware(_SecurityHeadersMiddleware)
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/shared", StaticFiles(directory="shared"), name="shared")
 
+# Mount OCR router for mobile handwriting transcription
+try:
+    from handwriting_ocr_router import ocr_router as _ocr_router
+    app.include_router(_ocr_router, prefix="/api/ocr")
+except ImportError:
+    pass  # OCR dependencies not installed — skip silently
+
 # ===== Debug flag (set VYSTI_DEBUG=1 in env to enable verbose logging) =====
 _DEBUG = os.getenv("VYSTI_DEBUG", "").strip() in ("1", "true", "yes")
 
@@ -281,6 +288,7 @@ class MarkTextRequest(BaseModel):
     student_mode: bool = True
     include_summary_table: bool | None = False
     return_metadata: bool = False
+    source: str | None = None  # "mobile" when sent from mobile app
     # Teacher rule overrides (optional — sent by teacher recheck)
     forbid_personal_pronouns: bool | None = None
     forbid_audience_reference: bool | None = None
@@ -636,6 +644,58 @@ async def count_user_marks(user_id: str) -> int:
 
 
 _FREE_TIER_MARK_LIMIT = 1
+_MOBILE_MARK_LIMIT = 5      # Total mobile marks before paywall
+_MOBILE_DAILY_LIMIT = 2     # Max mobile marks per day
+_MOBILE_PAGE_LIMIT = 15     # Max pages per mobile OCR upload
+
+
+async def count_mobile_marks(user_id: str) -> int:
+    """Count total mobile mark_events for a user."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return 0
+    url = (
+        f"{SUPABASE_URL}/rest/v1/mark_events"
+        f"?user_id=eq.{user_id}&source=eq.mobile&select=id"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Prefer": "count=exact",
+                "Range-Unit": "items",
+                "Range": "0-0",
+            })
+        content_range = resp.headers.get("content-range", "")
+        return int(content_range.split("/")[-1])
+    except (ValueError, IndexError, Exception):
+        return 0
+
+
+async def count_mobile_marks_today(user_id: str) -> int:
+    """Count mobile mark_events created today for daily rate limiting."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return 0
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+    url = (
+        f"{SUPABASE_URL}/rest/v1/mark_events"
+        f"?user_id=eq.{user_id}&source=eq.mobile"
+        f"&created_at=gte.{today}&select=id"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Prefer": "count=exact",
+                "Range-Unit": "items",
+                "Range": "0-0",
+            })
+        content_range = resp.headers.get("content-range", "")
+        return int(content_range.split("/")[-1])
+    except (ValueError, IndexError, Exception):
+        return 0
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -694,6 +754,9 @@ async def get_profile(
     # Enrich profile with usage data for frontend entitlement logic
     marks_used = await count_user_marks(user_id)
     profile["marks_used"] = marks_used
+    mobile_marks_used = await count_mobile_marks(user_id)
+    profile["mobile_marks_used"] = mobile_marks_used
+    profile["mobile_marks_limit"] = _MOBILE_MARK_LIMIT
     if "subscription_tier" not in profile:
         profile["subscription_tier"] = "free"
 
@@ -3800,7 +3863,31 @@ async def mark_text(
                         },
                     )
 
-    # 0b. Text length limit (50,000 chars ≈ 8,000 words)
+    # 0b. Mobile-specific usage limits (separate from desktop free tier)
+    _is_mobile = body.source == "mobile"
+    if _is_mobile and not _is_api_client:
+        _mt_user_id_mob = user.get("id") if isinstance(user, dict) else None
+        if _mt_user_id_mob:
+            _mob_total = await count_mobile_marks(_mt_user_id_mob)
+            if _mob_total >= _MOBILE_MARK_LIMIT:
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "message": "You've used all your free mobile marks. Subscribe for unlimited marks.",
+                        "code": "MOBILE_LIMIT",
+                    },
+                )
+            _mob_today = await count_mobile_marks_today(_mt_user_id_mob)
+            if _mob_today >= _MOBILE_DAILY_LIMIT:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "message": "Daily mobile limit reached. Try again tomorrow, or use the full desktop version.",
+                        "code": "MOBILE_DAILY_LIMIT",
+                    },
+                )
+
+    # 0c. Text length limit (50,000 chars ≈ 8,000 words)
     _MAX_TEXT_CHARS = 50_000
     if body.text and len(body.text) > _MAX_TEXT_CHARS:
         raise HTTPException(status_code=400, detail=f"Text exceeds {_MAX_TEXT_CHARS} character limit.")
@@ -3885,6 +3972,7 @@ async def mark_text(
                 "label_counts": dict(label_counter),
                 "issues": issues,
                 "review_status": "pending",
+                "source": body.source or "desktop",
             }
 
             async with httpx.AsyncClient(timeout=5) as client:

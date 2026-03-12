@@ -1,0 +1,19 @@
+{
+  "model": "sonnet",
+  "total_samples": 1,
+  "total_time_s": 58.8,
+  "total_cost_usd": 0.0386,
+  "results": [
+    {
+      "name": "Benny \u2014 Charity Ad (Smith Family)",
+      "difficulty": "very hard",
+      "pages": 3,
+      "time_s": 58.8,
+      "tokens_in": 5179,
+      "tokens_out": 1536,
+      "cost_usd": 0.038577,
+      "word_count": 1166,
+      "output_file": "Benny_-_Charity_Ad_(Smith_Family).txt"
+    }
+  ]
+}

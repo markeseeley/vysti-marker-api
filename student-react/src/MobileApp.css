@@ -1,0 +1,804 @@
+/* ============================================================
+   MobileApp — Vysti mobile experience
+   Matches the editorial/minimal desktop aesthetic:
+   - Source Serif 4 (800) headings, DM Sans body
+   - Maroon #A90D22 brand color
+   - Subtle shadows, 12px radius cards
+   ============================================================ */
+
+/* ── Root-level layout ── */
+
+.mob-app {
+  min-height: 100dvh;
+  background: #f5f6f8;
+  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+  color: #111;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ── Header ── */
+
+.mob-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  height: 56px;
+  background: #A90D22;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+
+.mob-header-logo {
+  border-radius: 6px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+}
+
+.mob-header-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: 20px;
+  color: white;
+  letter-spacing: -0.01em;
+}
+
+/* ── Desktop nudge banner ── */
+
+.mob-desktop-banner {
+  margin: 12px 16px 0;
+  padding: 12px 16px;
+  background: rgba(169, 13, 34, 0.05);
+  border: 1px solid rgba(169, 13, 34, 0.12);
+  border-radius: 10px;
+  font-size: clamp(12px, 0.76rem + 0.08vw, 13.5px);
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── Cards ── */
+
+.mob-card {
+  margin: 12px 16px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.mob-card-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: clamp(21px, 1.1rem + 0.9vw, 28px);
+  color: #111;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.mob-card-sub {
+  font-size: clamp(13.5px, 0.84rem + 0.12vw, 15px);
+  color: rgba(0, 0, 0, 0.5);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.mob-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* ── Errors ── */
+
+.mob-error {
+  margin: 8px 16px 0;
+  padding: 10px 14px;
+  background: #fce8eb;
+  color: #a90d22;
+  border-radius: 10px;
+  font-size: clamp(12px, 0.76rem + 0.08vw, 13.5px);
+  font-weight: 500;
+}
+
+/* ── Loading / Status ── */
+
+.mob-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60dvh;
+}
+
+.mob-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(0, 0, 0, 0.08);
+  border-top-color: #A90D22;
+  border-radius: 50%;
+  animation: mobSpin 0.7s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes mobSpin {
+  to { transform: rotate(360deg); }
+}
+
+.mob-status-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  color: #111;
+  margin: 0 0 4px;
+}
+
+.mob-status-sub {
+  font-size: clamp(13.5px, 0.84rem + 0.12vw, 15px);
+  color: rgba(0, 0, 0, 0.4);
+  margin: 0;
+}
+
+/* ── Score card ── */
+
+.mob-score-card {
+  padding: 28px 20px;
+}
+
+.mob-score {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: clamp(60px, 14vw, 88px);
+  color: #111;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.mob-tier-msg {
+  font-size: clamp(14px, 0.85rem + 0.14vw, 16px);
+  color: rgba(0, 0, 0, 0.55);
+  margin: 14px 0 0;
+  line-height: 1.45;
+  max-width: 320px;
+}
+
+/* ── Stats row ── */
+
+.mob-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 16px 12px;
+}
+
+.mob-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.mob-stat--wide {
+  grid-column: 1 / -1;
+}
+
+.mob-stat-value {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: clamp(24px, 5vw, 32px);
+  color: #111;
+  letter-spacing: -0.02em;
+}
+
+.mob-stat-value--text {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(14px, 0.85rem + 0.14vw, 16px);
+  letter-spacing: 0;
+}
+
+.mob-stat-label {
+  font-size: clamp(11px, 0.7rem + 0.06vw, 12px);
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* ── Severity badge ── */
+
+.mob-severity {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 16px 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: clamp(12px, 0.76rem + 0.08vw, 13.5px);
+  font-weight: 600;
+}
+
+.mob-severity--critical {
+  background: #fce8eb;
+  color: #a90d22;
+}
+
+.mob-severity--moderate {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ── Issues list ── */
+
+.mob-section-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  color: #111;
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+}
+
+.mob-issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mob-issue-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: clamp(14px, 0.85rem + 0.14vw, 16px);
+}
+
+.mob-issue-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.mob-issue-label {
+  flex: 1;
+  margin-right: 12px;
+  color: #111;
+  line-height: 1.35;
+}
+
+.mob-issue-count {
+  font-weight: 700;
+  color: #A90D22;
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  min-width: 28px;
+  text-align: center;
+  background: rgba(169, 13, 34, 0.07);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+/* ── Doc thumbnail ── */
+
+.mob-doc-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: white;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.2s;
+}
+
+.mob-doc-thumbnail:active {
+  box-shadow: 0 0 0 3px rgba(169, 13, 34, 0.15);
+}
+
+.mob-doc-thumbnail-inner {
+  transform: scale(0.4);
+  transform-origin: top left;
+  width: 250%;
+  pointer-events: none;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.mob-doc-thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 40%,
+    rgba(255, 255, 255, 0.6) 70%,
+    rgba(255, 255, 255, 0.95) 100%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+  gap: 6px;
+  color: #A90D22;
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  font-weight: 600;
+}
+
+/* ── Fullscreen preview modal ── */
+
+.mob-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: mobFadeIn 0.2s ease-out;
+}
+
+@keyframes mobFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mob-fullscreen-doc {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  margin: env(safe-area-inset-top, 0) 0 0;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  animation: mobSlideUp 0.25s ease-out;
+}
+
+@keyframes mobSlideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.mob-fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.mob-fullscreen-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  margin: 0;
+  color: #111;
+}
+
+.mob-fullscreen-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: white;
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mob-fullscreen-close:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mob-fullscreen-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Prevent accidental editing in fullscreen view */
+.mob-fullscreen-content [contenteditable] {
+  pointer-events: none;
+}
+
+/* ── Action buttons ── */
+
+.mob-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 16px;
+}
+
+.mob-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border-radius: 12px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(14px, 0.85rem + 0.14vw, 16px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, box-shadow 0.15s;
+  border: none;
+}
+
+.mob-btn:active {
+  transform: scale(0.97);
+}
+
+/* Primary — maroon gradient (matches desktop CTA) */
+.mob-btn-primary {
+  background:
+    radial-gradient(ellipse 70% 55% at 35% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.10), transparent 50%),
+    linear-gradient(to bottom, #c4162e, #8a0b1c);
+  color: white;
+  box-shadow:
+    0 4px 14px rgba(169, 13, 34, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  grid-column: 1 / -1;
+}
+
+.mob-btn-primary:active {
+  box-shadow:
+    0 2px 6px rgba(169, 13, 34, 0.2),
+    inset 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Secondary — white with border */
+.mob-btn-secondary {
+  background: white;
+  color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.mob-btn-secondary:active {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Ghost — text only */
+.mob-btn-ghost {
+  background: transparent;
+  color: rgba(0, 0, 0, 0.5);
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+}
+
+.mob-btn-ghost:active {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* ── Desktop CTA ── */
+
+.mob-desktop-cta {
+  margin: 12px 16px;
+  padding: 20px;
+  text-align: center;
+  background: white;
+  border: 1px solid rgba(169, 13, 34, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.mob-desktop-cta-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(15px, 0.92rem + 0.18vw, 17px);
+  color: #111;
+  margin: 0 0 6px;
+}
+
+.mob-desktop-cta-sub {
+  font-size: clamp(12px, 0.76rem + 0.08vw, 13.5px);
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ── Header menu ── */
+
+.mob-menu-wrap {
+  margin-left: auto;
+  position: relative;
+}
+
+.mob-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.mob-menu-trigger:active,
+.mob-menu-trigger[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.mob-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  z-index: 900;
+  overflow: hidden;
+  animation: mobFadeIn 0.15s ease-out;
+}
+
+.mob-menu-item {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mob-menu-item:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mob-menu-item--danger {
+  color: #A90D22;
+}
+
+.mob-menu-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 4px 0;
+}
+
+/* ── Countdown badge ── */
+
+.mob-countdown {
+  margin: 0 0 14px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  font-size: clamp(12px, 0.76rem + 0.08vw, 13.5px);
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.mob-countdown--warn {
+  background: rgba(169, 13, 34, 0.06);
+  border-color: rgba(169, 13, 34, 0.15);
+  color: #A90D22;
+}
+
+.mob-countdown-msg {
+  font-size: clamp(12px, 0.76rem + 0.08vw, 13.5px);
+  color: rgba(0, 0, 0, 0.45);
+  text-align: center;
+  margin: -6px 0 14px;
+  line-height: 1.5;
+}
+
+/* ── Marks exhausted block ── */
+
+.mob-marks-exhausted {
+  text-align: center;
+  padding: 16px 0 4px;
+}
+
+.mob-marks-exhausted-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  color: #111;
+  margin: 0 0 8px;
+}
+
+.mob-marks-exhausted-sub {
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  color: rgba(0, 0, 0, 0.5);
+  margin: 0 0 16px;
+  line-height: 1.55;
+}
+
+.mob-marks-exhausted-inline {
+  text-align: center;
+  margin: 12px 16px 24px;
+  padding: 16px;
+}
+
+.mob-marks-exhausted-inline p {
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0 0 12px;
+}
+
+/* ── Upgrade CTA (results view) ── */
+
+.mob-upgrade-cta {
+  margin: 12px 16px;
+  padding: 24px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(169, 13, 34, 0.04) 0%, rgba(169, 13, 34, 0.10) 100%);
+  border: 1px solid rgba(169, 13, 34, 0.15);
+  border-radius: 12px;
+}
+
+.mob-upgrade-cta-title {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  color: #111;
+  margin: 0 0 6px;
+}
+
+.mob-upgrade-cta-sub {
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  color: rgba(0, 0, 0, 0.5);
+  margin: 0 0 16px;
+  line-height: 1.55;
+}
+
+/* ── Start over ── */
+
+.mob-start-over {
+  width: calc(100% - 32px);
+  margin: 0 16px 24px;
+}
+
+/* ── Camera dropzone overrides for mobile context ── */
+/* Inherit Vysti brand colors instead of the generic POC blues */
+
+.mob-app .camera-dropzone-area {
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.mob-app .camera-dropzone-area:hover,
+.mob-app .camera-dropzone-area.drag-over {
+  border-color: #A90D22;
+  background: rgba(169, 13, 34, 0.04);
+}
+
+.mob-app .camera-dropzone-icon {
+  color: rgba(0, 0, 0, 0.30);
+  margin-bottom: 12px;
+}
+
+.mob-app .camera-dropzone-heading {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  font-weight: 700;
+  color: #111;
+}
+
+.mob-app .camera-dropzone-sub {
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.mob-app .camera-btn {
+  border: none;
+  border-radius: 12px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+}
+
+.mob-app .camera-btn-primary {
+  background:
+    radial-gradient(ellipse 70% 55% at 35% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.10), transparent 50%),
+    linear-gradient(to bottom, #c4162e, #8a0b1c);
+  color: white;
+  box-shadow:
+    0 4px 14px rgba(169, 13, 34, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+
+.mob-app .camera-btn-secondary {
+  background: white;
+  color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.mob-app .camera-btn-transcribe {
+  background:
+    radial-gradient(ellipse 70% 55% at 35% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.10), transparent 50%),
+    linear-gradient(to bottom, #c4162e, #8a0b1c);
+  color: white;
+  box-shadow:
+    0 4px 14px rgba(169, 13, 34, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  min-height: 52px;
+  font-size: clamp(15px, 0.92rem + 0.18vw, 17px);
+}
+
+.mob-app .camera-btn-transcribe:disabled {
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: none;
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.mob-app .camera-page-thumb:hover {
+  border-color: #A90D22;
+}
+
+.mob-app .camera-page-remove {
+  background: rgba(169, 13, 34, 0.85);
+  width: 28px;
+  height: 28px;
+}
+
+.mob-app .camera-pages-clear {
+  color: #A90D22;
+}
+
+/* ── Review overrides ── */
+
+.mob-app .review-view-toggle button.active {
+  background: #A90D22;
+}
+
+.mob-app .review-page-tab.active {
+  background: #A90D22;
+  border-color: #A90D22;
+}
+
+.mob-app .review-page-tab {
+  min-height: 44px;
+}
+
+.mob-app .review-textarea:focus {
+  border-color: #A90D22;
+  box-shadow: 0 0 0 3px rgba(169, 13, 34, 0.12);
+}
+
+.mob-app .camera-btn-transcribe {
+  min-height: 52px;
+}

@@ -1,0 +1,4 @@
+.env
+*.transcription.txt
+*.transcription.json
+__pycache__/
