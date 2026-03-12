@@ -415,7 +415,7 @@ export default function StudentPage() {
           <section className="card form-card">
             <label>
               <span className="label-row mode-select-label-row">
-                <span className="visually-hidden">Assignment type</span>
+                Select a mode for more accurate marking
               </span>
               <select
                 id="mode"

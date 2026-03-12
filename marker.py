@@ -4082,6 +4082,59 @@ def analyze_text(
     # "successful essay", "successfully argues", etc. in the introduction
     # and conclusion. These should be red strikethrough only — no yellow label,
     # no entry in the Issues/Explanation summary.
+    #
+    # Exception: proper nouns / named events where the word is part of a
+    # fixed name (e.g. "Great Migration", "Great Gatsby").  We record
+    # allowed character positions so only that specific token is skipped.
+    _subjective_allowed_positions: set[int] = set()
+    _subjective_collocations = [
+        # Historical events / eras
+        re.compile(r"\b(?P<kw>great)\s+migration\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+depression\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+war\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+recession\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+society\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+awakening\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+leap\s+forward\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+schism\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+famine\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+plains\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+wall\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+barrier\s+reef\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+pyramid\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+fire\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+plague\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+reform\s+act\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+compromise\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+purge\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+terror\b", re.IGNORECASE),
+        # Literary works / titles
+        re.compile(r"\b(?P<kw>great)\s+gatsby\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+expectations\b", re.IGNORECASE),
+        # Other named concepts
+        re.compile(r"\b(?P<kw>great)\s+chain\s+of\s+being\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>great)\s+powers?\b", re.IGNORECASE),
+        re.compile(r"\balexander\s+the\s+(?P<kw>great)\b", re.IGNORECASE),
+        re.compile(r"\bpeter\s+the\s+(?P<kw>great)\b", re.IGNORECASE),
+        re.compile(r"\bcatherine\s+the\s+(?P<kw>great)\b", re.IGNORECASE),
+        # "Brilliant" in named/technical contexts
+        re.compile(r"\b(?P<kw>brilliant)\s+cut\b", re.IGNORECASE),
+        # "Extraordinary" in formal/legal contexts
+        re.compile(r"\b(?P<kw>extraordinary)\s+rendition\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>extraordinary)\s+measures\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>extraordinary)\s+session\b", re.IGNORECASE),
+        # "Magnificent" in proper nouns
+        re.compile(r"\b(?P<kw>magnificent)\s+seven\b", re.IGNORECASE),
+        # "Beautiful" in named concepts
+        re.compile(r"\b(?P<kw>beautiful)\s+game\b", re.IGNORECASE),
+        re.compile(r"\b(?P<kw>beautiful)\s+soul\b", re.IGNORECASE),
+        # "Genius" in formal/Latin usage
+        re.compile(r"\b(?P<kw>genius)\s+loci\b", re.IGNORECASE),
+    ]
+    for pat in _subjective_collocations:
+        for m in pat.finditer(flat_text):
+            _subjective_allowed_positions.add(m.start("kw"))
+
     if paragraph_role in ("intro", "conclusion"):
         for token in doc:
             lower = token.text.lower()
@@ -4090,6 +4143,10 @@ def analyze_text(
 
             start = token.idx
             end = token.idx + len(token.text)
+
+            # Skip named collocations (e.g. "Great Migration")
+            if start in _subjective_allowed_positions:
+                continue
 
             # Do not touch text inside direct quotations
             if pos_in_spans(start, spans) or pos_in_spans(end - 1, spans):

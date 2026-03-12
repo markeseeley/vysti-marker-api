@@ -5,7 +5,7 @@ export default function ModeSelect({ mode, onChange, modes }) {
   return (
     <label>
       <span className="label-row mode-select-label-row">
-        <span className="visually-hidden">Assignment type</span>
+        Select a mode for more accurate marking
       </span>
       <select
         id="mode"
