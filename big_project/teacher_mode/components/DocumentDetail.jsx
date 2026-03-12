@@ -66,7 +66,7 @@ function makeDownloadBase(doc) {
   if (assignment && student) return `${assignment} - ${student}`;
   if (student) return student;
   if (assignment) return assignment;
-  return doc.fileName.replace(/\.docx$/i, "");
+  return doc.fileName.replace(/\.(docx|pdf)$/i, "");
 }
 
 function makeDownloadName(doc, suffix) {
@@ -1378,7 +1378,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     setIsDragOver(false);
     if (!onAddFiles) return;
     const files = [...e.dataTransfer.files].filter(
-      (f) => f.name.endsWith(".docx") || f.name.endsWith(".doc")
+      (f) => /\.(docx|pdf)$/i.test(f.name) || f.name.endsWith(".doc")
     );
     if (files.length > 0) {
       setPendingDropFiles(files);
@@ -1505,7 +1505,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
               className={`teacher-preview-dropzone${isDragOver ? " drag-over" : ""}${state.isProcessing ? " is-processing" : ""}`}
               tabIndex={0}
               role="button"
-              aria-label="Upload .docx files"
+              aria-label="Upload .docx or .pdf files"
               onDragOver={(e) => { e.preventDefault(); if (!state.isProcessing) setIsDragOver(true); }}
               onDragLeave={() => setIsDragOver(false)}
               onDrop={state.isProcessing ? undefined : handlePreviewDrop}
@@ -1517,7 +1517,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                 ref={fileInputRef}
                 type="file"
                 name="teacher-add-files"
-                accept=".docx,.doc"
+                accept=".docx,.pdf,.doc"
                 multiple
                 style={{ display: "none" }}
                 onChange={handlePreviewBrowse}
