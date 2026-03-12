@@ -147,20 +147,21 @@ export default function StudentPage() {
 
   const MAX_DOCX_BYTES = 15 * 1024 * 1024; // 15 MB
 
-  const isDocx = (file) => {
+  const isAcceptedFile = (file) => {
     if (!file) return false;
     const name = file.name?.toLowerCase() || "";
     return (
       name.endsWith(".docx") ||
-      file.type ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      name.endsWith(".pdf") ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.type === "application/pdf"
     );
   };
 
   const updateSelectedFile = (file) => {
-    if (!file || !isDocx(file)) {
+    if (!file || !isAcceptedFile(file)) {
       if (file) {
-        setError("Please upload a .docx file.");
+        setError("Please upload a .docx or .pdf file.");
       }
       setSelectedFile(null);
       setMarkedBlob(null);
@@ -223,7 +224,7 @@ export default function StudentPage() {
 
   const handleMark = async () => {
     if (!selectedFile) {
-      setError("Please select a .docx file first.");
+      setError("Please select a file first.");
       return;
     }
     if (!supa) {
@@ -318,7 +319,7 @@ export default function StudentPage() {
     if (!downloadUrl || !selectedFile) return;
     const anchor = document.createElement("a");
     anchor.href = downloadUrl;
-    anchor.download = selectedFile.name.replace(/\.docx$/i, "_marked.docx");
+    anchor.download = selectedFile.name.replace(/\.(docx|pdf)$/i, "_marked.docx");
     anchor.rel = "noopener";
     anchor.click();
   };
@@ -489,7 +490,7 @@ export default function StudentPage() {
               className={`drop-zone${isDragOver ? " dragover" : ""}`}
               tabIndex={0}
               role="button"
-              aria-label="Upload .docx file"
+              aria-label="Upload .docx or .pdf file"
               onClick={handleBrowseClick}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -507,14 +508,14 @@ export default function StudentPage() {
                 alt=""
                 aria-hidden="true"
               />
-              <div className="dz-title">Drag &amp; drop .docx file here</div>
+              <div className="dz-title">Drag &amp; drop file here</div>
               <div className="dz-sub">or click to browse</div>
               <input
                 ref={fileInputRef}
                 type="file"
                 id="fileInput"
                 name="file"
-                accept=".docx"
+                accept=".docx,.pdf"
                 hidden
                 onChange={handleFileChange}
               />

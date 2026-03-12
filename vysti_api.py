@@ -11,6 +11,7 @@ import hashlib
 import time
 from io import BytesIO
 from scoring import compute_scores as _compute_scores
+from pdf_extract import extract_text_from_pdf, PDFExtractionError
 import urllib.parse
 
 import httpx
@@ -1734,10 +1735,13 @@ async def mark_essay(
     These map directly onto MarkerConfig in marker.py.
     """
     # 1. Basic validation
-    if not file.filename.lower().endswith(".docx"):
+    _fname_lower = file.filename.lower() if file.filename else ""
+    _is_pdf = _fname_lower.endswith(".pdf")
+    _is_docx = _fname_lower.endswith(".docx")
+    if not _is_docx and not _is_pdf:
         return JSONResponse(
             status_code=400,
-            content={"error": "Please upload a .docx file"},
+            content={"error": "Please upload a .docx or .pdf file."},
         )
 
     # 1b. File size limit (10 MB)
@@ -1749,6 +1753,16 @@ async def mark_essay(
             content={"error": "File exceeds the 10 MB size limit."},
         )
     await file.seek(0)  # reset for downstream readers
+
+    # 1c. PDF → docx conversion (extract text, build synthetic docx)
+    _pdf_converted = False
+    if _is_pdf:
+        try:
+            _pdf_text = extract_text_from_pdf(contents)
+        except PDFExtractionError as exc:
+            return JSONResponse(status_code=400, content={"error": str(exc)})
+        contents = build_doc_from_text(_pdf_text)
+        _pdf_converted = True
 
     # 1c. Free-tier usage check
     _mark_user_id = user.get("id") if isinstance(user, dict) else None
@@ -1833,7 +1847,10 @@ async def mark_essay(
         _active_marks.add(_mark_user_id)
 
     # 3. Read file bytes
-    docx_bytes = await file.read()
+    if _pdf_converted:
+        docx_bytes = contents  # already converted to docx bytes above
+    else:
+        docx_bytes = await file.read()
 
     # 3b. Upload original to Supabase Storage (best-effort)
     try:
@@ -1843,6 +1860,10 @@ async def mark_essay(
                 safe_upload_name = _sanitize_filename(file.filename)
                 storage_path = f"{upload_user_id}/{safe_upload_name}"
                 storage_url = f"{SUPABASE_URL}/storage/v1/object/originals/{storage_path}"
+                _upload_ct = (
+                    "application/pdf" if _is_pdf
+                    else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
                 async with httpx.AsyncClient(timeout=15) as client:
                     resp = await client.post(
                         storage_url,
@@ -1850,7 +1871,7 @@ async def mark_essay(
                         headers={
                             "apikey": SUPABASE_SERVICE_KEY,
                             "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                            "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "Content-Type": _upload_ct,
                             "x-upsert": "true",
                         },
                     )

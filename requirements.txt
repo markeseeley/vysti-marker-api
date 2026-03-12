@@ -9,3 +9,4 @@ httpx
 slowapi
 language-tool-python
 stripe
+pdfplumber

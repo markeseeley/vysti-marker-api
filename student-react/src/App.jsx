@@ -754,7 +754,7 @@ function App() {
   const getFilenameBase = () => {
     if (markedFilenameBase) return markedFilenameBase;
     const rawName = selectedFile?.name || "essay.docx";
-    return rawName.replace(/\.docx$/i, "") || "essay";
+    return rawName.replace(/\.(docx|pdf)$/i, "") || "essay";
   };
 
   const buildMarkedFilename = () => `${getFilenameBase()}_marked.docx`;
@@ -774,20 +774,21 @@ function App() {
     return lines.length ? `${lines.join("\n\n")}\n\n` : "";
   };
 
-  const isDocx = (file) => {
+  const isAcceptedFile = (file) => {
     if (!file) return false;
     const name = file.name?.toLowerCase() || "";
     return (
       name.endsWith(".docx") ||
-      file.type ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      name.endsWith(".pdf") ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.type === "application/pdf"
     );
   };
 
   const validateFile = (file) => {
     if (!file) return { ok: false, message: "No file selected." };
-    if (!isDocx(file)) {
-      return { ok: false, message: "Only .docx files are allowed." };
+    if (!isAcceptedFile(file)) {
+      return { ok: false, message: "Only .docx and .pdf files are allowed." };
     }
     if (file.size > MAX_DOCX_BYTES) {
       return {
@@ -825,9 +826,9 @@ function App() {
         }
         return;
       }
-    } else if (!file || !isDocx(file)) {
+    } else if (!file || !isAcceptedFile(file)) {
       if (file) {
-        setError("Please upload a .docx file.");
+        setError("Please upload a .docx or .pdf file.");
         logError("Invalid file type selected", { fileName: file?.name || "" });
       }
       setSelectedFile(null);
@@ -911,7 +912,7 @@ function App() {
 
   const handleMark = async () => {
     if (!selectedFile) {
-      setError("Please select a .docx file first.");
+      setError("Please select a file first.");
       return;
     }
     if (requestActive) return;
@@ -982,7 +983,7 @@ function App() {
       schedulePreviewStatsUpdate(120);
       setPreviewError("");
       setPreviewErrorStack("");
-      const baseName = (selectedFile?.name || "essay.docx").replace(/\.docx$/i, "") || "essay";
+      const baseName = (selectedFile?.name || "essay.docx").replace(/\.(docx|pdf)$/i, "") || "essay";
       setMarkedFilenameBase(baseName);
       if (showAttemptHistory) {
         refreshAttemptHistory();

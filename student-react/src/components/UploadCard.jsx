@@ -17,7 +17,7 @@ export default function UploadCard({
         className={`drop-zone${isDragOver ? " dragover" : ""}`}
         tabIndex={0}
         role="button"
-        aria-label="Upload .docx file"
+        aria-label="Upload .docx or .pdf file"
         onClick={onBrowseClick}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -35,14 +35,14 @@ export default function UploadCard({
           alt=""
           aria-hidden="true"
         />
-        <div className="dz-title">Drag &amp; drop .docx file here</div>
+        <div className="dz-title">Drag &amp; drop file here</div>
         <div className="dz-sub">or click to browse</div>
         <input
           ref={fileInputRef}
           type="file"
           id="fileInput"
           name="file"
-          accept=".docx"
+          accept=".docx,.pdf"
           hidden
           onChange={onFileChange}
         />

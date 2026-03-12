@@ -25,14 +25,14 @@ export default function TeacherDropZone({
     e.stopPropagation();
     setDragOver(false);
     const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      f.name.toLowerCase().endsWith(".docx")
+      /\.(docx|pdf)$/i.test(f.name)
     );
     if (dropped.length) onFilesAdded(dropped);
   }, [onFilesAdded]);
 
   const handleInputChange = useCallback((e) => {
     const selected = Array.from(e.target.files).filter((f) =>
-      f.name.toLowerCase().endsWith(".docx")
+      /\.(docx|pdf)$/i.test(f.name)
     );
     if (selected.length) onFilesAdded(selected);
     e.target.value = "";
@@ -53,7 +53,7 @@ export default function TeacherDropZone({
         }}
         tabIndex={0}
         role="button"
-        aria-label="Upload .docx files"
+        aria-label="Upload .docx or .pdf files"
       >
         <img className="dz-icon" src="/assets/cloud-upload.svg" alt="" aria-hidden="true" />
         <div className="dz-title">Drop essays here</div>
@@ -63,7 +63,7 @@ export default function TeacherDropZone({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".docx"
+        accept=".docx,.pdf"
         multiple
         hidden
         onChange={handleInputChange}

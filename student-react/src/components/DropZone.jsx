@@ -196,7 +196,7 @@ export default function DropZone({
         className={`drop-zone${isDragOver ? " dragover" : ""}${isCompact ? " drop-zone--compact" : ""}`}
         tabIndex={0}
         role="button"
-        aria-label="Upload .docx file"
+        aria-label="Upload .docx or .pdf file"
         onClick={onBrowseClick}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -229,7 +229,7 @@ export default function DropZone({
           type="file"
           id="fileInput"
           name="file"
-          accept=".docx"
+          accept=".docx,.pdf"
           hidden
           onChange={onFileChange}
         />
