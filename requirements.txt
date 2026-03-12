@@ -10,3 +10,6 @@ slowapi
 language-tool-python
 stripe
 pdfplumber
+anthropic
+PyMuPDF
+Pillow
