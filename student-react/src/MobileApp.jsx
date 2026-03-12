@@ -305,13 +305,10 @@ export default function MobileApp() {
       {/* ── Header ── */}
       <header className="mob-header">
         <img
-          src="/assets/pwa/icon-192.png"
+          src="/assets/logo.svg"
           alt="Vysti"
           className="mob-header-logo"
-          width="28"
-          height="28"
         />
-        <span className="mob-header-title">Vysti</span>
 
         {/* Hamburger menu */}
         <div className="mob-menu-wrap" ref={menuRef}>

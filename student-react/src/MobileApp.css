@@ -35,16 +35,9 @@
 }
 
 .mob-header-logo {
-  border-radius: 6px;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
-}
-
-.mob-header-title {
-  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
-  font-weight: 800;
-  font-size: 20px;
-  color: white;
-  letter-spacing: -0.01em;
+  height: 24px;
+  width: auto;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
 }
 
 /* ── Desktop nudge banner ── */
@@ -79,6 +72,7 @@
   color: #111;
   margin: 0 0 6px;
   letter-spacing: -0.01em;
+  text-align: center;
 }
 
 .mob-card-sub {
@@ -86,6 +80,7 @@
   color: rgba(0, 0, 0, 0.5);
   margin: 0 0 18px;
   line-height: 1.5;
+  text-align: center;
 }
 
 .mob-center {
@@ -866,6 +861,39 @@
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile reorder arrows */
+
+.camera-page-reorder {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.camera-page-move {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.camera-page-move:active {
+  background: rgba(169, 13, 34, 0.85);
 }
 
 /* TranscriptionReview base styles */

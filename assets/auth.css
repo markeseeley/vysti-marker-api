@@ -923,3 +923,131 @@ a:hover { text-decoration: underline; }
     padding: 28px 16px;
   }
 }
+
+/* ============================================================
+   Camera CTA section (between hero and "How it works")
+   Mobile/tablet: direct "Mark Your Essay" button
+   Desktop: QR code with invite to try on phone
+   ============================================================ */
+
+.camera-cta {
+  padding: 0 20px 48px;
+  background: #fff;
+}
+
+.camera-cta-inner {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* ── Mobile version (hidden on desktop) ── */
+.camera-cta-mobile {
+  display: none;
+  text-align: center;
+  padding: 32px 24px;
+  background: linear-gradient(135deg, #fdf2f3 0%, #fff 100%);
+  border: 1px solid rgba(169, 13, 34, 0.12);
+  border-radius: 16px;
+}
+
+.camera-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--maroon);
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.camera-cta-heading {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: #111;
+  margin: 0 0 6px;
+}
+
+.camera-cta-sub {
+  font-size: 15px;
+  color: #555;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.camera-cta-btn {
+  display: inline-block;
+  padding: 14px 36px;
+  background: var(--maroon);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: filter 0.15s, transform 0.15s;
+}
+
+.camera-cta-btn:hover {
+  filter: brightness(0.9);
+  transform: translateY(-1px);
+}
+
+/* ── Desktop version (hidden on mobile) ── */
+.camera-cta-desktop {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, #fdf2f3 0%, #fff 100%);
+  border: 1px solid rgba(169, 13, 34, 0.10);
+  border-radius: 16px;
+}
+
+.camera-cta-qr-wrap {
+  flex-shrink: 0;
+}
+
+.camera-cta-qr {
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+}
+
+.camera-cta-qr-text {
+  flex: 1;
+}
+
+.camera-cta-desktop .camera-cta-heading {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.camera-cta-desktop .camera-cta-sub {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+/* ── Responsive: show mobile version, hide desktop ── */
+@media (max-width: 900px) {
+  .camera-cta-mobile {
+    display: block;
+  }
+  .camera-cta-desktop {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .camera-cta {
+    padding: 0 16px 36px;
+  }
+
+  .camera-cta-mobile {
+    padding: 24px 20px;
+  }
+
+  .camera-cta-heading {
+    font-size: 20px;
+  }
+}

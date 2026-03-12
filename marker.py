@@ -7586,7 +7586,11 @@ def analyze_text(
 # Constants for label insertion — labels always go AFTER trailing punctuation.
 # Single unified set so we consume ANY mix of quotes + punctuation in one pass
 # (handles ".", .", ".", ."  etc.)
-LABEL_SKIP_CHARS = {'"', '"', "'", "'", ",", ".", "!", "?", ";", ":"}
+LABEL_SKIP_CHARS = {
+    '"', "\u201c", "\u201d",   # straight + curly double quotes
+    "'", "\u2018", "\u2019",   # straight + curly single quotes
+    ",", ".", "!", "?", ";", ":",
+}
 
 
 def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph_index=None):
@@ -7892,7 +7896,11 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
                 strike=False,
             )
 
-        cursor = mark_start
+        # Never move cursor backwards — a previous mark's LABEL_SKIP_CHARS may
+        # have already advanced past this mark's start (e.g. a zero-length
+        # label anchor placed at a closing-quote position that was already
+        # consumed).  Going backwards would re-emit characters.
+        cursor = max(cursor, mark_start)
 
         # Marked span (if any characters are actually covered)
         marked_color = mark.get("color", None)
@@ -7902,11 +7910,14 @@ def apply_marks(paragraph, flat_text, segments, marks, sentences=None, paragraph
         raw_strike = bool(mark.get("strike"))
         marked_strike = raw_strike and marked_color == WD_COLOR_INDEX.RED
 
-        if mark_start < mark_end:
+        # Only write the marked span if it starts at or after the current
+        # cursor — prevents re-writing text already emitted by an earlier mark.
+        actual_mark_start = max(mark_start, cursor)
+        if actual_mark_start < mark_end:
             append_text_with_italics(
                 paragraph,
                 flat_text,
-                mark_start,
+                actual_mark_start,
                 mark_end,
                 original_italic_spans,
                 color=marked_color,

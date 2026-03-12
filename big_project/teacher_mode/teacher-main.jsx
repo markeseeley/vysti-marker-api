@@ -2,10 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@student/index.css";
 import TeacherApp from "./TeacherApp.jsx";
+import MobileApp from "@student/MobileApp.jsx";
 import ErrorBoundary from "@student/components/ErrorBoundary.jsx";
 import { getConfig, getConfigError, initConfig as initAppConfig } from "@student/config";
 import { initLogger } from "@student/lib/logger";
 import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
+import { isMobilePhone } from "@student/lib/isMobile";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
@@ -38,7 +40,7 @@ renderLoading();
   } catch (err) {
     console.error("Config init failed:", err);
   }
-  const AppComponent = TeacherApp;
+  const AppComponent = isMobilePhone() ? MobileApp : TeacherApp;
   root.render(
     <StrictMode>
       <ErrorBoundary>

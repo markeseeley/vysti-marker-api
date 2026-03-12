@@ -8,6 +8,7 @@
 
 import { useState, useRef, useCallback } from "react";
 
+
 const MAX_PAGES = 20;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
@@ -55,7 +56,18 @@ export default function CameraDropZone({ onImagesReady, disabled = false }) {
     });
   }, []);
 
-  // ------- Drag-to-reorder -------
+  // ------- Reorder helpers -------
+  const moveePage = useCallback((fromIndex, toIndex) => {
+    if (toIndex < 0 || toIndex >= pages.length) return;
+    setPages((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  }, [pages.length]);
+
+  // ------- Drag-to-reorder (desktop) -------
   const handleDragStart = (index) => setDragIndex(index);
   const handleDragOver = (e, index) => {
     e.preventDefault();
@@ -167,7 +179,7 @@ export default function CameraDropZone({ onImagesReady, disabled = false }) {
             <span>{pages.length} page{pages.length !== 1 ? "s" : ""}</span>
             <div className="camera-pages-actions">
               {pages.length > 1 && (
-                <span className="camera-pages-hint">Drag to reorder</span>
+                <span className="camera-pages-hint">{isMobile ? "Tap arrows to reorder" : "Drag to reorder"}</span>
               )}
               <button
                 type="button"
@@ -183,7 +195,7 @@ export default function CameraDropZone({ onImagesReady, disabled = false }) {
               <div
                 key={page.id}
                 className={`camera-page-thumb${dragIndex === i ? " dragging" : ""}`}
-                draggable
+                draggable={!isMobile}
                 onDragStart={() => handleDragStart(i)}
                 onDragOver={(e) => handleDragOver(e, i)}
                 onDragEnd={handleDragEnd}
@@ -198,6 +210,31 @@ export default function CameraDropZone({ onImagesReady, disabled = false }) {
                 >
                   ×
                 </button>
+                {/* Mobile reorder arrows */}
+                {isMobile && pages.length > 1 && (
+                  <div className="camera-page-reorder">
+                    {i > 0 && (
+                      <button
+                        type="button"
+                        className="camera-page-move"
+                        onClick={() => moveePage(i, i - 1)}
+                        aria-label="Move earlier"
+                      >
+                        ‹
+                      </button>
+                    )}
+                    {i < pages.length - 1 && (
+                      <button
+                        type="button"
+                        className="camera-page-move"
+                        onClick={() => moveePage(i, i + 1)}
+                        aria-label="Move later"
+                      >
+                        ›
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

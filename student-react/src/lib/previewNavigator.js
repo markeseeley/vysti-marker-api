@@ -170,6 +170,8 @@ function isVystiLabelTextNode(node) {
   let current = node.parentElement;
   while (current && current.tagName !== "SPAN") current = current.parentElement;
   if (current?.tagName === "SPAN") {
+    // Continuation spans of arrow labels are tagged by tagYellowLabels
+    if (current.classList.contains("vysti-arrow-label")) return true;
     const spanText = (current.textContent || "").trim();
     if (spanText.startsWith("→")) return true;
   }
