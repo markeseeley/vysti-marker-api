@@ -73,13 +73,55 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 def _clean_page_text(text: str) -> str:
-    """Remove bare page numbers and excessive whitespace from a page."""
+    """Remove bare page numbers and reconstruct paragraphs from PDF lines.
+
+    pdfplumber returns one ``\\n`` per visual line in the PDF — both hard
+    line-wraps and real paragraph breaks look the same.  We reconstruct
+    paragraphs by joining consecutive lines that appear to be part of the
+    same paragraph, and inserting ``\\n\\n`` at likely paragraph boundaries.
+    """
     lines = text.split("\n")
-    cleaned = []
+    cleaned: list[str] = []
     for line in lines:
         stripped = line.strip()
-        # Skip bare page numbers (just digits, possibly with surrounding whitespace)
+        # Skip bare page numbers
         if stripped and stripped.isdigit():
             continue
-        cleaned.append(line)
-    return "\n".join(cleaned).strip()
+        if not stripped:
+            # Blank line → definite paragraph break
+            cleaned.append("")
+            continue
+        cleaned.append(stripped)
+
+    # Merge lines into paragraphs.  A new paragraph starts when:
+    #  - the previous line is blank, OR
+    #  - the previous line ends with sentence-ending punctuation AND the
+    #    current line starts with an uppercase letter (heuristic for a
+    #    new paragraph vs. a mid-sentence line wrap).
+    import re
+    _SENTENCE_END = re.compile(r'[.!?;:][""\u2019\u201D)]*$')
+
+    paragraphs: list[str] = []
+    buf: list[str] = []
+
+    for line in cleaned:
+        if not line:
+            # Blank → flush current paragraph
+            if buf:
+                paragraphs.append(" ".join(buf))
+                buf = []
+            continue
+        if buf:
+            prev = buf[-1]
+            # Heuristic: previous line ends a sentence AND this line
+            # starts with uppercase → likely a new paragraph.
+            if _SENTENCE_END.search(prev) and line[0].isupper():
+                paragraphs.append(" ".join(buf))
+                buf = [line]
+                continue
+        buf.append(line)
+
+    if buf:
+        paragraphs.append(" ".join(buf))
+
+    return "\n\n".join(paragraphs)
