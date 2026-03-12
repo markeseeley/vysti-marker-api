@@ -23,7 +23,7 @@ CONCISION_LABELS = [
     "Avoid the word 'which'",
     "Avoid using the word 'and' more than twice in a sentence",
     "Avoid subjective language",
-    "Delete",
+    "Unnecessary language",
 ]
 
 CLARITY_LABELS = [
@@ -57,7 +57,7 @@ UNNECESSARY_LABELS = [
     "No 'I', 'we', 'us', 'our' or 'you' in academic writing",
     "No contractions in academic writing",
     "Avoid subjective language",
-    "Delete",
+    "Unnecessary language",
 ]
 
 WORDY_LABELS = [

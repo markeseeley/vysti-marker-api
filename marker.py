@@ -1004,7 +1004,7 @@ INLINE_LABEL_ALLOWLIST = {
     APOSTROPHE_LABEL,
     EXPLAIN_EVIDENCE_LABEL,
     "Avoid subjective language",
-    "Delete",
+    "Unnecessary language",
     "Avoid the words 'therefore', 'thereby', 'hence', and 'thus'",
 }
 APPROVED_LABELS = None
@@ -6618,13 +6618,13 @@ def analyze_text(
         marks.append({
             "start": match_start,
             "end": match_end,
-            "note": "Delete",
+            "note": "Unnecessary language",
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
             "found_value": flat_text[match_start:match_end],
         })
-        if "Delete" not in labels_used:
-            labels_used.append("Delete")
+        if "Unnecessary language" not in labels_used:
+            labels_used.append("Unnecessary language")
 
     rule_note_in_conclusion = "Use a boundary statement when transitioning between paragraphs"
 
@@ -9121,7 +9121,7 @@ def mark_docx_bytes(
             EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_GUIDANCE,
             "Noun repetition": "Repeating the same noun {COUNT} times weakens your vocabulary range. Use synonyms, pronouns with clear antecedents, or rephrase to demonstrate analytical variety.",
             "Avoid subjective language": "The word <b>{FOUND}</b> is a subjective evaluation — it tells the reader what to think instead of showing them through analysis. Delete it and let the evidence speak for itself. For example, instead of 'Shakespeare's <i>great</i> use of imagery,' write 'Shakespeare's use of imagery reveals…' Your analysis is stronger when it explains <i>how</i> and <i>why</i> rather than making value judgments.",
-            "Delete": "<b>{FOUND}</b> adds no analytical meaning to your sentence. Read the sentence without it — you'll find it says the same thing more clearly. Cutting unnecessary words tightens your prose and keeps your reader focused on your argument.",
+            "Unnecessary language": "<b>{FOUND}</b> adds no analytical meaning to your sentence. Read the sentence without it — you'll find it says the same thing more clearly. Cutting unnecessary words tightens your prose and keeps your reader focused on your argument.",
             "Avoid the words 'therefore', 'thereby', 'hence', and 'thus'": "The word <b>{FOUND}</b> acts as a shortcut that tells the reader a logical connection exists without actually showing it. Replace it by spelling out the relationship between your ideas. For example, instead of 'The author uses symbolism; <i>therefore</i>, the theme is clear,' write 'The author's symbolism of the broken mirror reinforces the theme of fractured identity.' Show the connection — don't just announce it.",
         }
         for _lbl, _guide in _hardcoded_guidance.items():
@@ -9288,7 +9288,7 @@ def run_marker(
         APOSTROPHE_LABEL: APOSTROPHE_EXPLANATION,
         EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_EXPLANATION,
         "Avoid subjective language": "Words like 'great', 'successful', and 'compelling' are subjective evaluations. Remove them and let your analysis speak for itself.",
-        "Delete": "This word or phrase adds no analytical value. Delete it to tighten your prose.",
+        "Unnecessary language": "This word or phrase adds no analytical value. Remove it to tighten your prose.",
         "Avoid the words 'therefore', 'thereby', 'hence', and 'thus'": "These logical connectors weaken academic prose. Replace them with analysis that shows the connection between ideas.",
     }
     for _lbl, _expl in _hardcoded_explanations.items():
