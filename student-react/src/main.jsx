@@ -2,12 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
-import MobileApp from "./MobileApp.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { getConfig, getConfigError, initConfig as initAppConfig } from "./config";
 import { initLogger } from "./lib/logger";
 import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
-import { isMobilePhone } from "./lib/isMobile";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
@@ -41,7 +39,7 @@ if (searchParams.get("classic") === "1") {
     } catch (err) {
       console.error("Config init failed:", err);
     }
-    const AppComponent = isMobilePhone() ? MobileApp : App;
+    const AppComponent = App;
     root.render(
       <StrictMode>
         <ErrorBoundary>

@@ -1,17 +1,23 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
-import WriteApp from "./WriteApp.jsx";
-import ErrorBoundary from "./components/ErrorBoundary.jsx";
-import { getConfig, getConfigError, initConfig as initAppConfig } from "./config";
-import { initLogger } from "./lib/logger";
+import "@student/index.css";
+import TeacherApp from "./TeacherApp.jsx";
+import ErrorBoundary from "@student/components/ErrorBoundary.jsx";
+import { getConfig, getConfigError, initConfig as initAppConfig } from "@student/config";
+import { initLogger } from "@student/lib/logger";
 import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
 
 const renderLoading = () => {
-  root.render(null);
+  root.render(
+    <main className="page teacher-page">
+      <div className="card form-card">
+        <p>Loading…</p>
+      </div>
+    </main>
+  );
 };
 
 renderLoading();
@@ -32,7 +38,7 @@ renderLoading();
   } catch (err) {
     console.error("Config init failed:", err);
   }
-  const AppComponent = WriteApp;
+  const AppComponent = TeacherApp;
   root.render(
     <StrictMode>
       <ErrorBoundary>

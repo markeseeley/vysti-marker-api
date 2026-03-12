@@ -684,6 +684,360 @@
   margin: 0 16px 24px;
 }
 
+/* ── Camera/Review base styles (not loaded from App.css in mobile context) ── */
+
+.camera-dropzone-area {
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.camera-dropzone-area:hover,
+.camera-dropzone-area.drag-over {
+  border-color: #A90D22;
+  background: rgba(169, 13, 34, 0.04);
+}
+
+.camera-dropzone-icon {
+  color: rgba(0, 0, 0, 0.35);
+  margin-bottom: 12px;
+}
+
+.camera-dropzone-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.camera-dropzone-heading {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 4px;
+}
+
+.camera-dropzone-sub {
+  font-size: clamp(13px, 0.80rem + 0.10vw, 15px);
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0;
+}
+
+.camera-dropzone-or {
+  display: block;
+  color: rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  margin: 10px 0;
+}
+
+.camera-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.camera-btn:active {
+  transform: scale(0.97);
+}
+
+.camera-btn-primary {
+  background: #A90D22;
+  color: white;
+}
+
+.camera-btn-secondary {
+  background: rgba(0, 0, 0, 0.06);
+  color: #111;
+}
+
+.camera-btn-transcribe {
+  background: #A90D22;
+  color: white;
+  padding: 14px 28px;
+  font-size: 15px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.camera-btn-transcribe:disabled {
+  background: rgba(0, 0, 0, 0.2);
+  cursor: not-allowed;
+}
+
+.camera-pages {
+  margin-top: 16px;
+}
+
+.camera-pages-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.camera-pages-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.camera-pages-hint {
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+}
+
+.camera-pages-clear {
+  background: none;
+  border: none;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 12px;
+  color: #A90D22;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0;
+}
+
+.camera-pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.camera-page-thumb {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  cursor: grab;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.camera-page-thumb.dragging {
+  opacity: 0.5;
+}
+
+.camera-page-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-page-number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.camera-page-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(169, 13, 34, 0.85);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* TranscriptionReview base styles */
+
+.transcription-review {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.review-title {
+  flex: 1;
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-size: clamp(17px, 0.95rem + 0.5vw, 21px);
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.review-view-toggle {
+  display: flex;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.review-view-toggle button {
+  border: none;
+  background: white;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.review-view-toggle button.active {
+  background: #A90D22;
+  color: white;
+}
+
+.review-page-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.review-page-tab {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: white;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  color: rgba(0, 0, 0, 0.5);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.review-page-tab.active {
+  background: #A90D22;
+  color: white;
+  border-color: #A90D22;
+}
+
+.review-content {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.review-content.text-only {
+  flex-direction: column;
+}
+
+.review-image-panel,
+.review-text-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.review-panel-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-edited-badge {
+  font-size: 10px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.review-image {
+  flex: 1;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+  min-height: 0;
+  max-height: 300px;
+}
+
+.review-textarea {
+  flex: 1;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  font-family: "DM Sans", system-ui, sans-serif;
+  resize: none;
+  color: #111;
+  min-height: 200px;
+}
+
+.review-textarea:focus {
+  outline: none;
+  border-color: #A90D22;
+  box-shadow: 0 0 0 3px rgba(169, 13, 34, 0.1);
+}
+
+.review-warning {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.review-info {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
 /* ── Camera dropzone overrides for mobile context ── */
 /* Inherit Vysti brand colors instead of the generic POC blues */
 
