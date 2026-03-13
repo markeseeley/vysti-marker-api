@@ -44,8 +44,8 @@ export async function markTeacherEssay({
     signal,
   });
 
-  // Check for entitlement/paywall error (402)
-  if (response.status === 402) {
+  // Check for entitlement/paywall error (402) or product-access error (403)
+  if (response.status === 402 || response.status === 403) {
     let msg = "Subscribe for unlimited marking.";
     try {
       const json = await response.json();
@@ -53,7 +53,7 @@ export async function markTeacherEssay({
       msg = detail.message || detail || msg;
     } catch {}
     const err = new Error(typeof msg === "string" ? msg : "Subscribe for unlimited marking.");
-    err.code = "USAGE_LIMIT";
+    err.code = response.status === 403 ? "PRODUCT_ACCESS" : "USAGE_LIMIT";
     err.isEntitlementError = true;
     throw err;
   }
@@ -163,7 +163,7 @@ export async function recheckTeacherText({
     signal,
   });
 
-  if (response.status === 402) {
+  if (response.status === 402 || response.status === 403) {
     let msg = "Subscribe for unlimited marking.";
     try {
       const json = await response.json();
@@ -171,7 +171,7 @@ export async function recheckTeacherText({
       msg = detail.message || detail || msg;
     } catch {}
     const err = new Error(typeof msg === "string" ? msg : "Subscribe for unlimited marking.");
-    err.code = "USAGE_LIMIT";
+    err.code = response.status === 403 ? "PRODUCT_ACCESS" : "USAGE_LIMIT";
     err.isEntitlementError = true;
     throw err;
   }
