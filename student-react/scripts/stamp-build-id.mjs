@@ -90,17 +90,21 @@ async function main() {
     buildId = fallbackId;
   }
 
+  const mobileCSS = "/assets/student-react/assets/isMobile.css";
   const studentAssets = [
     "/assets/student-react/main.js",
-    "/assets/student-react/assets/main.css"
+    "/assets/student-react/assets/main.css",
+    mobileCSS
   ];
   const writeAssets = [
     "/assets/student-react/write-main.js",
-    "/assets/student-react/assets/WriteApp.css"
+    "/assets/student-react/assets/WriteApp.css",
+    mobileCSS
   ];
   const teacherAssets = [
     "/assets/student-react/teacher-main.js",
-    "/assets/student-react/assets/teacher-main.css"
+    "/assets/student-react/assets/teacher-main.css",
+    mobileCSS
   ];
   const profileAssets = [
     "/assets/student-react/profile-main.js",
