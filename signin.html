@@ -552,17 +552,34 @@
     async function handlePostAuth(session) {
       // Hide page content immediately so user doesn't see signin page while redirecting
       document.body.style.visibility = "hidden";
-      try {
-        const resp = await fetch("/api/profile", {
-          headers: { "Authorization": "Bearer " + session.access_token },
-        });
 
-        if (!resp.ok) {
-          console.warn("Profile fetch returned", resp.status, "— redirecting to role selection");
-          window.location.assign("/role.html");
-          return;
+      // Retry profile fetch — mobile browsers sometimes fail on the first attempt
+      let resp = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          resp = await fetch("/api/profile", {
+            headers: { "Authorization": "Bearer " + session.access_token },
+          });
+          break;
+        } catch (err) {
+          console.warn("Profile fetch attempt " + (attempt + 1) + " failed:", err.message);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
         }
+      }
 
+      if (!resp) {
+        console.warn("Profile fetch failed after 3 attempts — redirecting to role selection");
+        window.location.assign("/role.html");
+        return;
+      }
+
+      if (!resp.ok) {
+        console.warn("Profile fetch returned", resp.status, "— redirecting to role selection");
+        window.location.assign("/role.html");
+        return;
+      }
+
+      try {
         const profile = await resp.json();
         const { has_mark, has_revise, has_write } = profile;
 
@@ -580,9 +597,8 @@
           localStorage.setItem("vysti_role", "student");
           window.location.assign(getSafeRedirectTarget("/student_react.html"));
         }
-        return;
       } catch (err) {
-        console.warn("Profile fetch failed, redirecting to role selection:", err);
+        console.warn("Profile parse failed:", err);
         window.location.assign("/role.html");
       }
     }
