@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS coupon_codes (
     description     text,                               -- Internal note, e.g. "Spring 2026 teacher promo"
     max_redemptions int,                                -- NULL = unlimited
     grants_tier     text NOT NULL DEFAULT 'paid',       -- subscription_tier to grant
+    grants_mark     boolean,                            -- NULL = don't change, true/false = set on profile
+    grants_revise   boolean,                            -- NULL = don't change, true/false = set on profile
     is_active       boolean NOT NULL DEFAULT true,      -- Kill switch
     created_at      timestamptz NOT NULL DEFAULT now(),
     expires_at      timestamptz                         -- NULL = never expires

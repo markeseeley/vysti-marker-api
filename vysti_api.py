@@ -1361,7 +1361,7 @@ async def redeem_coupon(
         f"{SUPABASE_URL}/rest/v1/coupon_codes"
         f"?code=eq.{urllib.parse.quote(code, safe='')}"
         f"&is_active=eq.true"
-        f"&select=id,description,max_redemptions,grants_tier,expires_at"
+        f"&select=id,description,max_redemptions,grants_tier,grants_mark,grants_revise,expires_at"
     )
     async with httpx.AsyncClient(timeout=5) as client:
         resp = await client.get(url, headers={
@@ -1424,10 +1424,16 @@ async def redeem_coupon(
 
     # 5. Grant access
     grants_tier = coupon.get("grants_tier", "paid")
-    await _update_profile_fields(user_id, {
+    update_fields = {
         "subscription_tier": grants_tier,
         "subscription_status": "active",
-    })
+    }
+    # If coupon specifies product grants, set them on the profile
+    if coupon.get("grants_mark") is not None:
+        update_fields["has_mark"] = coupon["grants_mark"]
+    if coupon.get("grants_revise") is not None:
+        update_fields["has_revise"] = coupon["grants_revise"]
+    await _update_profile_fields(user_id, update_fields)
 
     return {"redeemed": True, "description": coupon.get("description", "")}
 
