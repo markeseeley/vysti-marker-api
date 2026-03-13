@@ -605,6 +605,93 @@ def require_api_product(*products: str):
     return _check
 
 
+async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
+    """Check if the user's access came from an expired coupon and revoke it.
+
+    Returns the (possibly updated) profile dict.  Skips users with an
+    active Stripe subscription — their access is paid, not coupon-based.
+    """
+    # Don't touch paying customers
+    if profile.get("subscription_status") == "active":
+        return profile
+
+    # Only check users who currently have some product access
+    if not profile.get("has_mark") and not profile.get("has_revise"):
+        return profile
+
+    try:
+        # Fetch this user's coupon redemptions with coupon details
+        url = (
+            f"{SUPABASE_URL}/rest/v1/coupon_redemptions"
+            f"?user_id=eq.{user_id}"
+            f"&select=coupon_id,coupon_codes(expires_at,grants_mark,grants_revise)"
+        )
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            })
+        if resp.status_code != 200:
+            return profile  # query failed — don't block the user
+
+        redemptions = resp.json()
+        if not redemptions:
+            return profile  # no coupons — nothing to revoke
+
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        revoke_mark = False
+        revoke_revise = False
+
+        for r in redemptions:
+            coupon = r.get("coupon_codes") or {}
+            expires_at = coupon.get("expires_at")
+            if not expires_at:
+                continue  # no expiry — coupon is perpetual
+            try:
+                exp = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                continue
+            if now <= exp:
+                continue  # coupon still valid
+
+            # This coupon has expired — flag its grants for revocation
+            if coupon.get("grants_mark"):
+                revoke_mark = True
+            if coupon.get("grants_revise"):
+                revoke_revise = True
+
+        if not revoke_mark and not revoke_revise:
+            return profile
+
+        # Build the revocation patch
+        patch = {}
+        if revoke_mark and profile.get("has_mark"):
+            patch["has_mark"] = False
+        if revoke_revise and profile.get("has_revise"):
+            patch["has_revise"] = False
+
+        if not patch:
+            return profile
+
+        # If revoking all products, also reset tier to free
+        new_mark = patch.get("has_mark", profile.get("has_mark", False))
+        new_revise = patch.get("has_revise", profile.get("has_revise", False))
+        if not new_mark and not new_revise:
+            patch["subscription_tier"] = "free"
+            patch["subscription_status"] = "none"
+
+        await _update_profile_fields(user_id, patch)
+
+        # Return updated profile
+        profile = {**profile, **patch}
+        print(f"Revoked expired coupon access for user {user_id}: {patch}")
+        return profile
+    except Exception as e:
+        print(f"Coupon expiry check failed for {user_id}: {repr(e)}")
+        return profile  # fail open — don't block the user
+
+
 async def _enforce_product_for_mode(user: dict, student_mode: bool) -> None:
     """Raise 403 if the user lacks the product required for the request context.
 
@@ -622,6 +709,10 @@ async def _enforce_product_for_mode(user: dict, student_mode: bool) -> None:
     profile = await get_user_profile(user_id)
     if not profile:
         return  # no profile → require_api_product already raised 403
+
+    # Check for expired coupon access and revoke if needed
+    profile = await _revoke_expired_coupon_access(user_id, profile)
+
     if student_mode:
         if not profile.get("has_revise", False):
             raise HTTPException(
