@@ -99,6 +99,19 @@
             Don't have an account? <a href="#" id="showSignup">Create one</a>
           </p>
 
+          <p class="auth-foot" style="margin-top:4px;">
+            <a href="#" id="showCoupon" class="forgot-link">Have a coupon code?</a>
+          </p>
+
+          <div id="couponSection" class="hidden" style="margin-top:12px;">
+            <div class="field">
+              <label for="couponCode">Coupon Code</label>
+              <input id="couponCode" type="text" placeholder="e.g. REVISE-2026" autocomplete="off" style="text-transform:uppercase;" />
+            </div>
+            <button id="redeemBtn" type="button" style="margin-top:8px;">Redeem Code</button>
+            <div class="status" id="couponStatus"></div>
+          </div>
+
           <div class="status" id="status"></div>
 
           <!-- Dev-only: test as new user (localhost only) -->
@@ -446,6 +459,11 @@
     const enrollBtn    = document.getElementById("enrollBtn");
     const skipEnroll   = document.getElementById("skipEnroll");
     const courseStatus = document.getElementById("courseStatus");
+    const showCouponLink = document.getElementById("showCoupon");
+    const couponSection = document.getElementById("couponSection");
+    const couponCodeEl = document.getElementById("couponCode");
+    const redeemBtn    = document.getElementById("redeemBtn");
+    const couponStatus = document.getElementById("couponStatus");
     const redirectKey  = "post_login_redirect";
 
     // ===== Auth overlay controls =====
@@ -864,6 +882,50 @@
     skipEnroll.addEventListener("click", (e) => {
       e.preventDefault();
       window.location.assign(getSafeRedirectTarget());
+    });
+
+    // ===== Coupon code toggle + redeem =====
+    showCouponLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      couponSection.classList.toggle("hidden");
+      if (!couponSection.classList.contains("hidden")) couponCodeEl.focus();
+    });
+
+    redeemBtn.addEventListener("click", async () => {
+      const code = couponCodeEl.value.trim().toUpperCase();
+      if (!code) {
+        couponStatus.textContent = "Please enter a coupon code.";
+        return;
+      }
+
+      const { data: { session } } = await supa.auth.getSession();
+      if (!session) {
+        couponStatus.textContent = "Please sign in first, then redeem your code.";
+        return;
+      }
+
+      couponStatus.textContent = "Checking code\u2026";
+      try {
+        const resp = await fetch("/api/redeem-coupon", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + session.access_token,
+          },
+          body: JSON.stringify({ code }),
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          couponStatus.textContent = data.detail || "Redemption failed. Please try again.";
+          return;
+        }
+
+        couponStatus.textContent = "Coupon redeemed! Redirecting\u2026";
+        setTimeout(() => handlePostAuth(session), 1000);
+      } catch (err) {
+        couponStatus.textContent = "Network error. Please try again.";
+      }
     });
 
     // ===== Dev panel: only show on localhost =====

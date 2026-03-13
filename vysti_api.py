@@ -1336,6 +1336,102 @@ async def enroll_with_course_code(
     return {"enrolled": True, "course_name": course.get("name", code)}
 
 
+# ── Coupon code redemption ──────────────────────────────────────────
+
+class RedeemCouponRequest(BaseModel):
+    code: str
+
+
+@app.post("/api/redeem-coupon")
+@limiter.limit("10/minute")
+async def redeem_coupon(
+    request: Request,
+    body: RedeemCouponRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Redeem a coupon code: validate, record, and grant access."""
+    code = body.code.strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Coupon code is required")
+
+    user_id = user.get("id")
+
+    # 1. Look up the coupon code
+    url = (
+        f"{SUPABASE_URL}/rest/v1/coupon_codes"
+        f"?code=eq.{urllib.parse.quote(code, safe='')}"
+        f"&is_active=eq.true"
+        f"&select=id,description,max_redemptions,grants_tier,expires_at"
+    )
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(url, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        })
+    coupons = resp.json() if resp.status_code == 200 else []
+    if not coupons:
+        raise HTTPException(status_code=404, detail="Invalid coupon code")
+
+    coupon = coupons[0]
+
+    # 2. Check expiry
+    from datetime import datetime, timezone
+    if coupon.get("expires_at"):
+        expires = datetime.fromisoformat(coupon["expires_at"].replace("Z", "+00:00"))
+        if expires < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="This coupon code has expired")
+
+    # 3. Check redemption capacity
+    if coupon.get("max_redemptions"):
+        count_url = (
+            f"{SUPABASE_URL}/rest/v1/coupon_redemptions"
+            f"?coupon_id=eq.{coupon['id']}&select=id"
+        )
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(count_url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Prefer": "count=exact",
+                "Range-Unit": "items",
+                "Range": "0-0",
+            })
+        count = 0
+        cr = resp.headers.get("content-range", "")
+        if "/" in cr:
+            try:
+                count = int(cr.split("/")[1])
+            except (ValueError, IndexError):
+                pass
+        if count >= coupon["max_redemptions"]:
+            raise HTTPException(status_code=409, detail="This coupon has reached its redemption limit")
+
+    # 4. Record redemption (unique constraint prevents duplicates)
+    redeem_url = f"{SUPABASE_URL}/rest/v1/coupon_redemptions"
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.post(redeem_url, json={
+            "coupon_id": coupon["id"],
+            "user_id": user_id,
+        }, headers={
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        })
+    if resp.status_code == 409 or (resp.status_code >= 400 and "23505" in resp.text):
+        raise HTTPException(status_code=409, detail="You have already redeemed this coupon")
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Redemption failed")
+
+    # 5. Grant access
+    grants_tier = coupon.get("grants_tier", "paid")
+    await _update_profile_fields(user_id, {
+        "subscription_tier": grants_tier,
+        "subscription_status": "active",
+    })
+
+    return {"redeemed": True, "description": coupon.get("description", "")}
+
+
 @app.post("/api/delete-account")
 @limiter.limit("5/minute")
 async def delete_account(
