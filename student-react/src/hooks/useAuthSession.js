@@ -4,7 +4,7 @@ import { logEvent, logCriticalError } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 
-export function useAuthSession(role = "student") {
+export function useAuthSession(role = "student", { skipRedirect = false } = {}) {
   const [supa, setSupa] = useState(null);
   const [isChecking, setIsChecking] = useState(true);
   const [authError, setAuthError] = useState("");
@@ -39,7 +39,12 @@ export function useAuthSession(role = "student") {
         const { data } = await client.auth.getSession();
         if (!data?.session) {
           logEvent("auth_session_missing");
-          redirectToSignin();
+          if (!skipRedirect) {
+            redirectToSignin();
+            return;
+          }
+          // skipRedirect: let the app load without auth (e.g. mobile camera)
+          if (guardActive.current) setIsChecking(false);
           return;
         }
         try { localStorage.setItem("vysti_role", role); } catch {}

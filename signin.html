@@ -476,9 +476,14 @@
     const authOverlay = document.getElementById("authOverlay");
     const allAuthCards = [signinCard, signupCard, resetCard, courseCard];
 
-    function openAuth(mode) {
+    function openAuth(mode, opts) {
       allAuthCards.forEach(c => c.classList.add("hidden"));
-      if (mode === "signup") signupCard.classList.remove("hidden");
+      if (mode === "signup") {
+        // Restore default copy unless caller overrides
+        signupCard.querySelector(".auth-title").textContent = (opts && opts.title) || "Create Account";
+        signupCard.querySelector(".auth-subtitle").textContent = (opts && opts.subtitle) || "Sign up to get started with Vysti";
+        signupCard.classList.remove("hidden");
+      }
       else if (mode === "reset") resetCard.classList.remove("hidden");
       else if (mode === "course") courseCard.classList.remove("hidden");
       else signinCard.classList.remove("hidden");
@@ -496,7 +501,11 @@
     document.getElementById("navSignup").addEventListener("click", () => openAuth("signup"));
     document.getElementById("heroCta").addEventListener("click", () => openAuth("signup"));
     document.getElementById("cameraCameraBtn").addEventListener("click", () => {
-      window.location.href = "/student_react.html";
+      sessionStorage.setItem(redirectKey, "/student_react.html");
+      openAuth("signup", {
+        title: "Get your results in seconds",
+        subtitle: "Create a free account to mark your essay — takes 10 seconds."
+      });
     });
     document.getElementById("authClose").addEventListener("click", closeAuth);
     document.getElementById("authBackdrop").addEventListener("click", closeAuth);
@@ -761,6 +770,9 @@
     showSignup.addEventListener("click", (e) => {
       e.preventDefault();
       signinCard.classList.add("hidden");
+      // Restore default signup copy when toggling from sign-in card
+      signupCard.querySelector(".auth-title").textContent = "Create Account";
+      signupCard.querySelector(".auth-subtitle").textContent = "Sign up to get started with Vysti";
       signupCard.classList.remove("hidden");
       statusEl.textContent = "";
       signupStatusEl.textContent = "";
