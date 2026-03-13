@@ -496,8 +496,7 @@
     document.getElementById("navSignup").addEventListener("click", () => openAuth("signup"));
     document.getElementById("heroCta").addEventListener("click", () => openAuth("signup"));
     document.getElementById("cameraCameraBtn").addEventListener("click", () => {
-      sessionStorage.setItem(redirectKey, "/student_react.html");
-      openAuth("signup");
+      window.location.href = "/student_react.html";
     });
     document.getElementById("authClose").addEventListener("click", closeAuth);
     document.getElementById("authBackdrop").addEventListener("click", closeAuth);
@@ -572,8 +571,33 @@
       return data && data.length > 0;
     }
 
+    // ===== Redeem any pending coupon stored during sign-up =====
+    async function redeemPendingCoupon(session) {
+      const coupon = localStorage.getItem("vysti_pending_coupon");
+      if (!coupon) return;
+      localStorage.removeItem("vysti_pending_coupon");
+      try {
+        const resp = await fetch("/api/redeem-coupon", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + session.access_token,
+          },
+          body: JSON.stringify({ code: coupon }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          console.warn("Coupon redeem failed:", err.detail || resp.status);
+        }
+      } catch (e) {
+        console.warn("Coupon redeem network error:", e);
+      }
+    }
+
     // ===== Post-auth: check profile products, route accordingly =====
     async function handlePostAuth(session) {
+      // Redeem any pending coupon from sign-up before fetching profile
+      await redeemPendingCoupon(session);
       // Hide page content immediately so user doesn't see signin page while redirecting
       document.body.style.visibility = "hidden";
 
@@ -676,6 +700,7 @@
       }
 
       statusEl.textContent = "Signed in. Setting up\u2026";
+      authHandled = true;
       await handlePostAuth(data.session);
     });
 
@@ -835,29 +860,22 @@
         return;
       }
 
+      // Save coupon to localStorage so it survives email confirmation redirect
+      const coupon = signupCouponEl.value.trim().toUpperCase();
+      if (coupon) {
+        localStorage.setItem("vysti_pending_coupon", coupon);
+      }
+
       if (data.session) {
-        // Auto-redeem coupon if one was entered
-        const coupon = signupCouponEl.value.trim().toUpperCase();
-        if (coupon) {
-          signupStatusEl.textContent = "Account created! Applying coupon\u2026";
-          try {
-            await fetch("/api/redeem-coupon", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + data.session.access_token,
-              },
-              body: JSON.stringify({ code: coupon }),
-            });
-          } catch (e) {
-            console.warn("Coupon redeem failed:", e);
-          }
-        } else {
-          signupStatusEl.textContent = "Account created! Setting up\u2026";
-        }
+        authHandled = true;
+        await redeemPendingCoupon(data.session);
         await handlePostAuth(data.session);
       } else {
-        signupStatusEl.textContent = "Check your email for a confirmation link to activate your account.";
+        if (coupon) {
+          signupStatusEl.textContent = "Check your email for a confirmation link. Your coupon code will be applied when you sign in.";
+        } else {
+          signupStatusEl.textContent = "Check your email for a confirmation link to activate your account.";
+        }
       }
     });
 
@@ -946,6 +964,7 @@
         }
 
         couponStatus.textContent = "Coupon redeemed! Redirecting\u2026";
+        authHandled = true;
         setTimeout(() => handlePostAuth(session), 1000);
       } catch (err) {
         couponStatus.textContent = "Network error. Please try again.";
