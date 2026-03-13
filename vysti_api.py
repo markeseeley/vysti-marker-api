@@ -605,6 +605,37 @@ def require_api_product(*products: str):
     return _check
 
 
+async def _enforce_product_for_mode(user: dict, student_mode: bool) -> None:
+    """Raise 403 if the user lacks the product required for the request context.
+
+    • student_mode=True  (Revise / Write) → requires has_revise
+    • student_mode=False (Mark / teacher)  → requires has_mark
+
+    API-key clients and local-dev bypass this check (they are gated by
+    allowed_endpoints in the api_keys table).
+    """
+    if user.get("_is_api_client"):
+        return
+    user_id = user.get("id")
+    if not user_id or user_id == "local-dev":
+        return
+    profile = await get_user_profile(user_id)
+    if not profile:
+        return  # no profile → require_api_product already raised 403
+    if student_mode:
+        if not profile.get("has_revise", False):
+            raise HTTPException(
+                status_code=403,
+                detail="This feature requires access to Revise.",
+            )
+    else:
+        if not profile.get("has_mark", False):
+            raise HTTPException(
+                status_code=403,
+                detail="This feature requires access to Mark.",
+            )
+
+
 # ── Profile helpers & endpoints ──────────────────────────────────────
 
 async def get_user_profile(user_id: str) -> dict | None:
@@ -1915,6 +1946,9 @@ async def mark_essay(
 
     These map directly onto MarkerConfig in marker.py.
     """
+    # 0. Product-level access check based on calling context
+    await _enforce_product_for_mode(user, bool(student_mode))
+
     # 1. Basic validation
     _fname_lower = file.filename.lower() if file.filename else ""
     _is_pdf = _fname_lower.endswith(".pdf")
@@ -3948,6 +3982,9 @@ async def mark_text(
     _is_api_client = user.get("_is_api_client", False) if isinstance(user, dict) else False
     _api_start_time = time.time()
 
+    # 0. Product-level access check based on calling context
+    await _enforce_product_for_mode(user, body.student_mode)
+
     # 0a. Free-tier usage check — skip for API key clients (quota checked in middleware)
     if not _is_api_client:
         _mt_user_id = user.get("id") if isinstance(user, dict) else None
@@ -4226,6 +4263,9 @@ async def check_text(
     """
     _is_api_client = user.get("_is_api_client", False) if isinstance(user, dict) else False
     _api_start_time = time.time()
+
+    # 0. Product-level access check based on calling context
+    await _enforce_product_for_mode(user, body.student_mode)
 
     # 0a. Free-tier usage check — skip for API key clients
     if not _is_api_client:

@@ -258,6 +258,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived }) 
         text,
         mode: state.mode,
       });
+      payload.student_mode = false; // Teacher recheck requires has_mark
 
       // Attach works if configured
       if (state.works?.length > 0) {
