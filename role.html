@@ -180,6 +180,29 @@
         return;
       }
       sessionToken = data.session.access_token;
+
+      // Skip role selector if user already has products (e.g. from a coupon)
+      try {
+        const resp = await fetch("/api/profile", {
+          headers: { "Authorization": "Bearer " + sessionToken },
+        });
+        if (resp.ok) {
+          const profile = await resp.json();
+          if (profile.has_mark || profile.has_revise) {
+            localStorage.setItem("vysti_products", JSON.stringify({
+              has_mark: profile.has_mark,
+              has_revise: profile.has_revise,
+              has_write: profile.has_write || false,
+            }));
+            const landing = profile.has_mark ? "/teacher_react.html" : "/student_react.html";
+            localStorage.setItem("vysti_role", profile.has_mark ? "teacher" : "student");
+            window.location.assign(landing);
+            return;
+          }
+        }
+      } catch (e) {
+        // Profile fetch failed — show role selector as fallback
+      }
     })();
 
     // ===== Select role (free tier — no payment) =====

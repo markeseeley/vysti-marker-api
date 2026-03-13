@@ -4,17 +4,17 @@ import { logError, logCriticalError, logEvent } from "../lib/logger";
 import { extractErrorMessage, fetchWithTimeout, isAuthExpired } from "../lib/request";
 
 function throwIfEntitlementError(response) {
-  if (response.status === 402) {
+  if (response.status === 402 || response.status === 403) {
     return response.json().then((j) => {
       const detail = j.detail || j;
       const err = new Error(detail.message || "Please upgrade to continue.");
-      err.code = detail.code || "USAGE_LIMIT";
+      err.code = response.status === 403 ? "PRODUCT_ACCESS" : (detail.code || "USAGE_LIMIT");
       err.isEntitlementError = true;
       throw err;
     }).catch((e) => {
       if (e.isEntitlementError) throw e;
       const err = new Error("Please upgrade to continue.");
-      err.code = "USAGE_LIMIT";
+      err.code = response.status === 403 ? "PRODUCT_ACCESS" : "USAGE_LIMIT";
       err.isEntitlementError = true;
       throw err;
     });
