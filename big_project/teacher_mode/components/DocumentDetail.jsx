@@ -44,6 +44,7 @@ function clearHighlightsBeforeArrow(arrow) {
     if (isEngineHighlight(prev.style?.backgroundColor)) {
       prev.style.backgroundColor = "";
       prev.style.background = "";
+      prev.style.textDecoration = "";
       prev.style.removeProperty("font-weight");
       prev = prev.previousElementSibling;
       gap = 0;
@@ -456,6 +457,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     element.removeAttribute("data-vysti-meter");
     element.style.backgroundColor = "";
     element.style.background = "";
+    element.style.textDecoration = "";
     element.style.cursor = "";
     element.style.removeProperty("font-weight");
 
@@ -525,6 +527,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       span.removeAttribute("data-vysti-meter");
       span.style.backgroundColor = "";
       span.style.background = "";
+      span.style.textDecoration = "";
       span.style.cursor = "";
       span.style.removeProperty("font-weight");
     }

@@ -4156,16 +4156,19 @@ def analyze_text(
             if in_teacher_title(start) or in_teacher_title(end - 1):
                 continue
 
-            marks.append({
+            first_time = "Avoid subjective language" not in labels_used
+            mark = {
                 "start": start,
                 "end": end,
                 "note": "Avoid subjective language",
                 "color": WD_COLOR_INDEX.RED,
                 "strike": True,
                 "found_value": token.text,
-            })
-            if "Avoid subjective language" not in labels_used:
+            }
+            if first_time:
+                mark["label"] = True
                 labels_used.append("Avoid subjective language")
+            marks.append(mark)
 
     # Apply structural quotation rules based on paragraph role
     if paragraph_role == "intro":
@@ -6672,16 +6675,19 @@ def analyze_text(
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
             continue
 
-        marks.append({
+        first_time = "Unnecessary language" not in labels_used
+        mark = {
             "start": match_start,
             "end": match_end,
             "note": "Unnecessary language",
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
             "found_value": flat_text[match_start:match_end],
-        })
-        if "Unnecessary language" not in labels_used:
+        }
+        if first_time:
+            mark["label"] = True
             labels_used.append("Unnecessary language")
+        marks.append(mark)
 
     rule_note_in_conclusion = "Use a boundary statement when transitioning between paragraphs"
 
@@ -6759,19 +6765,19 @@ def analyze_text(
         if pos_in_spans(match_start, spans) or pos_in_spans(match_end - 1, spans):
             continue
 
-        # Ensure this rule appears in the summary table, but do NOT create a yellow inline label
-        if rule_note_logical not in labels_used:
-            labels_used.append(rule_note_logical)
-
-        marks.append({
+        first_time = rule_note_logical not in labels_used
+        mark = {
             "start": match_start,
             "end": match_end,
             "note": rule_note_logical,
             "color": WD_COLOR_INDEX.RED,
             "strike": True,
             "found_value": match.group(1),
-            # no "label": key here – we only want red strikethrough in the text
-        })
+        }
+        if first_time:
+            mark["label"] = True
+            labels_used.append(rule_note_logical)
+        marks.append(mark)
 
     # -----------------------
     # PHASE 5B — TEXT-AS-TEXT RULES
