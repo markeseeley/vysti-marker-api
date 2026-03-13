@@ -43,7 +43,7 @@ export async function transcribeImages({
   }
 
   const response = await fetchWithTimeout(
-    `${apiBaseUrl}/ocr/transcribe`,
+    `${apiBaseUrl}/api/ocr/transcribe`,
     {
       method: "POST",
       headers: {
