@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
+import { getSupaClient } from "../lib/supa";
 
 /**
  * LexisModal - Displays detected lexis terms with definitions and exploration prompts
@@ -15,11 +16,17 @@ import { getApiBaseUrl } from "@shared/runtimeConfig";
 let _azCache = null;
 let _azPromise = null;
 
-function fetchAllLexis() {
-  if (_azCache) return Promise.resolve(_azCache);
+async function fetchAllLexis() {
+  if (_azCache) return _azCache;
   if (_azPromise) return _azPromise;
   const apiBase = getApiBaseUrl();
-  _azPromise = fetch(`${apiBase}/api/lexis`)
+  const headers = {};
+  const supa = getSupaClient();
+  if (supa) {
+    const { data } = await supa.auth.getSession();
+    if (data?.session) headers.Authorization = `Bearer ${data.session.access_token}`;
+  }
+  _azPromise = fetch(`${apiBase}/api/lexis`, { headers })
     .then((r) => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
