@@ -4806,20 +4806,36 @@
         dateCell.appendChild(dateInput);
         tr.appendChild(dateCell);
 
-        // 2b. Student (classes lens only)
+        // 2b. Student (classes lens only — editable)
         if (currentLens === "classes") {
           const studentCell = document.createElement("td");
-          studentCell.textContent = row.student_name || "\u2014";
-          studentCell.style.fontWeight = "600";
-          studentCell.style.cursor = "pointer";
-          studentCell.title = "Click to filter to this student";
-          studentCell.addEventListener("click", (e) => {
+          const studentInput = document.createElement("input");
+          studentInput.className = "editable-cell";
+          studentInput.style.fontWeight = "600";
+          studentInput.value = row.student_name || "";
+          studentInput.placeholder = "Student name";
+          studentInput.addEventListener("click", (e) => e.stopPropagation());
+          studentInput.addEventListener("dblclick", (e) => {
             e.stopPropagation();
             if (studentFilter && row.student_name) {
               studentFilter.value = row.student_name;
               applyFilters();
             }
           });
+          studentInput.title = "Edit name · double-click to filter";
+          studentInput.addEventListener("blur", async () => {
+            const newVal = studentInput.value.trim();
+            if (newVal !== (row.student_name || "") && row.file_name) {
+              const ok = await patchMarkEvent(row.file_name, { student_name: newVal });
+              if (ok) {
+                row.student_name = newVal;
+                studentInput.classList.add("save-flash");
+                setTimeout(() => studentInput.classList.remove("save-flash"), 800);
+              }
+            }
+          });
+          studentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") studentInput.blur(); });
+          studentCell.appendChild(studentInput);
           tr.appendChild(studentCell);
         }
 
@@ -5194,6 +5210,42 @@
         classRow.appendChild(classSelect);
         panel.appendChild(classRow);
       }
+
+      // ── Student name (editable) ──
+      const studentRow = document.createElement("div");
+      studentRow.style.cssText = "display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;";
+      const studentLabel = document.createElement("div");
+      studentLabel.className = "expand-section-title";
+      studentLabel.textContent = "Student";
+      studentLabel.style.marginBottom = "0";
+      studentRow.appendChild(studentLabel);
+      const studentEdit = document.createElement("input");
+      studentEdit.className = "editable-cell";
+      studentEdit.style.fontWeight = "600";
+      studentEdit.style.width = "200px";
+      studentEdit.value = row.student_name || "";
+      studentEdit.placeholder = "Student name";
+      studentEdit.addEventListener("click", (e) => e.stopPropagation());
+      studentEdit.addEventListener("blur", async () => {
+        const newVal = studentEdit.value.trim();
+        if (newVal !== (row.student_name || "") && row.file_name) {
+          const ok = await patchMarkEvent(row.file_name, { student_name: newVal });
+          if (ok) {
+            row.student_name = newVal;
+            studentEdit.classList.add("save-flash");
+            setTimeout(() => studentEdit.classList.remove("save-flash"), 800);
+            // Update inline cell if visible (classes lens)
+            const parentRow = container.closest("tr")?.previousElementSibling;
+            if (parentRow) {
+              const studentInput = parentRow.querySelector("td:nth-child(3) input.editable-cell");
+              if (studentInput) studentInput.value = newVal;
+            }
+          }
+        }
+      });
+      studentEdit.addEventListener("keydown", (e) => { if (e.key === "Enter") studentEdit.blur(); });
+      studentRow.appendChild(studentEdit);
+      panel.appendChild(studentRow);
 
       panel.appendChild(grid);
       container.appendChild(panel);
