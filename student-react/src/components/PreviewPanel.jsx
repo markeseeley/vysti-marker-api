@@ -188,16 +188,14 @@ export default function PreviewPanel({
                     </div>
                   </div>
                 )}
-                {detectedLexis.length > 0 && (
-                  <button
-                    type="button"
-                    className="secondary-btn lexis-btn"
-                    title="Explore further"
-                    onClick={() => setIsLexisModalOpen(true)}
-                  >
-                    <Search size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Explore
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="secondary-btn lexis-btn"
+                  title="Explore further"
+                  onClick={() => setIsLexisModalOpen(true)}
+                >
+                  <Search size={13} style={{ marginRight: 4, verticalAlign: -2 }} /> Explore
+                </button>
               </div>
             </div>
           ) : null}
