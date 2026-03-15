@@ -2785,7 +2785,7 @@
         // ── My Classes lens: include student_name and class_id ──
         let query = supa
           .from("mark_events")
-          .select("id, created_at, student_name, assignment_name, file_name, mode, label_counts, issues, essay_title, class_id, total_labels, review_status, word_count, scores")
+          .select("id, created_at, student_name, assignment_name, file_name, mode, label_counts, issues, essay_title, class_id, total_labels, review_status, word_count, scores, teacher_comment, score")
           .eq("user_id", userId);
 
         const selectedClass = classFilter ? classFilter.value : "";
@@ -2802,7 +2802,7 @@
         // ── My Writing lens: original personal query ──
         const result = await supa
           .from("mark_events")
-          .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id")
+          .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id, teacher_comment, score")
           .eq("user_id", userId)
           .order("created_at", { ascending: false });
         data = result.data;
@@ -5248,6 +5248,96 @@
       panel.appendChild(studentRow);
 
       panel.appendChild(grid);
+
+      // ── Teacher Comment & Score ──
+      const commentGrid = document.createElement("div");
+      commentGrid.className = "expand-panel-grid";
+      commentGrid.style.marginTop = "12px";
+
+      // Left: Comment
+      const commentSection = document.createElement("div");
+      const commentTitle = document.createElement("div");
+      commentTitle.className = "expand-section-title";
+      commentTitle.textContent = "Teacher Comment";
+      commentSection.appendChild(commentTitle);
+
+      const commentArea = document.createElement("textarea");
+      commentArea.className = "notes-textarea";
+      commentArea.placeholder = "No comment saved yet. Save from Mark to populate.";
+      commentArea.value = row.teacher_comment || "";
+      commentArea.addEventListener("click", (e) => e.stopPropagation());
+      commentArea.addEventListener("blur", async () => {
+        const newVal = commentArea.value.trim();
+        if (newVal !== (row.teacher_comment || "") && row.file_name) {
+          const ok = await patchMarkEvent(row.file_name, { teacher_comment: newVal });
+          if (ok) row.teacher_comment = newVal;
+        }
+      });
+      commentSection.appendChild(commentArea);
+      commentGrid.appendChild(commentSection);
+
+      // Right: Score
+      const scoreSection = document.createElement("div");
+      const scoreTitle = document.createElement("div");
+      scoreTitle.className = "expand-section-title";
+      scoreTitle.textContent = "Score";
+      scoreSection.appendChild(scoreTitle);
+
+      const scoreRow = document.createElement("div");
+      scoreRow.style.cssText = "display:flex;align-items:center;gap:6px;";
+      const scoreInput = document.createElement("input");
+      scoreInput.type = "number";
+      scoreInput.min = "0";
+      scoreInput.max = "100";
+      scoreInput.className = "editable-cell";
+      scoreInput.style.width = "70px";
+      scoreInput.style.textAlign = "center";
+      scoreInput.style.fontWeight = "700";
+      scoreInput.style.fontSize = "16px";
+      scoreInput.value = row.score != null ? row.score : "";
+      scoreInput.placeholder = "—";
+      scoreInput.addEventListener("click", (e) => e.stopPropagation());
+      scoreInput.addEventListener("blur", async () => {
+        const raw = scoreInput.value.trim();
+        const newVal = raw === "" ? null : Math.max(0, Math.min(100, parseInt(raw, 10)));
+        if (isNaN(newVal) && raw !== "") return;
+        const oldVal = row.score != null ? row.score : null;
+        if (newVal !== oldVal && row.file_name) {
+          const ok = await patchMarkEvent(row.file_name, { score: newVal != null ? newVal : 0 });
+          if (ok) {
+            row.score = newVal;
+            scoreInput.classList.add("save-flash");
+            setTimeout(() => scoreInput.classList.remove("save-flash"), 800);
+          }
+        }
+      });
+      scoreInput.addEventListener("keydown", (e) => { if (e.key === "Enter") scoreInput.blur(); });
+      scoreRow.appendChild(scoreInput);
+      const pctLabel = document.createElement("span");
+      pctLabel.style.cssText = "font-size:14px;color:var(--muted);";
+      pctLabel.textContent = "%";
+      scoreRow.appendChild(pctLabel);
+      scoreSection.appendChild(scoreRow);
+
+      // Show Vysti auto-scores for context if available
+      if (row.scores) {
+        const meterRow = document.createElement("div");
+        meterRow.style.cssText = "margin-top:8px;font-size:12px;color:var(--muted);line-height:1.6;";
+        const names = { power: "Power", variety: "Analysis", cohesion: "Cohesion", precision: "Precision" };
+        Object.entries(names).forEach(([key, label]) => {
+          const val = row.scores?.[key]?.score;
+          if (val != null) {
+            const line = document.createElement("div");
+            line.textContent = `${label}: ${val}`;
+            meterRow.appendChild(line);
+          }
+        });
+        scoreSection.appendChild(meterRow);
+      }
+
+      commentGrid.appendChild(scoreSection);
+      panel.appendChild(commentGrid);
+
       container.appendChild(panel);
     }
 
