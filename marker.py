@@ -9453,22 +9453,68 @@ def run_marker(
         if not intro_text:
             continue
 
-        # Overwrite the original paragraph so it only contains the title.
-        # (We don't try to preserve fine-grained run formatting here; the
-        #  marker will re-mark any text-title formatting issues anyway.)
-        p.text = title_text
+        # Split the paragraph at the character boundary, preserving run formatting.
+        # Walk runs to find the split point in the original run structure.
+        char_offset = 0
+        split_run_idx = None
+        split_char_in_run = None
+        for ri, run in enumerate(p.runs):
+            run_len = len(extract_run_text(run))
+            if char_offset + run_len > end_idx:
+                split_run_idx = ri
+                split_char_in_run = end_idx - char_offset
+                break
+            char_offset += run_len
 
-        # Insert a new paragraph *after* this one with the intro content.
-        parent = p._element.getparent()
-        new_p = OxmlElement("w:p")
+        if split_run_idx is not None:
+            # Collect runs for the new (intro) paragraph
+            intro_runs_data = []
+            runs_to_remove = []
 
-        r = OxmlElement("w:r")
-        t = OxmlElement("w:t")
-        t.text = intro_text
-        r.append(t)
-        new_p.append(r)
+            for ri in range(split_run_idx, len(p.runs)):
+                run = p.runs[ri]
+                run_text = extract_run_text(run)
+                is_italic = run_is_italic(run)
+                is_bold = bool(run.font.bold)
 
-        parent.insert(parent.index(p._element) + 1, new_p)
+                if ri == split_run_idx:
+                    # Split this run: title part stays, intro part moves
+                    title_part = run_text[:split_char_in_run]
+                    intro_part = run_text[split_char_in_run:].lstrip()
+                    run.text = title_part.rstrip()
+                    if intro_part:
+                        intro_runs_data.append((intro_part, is_italic, is_bold))
+                else:
+                    # Entire run moves to the intro paragraph
+                    intro_runs_data.append((run_text, is_italic, is_bold))
+                    runs_to_remove.append(run)
+
+            # Remove trailing runs from the title paragraph
+            for run in runs_to_remove:
+                p._element.remove(run._element)
+
+            # Build the new intro paragraph with preserved formatting
+            parent = p._element.getparent()
+            new_p = OxmlElement("w:p")
+            for run_text, is_italic, is_bold in intro_runs_data:
+                r_el = OxmlElement("w:r")
+                t_el = OxmlElement("w:t")
+                t_el.text = run_text
+                t_el.set(qn("xml:space"), "preserve")
+                r_el.append(t_el)
+                new_p.append(r_el)
+            parent.insert(parent.index(p._element) + 1, new_p)
+        else:
+            # Fallback: simple text split (shouldn't normally happen)
+            p.text = title_text
+            parent = p._element.getparent()
+            new_p = OxmlElement("w:p")
+            r = OxmlElement("w:r")
+            t = OxmlElement("w:t")
+            t.text = intro_text
+            r.append(t)
+            new_p.append(r)
+            parent.insert(parent.index(p._element) + 1, new_p)
 
         # We only need to fix the first combined title+intro; bail out.
         break
@@ -9511,20 +9557,31 @@ def run_marker(
     # If we found a contiguous block of title paragraphs, merge them
     if title_start_idx is not None and title_end_idx is not None and title_end_idx > title_start_idx:
         base_para = tmp_real_paragraphs[title_start_idx][1]
-        parts = []
-        for merge_idx in range(title_start_idx, title_end_idx + 1):
+
+        # Merge subsequent paragraphs into base_para by copying their runs
+        # (preserves italic and other character formatting).
+        for merge_idx in range(title_start_idx + 1, title_end_idx + 1):
             _, para = tmp_real_paragraphs[merge_idx]
             text = para.text or ""
             if text.strip():
-                # Separate merged pieces with a single space
-                parts.append(text.strip())
-            if merge_idx != title_start_idx:
-                parent = para._element.getparent()
-                if parent is not None:
-                    parent.remove(para._element)
-        base_para.text = " ".join(parts)
+                # Add a separating space run between merged paragraphs
+                space_run = base_para.add_run(" ")
+                enforce_font(space_run)
+                # Copy each run from the source paragraph, preserving formatting
+                for src_run in para.runs:
+                    if not src_run.text:
+                        continue
+                    new_run = base_para.add_run(src_run.text)
+                    enforce_font(new_run)
+                    if run_is_italic(src_run):
+                        new_run.font.italic = True
+                    if src_run.font.bold:
+                        new_run.font.bold = True
+            parent = para._element.getparent()
+            if parent is not None:
+                parent.remove(para._element)
 
-        # NEW: ensure the merged student title uses Times New Roman 12
+        # Ensure the base paragraph's original runs also use Times New Roman 12
         for run in base_para.runs:
             enforce_font(run)
 
@@ -9567,20 +9624,28 @@ def run_marker(
             # Base paragraph that will hold the entire PEEL paragraph text
             base_para = tmp_real_paragraphs[peel_start_idx][1]
 
-            parts = [base_para.text or ""]
-            # Merge every later *content* paragraph into base_para
+            # Merge every later *content* paragraph into base_para by
+            # copying runs (preserves italic and other character formatting).
             for _, p in tmp_real_paragraphs[peel_start_idx + 1:]:
                 text = p.text or ""
                 if text.strip():
-                    # Separate paragraphs with a single space so sentences
-                    # don't jam together.
-                    parts.append(" " + text)
+                    # Add a separating space run between merged paragraphs
+                    space_run = base_para.add_run(" ")
+                    enforce_font(space_run)
+                    # Copy each run, preserving formatting
+                    for src_run in p.runs:
+                        if not src_run.text:
+                            continue
+                        new_run = base_para.add_run(src_run.text)
+                        enforce_font(new_run)
+                        if run_is_italic(src_run):
+                            new_run.font.italic = True
+                        if src_run.font.bold:
+                            new_run.font.bold = True
 
                 # Physically remove this paragraph node from the document
                 parent = p._element.getparent()
                 parent.remove(p._element)
-
-            base_para.text = "".join(parts)
 
     # After optional PEEL flattening, recompute real_paragraphs as usual.
     real_paragraphs = [
@@ -10142,7 +10207,7 @@ def run_marker(
     # Build issue metadata directly (replaces the old summary table)
     unique_labels = []
     for lbl in labels_used:
-        if lbl and lbl not in unique_labels:
+        if lbl and lbl not in unique_labels and not lbl.startswith("__"):
             unique_labels.append(lbl)
     unique_labels.sort(key=lambda s: s.split()[0].lower())
     DOC_ISSUES_METADATA = [
