@@ -3066,6 +3066,7 @@
         buckets.forEach((v, k) => { if (meterTotals[k] !== undefined) meterTotals[k] += v; });
         if (row.label_counts) {
           Object.entries(row.label_counts).forEach(([l, c]) => {
+            if (l.startsWith("__")) return; // skip internal tracking keys
             labelTotals[l] = (labelTotals[l] || 0) + (Number(c) || 0);
           });
         }
@@ -6593,6 +6594,7 @@
             class_id: classId,
             student_name: s.student_name,
             notes: s.notes || null,
+            semester_comment: s.semester_comment || null,
           }));
           await supa.from("class_students").insert(rows);
         }

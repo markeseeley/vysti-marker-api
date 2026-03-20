@@ -9,6 +9,8 @@ import json
 import base64
 import hashlib
 import time
+import random
+import pathlib
 from io import BytesIO
 from scoring import compute_scores as _compute_scores
 from pdf_extract import extract_text_from_pdf, PDFExtractionError
@@ -1820,6 +1822,12 @@ def serve_profile_react():
     return FileResponse("profile_react.html")
 
 
+@app.get("/practice.html")
+def serve_practice():
+    """Serve the Practice page (no auth required)"""
+    return FileResponse("practice.html")
+
+
 @app.get("/manifest.json")
 def serve_manifest():
     """Serve PWA manifest"""
@@ -2292,7 +2300,7 @@ async def mark_essay(
         if not isinstance(issue, dict):
             continue
         lbl = issue.get("label")
-        if not lbl:
+        if not lbl or lbl.startswith("__"):
             continue
         cnt = issue.get("count")
         try:
@@ -3145,7 +3153,7 @@ async def ingest_marked_essay(
         if not isinstance(issue, dict):
             continue
         lbl = issue.get("label")
-        if not lbl:
+        if not lbl or lbl.startswith("__"):
             continue
         cnt = issue.get("count")
         try:
@@ -4051,6 +4059,347 @@ async def check_revision(
     )
 
 
+class PracticeAnalyzeRequest(BaseModel):
+    sentence: str
+    mode: str | None = None
+
+
+# Labels that require full-essay context and cannot be fixed in single-sentence Practice
+_PRACTICE_SKIP_LABELS = {
+    "the first sentence should state the author",
+    "closed thesis statement",
+    "close thesis statement",
+    "use a closed thesis",
+    "the thesis should close",
+    "topic sentence should state",
+    "topic sentences stating",
+    "the topic sentence should clearly",
+    "final sentence of a body paragraph",
+    "final sentence should link",
+    "explain your evidence",
+    "explain evidence",
+    "introduce quotations",
+    "quotation should be introduced",
+    "embed quotations",
+    "clarify pronoun",
+    "review how you refer to the author",
+    "refer to the author by last name",
+    "check title formatting",
+    "paragraph is too short",
+    "paragraph is too long",
+    "noun repetition",
+    "no quotations in thesis",
+    "essay title format",
+    "capitalize the words in the title",
+    "topics in the thesis statement",
+}
+
+
+def _is_practice_relevant(label: str) -> bool:
+    """Return True if this label is fixable in single-sentence Practice."""
+    norm = label.lower().strip()
+    for skip in _PRACTICE_SKIP_LABELS:
+        if skip in norm:
+            return False
+    return True
+
+
+def _extract_practice_issues(metadata: dict) -> list[dict]:
+    """
+    Extract issues from marker metadata for the Practice page.
+    Returns a list of {label, found_value, explanation, student_guidance}
+    using the *examples* list (one entry per flagged word) enriched with
+    explanation/guidance from the *issues* list (one entry per unique label).
+    Filters out structural/context-dependent labels.
+    """
+    issues_meta = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
+
+    # Build lookup: label → {explanation, student_guidance} from issues metadata
+    guidance_by_label = {}
+    for iss in issues_meta:
+        if not isinstance(iss, dict):
+            continue
+        lbl = iss.get("label", "")
+        if lbl and lbl not in guidance_by_label:
+            guidance_by_label[lbl] = {
+                "explanation": iss.get("explanation", ""),
+                "student_guidance": iss.get("student_guidance", ""),
+            }
+
+    # Build practice issues from examples (each flagged word = one issue)
+    result = []
+    for ex in examples:
+        if not isinstance(ex, dict):
+            continue
+        label = ex.get("label", "")
+        if not label or not _is_practice_relevant(label):
+            continue
+        info = guidance_by_label.get(label, {})
+        result.append({
+            "label": label,
+            "found_value": ex.get("found_value", ""),
+            "explanation": info.get("explanation", ""),
+            "student_guidance": info.get("student_guidance", ""),
+        })
+
+    return result
+
+
+@app.post("/practice/analyze")
+@limiter.limit("20/minute")
+async def analyze_practice(
+    request: Request,
+    body: PracticeAnalyzeRequest,
+):
+    """
+    Unauthenticated endpoint that runs the marker on a sentence and returns
+    all issues found, with explanation and guidance for each.
+    Used by the Practice page to dynamically discover issues at load time.
+    """
+    if not body.sentence or not body.sentence.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sentence cannot be empty",
+        )
+
+    if len(body.sentence) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sentence exceeds maximum length of 2000 characters",
+        )
+
+    mode = body.mode or "textual_analysis"
+    mark_docx_bytes, _ = get_engine()
+
+    doc = build_doc_from_text(body.sentence.strip())
+    _, metadata = mark_docx_bytes(doc, mode=mode)
+
+    issues = _extract_practice_issues(metadata)
+
+    return JSONResponse(content={"issues": issues})
+
+
+@app.post("/practice/check-all")
+@limiter.limit("20/minute")
+async def check_practice_all(
+    request: Request,
+    body: RevisionCheckRequest,
+):
+    """
+    Unauthenticated endpoint that runs the marker on a rewrite and returns
+    ALL issues found (with explanation and guidance).  The frontend compares
+    against the original issue list to decide resolved / still-present / new.
+    """
+    if not body.rewrite or not body.rewrite.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rewrite cannot be empty or whitespace only",
+        )
+
+    if len(body.rewrite) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rewrite exceeds maximum length of 2000 characters",
+        )
+
+    if not body.original_sentence:
+        return JSONResponse(content={"issues": [], "error": "Original sentence is required."})
+
+    if normalize_text(body.rewrite) == normalize_text(body.original_sentence):
+        return JSONResponse(content={"issues": [], "unchanged": True})
+
+    mode = body.mode or "textual_analysis"
+    teacher_config = build_teacher_config_from_titles(body.titles)
+
+    mark_docx_bytes, _ = get_engine()
+
+    doc_rewrite = build_doc_from_text(body.rewrite.strip())
+    _, metadata_rewrite = mark_docx_bytes(
+        doc_rewrite,
+        mode=mode,
+        teacher_config=teacher_config if teacher_config else None,
+    )
+
+    issues = _extract_practice_issues(metadata_rewrite)
+
+    return JSONResponse(content={"issues": issues})
+
+
+# ── Practice essay directory ──
+_PRACTICE_ESSAYS_DIR = pathlib.Path(__file__).parent / "Test Essays"
+
+
+@app.get("/practice/random-essay")
+@limiter.limit("10/minute")
+async def practice_random_essay(request: Request):
+    """
+    Unauthenticated endpoint that picks a random Test Essay .docx,
+    runs it through the marker, computes scores, and returns the marked
+    document + metadata in the same JSON format as /mark (return_metadata).
+    """
+    if not _PRACTICE_ESSAYS_DIR.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Practice essays directory not found",
+        )
+
+    docx_files = list(_PRACTICE_ESSAYS_DIR.glob("*.docx"))
+    if not docx_files:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No practice essays available",
+        )
+
+    chosen = random.choice(docx_files)
+    docx_bytes = chosen.read_bytes()
+    mode = "textual_analysis"
+
+    mark_docx_bytes_fn, _ = get_engine()
+    marked_bytes, metadata = mark_docx_bytes_fn(
+        docx_bytes,
+        mode=mode,
+        include_summary_table=True,
+    )
+
+    # Count labels
+    issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
+    label_counter = Counter()
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        lbl = issue.get("label", "")
+        cnt = issue.get("count")
+        if lbl:
+            label_counter[lbl] = cnt if isinstance(cnt, int) else 1
+
+    # Compute scores
+    scores = None
+    try:
+        from docx import Document as _Document
+        orig_doc = _Document(BytesIO(docx_bytes))
+        essay_text = "\n\n".join(
+            p.text.strip() for p in orig_doc.paragraphs if p.text.strip()
+        )
+        scores = _compute_scores(
+            essay_text,
+            mode=mode,
+            label_counts=dict(label_counter),
+            mark_event_id=None,
+            sentence_types=(
+                metadata.get("sentence_types", {})
+                if isinstance(metadata, dict) else {}
+            ),
+            repeated_nouns=(
+                metadata.get("repeated_nouns", [])
+                if isinstance(metadata, dict) else []
+            ),
+        )
+    except Exception as e:
+        if _DEBUG:
+            print(f"[PRACTICE] Score computation failed: {repr(e)}")
+
+    # Build enriched metadata (same shape as /mark return_metadata)
+    enriched = dict(metadata) if isinstance(metadata, dict) else {}
+    enriched["label_counts"] = dict(label_counter)
+    if scores:
+        enriched["scores"] = scores
+    if "issues" in enriched:
+        enriched["issues"] = _strip_ip_from_issues(enriched["issues"])
+    if "examples" in enriched:
+        enriched["examples"] = _strip_ip_from_examples(enriched["examples"])
+
+    return JSONResponse({
+        "document": base64.b64encode(marked_bytes).decode("utf-8"),
+        "filename": chosen.name,
+        "metadata": _sanitize_for_json(enriched),
+    })
+
+
+@app.post("/practice/revision-check")
+@limiter.limit("40/minute")
+async def practice_revision_check(
+    request: Request,
+    body: RevisionCheckRequest,
+):
+    """
+    Unauthenticated version of /revision/check for Practice page.
+    Checks if a rewritten sentence still triggers a specific issue label.
+    """
+    if not body.rewrite or not body.rewrite.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rewrite cannot be empty or whitespace only",
+        )
+
+    if len(body.rewrite) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rewrite exceeds maximum length of 2000 characters",
+        )
+
+    if not body.original_sentence:
+        return JSONResponse(
+            content={
+                "approved": False,
+                "message": "Original sentence is required for validation.",
+            }
+        )
+
+    if normalize_text(body.rewrite) == normalize_text(body.original_sentence):
+        return JSONResponse(
+            content={
+                "approved": False,
+                "message": "No changes detected — edit the example before checking.",
+            }
+        )
+
+    label_value = body.label_trimmed or body.label
+    mode = body.mode or "textual_analysis"
+    teacher_config = build_teacher_config_from_titles(body.titles)
+
+    mark_docx_bytes_fn, _ = get_engine()
+    normalized_label_val = normalize_label(label_value)
+
+    doc_rewrite = build_doc_from_text(body.rewrite.strip())
+    _, metadata_rewrite = mark_docx_bytes_fn(
+        doc_rewrite,
+        mode=mode,
+        teacher_config=teacher_config if teacher_config else None,
+    )
+
+    examples_rewrite = (
+        metadata_rewrite.get("examples", [])
+        if isinstance(metadata_rewrite, dict)
+        else []
+    )
+
+    rewrite_count = sum(
+        1
+        for ex in examples_rewrite
+        if isinstance(ex, dict)
+        and normalize_label(ex.get("label", "")) == normalized_label_val
+    )
+
+    if rewrite_count == 0:
+        return JSONResponse(
+            content={
+                "approved": True,
+                "message": "Looks good! Revision approved.",
+                "after_count": rewrite_count,
+            }
+        )
+
+    return JSONResponse(
+        content={
+            "approved": False,
+            "message": "Still needs revision — the issue is still triggering here.",
+            "after_count": rewrite_count,
+        }
+    )
+
+
 @app.post("/mark_text")
 @limiter.limit("20/minute")
 async def mark_text(
@@ -4163,7 +4512,7 @@ async def mark_text(
         if not isinstance(issue, dict):
             continue
         lbl = issue.get("label")
-        if not lbl:
+        if not lbl or lbl.startswith("__"):
             continue
         cnt = issue.get("count")
         try:
@@ -4411,7 +4760,7 @@ async def check_text(
         if not isinstance(issue, dict):
             continue
         lbl = issue.get("label")
-        if not lbl:
+        if not lbl or lbl.startswith("__"):
             continue
         cnt = issue.get("count")
         try:
