@@ -347,6 +347,20 @@
       color: #fff;
       border-color: var(--maroon);
     }
+    .bulk-actions .refresh-btn {
+      border-color: rgba(0,0,0,.18);
+      color: rgba(0,0,0,.55);
+      margin-left: auto;
+    }
+    .bulk-actions .refresh-btn:hover:not(:disabled) {
+      background: rgba(0,0,0,.06);
+      border-color: rgba(0,0,0,.25);
+      color: rgba(0,0,0,.75);
+    }
+    .bulk-actions .refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
     .compare-reset-btn {
       padding: 5px 14px;
@@ -1850,6 +1864,7 @@
           <button type="button" class="compare-btn" id="compareBtn" disabled>Compare</button>
           <button type="button" class="report-btn" id="reportBtn" disabled>See Overview</button>
           <button type="button" class="report-btn final-report-btn" id="finalReportBtn" disabled>Final Report</button>
+          <button type="button" class="refresh-btn" id="refreshDataBtn">Refresh</button>
           <span class="delete-progress" id="deleteProgress" style="display:none;"><span class="spinner"></span> Deleting...</span>
           <span class="selected-count" id="selectedCount"></span>
         </div>
@@ -5406,6 +5421,15 @@
         renderChartChips();
         updateBucketChart();
       }
+    });
+
+    // ── Refresh button ──
+    document.getElementById("refreshDataBtn").addEventListener("click", async function () {
+      this.disabled = true;
+      this.textContent = "Refreshing\u2026";
+      await loadData();
+      this.textContent = "Refresh";
+      this.disabled = false;
     });
 
     // ── Selection limits ──
