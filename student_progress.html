@@ -1134,6 +1134,7 @@
       cursor: pointer;
       transition: background 0.15s;
       font-size: 13px;
+      position: relative;
     }
     .workflow-card-item:hover {
       background: rgba(0,0,0,.06);
@@ -1180,6 +1181,56 @@
       background: rgba(0,0,0,.05);
       white-space: nowrap;
     }
+    /* ── Workflow card item kebab menu ── */
+    .wf-item-menu-btn {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      color: rgba(0,0,0,.3);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .workflow-card-item:hover .wf-item-menu-btn { opacity: 1; }
+    .wf-item-menu-btn:hover { background: rgba(0,0,0,.08); color: rgba(0,0,0,.6); }
+    .wf-item-menu {
+      position: absolute;
+      right: 6px;
+      top: 100%;
+      z-index: 100;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.12);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.12);
+      min-width: 160px;
+      padding: 4px 0;
+      font-size: 12px;
+      font-family: var(--font-body);
+    }
+    .wf-item-menu-option {
+      display: block;
+      width: 100%;
+      padding: 7px 14px;
+      border: none;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      color: rgba(0,0,0,.7);
+      font-size: 12px;
+      font-family: var(--font-body);
+    }
+    .wf-item-menu-option:hover { background: rgba(0,0,0,.05); }
+    .wf-item-menu-option--danger { color: #dc3545; }
+    .wf-item-menu-option--danger:hover { background: rgba(220,53,69,.06); }
     .wf-loading .workflow-cards-row {
       opacity: 0.45;
       pointer-events: none;
@@ -1492,6 +1543,32 @@
       padding: 6px 10px; font-family: 'DM Sans', sans-serif; font-size: 13px;
     }
     .semester-course-input:focus { border-color: var(--maroon); outline: none; }
+
+    /* ── Semester modal tabs ── */
+    .semester-tabs {
+      display: flex; gap: 0; margin-bottom: 18px;
+      border-bottom: 2px solid rgba(0,0,0,.08);
+    }
+    .semester-tab {
+      padding: 8px 18px; border: none; background: none;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+      color: rgba(0,0,0,.4); cursor: pointer; position: relative;
+      transition: color .15s;
+    }
+    .semester-tab:hover { color: rgba(0,0,0,.7); }
+    .semester-tab.active {
+      color: var(--maroon, #A90D22);
+    }
+    .semester-tab.active::after {
+      content: ''; position: absolute; left: 0; right: 0; bottom: -2px;
+      height: 2px; background: var(--maroon, #A90D22); border-radius: 1px;
+    }
+    .semester-tab:disabled {
+      color: rgba(0,0,0,.2); cursor: not-allowed;
+    }
+    .semester-tab:disabled:hover { color: rgba(0,0,0,.2); }
+    .semester-tab-panel { display: none; }
+    .semester-tab-panel.active { display: block; }
 
     /* ── Roster chip comment icon ── */
     .roster-chip-comment {
@@ -2994,8 +3071,8 @@
         const commentPreview = document.createElement("div");
         commentPreview.className = "roster-chip-comment-preview";
         const rosterEntryForPreview = rosterStudents.find(s => s.student_name === name);
-        if (rosterEntryForPreview && rosterEntryForPreview.semester_comment) {
-          commentPreview.textContent = rosterEntryForPreview.semester_comment;
+        if (rosterEntryForPreview && (rosterEntryForPreview.notes || rosterEntryForPreview.semester_comment)) {
+          commentPreview.textContent = rosterEntryForPreview.notes || rosterEntryForPreview.semester_comment;
         }
         info.appendChild(commentPreview);
 
@@ -3018,7 +3095,7 @@
         commentBtn.type = "button";
         commentBtn.className = "roster-chip-comment";
         const rosterEntry = rosterStudents.find(s => s.student_name === name);
-        if (rosterEntry && rosterEntry.semester_comment) commentBtn.classList.add("has-comment");
+        if (rosterEntry && (rosterEntry.semester_comment || rosterEntry.notes)) commentBtn.classList.add("has-comment");
         commentBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
         commentBtn.title = "Comment";
         commentBtn.addEventListener("click", (e) => {
@@ -3311,37 +3388,107 @@
 
     function openSemesterCommentModal(studentName) {
       const rows = allData.filter(r => r.student_name === studentName);
+      const hasData = rows.length > 0;
       const overlay = document.getElementById("semesterOverlay");
       const body = document.getElementById("semesterBody");
       const title = document.getElementById("semesterTitle");
-      title.textContent = "Comment for " + studentName;
+      title.textContent = studentName;
+      const roster = rosterStudents.find(s => s.student_name === studentName);
 
-      if (rows.length === 0) {
-        body.innerHTML = '<div class="semester-no-data">No marking data available for this student. You can write a comment manually below.</div>' +
-          '<div class="semester-combined-label">COMMENT</div>' +
-          '<textarea class="semester-combined-textarea" id="semesterCombined" placeholder="Write a comment\u2026"></textarea>' +
-          '<div class="semester-actions"><div></div><div class="semester-actions-right">' +
-          '<button class="semester-btn" id="semesterCopy">Copy</button>' +
-          '<button class="semester-btn semester-btn-primary" id="semesterSave">Save</button></div></div>';
-        // Load saved comment if exists
-        const roster = rosterStudents.find(s => s.student_name === studentName);
-        if (roster?.semester_comment) {
-          document.getElementById("semesterCombined").value = roster.semester_comment;
-        }
-        _scState = { studentName, stats: null };
-        _scBindActions();
-        overlay.classList.add("visible");
-        return;
+      // ── Build tabbed layout ──
+      let html = '<div class="semester-tabs">' +
+        '<button class="semester-tab active" data-tab="note">Note</button>' +
+        '<button class="semester-tab' + (hasData ? '' : ' disabled') + '"' +
+        (hasData ? '' : ' disabled title="Mark at least one essay to generate a final comment"') +
+        ' data-tab="final">Final Comment</button></div>';
+
+      // ── Note tab ──
+      html += '<div class="semester-tab-panel active" id="scPanelNote">' +
+        '<div class="semester-combined-label">NOTE</div>' +
+        '<textarea class="semester-combined-textarea" id="semesterNoteText" placeholder="Write a note about this student\u2026"></textarea>' +
+        '<div class="semester-actions"><div></div><div class="semester-actions-right">' +
+        '<button class="semester-btn" id="semesterNoteCopy">Copy</button>' +
+        '<button class="semester-btn semester-btn-primary" id="semesterNoteSave">Save</button>' +
+        '</div></div></div>';
+
+      // ── Final Comment tab ──
+      html += '<div class="semester-tab-panel" id="scPanelFinal"></div>';
+
+      body.innerHTML = html;
+
+      // Load saved note
+      if (roster?.notes) {
+        document.getElementById("semesterNoteText").value = roster.notes;
       }
 
-      const stats = computeSemesterStats(studentName, rows);
-      const recommendedTiers = scAutoSelectTiers(stats);
-      const tiers = { ...recommendedTiers };
-      const courseName = "";
-      const vars = scBuildVars(stats, courseName);
+      // ── Tab switching ──
+      body.querySelectorAll(".semester-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+          if (tab.disabled) return;
+          body.querySelectorAll(".semester-tab").forEach(t => t.classList.remove("active"));
+          body.querySelectorAll(".semester-tab-panel").forEach(p => p.classList.remove("active"));
+          tab.classList.add("active");
+          document.getElementById(tab.dataset.tab === "note" ? "scPanelNote" : "scPanelFinal").classList.add("active");
+        });
+      });
 
-      _scState = { stats, tiers, recommendedTiers, vars, studentName, courseName };
-      _scRenderModal(body, stats);
+      // ── Note tab actions ──
+      document.getElementById("semesterNoteCopy")?.addEventListener("click", async () => {
+        const text = document.getElementById("semesterNoteText").value;
+        try {
+          await navigator.clipboard.writeText(text);
+          const btn = document.getElementById("semesterNoteCopy");
+          btn.classList.add("copied"); btn.textContent = "Copied!";
+          setTimeout(() => { btn.classList.remove("copied"); btn.textContent = "Copy"; }, 1500);
+        } catch {}
+      });
+      document.getElementById("semesterNoteSave")?.addEventListener("click", async () => {
+        const text = document.getElementById("semesterNoteText").value;
+        const btn = document.getElementById("semesterNoteSave");
+        btn.disabled = true; btn.textContent = "Saving\u2026";
+        try {
+          const selectedClass = classFilter ? classFilter.value : "";
+          if (!selectedClass || selectedClass === "__unassigned__") throw new Error("No class selected");
+          if (roster) {
+            await supa.from("class_students")
+              .update({ notes: text })
+              .eq("class_id", selectedClass)
+              .eq("student_name", studentName);
+            roster.notes = text;
+          } else {
+            const { data: sessionData } = await supa.auth.getSession();
+            const userId = sessionData?.session?.user?.id;
+            if (userId) {
+              await supa.from("class_students").insert({
+                user_id: userId, class_id: selectedClass,
+                student_name: studentName, notes: text,
+              });
+              rosterStudents.push({ student_name: studentName, notes: text, semester_comment: "" });
+            }
+          }
+          btn.textContent = "Saved!";
+          setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1200);
+          renderRoster();
+        } catch (e) {
+          console.error("Save failed:", e);
+          btn.textContent = "Error";
+          setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1500);
+        }
+      });
+
+      // ── Final Comment tab content (only if marking data exists) ──
+      if (hasData) {
+        const stats = computeSemesterStats(studentName, rows);
+        const recommendedTiers = scAutoSelectTiers(stats);
+        const tiers = { ...recommendedTiers };
+        const courseName = "";
+        const vars = scBuildVars(stats, courseName);
+        _scState = { stats, tiers, recommendedTiers, vars, studentName, courseName };
+        _scRenderModal(document.getElementById("scPanelFinal"), stats);
+      } else {
+        _scState = { studentName, stats: null };
+      }
+
       overlay.classList.add("visible");
     }
 
@@ -3604,7 +3751,7 @@
 
       const MAX_ITEMS = 20;
 
-      function buildList(container, rows, actionLabel) {
+      function buildList(container, rows, actionLabel, currentStatus) {
         container.innerHTML = "";
         if (rows.length === 0) {
           const empty = document.createElement("div");
@@ -3645,10 +3792,72 @@
           action.className = "workflow-card-item-action";
           action.textContent = actionLabel;
 
+          // ── Kebab menu button ──
+          const menuBtn = document.createElement("button");
+          menuBtn.className = "wf-item-menu-btn";
+          menuBtn.innerHTML = "&#8943;"; // vertical ellipsis
+          menuBtn.title = "Move or remove";
+          menuBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            // Close any other open menus
+            document.querySelectorAll(".wf-item-menu").forEach(m => m.remove());
+            const menu = document.createElement("div");
+            menu.className = "wf-item-menu";
+
+            // Build move options based on current status
+            const moves = [];
+            if (currentStatus !== "pending")
+              moves.push({ label: "Move to To Review", status: "pending" });
+            if (currentStatus !== "in_progress")
+              moves.push({ label: "Move to In Progress", status: "in_progress" });
+            if (currentStatus !== "completed")
+              moves.push({ label: "Move to Completed", status: "completed" });
+
+            moves.forEach(({ label, status }) => {
+              const opt = document.createElement("button");
+              opt.className = "wf-item-menu-option";
+              opt.textContent = label;
+              opt.addEventListener("click", async (ev) => {
+                ev.stopPropagation();
+                menu.remove();
+                const ok = await patchMarkEvent(row.file_name, { review_status: status });
+                if (ok) {
+                  row.review_status = status;
+                  renderWorkflowCards();
+                }
+              });
+              menu.appendChild(opt);
+            });
+
+            // Delete option
+            const del = document.createElement("button");
+            del.className = "wf-item-menu-option wf-item-menu-option--danger";
+            del.textContent = "Delete essay";
+            del.addEventListener("click", async (ev) => {
+              ev.stopPropagation();
+              menu.remove();
+              // deleteDocumentsByFileNames shows its own confirmation dialog
+              await deleteDocumentsByFileNames([row.file_name]);
+              // Refresh local data after deletion
+              progressData = progressData.filter(r => r.file_name !== row.file_name);
+              filterAndSort();
+              updateUI();
+            });
+            menu.appendChild(del);
+
+            item.appendChild(menu);
+            // Close on outside click
+            const close = (ev) => {
+              if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", close); }
+            };
+            setTimeout(() => document.addEventListener("click", close), 0);
+          });
+
           item.appendChild(name);
           item.appendChild(modeBadge);
           item.appendChild(date);
           item.appendChild(action);
+          item.appendChild(menuBtn);
 
           // Click to open in teacher preview — pass mark_event ID so TeacherApp
           // can download the original, re-mark it, and resume the review.
@@ -3673,9 +3882,9 @@
         }
       }
 
-      buildList(document.getElementById("wfPendingList"), pending, "Start");
-      buildList(document.getElementById("wfInProgressList"), inProgress, "Continue");
-      buildList(document.getElementById("wfCompletedList"), completed, "View");
+      buildList(document.getElementById("wfPendingList"), pending, "Start", "pending");
+      buildList(document.getElementById("wfInProgressList"), inProgress, "Continue", "in_progress");
+      buildList(document.getElementById("wfCompletedList"), completed, "View", "completed");
     }
 
     // ===== Populate class-lens filter dropdowns =====

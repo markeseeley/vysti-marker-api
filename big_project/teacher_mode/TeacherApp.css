@@ -292,15 +292,18 @@ button, input, select, textarea {
   padding: 14px 16px;
   width: 280px;
   opacity: 0;
+  visibility: hidden;
   transform: translateY(4px);
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
 
 .form-section-info-trigger:hover .form-section-popover,
 .form-section-info-trigger:focus .form-section-popover,
 .form-section-info-trigger:focus-within .form-section-popover {
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   transform: translateY(0);
 }
 
