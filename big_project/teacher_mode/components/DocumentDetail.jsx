@@ -790,13 +790,40 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       ? prepared.blob
       : null;
 
-    // If we have NO file handle AND no prepared blob, the user gesture will
-    // expire the moment we await anything.  Download the raw marked blob
-    // synchronously now (without teacher comments) so the download actually
-    // triggers, then kick off background preparation for next time.
+    // If we have NO file handle AND no prepared blob, try a live API call
+    // to include teacher comments. The user gesture will expire for
+    // triggerDownload, but we create a temporary <a> with a blob URL which
+    // works even after async delays in most browsers.
     if (!fileHandle && !downloadMe) {
-      if (doc.markedBlob) {
-        const result = triggerDownload(doc.markedBlob, outputName);
+      if (supa && previewRef.current) {
+        try {
+          const text = extractTextWithTeacherAnnotations(previewRef.current);
+          if (text) {
+            const ibScores = computeIBScores(doc.labelCounts, doc.wordCount);
+            const commentText = doc.teacherComment?.includeInDownload !== false
+              ? formatCommentForDownload(doc.teacherComment, ibScores)
+              : "";
+            const { data: sess } = await supa.auth.getSession();
+            const apiBase = getApiBaseUrl();
+            if (sess?.session && apiBase) {
+              const resp = await fetch(`${apiBase}/export_teacher_docx`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${sess.session.access_token}`,
+                },
+                body: JSON.stringify({ file_name: outputName, text, comment: commentText || "" }),
+              });
+              if (resp.ok) downloadMe = await resp.blob();
+            }
+          }
+        } catch {
+          // Fall through to raw blob
+        }
+      }
+      if (!downloadMe) downloadMe = doc.markedBlob;
+      if (downloadMe) {
+        const result = triggerDownload(downloadMe, outputName);
         setDownloadResult(result, outputName);
       }
       prepareMarkedExport();
@@ -1199,8 +1226,15 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       if (body.score === undefined && doc.teacherComment?.score != null) {
         body.score = doc.teacherComment.score;
       }
-      // Auto-promote pending → in_progress on first save
-      if (!fields.review_status) body.review_status = "in_progress";
+      // Auto-promote pending → in_progress on first save.
+      // Preserve "completed" status — don't overwrite it on auto-saves.
+      if (fields.review_status) {
+        body.review_status = fields.review_status;
+      } else if (doc.reviewStatus === "completed") {
+        body.review_status = "completed";
+      } else {
+        body.review_status = "in_progress";
+      }
 
       const headers = {
         "Content-Type": "application/json",
@@ -1817,6 +1851,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
         studentContext={doc.studentContext}
         metrics={doc.metrics}
         mode={state.mode}
+        supa={supa}
       />
 
       {dismissPrompt && (

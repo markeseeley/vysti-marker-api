@@ -142,6 +142,8 @@ function StudentContextPanel({ doc, studentContext }) {
   );
 }
 
+const MAX_SAVED_PER_METRIC = 5;
+
 // ── Main Component ─────────────────────────────────────────────────
 export default function TeacherCommentNotebook({
   doc,
@@ -153,6 +155,7 @@ export default function TeacherCommentNotebook({
   studentContext,
   metrics,
   mode,
+  supa,
 }) {
   const [editingScore, setEditingScore] = useState(false);
   const [scoreInput, setScoreInput] = useState("");
@@ -166,6 +169,101 @@ export default function TeacherCommentNotebook({
 
   // Snippet buttons
   const [activeSnippetMeter, setActiveSnippetMeter] = useState(null);
+
+  // ── Saved teacher snippets ──
+  const [savedSnippets, setSavedSnippets] = useState({}); // { power: [...], variety: [...], ... }
+  const [snippetsLoaded, setSnippetsLoaded] = useState(false);
+  const [addingSnippet, setAddingSnippet] = useState(null); // metric key or null
+  const [newSnippetText, setNewSnippetText] = useState("");
+  const [editingSnippetId, setEditingSnippetId] = useState(null);
+  const [editSnippetText, setEditSnippetText] = useState("");
+  const newSnippetRef = useRef(null);
+  const editSnippetRef = useRef(null);
+
+  // Load saved snippets once
+  useEffect(() => {
+    if (!supa || snippetsLoaded) return;
+    (async () => {
+      try {
+        const { data: sess } = await supa.auth.getSession();
+        if (!sess?.session) return;
+        const { data, error } = await supa
+          .from("teacher_snippets")
+          .select("id, metric, text, sort_order")
+          .eq("user_id", sess.session.user.id)
+          .order("sort_order");
+        if (error) { console.warn("Failed to load snippets:", error); return; }
+        const grouped = {};
+        for (const m of METER_ORDER) grouped[m] = [];
+        (data || []).forEach(s => {
+          if (grouped[s.metric]) grouped[s.metric].push(s);
+        });
+        setSavedSnippets(grouped);
+      } finally {
+        setSnippetsLoaded(true);
+      }
+    })();
+  }, [supa, snippetsLoaded]);
+
+  // Focus new snippet input
+  useEffect(() => {
+    if (addingSnippet && newSnippetRef.current) newSnippetRef.current.focus();
+  }, [addingSnippet]);
+
+  // Focus edit snippet input
+  useEffect(() => {
+    if (editingSnippetId && editSnippetRef.current) editSnippetRef.current.focus();
+  }, [editingSnippetId]);
+
+  const saveNewSnippet = useCallback(async (metric) => {
+    const text = newSnippetText.trim();
+    if (!text || !supa) { setAddingSnippet(null); setNewSnippetText(""); return; }
+    const current = savedSnippets[metric] || [];
+    if (current.length >= MAX_SAVED_PER_METRIC) return;
+    const { data: sess } = await supa.auth.getSession();
+    if (!sess?.session) return;
+    const { data, error } = await supa
+      .from("teacher_snippets")
+      .insert({ user_id: sess.session.user.id, metric, text, sort_order: current.length })
+      .select("id, metric, text, sort_order")
+      .single();
+    if (!error && data) {
+      setSavedSnippets(prev => ({ ...prev, [metric]: [...(prev[metric] || []), data] }));
+    }
+    setAddingSnippet(null);
+    setNewSnippetText("");
+  }, [supa, newSnippetText, savedSnippets]);
+
+  const updateSnippet = useCallback(async (snippetId, metric) => {
+    const text = editSnippetText.trim();
+    if (!text || !supa) { setEditingSnippetId(null); setEditSnippetText(""); return; }
+    const { error } = await supa
+      .from("teacher_snippets")
+      .update({ text })
+      .eq("id", snippetId);
+    if (!error) {
+      setSavedSnippets(prev => ({
+        ...prev,
+        [metric]: (prev[metric] || []).map(s => s.id === snippetId ? { ...s, text } : s),
+      }));
+    }
+    setEditingSnippetId(null);
+    setEditSnippetText("");
+  }, [supa, editSnippetText]);
+
+  const deleteSnippet = useCallback(async (snippetId, metric) => {
+    if (!supa) return;
+    const { error } = await supa
+      .from("teacher_snippets")
+      .delete()
+      .eq("id", snippetId);
+    if (!error) {
+      setSavedSnippets(prev => ({
+        ...prev,
+        [metric]: (prev[metric] || []).filter(s => s.id !== snippetId),
+      }));
+    }
+  }, [supa]);
 
   // Keep a ref to the latest comment so callbacks never read stale closures
   const commentRef = useRef(comment);
@@ -473,32 +571,118 @@ export default function TeacherCommentNotebook({
             </button>
           ))}
         </div>
-        {activeSnippetMeter && snippets[activeSnippetMeter] && (
+        {activeSnippetMeter && (
           <div className="cn-snippet-options">
-            <button
-              type="button"
-              className="cn-snippet-option"
-              onClick={() => handleInsertSnippet(snippets[activeSnippetMeter].strength)}
-            >
-              <span className="cn-snippet-type cn-snippet-type--strength">Strength</span>
-              <span className="cn-snippet-text">{snippets[activeSnippetMeter].strength}</span>
-            </button>
-            <button
-              type="button"
-              className="cn-snippet-option"
-              onClick={() => handleInsertSnippet(snippets[activeSnippetMeter].weakness)}
-            >
-              <span className="cn-snippet-type cn-snippet-type--growth">Growth area</span>
-              <span className="cn-snippet-text">{snippets[activeSnippetMeter].weakness}</span>
-            </button>
-            <button
-              type="button"
-              className="cn-snippet-option"
-              onClick={() => handleInsertSnippet(snippets[activeSnippetMeter].nextStep)}
-            >
-              <span className="cn-snippet-type cn-snippet-type--nextstep">Next step</span>
-              <span className="cn-snippet-text">{snippets[activeSnippetMeter].nextStep}</span>
-            </button>
+            {/* ── Saved teacher snippets ── */}
+            {(savedSnippets[activeSnippetMeter] || []).map((s) => (
+              <div key={s.id} className="cn-snippet-option cn-snippet-option--saved">
+                {editingSnippetId === s.id ? (
+                  <div className="cn-snippet-edit-row">
+                    <input
+                      ref={editSnippetRef}
+                      type="text"
+                      className="cn-snippet-edit-input"
+                      value={editSnippetText}
+                      onChange={(e) => setEditSnippetText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") updateSnippet(s.id, activeSnippetMeter);
+                        if (e.key === "Escape") { setEditingSnippetId(null); setEditSnippetText(""); }
+                      }}
+                      onBlur={() => updateSnippet(s.id, activeSnippetMeter)}
+                      maxLength={300}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="cn-snippet-option-body"
+                      onClick={() => handleInsertSnippet(s.text)}
+                    >
+                      <span className="cn-snippet-type cn-snippet-type--saved">Saved</span>
+                      <span className="cn-snippet-text">{s.text}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="cn-snippet-action-btn"
+                      title="Edit"
+                      onClick={(e) => { e.stopPropagation(); setEditingSnippetId(s.id); setEditSnippetText(s.text); }}
+                    >&#9998;</button>
+                    <button
+                      type="button"
+                      className="cn-snippet-action-btn cn-snippet-action-btn--delete"
+                      title="Delete"
+                      onClick={(e) => { e.stopPropagation(); deleteSnippet(s.id, activeSnippetMeter); }}
+                    >&times;</button>
+                  </>
+                )}
+              </div>
+            ))}
+
+            {/* ── Add new snippet ── */}
+            {addingSnippet === activeSnippetMeter ? (
+              <div className="cn-snippet-add-row">
+                <input
+                  ref={newSnippetRef}
+                  type="text"
+                  className="cn-snippet-edit-input"
+                  placeholder="Type your snippet..."
+                  value={newSnippetText}
+                  onChange={(e) => setNewSnippetText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveNewSnippet(activeSnippetMeter);
+                    if (e.key === "Escape") { setAddingSnippet(null); setNewSnippetText(""); }
+                  }}
+                  onBlur={() => saveNewSnippet(activeSnippetMeter)}
+                  maxLength={300}
+                />
+              </div>
+            ) : (savedSnippets[activeSnippetMeter] || []).length < MAX_SAVED_PER_METRIC && (
+              <button
+                type="button"
+                className="cn-snippet-add-btn"
+                onClick={() => { setAddingSnippet(activeSnippetMeter); setNewSnippetText(""); }}
+              >
+                + Save a snippet
+              </button>
+            )}
+
+            {/* ── Divider if both saved and built-in exist ── */}
+            {(savedSnippets[activeSnippetMeter] || []).length > 0 && snippets[activeSnippetMeter] && (
+              <div className="cn-snippet-divider">
+                <span>Suggestions</span>
+              </div>
+            )}
+
+            {/* ── Built-in snippets ── */}
+            {snippets[activeSnippetMeter] && (
+              <>
+                <button
+                  type="button"
+                  className="cn-snippet-option"
+                  onClick={() => handleInsertSnippet(snippets[activeSnippetMeter].strength)}
+                >
+                  <span className="cn-snippet-type cn-snippet-type--strength">Strength</span>
+                  <span className="cn-snippet-text">{snippets[activeSnippetMeter].strength}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cn-snippet-option"
+                  onClick={() => handleInsertSnippet(snippets[activeSnippetMeter].weakness)}
+                >
+                  <span className="cn-snippet-type cn-snippet-type--growth">Growth area</span>
+                  <span className="cn-snippet-text">{snippets[activeSnippetMeter].weakness}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cn-snippet-option"
+                  onClick={() => handleInsertSnippet(snippets[activeSnippetMeter].nextStep)}
+                >
+                  <span className="cn-snippet-type cn-snippet-type--nextstep">Next step</span>
+                  <span className="cn-snippet-text">{snippets[activeSnippetMeter].nextStep}</span>
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

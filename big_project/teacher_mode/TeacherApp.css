@@ -3264,6 +3264,106 @@ span.vysti-preview-hit.vysti-conventions-hit[data-vysti-hit]:hover {
   line-height: 1.45;
 }
 
+/* Saved snippet styles */
+.cn-snippet-option--saved {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: 1.5px solid rgba(169, 13, 34, 0.15);
+  background: rgba(169, 13, 34, 0.03);
+}
+.cn-snippet-option-body {
+  appearance: none;
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.cn-snippet-action-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.35);
+  transition: color 0.12s;
+  flex-shrink: 0;
+}
+.cn-snippet-action-btn:hover { color: rgba(0, 0, 0, 0.7); }
+.cn-snippet-action-btn--delete:hover { color: #dc2626; }
+.cn-snippet-type--saved {
+  background: rgba(169, 13, 34, 0.10);
+  color: var(--maroon, #A90D22);
+}
+.cn-snippet-edit-row {
+  flex: 1;
+  padding: 4px 6px;
+}
+.cn-snippet-edit-input {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 12px;
+  outline: none;
+}
+.cn-snippet-edit-input:focus {
+  border-color: var(--maroon, #A90D22);
+  box-shadow: 0 0 0 2px rgba(169, 13, 34, 0.10);
+}
+.cn-snippet-add-row {
+  padding: 4px 0;
+}
+.cn-snippet-add-btn {
+  appearance: none;
+  border: 1.5px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: none;
+  padding: 6px 10px;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.40);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.cn-snippet-add-btn:hover {
+  border-color: var(--maroon, #A90D22);
+  color: var(--maroon, #A90D22);
+}
+.cn-snippet-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 2px;
+}
+.cn-snippet-divider::before,
+.cn-snippet-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+.cn-snippet-divider span {
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(0, 0, 0, 0.30);
+}
+
 /* Actions row */
 .cn-actions {
   display: flex;
