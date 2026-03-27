@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { initConfig as initAppConfig } from "./config";
 import { initLogger } from "./lib/logger";
 import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
+import { startVersionChecker, setupChunkErrorRecovery } from "@shared/versionCheck";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
@@ -14,6 +15,7 @@ const renderLoading = () => {
   root.render(null);
 };
 
+setupChunkErrorRecovery();
 renderLoading();
 (async () => {
   try {
@@ -38,4 +40,5 @@ renderLoading();
       </ErrorBoundary>
     </StrictMode>
   );
+  startVersionChecker();
 })();

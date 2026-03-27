@@ -8,6 +8,7 @@ import { getConfig, getConfigError, initConfig as initAppConfig } from "@student
 import { initLogger } from "@student/lib/logger";
 import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
 import { isMobilePhone } from "@student/lib/isMobile";
+import { startVersionChecker, setupChunkErrorRecovery } from "@shared/versionCheck";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
@@ -22,6 +23,7 @@ const renderLoading = () => {
   );
 };
 
+setupChunkErrorRecovery();
 renderLoading();
 (async () => {
   try {
@@ -48,4 +50,5 @@ renderLoading();
       </ErrorBoundary>
     </StrictMode>
   );
+  startVersionChecker();
 })();

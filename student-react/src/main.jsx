@@ -8,6 +8,7 @@ import { getConfig, getConfigError, initConfig as initAppConfig } from "./config
 import { initLogger } from "./lib/logger";
 import { initConfig as initRuntimeConfig } from "@shared/runtimeConfig";
 import { isMobilePhone } from "./lib/isMobile";
+import { startVersionChecker, setupChunkErrorRecovery } from "@shared/versionCheck";
 
 const rootEl = document.getElementById("root");
 const root = createRoot(rootEl);
@@ -23,6 +24,7 @@ if (searchParams.get("classic") === "1") {
   } catch (err) {}
   window.location.replace("/student.html?classic=1");
 } else {
+  setupChunkErrorRecovery();
   renderLoading();
   (async () => {
     try {
@@ -49,5 +51,6 @@ if (searchParams.get("classic") === "1") {
         </ErrorBoundary>
       </StrictMode>
     );
+    startVersionChecker();
   })();
 }
