@@ -42,7 +42,15 @@ function showUpdateToast() {
   _toastEl = document.createElement("div");
   _toastEl.className = "vysti-update-toast";
   _toastEl.innerHTML = `
-    <span class="vysti-update-toast-text">A new version is available.</span>
+    <div class="vysti-update-toast-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"/>
+      </svg>
+    </div>
+    <div class="vysti-update-toast-body">
+      <span class="vysti-update-toast-title">New version available</span>
+      <span class="vysti-update-toast-text">Refresh to get the latest updates.</span>
+    </div>
     <button class="vysti-update-toast-btn" type="button">Refresh</button>
     <button class="vysti-update-toast-dismiss" type="button" aria-label="Dismiss">&times;</button>
   `;
@@ -68,28 +76,56 @@ function injectToastStyles() {
   style.textContent = `
     .vysti-update-toast {
       position: fixed;
-      bottom: 20px;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(20px);
       opacity: 0;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 18px;
-      background: #1a1a1a;
-      color: #fff;
-      border-radius: 10px;
+      gap: 14px;
+      padding: 14px 20px;
+      background: var(--card, #ffffff);
+      color: var(--text, #111);
+      border: 1px solid var(--border, rgba(0,0,0,.08));
+      border-left: 4px solid var(--maroon, #A90D22);
+      border-radius: 12px;
       font-family: var(--font-body, "DM Sans", system-ui, sans-serif);
       font-size: 14px;
-      box-shadow: 0 4px 24px rgba(0,0,0,.25);
+      box-shadow: var(--shadow, 0 14px 45px rgba(0,0,0,.08));
       z-index: 99999;
-      transition: opacity .3s, transform .3s;
+      transition: opacity .35s ease, transform .35s ease;
+      max-width: 440px;
     }
     .vysti-update-toast--visible {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+    .vysti-update-toast-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(169, 13, 34, 0.08);
+      color: var(--maroon, #A90D22);
+      flex-shrink: 0;
+    }
+    .vysti-update-toast-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .vysti-update-toast-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text, #111);
+      white-space: nowrap;
+    }
     .vysti-update-toast-text {
+      font-size: 12px;
+      color: var(--muted, rgba(0,0,0,.6));
       white-space: nowrap;
     }
     .vysti-update-toast-btn {
@@ -97,12 +133,15 @@ function injectToastStyles() {
       border: none;
       background: var(--maroon, #A90D22);
       color: #fff;
-      padding: 6px 16px;
-      border-radius: 6px;
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-family: var(--font-body, "DM Sans", system-ui, sans-serif);
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
       white-space: nowrap;
+      transition: background .15s;
+      flex-shrink: 0;
     }
     .vysti-update-toast-btn:hover {
       background: #8a0b1c;
@@ -111,14 +150,27 @@ function injectToastStyles() {
       appearance: none;
       border: none;
       background: none;
-      color: rgba(255,255,255,.5);
+      color: var(--muted, rgba(0,0,0,.4));
       font-size: 18px;
       cursor: pointer;
       padding: 0 2px;
       line-height: 1;
+      flex-shrink: 0;
+      transition: color .15s;
     }
     .vysti-update-toast-dismiss:hover {
-      color: #fff;
+      color: var(--text, #111);
+    }
+    @media (max-width: 480px) {
+      .vysti-update-toast {
+        left: 12px;
+        right: 12px;
+        transform: translateX(0) translateY(20px);
+        max-width: none;
+      }
+      .vysti-update-toast--visible {
+        transform: translateX(0) translateY(0);
+      }
     }
   `;
   document.head.appendChild(style);
