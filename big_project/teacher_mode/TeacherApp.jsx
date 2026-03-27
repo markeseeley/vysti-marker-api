@@ -464,14 +464,69 @@ export default function TeacherApp() {
     tourRef.current?.restartTour({ force: true });
   }, []);
 
+  // Auth timeout — if isChecking stays true for 12s, show a fallback
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isChecking) return;
+    const t = setTimeout(() => setAuthTimedOut(true), 12000);
+    return () => clearTimeout(t);
+  }, [isChecking]);
+
   // Auth guard
   if (isChecking) {
+    if (authTimedOut) {
+      return (
+        <main className="page teacher-page" style={{ textAlign: "center", paddingTop: "15vh" }}>
+          <div className="card form-card" style={{ maxWidth: 440, margin: "0 auto", padding: "32px 28px" }}>
+            <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>Unable to load</h2>
+            <p style={{ color: "rgba(0,0,0,.55)", fontSize: 14, lineHeight: 1.5 }}>
+              We couldn't verify your session. This is usually caused by a slow connection or cached files.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "1.5px solid var(--maroon, #A90D22)", background: "var(--maroon, #A90D22)", color: "#fff", fontWeight: 600, cursor: "pointer" }}
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => { window.location.href = "/signin.html"; }}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "1.5px solid rgba(0,0,0,.15)", background: "#fff", color: "rgba(0,0,0,.7)", fontWeight: 600, cursor: "pointer" }}
+              >
+                Sign in again
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
     return null;
   }
   if (authError) {
     return (
-      <main className="page teacher-page">
-        <div className="card form-card"><p>{authError}</p></div>
+      <main className="page teacher-page" style={{ textAlign: "center", paddingTop: "15vh" }}>
+        <div className="card form-card" style={{ maxWidth: 440, margin: "0 auto", padding: "32px 28px" }}>
+          <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>Something went wrong</h2>
+          <p style={{ color: "rgba(0,0,0,.55)", fontSize: 14, lineHeight: 1.5 }}>{authError}</p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 18 }}>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{ padding: "8px 20px", borderRadius: 8, border: "1.5px solid var(--maroon, #A90D22)", background: "var(--maroon, #A90D22)", color: "#fff", fontWeight: 600, cursor: "pointer" }}
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => { window.location.href = "/signin.html"; }}
+              style={{ padding: "8px 20px", borderRadius: 8, border: "1.5px solid rgba(0,0,0,.15)", background: "#fff", color: "rgba(0,0,0,.7)", fontWeight: 600, cursor: "pointer" }}
+            >
+              Sign in again
+            </button>
+          </div>
+        </div>
       </main>
     );
   }
