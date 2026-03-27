@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { generateComment, COMMENT_BANK, fillTemplate } from "../lib/commentBank";
+import { COMMENT_BANK, fillTemplate } from "../lib/commentBank";
 import { computeIBScores, generateIBComments } from "../lib/ibScoring";
 import { computeMeterDeltas } from "../lib/studentContext";
 import { groupLabelsByMetric, shortenLabel } from "@student/lib/labelToMetric";
@@ -171,8 +171,6 @@ export default function TeacherCommentNotebook({
   const commentRef = useRef(comment);
   commentRef.current = comment;
 
-  // Build previousData for contextual generation
-  const previousData = studentContext?.previousEssay || null;
 
   // Score format toggles (defaults: % on, IB off)
   const scoreFormats = comment?.scoreFormats || { percent: true, ib: false };
@@ -248,21 +246,11 @@ export default function TeacherCommentNotebook({
     return result;
   }, [doc?.id, doc?.labelCounts]);
 
-  // Auto-generate on first render for this document (wait for metrics)
+  // Initialize an empty comment shell so the card renders (no auto-generated text)
   useEffect(() => {
     if (comment || !doc) return;
-    if (!metrics) return;
-    const generated = generateComment(
-      doc.labelCounts,
-      doc.issues,
-      doc.wordCount,
-      doc.studentName,
-      previousData,
-      metrics,
-      mode
-    );
-    onCommentChange(generated);
-  }, [doc, comment, onCommentChange, previousData, metrics, mode]);
+    onCommentChange({ paragraph: "", score: null, includeInDownload: true });
+  }, [doc, comment, onCommentChange]);
 
   // Focus score input when editing starts
   useEffect(() => {
@@ -279,20 +267,6 @@ export default function TeacherCommentNotebook({
       chipInputRef.current.select();
     }
   }, [editingChip]);
-
-  const handleRegenerate = useCallback(() => {
-    if (!doc) return;
-    const generated = generateComment(
-      doc.labelCounts,
-      doc.issues,
-      doc.wordCount,
-      doc.studentName,
-      previousData,
-      metrics,
-      mode
-    );
-    onCommentChange(generated);
-  }, [doc, onCommentChange, previousData, metrics, mode]);
 
   const handleParagraphChange = useCallback(
     (value) => {
@@ -426,14 +400,6 @@ export default function TeacherCommentNotebook({
     <section className="card teacher-comment-notebook">
       <div className="cn-header">
         <h3 className="cn-title">Comment</h3>
-        <button
-          type="button"
-          className="cn-regenerate-btn"
-          onClick={handleRegenerate}
-          title="Regenerate comment"
-        >
-          Regenerate
-        </button>
       </div>
 
       {/* Student context (previous essay data) */}

@@ -1111,6 +1111,19 @@
       font-weight: 700;
       color: #fff;
     }
+    .wf-bulk-btn {
+      margin-left: auto;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--maroon, #A90D22);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--maroon, #A90D22);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .wf-bulk-btn:hover { background: var(--maroon, #A90D22); color: #fff; }
     .workflow-card-pending .workflow-card-count { background: var(--maroon, #A90D22); }
     .workflow-card-inprogress .workflow-card-count { background: var(--maroon, #A90D22); }
     .workflow-card-completed .workflow-card-count { background: var(--maroon, #A90D22); }
@@ -1821,6 +1834,7 @@
             <div class="workflow-card-header">
               <span class="workflow-card-title">In Progress</span>
               <span class="workflow-card-count" id="wfInProgressCount">0</span>
+              <button type="button" class="wf-bulk-btn" id="wfMarkAllFinished" style="display:none;" title="Mark all as Finished Reviewing">✓ All Done</button>
             </div>
             <div class="workflow-card-list" id="wfInProgressList"></div>
           </div>
@@ -1828,6 +1842,7 @@
             <div class="workflow-card-header">
               <span class="workflow-card-title">Completed</span>
               <span class="workflow-card-count" id="wfCompletedCount">0</span>
+              <button type="button" class="wf-bulk-btn" id="wfArchiveCompleted" style="display:none;" title="Archive all — hides from this view but keeps all data">Archive All</button>
             </div>
             <div class="workflow-card-list" id="wfCompletedList"></div>
           </div>
@@ -3748,6 +3763,54 @@
       document.getElementById("wfPendingCount").textContent = pending.length;
       document.getElementById("wfInProgressCount").textContent = inProgress.length;
       document.getElementById("wfCompletedCount").textContent = completed.length;
+
+      // "All Done" bulk button for In Progress card
+      const bulkBtn = document.getElementById("wfMarkAllFinished");
+      bulkBtn.style.display = inProgress.length > 0 ? "" : "none";
+      bulkBtn.onclick = async () => {
+        const count = inProgress.length;
+        const confirmed = await vystiConfirm(`Mark all ${count} in-progress essay${count !== 1 ? "s" : ""} as Completed?`);
+        if (!confirmed) return;
+        bulkBtn.disabled = true;
+        bulkBtn.textContent = "Saving...";
+        let ok = true;
+        for (const row of inProgress) {
+          const result = await patchMarkEvent(row.file_name, { review_status: "completed" });
+          if (result) {
+            row.review_status = "completed";
+          } else {
+            ok = false;
+          }
+        }
+        bulkBtn.disabled = false;
+        bulkBtn.textContent = "✓ All Done";
+        renderWorkflowCards();
+        if (!ok) await vystiAlert("Some essays could not be updated. Please try again.");
+      };
+
+      // "Archive All" bulk button for Completed card
+      const archiveBtn = document.getElementById("wfArchiveCompleted");
+      archiveBtn.style.display = completed.length > 0 ? "" : "none";
+      archiveBtn.onclick = async () => {
+        const count = completed.length;
+        const confirmed = await vystiConfirm(`Archive ${count} completed essay${count !== 1 ? "s" : ""}? They'll disappear from these cards but all data is kept.`);
+        if (!confirmed) return;
+        archiveBtn.disabled = true;
+        archiveBtn.textContent = "Archiving...";
+        let ok = true;
+        for (const row of completed) {
+          const result = await patchMarkEvent(row.file_name, { review_status: "archived" });
+          if (result) {
+            row.review_status = "archived";
+          } else {
+            ok = false;
+          }
+        }
+        archiveBtn.disabled = false;
+        archiveBtn.textContent = "Archive All";
+        renderWorkflowCards();
+        if (!ok) await vystiAlert("Some essays could not be archived. Please try again.");
+      };
 
       const MAX_ITEMS = 20;
 

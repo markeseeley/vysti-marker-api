@@ -362,7 +362,7 @@ class AutoErrorLogRequest(BaseModel):
     student_name: str | None = None
     class_id: str | None = None
     teacher_comment: str | None = None
-    review_status: str | None = None  # 'pending' | 'in_progress' | 'completed'
+    review_status: str | None = None  # 'pending' | 'in_progress' | 'completed' | 'archived'
     score: int | None = None  # 0-100 percentage score
     created_at: str | None = None  # ISO-8601 datetime string
 
@@ -2734,7 +2734,7 @@ async def update_mark_event(
     if body.teacher_comment is not None:
         patch_body["teacher_comment"] = body.teacher_comment
     if body.review_status is not None:
-        if body.review_status in ("pending", "in_progress", "completed"):
+        if body.review_status in ("pending", "in_progress", "completed", "archived"):
             patch_body["review_status"] = body.review_status
     if body.score is not None:
         patch_body["score"] = max(0, min(100, body.score))
