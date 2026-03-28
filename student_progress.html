@@ -1094,6 +1094,11 @@
       justify-content: space-between;
       margin-bottom: 12px;
     }
+    .wf-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .workflow-card-title {
       font-weight: 700;
       font-size: 14px;
@@ -1112,7 +1117,6 @@
       color: #fff;
     }
     .wf-bulk-btn {
-      margin-left: auto;
       padding: 2px 10px;
       font-size: 12px;
       font-weight: 600;
@@ -1826,23 +1830,29 @@
           <div class="workflow-card workflow-card-pending">
             <div class="workflow-card-header">
               <span class="workflow-card-title">To Review</span>
-              <span class="workflow-card-count" id="wfPendingCount">0</span>
+              <div class="wf-header-right">
+                <span class="workflow-card-count" id="wfPendingCount">0</span>
+              </div>
             </div>
             <div class="workflow-card-list" id="wfPendingList"></div>
           </div>
           <div class="workflow-card workflow-card-inprogress">
             <div class="workflow-card-header">
               <span class="workflow-card-title">In Progress</span>
-              <span class="workflow-card-count" id="wfInProgressCount">0</span>
-              <button type="button" class="wf-bulk-btn" id="wfMarkAllFinished" style="display:none;" title="Mark all as Finished Reviewing">✓ All Done</button>
+              <div class="wf-header-right">
+                <button type="button" class="wf-bulk-btn" id="wfMarkAllFinished" style="display:none;" title="Mark all as Finished Reviewing">✓ All Done</button>
+                <span class="workflow-card-count" id="wfInProgressCount">0</span>
+              </div>
             </div>
             <div class="workflow-card-list" id="wfInProgressList"></div>
           </div>
           <div class="workflow-card workflow-card-completed">
             <div class="workflow-card-header">
               <span class="workflow-card-title">Completed</span>
-              <span class="workflow-card-count" id="wfCompletedCount">0</span>
-              <button type="button" class="wf-bulk-btn" id="wfArchiveCompleted" style="display:none;" title="Archive all — hides from this view but keeps all data">Archive All</button>
+              <div class="wf-header-right">
+                <button type="button" class="wf-bulk-btn" id="wfArchiveCompleted" style="display:none;" title="Archive all — hides from this view but keeps all data">Archive All</button>
+                <span class="workflow-card-count" id="wfCompletedCount">0</span>
+              </div>
             </div>
             <div class="workflow-card-list" id="wfCompletedList"></div>
           </div>
