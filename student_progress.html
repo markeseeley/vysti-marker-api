@@ -1646,7 +1646,7 @@
     </div>
   </div>
   <script>
-    function vystiConfirm(message) {
+    function vystiConfirm(message, okLabel) {
       return new Promise((resolve) => {
         const overlay = document.getElementById("vystiModalOverlay");
         const body = document.getElementById("vystiModalBody");
@@ -1658,7 +1658,7 @@
         cancel.textContent = "Cancel";
         const ok = document.createElement("button");
         ok.className = "vysti-modal-ok";
-        ok.textContent = "Delete";
+        ok.textContent = okLabel || "Confirm";
         function close(val) {
           overlay.classList.remove("visible");
           setTimeout(() => { overlay.style.display = "none"; }, 150);
@@ -1909,15 +1909,8 @@
       <!-- Revisions in progress -->
       <div class="drafts-section" id="draftsSection" style="display:none;">
         <div class="chart-card">
-          <div class="in-progress-tabs" id="inProgressTabs" style="display:none;">
-            <button type="button" class="ip-tab active" data-tab="revisions">Revisions <span id="revisionsCount"></span></button>
-            <button type="button" class="ip-tab" data-tab="markings">Markings <span id="markingsCount"></span></button>
-            <button type="button" class="ip-tab disabled" data-tab="writing" disabled title="Coming soon">Writing</button>
-          </div>
           <h3 id="inProgressTitle">Revisions in progress</h3>
           <div id="revisionsPanel" class="drafts-list"></div>
-          <div id="markingsPanel" class="drafts-list" style="display:none;"></div>
-          <div id="writingPanel" style="display:none; padding:20px; text-align:center; color:var(--muted); font-size:13px;">Coming soon</div>
         </div>
       </div>
 
@@ -2004,7 +1997,7 @@
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;padding:20px 24px;">
         <button id="confirmCancelBtn" class="range-btn" style="font-size:14px;padding:8px 18px;">Cancel</button>
-        <button id="confirmOkBtn" class="delete-btn" style="font-size:14px;padding:8px 18px;">Delete</button>
+        <button id="confirmOkBtn" class="delete-btn" style="font-size:14px;padding:8px 18px;">Confirm</button>
       </div>
     </div>
   </div>
@@ -2012,13 +2005,14 @@
 
   <script>
     // ===== Custom confirm dialog =====
-    function vystiConfirm(message) {
+    function vystiConfirm(message, okLabel) {
       return new Promise((resolve) => {
         const overlay = document.getElementById("confirmModal");
         const msgEl = document.getElementById("confirmMessage");
         const okBtn = document.getElementById("confirmOkBtn");
         const cancelBtn = document.getElementById("confirmCancelBtn");
         msgEl.textContent = message;
+        okBtn.textContent = okLabel || "Confirm";
         overlay.style.display = "flex";
 
         function cleanup(result) {
@@ -2607,8 +2601,6 @@
       if (!sessionData || !sessionData.session) return;
 
       const revisionsPanel = document.getElementById("revisionsPanel");
-      const markingsPanel = document.getElementById("markingsPanel");
-      const tabBar = document.getElementById("inProgressTabs");
       const titleEl = document.getElementById("inProgressTitle");
 
       // Load revision drafts (skip in classes lens — teacher doesn't need these)
@@ -2623,45 +2615,16 @@
         if (!error && data) drafts = data;
       }
 
-      // Load markings activity (teacher only, classes lens only)
-      let markings = [];
-      if (isTeacher && currentLens === "classes") {
-        markings = await loadMarkingsTab();
-      }
-
       const hasDrafts = drafts.length > 0;
-      const hasMarkings = markings.length > 0;
 
-      if (!hasDrafts && !hasMarkings) {
+      if (!hasDrafts) {
         draftsSection.style.display = "none";
         return;
       }
 
       draftsSection.style.display = "block";
-
-      // Tab visibility
-      if (hasDrafts && hasMarkings) {
-        tabBar.style.display = "flex";
-        document.getElementById("revisionsCount").textContent = `(${drafts.length})`;
-        document.getElementById("markingsCount").textContent = `(${markings.length})`;
-        // Default to appropriate tab based on lens
-        if (currentLens === "classes") {
-          activateInProgressTab("markings");
-        } else {
-          activateInProgressTab("revisions");
-        }
-      } else {
-        tabBar.style.display = "none";
-        if (hasDrafts) {
-          revisionsPanel.style.display = "";
-          markingsPanel.style.display = "none";
-          titleEl.textContent = "Revisions in progress";
-        } else {
-          revisionsPanel.style.display = "none";
-          markingsPanel.style.display = "";
-          titleEl.textContent = "Recent marking activity";
-        }
-      }
+      revisionsPanel.style.display = "";
+      titleEl.textContent = "Revisions in progress";
 
       // Render revision drafts
       revisionsPanel.innerHTML = "";
@@ -2698,7 +2661,8 @@
         delBtn.title = "Delete this saved revision";
         delBtn.addEventListener("click", async () => {
           const ok = await vystiConfirm(
-            `Delete the saved revision for "${draft.file_name}"? This cannot be undone.`
+            `Delete the saved revision for "${draft.file_name}"? This cannot be undone.`,
+            "Delete"
           );
           if (!ok) return;
           try {
@@ -2738,80 +2702,6 @@
         revisionsPanel.appendChild(row);
       });
 
-      // Render markings
-      markingsPanel.innerHTML = "";
-      markings.forEach(m => {
-        const row = document.createElement("div");
-        row.className = "draft-row";
-        row.style.cursor = "pointer";
-        row.innerHTML = `
-          <div class="draft-info">
-            <span class="draft-filename">${m.className}</span>
-            <span class="draft-date">${m.date} \u2014 ${m.count} essay${m.count !== 1 ? "s" : ""}</span>
-          </div>
-          <a class="draft-resume-btn" href="/student_progress.html?lens=classes&class_id=${encodeURIComponent(m.classId)}">View</a>
-        `;
-        markingsPanel.appendChild(row);
-      });
-    }
-
-    function activateInProgressTab(tab) {
-      const titleEl = document.getElementById("inProgressTitle");
-      document.querySelectorAll(".ip-tab").forEach(t => t.classList.remove("active"));
-      const activeTab = document.querySelector(`.ip-tab[data-tab="${tab}"]`);
-      if (activeTab) activeTab.classList.add("active");
-      document.getElementById("revisionsPanel").style.display = tab === "revisions" ? "" : "none";
-      document.getElementById("markingsPanel").style.display = tab === "markings" ? "" : "none";
-      document.getElementById("writingPanel").style.display = tab === "writing" ? "" : "none";
-      titleEl.textContent = tab === "revisions" ? "Revisions in progress" :
-        tab === "markings" ? "Recent marking activity" : "Writing";
-    }
-
-    async function loadMarkingsTab() {
-      if (!isTeacher) return [];
-      const { data: sessionData } = await supa.auth.getSession();
-      if (!sessionData?.session) return [];
-
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const { data, error } = await supa
-        .from("mark_events")
-        .select("class_id, created_at")
-        .eq("user_id", sessionData.session.user.id)
-        .gte("created_at", sevenDaysAgo.toISOString())
-        .not("class_id", "is", null)
-        .order("created_at", { ascending: false });
-
-      if (error || !data || data.length === 0) return [];
-
-      // Collect class_ids not in ownedClasses (may be archived)
-      const knownIds = new Set(ownedClasses.map(c => c.id));
-      const unknownIds = [...new Set(data.map(r => r.class_id).filter(id => !knownIds.has(id)))];
-
-      // Fetch names for unknown class_ids (includes archived)
-      const archivedNames = new Map();
-      if (unknownIds.length > 0) {
-        const { data: archived } = await supa
-          .from("classes")
-          .select("id, name")
-          .in("id", unknownIds);
-        if (archived) archived.forEach(c => archivedNames.set(c.id, c.name));
-      }
-
-      // Group by class_id + date
-      const groups = new Map();
-      data.forEach(row => {
-        const date = new Date(row.created_at).toLocaleDateString();
-        const className = ownedClasses.find(c => c.id === row.class_id)?.name
-          || archivedNames.get(row.class_id)
-          || "Unlinked Class";
-        const key = `${row.class_id}::${date}`;
-        if (!groups.has(key)) groups.set(key, { className, classId: row.class_id, date, count: 0 });
-        groups.get(key).count++;
-      });
-
-      return Array.from(groups.values());
     }
 
     // ===== Assignment name parsing =====
@@ -3779,7 +3669,7 @@
       bulkBtn.style.display = inProgress.length > 0 ? "" : "none";
       bulkBtn.onclick = async () => {
         const count = inProgress.length;
-        const confirmed = await vystiConfirm(`Mark all ${count} in-progress essay${count !== 1 ? "s" : ""} as Completed?`);
+        const confirmed = await vystiConfirm(`Mark all ${count} in-progress essay${count !== 1 ? "s" : ""} as Completed?`, "Complete");
         if (!confirmed) return;
         bulkBtn.disabled = true;
         bulkBtn.textContent = "Saving...";
@@ -3803,7 +3693,7 @@
       archiveBtn.style.display = completed.length > 0 ? "" : "none";
       archiveBtn.onclick = async () => {
         const count = completed.length;
-        const confirmed = await vystiConfirm(`Archive ${count} completed essay${count !== 1 ? "s" : ""}? They'll disappear from these cards but all data is kept.`);
+        const confirmed = await vystiConfirm(`Archive ${count} completed essay${count !== 1 ? "s" : ""}? They'll disappear from these cards but all data is kept.`, "Archive");
         if (!confirmed) return;
         archiveBtn.disabled = true;
         archiveBtn.textContent = "Archiving...";
@@ -5137,33 +5027,27 @@
           tr.appendChild(studentCell);
         }
 
-        // 3. Assignment
+        // 3. Assignment (editable)
         const assignCell = document.createElement("td");
-        if (currentLens === "classes") {
-          // Read-only in classes lens
-          assignCell.textContent = row.assignment_display || "\u2014";
-        } else {
-          // Editable in writing lens
-          const assignInput = document.createElement("input");
-          assignInput.className = "editable-cell";
-          assignInput.value = row.assignment_display || "";
-          assignInput.placeholder = "Assignment name";
-          assignInput.addEventListener("click", (e) => e.stopPropagation());
-          assignInput.addEventListener("blur", async () => {
-            const newVal = assignInput.value.trim();
-            if (newVal !== (row.assignment_name || "") && row.file_name) {
-              const ok = await patchMarkEvent(row.file_name, { assignment_name: newVal });
-              if (ok) {
-                row.assignment_name = newVal;
-                row.assignment_display = newVal || row.file_name || "Unnamed";
-                assignInput.classList.add("save-flash");
-                setTimeout(() => assignInput.classList.remove("save-flash"), 800);
-              }
+        const assignInput = document.createElement("input");
+        assignInput.className = "editable-cell";
+        assignInput.value = row.assignment_display || "";
+        assignInput.placeholder = "Assignment name";
+        assignInput.addEventListener("click", (e) => e.stopPropagation());
+        assignInput.addEventListener("blur", async () => {
+          const newVal = assignInput.value.trim();
+          if (newVal !== (row.assignment_name || "") && row.file_name) {
+            const ok = await patchMarkEvent(row.file_name, { assignment_name: newVal });
+            if (ok) {
+              row.assignment_name = newVal;
+              row.assignment_display = newVal || row.file_name || "Unnamed";
+              assignInput.classList.add("save-flash");
+              setTimeout(() => assignInput.classList.remove("save-flash"), 800);
             }
-          });
-          assignInput.addEventListener("keydown", (e) => { if (e.key === "Enter") assignInput.blur(); });
-          assignCell.appendChild(assignInput);
-        }
+          }
+        });
+        assignInput.addEventListener("keydown", (e) => { if (e.key === "Enter") assignInput.blur(); });
+        assignCell.appendChild(assignInput);
         tr.appendChild(assignCell);
 
         // 4. Source (compact display or actionable hint)
@@ -5544,6 +5428,36 @@
       studentEdit.addEventListener("keydown", (e) => { if (e.key === "Enter") studentEdit.blur(); });
       studentRow.appendChild(studentEdit);
       panel.appendChild(studentRow);
+
+      // ── Assignment name (editable) ──
+      const assignRow = document.createElement("div");
+      assignRow.style.cssText = "display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;margin-left:16px;";
+      const assignLabel = document.createElement("div");
+      assignLabel.className = "expand-section-title";
+      assignLabel.textContent = "Assignment";
+      assignLabel.style.marginBottom = "0";
+      assignRow.appendChild(assignLabel);
+      const assignEdit = document.createElement("input");
+      assignEdit.className = "editable-cell";
+      assignEdit.style.width = "200px";
+      assignEdit.value = row.assignment_display || "";
+      assignEdit.placeholder = "Assignment name";
+      assignEdit.addEventListener("click", (e) => e.stopPropagation());
+      assignEdit.addEventListener("blur", async () => {
+        const newVal = assignEdit.value.trim();
+        if (newVal !== (row.assignment_name || "") && row.file_name) {
+          const ok = await patchMarkEvent(row.file_name, { assignment_name: newVal });
+          if (ok) {
+            row.assignment_name = newVal;
+            row.assignment_display = newVal || row.file_name || "Unnamed";
+            assignEdit.classList.add("save-flash");
+            setTimeout(() => assignEdit.classList.remove("save-flash"), 800);
+          }
+        }
+      });
+      assignEdit.addEventListener("keydown", (e) => { if (e.key === "Enter") assignEdit.blur(); });
+      assignRow.appendChild(assignEdit);
+      panel.appendChild(assignRow);
 
       panel.appendChild(grid);
 
@@ -6343,7 +6257,7 @@
         ? "Delete this submission? This cannot be undone."
         : `Delete ${validNames.length} submissions? This cannot be undone.`;
 
-      if (!(await vystiConfirm(msg))) return;
+      if (!(await vystiConfirm(msg, "Delete"))) return;
 
       const { data: sessionData } = await supa.auth.getSession();
       if (!sessionData || !sessionData.session) return;
@@ -6725,7 +6639,7 @@
       // Capture ID locally — closeClassModal() nullifies editingClassId
       const classIdToDelete = editingClassId;
       const cls = ownedClasses.find(c => c.id === classIdToDelete);
-      const confirmed = await vystiConfirm(`Delete "${cls?.name || "this class"}"? This cannot be undone.`);
+      const confirmed = await vystiConfirm(`Delete "${cls?.name || "this class"}"? This cannot be undone.`, "Delete");
       if (!confirmed) return;
 
       try {
@@ -6811,7 +6725,7 @@
 
         // Delete button — confirm, archive, refresh
         row.querySelector(".manage-class-delete-btn").addEventListener("click", async () => {
-          if (!(await vystiConfirm(`Delete "${cls.name}"? This cannot be undone.`))) return;
+          if (!(await vystiConfirm(`Delete "${cls.name}"? This cannot be undone.`, "Delete"))) return;
           try {
             await supa.from("class_students").delete().eq("class_id", cls.id);
             await supa.from("classes").update({ archived: true }).eq("id", cls.id);
