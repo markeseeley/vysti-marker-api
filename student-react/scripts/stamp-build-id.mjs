@@ -110,12 +110,19 @@ async function main() {
     "/assets/student-react/profile-main.js",
     "/assets/student-react/assets/profile-main.css"
   ];
+  const practiceAssets = [
+    "/assets/student-react/practice-main.js",
+    "/assets/student-react/assets/practice-main.css",
+    mobileCSS
+  ];
 
   const results = [
     await updateHtmlFile("student_react.html", buildId, studentAssets),
     await updateHtmlFile("write_react.html", buildId, writeAssets),
     await updateHtmlFile("teacher_react.html", buildId, teacherAssets),
     await updateHtmlFile("profile_react.html", buildId, profileAssets),
+    await updateHtmlFile("practice.html", buildId, practiceAssets),
+    await updateHtmlFile("student_progress.html", buildId, []),
   ];
 
   const updatedFiles = results.filter((item) => item.updated);

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="app-build-id" content="1774673859900" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -6885,6 +6886,41 @@
 
     // ===== Initial load =====
     refreshAuthUI();
+  </script>
+  <script>
+  // ── Version checker (inline for legacy HTML pages) ──
+  (function() {
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") return;
+    var bid = document.querySelector('meta[name="app-build-id"]');
+    var currentId = bid ? bid.content : "";
+    if (!currentId || currentId === "dev") return;
+    var toast = null;
+    function showToast() {
+      if (toast) return;
+      var s = document.createElement("style");
+      s.textContent = '.vysti-update-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;display:flex;align-items:center;gap:14px;padding:14px 20px;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border,rgba(0,0,0,.08));border-left:4px solid var(--maroon,#A90D22);border-radius:12px;font-family:var(--font-body,"DM Sans",system-ui,sans-serif);font-size:14px;box-shadow:var(--shadow,0 14px 45px rgba(0,0,0,.08));z-index:99999;transition:opacity .35s,transform .35s;max-width:440px}.vysti-update-toast--visible{opacity:1;transform:translateX(-50%) translateY(0)}.vysti-update-toast-icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(169,13,34,.08);color:var(--maroon,#A90D22);flex-shrink:0}.vysti-update-toast-body{display:flex;flex-direction:column;gap:2px}.vysti-update-toast-title{font-weight:700;font-size:14px;color:var(--text,#111)}.vysti-update-toast-text{font-size:12px;color:var(--muted,rgba(0,0,0,.6))}.vysti-update-toast-btn{appearance:none;border:none;background:var(--maroon,#A90D22);color:#fff;padding:8px 20px;border-radius:999px;font-family:var(--font-body,"DM Sans",system-ui,sans-serif);font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0;transition:background .15s}.vysti-update-toast-btn:hover{background:#8a0b1c}.vysti-update-toast-dismiss{appearance:none;border:none;background:none;color:var(--muted,rgba(0,0,0,.4));font-size:18px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}@media(max-width:480px){.vysti-update-toast{left:12px;right:12px;transform:translateX(0) translateY(20px);max-width:none}.vysti-update-toast--visible{transform:translateX(0) translateY(0)}}';
+      document.head.appendChild(s);
+      toast = document.createElement("div");
+      toast.className = "vysti-update-toast";
+      toast.innerHTML = '<div class="vysti-update-toast-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg></div><div class="vysti-update-toast-body"><span class="vysti-update-toast-title">New version available</span><span class="vysti-update-toast-text">Refresh to get the latest updates.</span></div><button class="vysti-update-toast-btn" type="button">Refresh</button><button class="vysti-update-toast-dismiss" type="button" aria-label="Dismiss">&times;</button>';
+      toast.querySelector(".vysti-update-toast-btn").onclick = function() { location.reload(); };
+      toast.querySelector(".vysti-update-toast-dismiss").onclick = function() { toast.remove(); toast = null; };
+      document.body.appendChild(toast);
+      requestAnimationFrame(function() { toast.classList.add("vysti-update-toast--visible"); });
+    }
+    function check() {
+      fetch(location.pathname, { cache: "no-store", headers: { Accept: "text/html" } })
+        .then(function(r) { return r.ok ? r.text() : null; })
+        .then(function(html) {
+          if (!html) return;
+          var m = html.match(/name="app-build-id"\s+content="([^"]+)"/);
+          if (m && m[1] && m[1] !== currentId) showToast();
+        })
+        .catch(function() {});
+    }
+    setTimeout(check, 60000);
+    setInterval(check, 180000);
+  })();
   </script>
 </body>
 </html>
