@@ -152,6 +152,8 @@ export default function TeacherCommentNotebook({
   onScoreChange,
   onToggleDownload,
   onStudentNameChange,
+  notes,
+  onNotesChange,
   studentContext,
   metrics,
   mode,
@@ -553,6 +555,20 @@ export default function TeacherCommentNotebook({
           placeholder="Write your comment here..."
           className="cn-textarea cn-paragraph"
           maxLength={MAX_COMMENT_CHARS}
+        />
+      </div>
+
+      {/* ── Teacher notes (private, not included in download) ── */}
+      <div className="cn-notes-section">
+        <label className="cn-notes-label" htmlFor="cn-notes">Notes <span className="cn-notes-hint">(private — not included in download)</span></label>
+        <textarea
+          id="cn-notes"
+          className="cn-textarea cn-notes-input"
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Private notes about this student or essay..."
+          rows={2}
+          maxLength={1000}
         />
       </div>
 

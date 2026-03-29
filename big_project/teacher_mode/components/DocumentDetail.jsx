@@ -1226,6 +1226,10 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       if (body.score === undefined && doc.teacherComment?.score != null) {
         body.score = doc.teacherComment.score;
       }
+      // Include notes
+      if (body.notes === undefined && doc.notes != null) {
+        body.notes = doc.notes;
+      }
       // Auto-promote pending → in_progress on first save.
       // Preserve "completed" status — don't overwrite it on auto-saves.
       if (fields.review_status) {
@@ -1848,6 +1852,8 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
         onScoreChange={(s) => dispatch({ type: "SET_TEACHER_SCORE", id: doc.id, score: s })}
         onToggleDownload={() => dispatch({ type: "TOGGLE_COMMENT_DOWNLOAD", id: doc.id })}
         onStudentNameChange={(name) => dispatch({ type: "UPDATE_FILE_FIELD", id: doc.id, field: "studentName", value: name })}
+        notes={doc.notes || ""}
+        onNotesChange={(val) => dispatch({ type: "UPDATE_FILE_FIELD", id: doc.id, field: "notes", value: val })}
         studentContext={doc.studentContext}
         metrics={doc.metrics}
         mode={state.mode}

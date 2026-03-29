@@ -3151,6 +3151,32 @@ span.vysti-preview-hit.vysti-conventions-hit[data-vysti-hit]:hover {
   font-style: italic;
 }
 
+/* Teacher notes (private) */
+.cn-notes-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.cn-notes-label {
+  display: block;
+  font-family: var(--font-body, "DM Sans", sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.55);
+  margin-bottom: 4px;
+}
+.cn-notes-hint {
+  font-weight: 400;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.30);
+}
+.cn-notes-input {
+  min-height: 40px;
+  resize: vertical;
+  font-size: 12px !important;
+  background: rgba(0, 0, 0, 0.02);
+}
+
 /* Quick snippet buttons */
 .cn-snippets {
   margin-top: 12px;
