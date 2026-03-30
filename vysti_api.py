@@ -767,7 +767,7 @@ async def count_user_marks(user_id: str) -> int:
         return 0
 
 
-_FREE_TIER_MARK_LIMIT = 1
+_FREE_TIER_MARK_LIMIT = 3
 _MOBILE_MARK_LIMIT = 5      # Total mobile marks before paywall
 _MOBILE_DAILY_LIMIT = 2     # Max mobile marks per day
 _MOBILE_PAGE_LIMIT = 15     # Max pages per mobile OCR upload
@@ -4707,8 +4707,9 @@ async def check_text(
     # 0. Product-level access check based on calling context
     await _enforce_product_for_mode(user, body.student_mode)
 
-    # 0a. Free-tier usage check — skip for API key clients
-    if not _is_api_client:
+    # 0a. Free-tier usage check — skip for API key clients and student rechecks.
+    #     Students can recheck freely; their paywall is on download only.
+    if not _is_api_client and not body.student_mode:
         _ct_user_id = user.get("id") if isinstance(user, dict) else None
         if _ct_user_id and _ct_user_id != "local-dev":
             _ct_profile = await get_user_profile(_ct_user_id)
