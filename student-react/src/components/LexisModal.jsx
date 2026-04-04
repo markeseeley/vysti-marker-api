@@ -854,17 +854,6 @@ export default function LexisModal({ isOpen, onClose, detectedLexis = [], onFind
                     <strong style={{ fontSize: "1.05rem" }}>
                       {browsedTerm.term}
                     </strong>
-                    {browsedTerm.focus_type && (
-                      <span
-                        style={{
-                          marginLeft: "0.5rem",
-                          fontSize: "0.75rem",
-                          color: "#888",
-                        }}
-                      >
-                        ({browsedTerm.focus_type})
-                      </span>
-                    )}
                   </div>
                   <button
                     type="button"
