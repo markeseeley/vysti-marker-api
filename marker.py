@@ -1593,9 +1593,20 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_intro_quote_rule = False
 
     elif mode == "research_paper":
-        # Research paper: full analysis rules but long quotations are permitted.
+        # Research paper: formal academic conventions but structurally flexible.
+        # Long quotations (block quotes) and intro quotations are permitted.
+        # Thesis doesn't need to name literary devices; body paragraphs don't
+        # need to follow a device-based thesis order. Past tense is acceptable.
         cfg.enforce_long_quote_rule = False
         cfg.enforce_mla_citation = True
+        cfg.enforce_closed_thesis = False
+        cfg.enforce_specific_thesis_topics = False
+        cfg.enforce_thesis_organization = False
+        cfg.enforce_topic_thesis_alignment = False
+        cfg.enforce_off_topic = False
+        cfg.enforce_intro_quote_rule = False
+        cfg.enforce_present_tense_rule = False
+        cfg.highlight_thesis_devices = False
 
     elif mode == "sandbox":
         # Sandbox: disable ALL automated rules. Teacher marks manually.
@@ -4146,6 +4157,11 @@ def analyze_text(
 
             # Skip named collocations (e.g. "Great Migration")
             if start in _subjective_allowed_positions:
+                continue
+
+            # Skip when the word is used as a verb/gerund, not an adjective.
+            # E.g. "Moving on," is a transition, not "a moving essay."
+            if token.pos_ == "VERB" or (token.pos_ == "ADJ" and token.dep_ == "advcl"):
                 continue
 
             # Do not touch text inside direct quotations

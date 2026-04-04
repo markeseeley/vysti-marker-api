@@ -161,13 +161,13 @@ export const TEACHER_MODE_RULE_DEFAULTS = {
     details: "Argumentation moves beyond close reading of a single text into broader persuasive writing. Students may write in the first person, use past tense when appropriate, and draw on a wider range of evidence\u2014including personal experience, current events, or multiple sources. The emphasis is on constructing a logical, well-supported argument with clear reasoning and strong claims. While the mode is more open, Vysti still checks for precise language, concision, and grammatical conventions."
   },
   research_paper: {
-    allowI: false, allowAudience: false, enforceClosedThesis: true,
-    requireBodyEvidence: true, allowIntroQuotes: false, allowLongQuotes: true,
+    allowI: false, allowAudience: false, enforceClosedThesis: false,
+    requireBodyEvidence: true, allowIntroQuotes: true, allowLongQuotes: true,
     highlightDevices: false, allowContractions: false, allowWhich: false,
     disableWeakVerbs: false, disableFactRule: false, disableHumanRule: false,
-    disableVagueGeneralRule: false, enforceSva: true, enforcePresentTense: true,
-    description: "A formal research paper with analytical rigor and extended evidence.",
-    details: "The research paper follows the same academic conventions as the analytic essay\u2014formal tone, precise language, third person, and properly integrated evidence. The key difference is that longer quotations are permitted, allowing students to engage with extended passages from their sources. All other structural and style expectations remain in place."
+    disableVagueGeneralRule: false, enforceSva: true, enforcePresentTense: false,
+    description: "A formal research paper with MLA citations and extended evidence.",
+    details: "The research paper maintains formal academic conventions\u2014precise language, third person, no contractions\u2014but offers structural flexibility. The thesis does not need to name specific literary devices, and body paragraphs are not required to follow a device-based order. Past tense is acceptable when discussing historical events or findings. Longer quotations (block quotes) and introductory quotations are permitted. MLA parenthetical citations are checked."
   },
   sandbox: {
     allowI: true, allowAudience: true, enforceClosedThesis: false,

@@ -1897,8 +1897,8 @@ def serve_privacy():
 
 @app.get("/api/lexis")
 @limiter.limit("60/minute")
-async def get_all_lexis(request: Request, user: dict = Depends(get_current_user)):
-    """Return the full lexis database for A-Z dictionary browsing (auth required).
+async def get_all_lexis(request: Request):
+    """Return the full lexis database for A-Z dictionary browsing.
 
     Returns a compact list: [{term, term_norm, focus_type, definition,
     part_of_speech, tags}, ...] sorted alphabetically by term.
@@ -1943,8 +1943,8 @@ async def get_all_lexis(request: Request, user: dict = Depends(get_current_user)
 
 @app.get("/api/lexis/{term_norm}")
 @limiter.limit("60/minute")
-async def get_lexis_term(request: Request, term_norm: str, user: dict = Depends(get_current_user)):
-    """Look up a single lexis term by its normalised name (auth required)."""
+async def get_lexis_term(request: Request, term_norm: str):
+    """Look up a single lexis term by its normalised name."""
     from marker import load_lexis_database
     import math
 
