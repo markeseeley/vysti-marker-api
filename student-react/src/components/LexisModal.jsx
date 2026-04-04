@@ -145,7 +145,7 @@ function TermDetail({ term }) {
                     lineHeight: "1.45",
                   }}
                 >
-                  {item.trim().replace(/\.$/, "")}
+                  {item.trim().replace(/\.$/, "").replace(/^./, c => c.toUpperCase())}
                 </li>
               ))}
           </ul>
