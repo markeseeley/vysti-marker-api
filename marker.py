@@ -1822,7 +1822,7 @@ load_thesis_devices()
 # LEXIS DATABASE — LOADING AND DETECTION
 # ============================================================
 
-def load_lexis_database(path: str = "big_project/assignment-lexis.csv"):
+def load_lexis_database(path: str = "assignment-lexis.csv"):
     """
     Load the assignment-lexis CSV into a pandas DataFrame.
     Caches it in the global LEXIS_DATABASE variable.
