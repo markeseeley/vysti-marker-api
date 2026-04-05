@@ -3430,13 +3430,18 @@ def collect_text_title_format_marks(
         return has_any
 
     # Loop over all teacher-supplied works
+    is_content = paragraph_role in ("intro", "body", "conclusion")
     for work in works:
         title_text = work.title
-        # Only check the first occurrence of each title across the entire
-        # document.  If the student got it right the first time, trust them
+        # Only check the first occurrence in *content* paragraphs (intro/body/conclusion).
+        # If the student got it right the first time in actual prose, trust them
         # for the rest (avoids false positives like "Harlem" the location
         # being flagged after "Harlem" the poem was already quoted correctly).
+        # Non-content paragraphs (essay title line) are skipped entirely so a
+        # correctly quoted title in the heading doesn't exempt the body text.
         title_key = f"__title_checked:{title_text}"
+        if not is_content:
+            continue
         if title_key in labels_used:
             continue
         pattern = re.compile(re.escape(title_text), re.IGNORECASE)
