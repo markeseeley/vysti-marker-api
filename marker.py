@@ -8238,6 +8238,13 @@ def is_probable_title_paragraph(paragraph, config: MarkerConfig | None = None):
     if re.match(r"^(homework|essay|paper|assignment)\b", lowered) and len(text) <= 40:
         return True
 
+    # 2c) Title-case paragraph without sentence-ending punctuation (any length).
+    #     Catches long creative titles like:
+    #       "Who is there?" The Role of Gothic Elements in Jane Eyre, Dracula, ...
+    #     Normal body paragraphs end with sentence punctuation; titles don't.
+    if text[-1] not in ".!?;:" and is_title_case_like(text):
+        return True
+
     return False
 
 
