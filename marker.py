@@ -6146,13 +6146,13 @@ def analyze_text(
                 general_allowed_positions["universe"].add(m.start("kw"))
 
         # --- HUMAN exceptions ---
-        # Allow the fixed phrase "human rights" even though "human" is normally forbidden.
+        # Allow fixed phrases "human rights" and "human nature" even though "human" is normally forbidden.
         if "human" in forbidden:
-            human_rights_pattern = re.compile(
-                r"\b(?P<kw>human)\s+rights\b",
+            human_phrase_pattern = re.compile(
+                r"\b(?P<kw>human)\s+(?:rights|nature|condition)\b",
                 re.IGNORECASE,
             )
-            for m in human_rights_pattern.finditer(flat_text):
+            for m in human_phrase_pattern.finditer(flat_text):
                 general_allowed_positions.setdefault("human", set()).add(m.start("kw"))
 
         # Precompute positions where 'very' is allowed in fixed idioms like
