@@ -91,7 +91,7 @@
 
           <a href="#" id="forgotLink" class="forgot-link">Forgot password?</a>
 
-          <div class="cf-turnstile" id="turnstileSignin" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSigninTurnstile" data-theme="light"></div>
+          <div id="turnstileSignin" data-vysti-turnstile="signin"></div>
 
           <button id="signinBtn" type="button">Sign in</button>
 
@@ -176,7 +176,7 @@
 
           <p class="auth-consent">By creating an account, you agree to our <a href="/terms.html" target="_blank">Terms of Service</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</p>
 
-          <div class="cf-turnstile" id="turnstileSignup" data-sitekey="0x4AAAAAACgsXdqqnE_wXaXh" data-callback="onSignupTurnstile" data-theme="light"></div>
+          <div id="turnstileSignup" data-vysti-turnstile="signup"></div>
 
           <button id="signupBtn" type="button">Create Account</button>
 
@@ -476,6 +476,39 @@
     const authOverlay = document.getElementById("authOverlay");
     const allAuthCards = [signinCard, signupCard, resetCard, courseCard];
 
+    // Track rendered Turnstile widget IDs so we can remove them when switching cards
+    const _turnstileWidgets = { signin: null, signup: null };
+    const TURNSTILE_SITEKEY = "0x4AAAAAACgsXdqqnE_wXaXh";
+
+    function renderTurnstile(which) {
+      if (typeof turnstile === "undefined") {
+        // Script not loaded yet — retry shortly
+        setTimeout(() => renderTurnstile(which), 200);
+        return;
+      }
+      // Remove the other widget so only one is visible at a time
+      const other = which === "signin" ? "signup" : "signin";
+      if (_turnstileWidgets[other] !== null) {
+        try { turnstile.remove(_turnstileWidgets[other]); } catch {}
+        _turnstileWidgets[other] = null;
+      }
+      // Skip if already rendered
+      if (_turnstileWidgets[which] !== null) return;
+      const containerId = which === "signin" ? "turnstileSignin" : "turnstileSignup";
+      const callback = which === "signin"
+        ? (token) => { signinCaptchaToken = token; }
+        : (token) => { signupCaptchaToken = token; };
+      try {
+        _turnstileWidgets[which] = turnstile.render("#" + containerId, {
+          sitekey: TURNSTILE_SITEKEY,
+          callback,
+          theme: "light",
+        });
+      } catch (err) {
+        console.warn("Turnstile render failed:", err);
+      }
+    }
+
     function openAuth(mode, opts) {
       allAuthCards.forEach(c => c.classList.add("hidden"));
       if (mode === "signup") {
@@ -483,10 +516,14 @@
         signupCard.querySelector(".auth-title").textContent = (opts && opts.title) || "Create Account";
         signupCard.querySelector(".auth-subtitle").textContent = (opts && opts.subtitle) || "Sign up to get started with Vysti";
         signupCard.classList.remove("hidden");
+        renderTurnstile("signup");
       }
       else if (mode === "reset") resetCard.classList.remove("hidden");
       else if (mode === "course") courseCard.classList.remove("hidden");
-      else signinCard.classList.remove("hidden");
+      else {
+        signinCard.classList.remove("hidden");
+        renderTurnstile("signin");
+      }
       authOverlay.classList.remove("hidden");
       document.body.style.overflow = "hidden";
     }
@@ -695,7 +732,9 @@
         options: { captchaToken: signinCaptchaToken },
       });
       signinCaptchaToken = "";
-      if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignin");
+      if (typeof turnstile !== "undefined" && _turnstileWidgets.signin !== null) {
+        try { turnstile.reset(_turnstileWidgets.signin); } catch {}
+      }
 
       if (error) {
         if (error.message === "Invalid login credentials") {
@@ -860,7 +899,9 @@
         },
       });
       signupCaptchaToken = "";
-      if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignup");
+      if (typeof turnstile !== "undefined" && _turnstileWidgets.signup !== null) {
+        try { turnstile.reset(_turnstileWidgets.signup); } catch {}
+      }
 
       if (error) {
         signupStatusEl.textContent = "Sign-up error: " + error.message;
@@ -1008,7 +1049,9 @@
         options: signinCaptchaToken ? { captchaToken: signinCaptchaToken } : {},
       });
       signinCaptchaToken = "";
-      if (typeof turnstile !== "undefined") turnstile.reset("#turnstileSignin");
+      if (typeof turnstile !== "undefined" && _turnstileWidgets.signin !== null) {
+        try { turnstile.reset(_turnstileWidgets.signin); } catch {}
+      }
       if (error) {
         authHandled = false;  // Re-enable normal auth flow
         devStatus.textContent = "Sign-in failed: " + error.message;
