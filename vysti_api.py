@@ -613,8 +613,14 @@ async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
     Returns the (possibly updated) profile dict.  Skips users with an
     active Stripe subscription — their access is paid, not coupon-based.
     """
-    # Don't touch paying customers
+    # Don't touch paying customers (Stripe-active subscription)
     if profile.get("subscription_status") == "active":
+        return profile
+
+    # Don't touch admin-granted paid access (subscription_tier set manually
+    # via SQL without a Stripe webhook). This protects teacher/admin accounts
+    # from having coupon-attached products silently revoked on expiry.
+    if profile.get("subscription_tier") == "paid":
         return profile
 
     # Only check users who currently have some product access
