@@ -632,7 +632,7 @@ async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
         url = (
             f"{SUPABASE_URL}/rest/v1/coupon_redemptions"
             f"?user_id=eq.{user_id}"
-            f"&select=coupon_id,coupon_codes(expires_at,grants_mark,grants_revise)"
+            f"&select=coupon_id,coupon_codes(expires_at,grants_mark,grants_revise,grants_write)"
         )
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(url, headers={
@@ -650,6 +650,7 @@ async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
         now = datetime.now(timezone.utc)
         revoke_mark = False
         revoke_revise = False
+        revoke_write = False
 
         for r in redemptions:
             coupon = r.get("coupon_codes") or {}
@@ -668,8 +669,10 @@ async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
                 revoke_mark = True
             if coupon.get("grants_revise"):
                 revoke_revise = True
+            if coupon.get("grants_write"):
+                revoke_write = True
 
-        if not revoke_mark and not revoke_revise:
+        if not revoke_mark and not revoke_revise and not revoke_write:
             return profile
 
         # Build the revocation patch
@@ -678,6 +681,8 @@ async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
             patch["has_mark"] = False
         if revoke_revise and profile.get("has_revise"):
             patch["has_revise"] = False
+        if revoke_write and profile.get("has_write"):
+            patch["has_write"] = False
 
         if not patch:
             return profile
@@ -685,7 +690,8 @@ async def _revoke_expired_coupon_access(user_id: str, profile: dict) -> dict:
         # If revoking all products, also reset tier to free
         new_mark = patch.get("has_mark", profile.get("has_mark", False))
         new_revise = patch.get("has_revise", profile.get("has_revise", False))
-        if not new_mark and not new_revise:
+        new_write = patch.get("has_write", profile.get("has_write", False))
+        if not new_mark and not new_revise and not new_write:
             patch["subscription_tier"] = "free"
             patch["subscription_status"] = "none"
 
@@ -1491,7 +1497,7 @@ async def redeem_coupon(
         f"{SUPABASE_URL}/rest/v1/coupon_codes"
         f"?code=eq.{urllib.parse.quote(code, safe='')}"
         f"&is_active=eq.true"
-        f"&select=id,description,max_redemptions,grants_tier,grants_mark,grants_revise,expires_at"
+        f"&select=id,description,max_redemptions,grants_tier,grants_mark,grants_revise,grants_write,expires_at"
     )
     async with httpx.AsyncClient(timeout=5) as client:
         resp = await client.get(url, headers={
@@ -1563,6 +1569,8 @@ async def redeem_coupon(
         update_fields["has_mark"] = coupon["grants_mark"]
     if coupon.get("grants_revise") is not None:
         update_fields["has_revise"] = coupon["grants_revise"]
+    if coupon.get("grants_write") is not None:
+        update_fields["has_write"] = coupon["grants_write"]
     await _update_profile_fields(user_id, update_fields)
 
     return {"redeemed": True, "description": coupon.get("description", "")}
