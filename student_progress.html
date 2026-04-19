@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1775797040555" />
+  <meta name="app-build-id" content="1776574584908" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -1592,12 +1592,92 @@
     .roster-chip-comment {
       display: none; background: none; border: none; cursor: pointer;
       color: rgba(0,0,0,.25); font-size: 16px; padding: 0 2px;
-      margin-left: auto; flex-shrink: 0; transition: color .15s;
+      flex-shrink: 0; transition: color .15s;
     }
     .roster-chip-comment:hover { color: var(--maroon, #A90D22); }
     .roster-chip-comment.has-comment { color: var(--maroon, #A90D22); opacity: .7; }
     .roster-chip-comment.has-comment:hover { opacity: 1; }
     .roster-section:not(.editing) .roster-chip-comment { display: block; }
+
+    /* ── Roster chip breakdown icon ── */
+    .roster-chip-breakdown {
+      display: none; background: none; border: none; cursor: pointer;
+      color: rgba(0,0,0,.25); padding: 0 2px;
+      margin-left: auto; flex-shrink: 0; transition: color .15s;
+    }
+    .roster-chip-breakdown:hover:not(:disabled) { color: var(--maroon, #A90D22); }
+    .roster-section:not(.editing) .roster-chip-breakdown { display: block; }
+
+    /* ── Rule Breakdown panel ── */
+    .breakdown-summary {
+      font-size: 13px;
+      color: rgba(0,0,0,.65);
+      padding: 10px 12px;
+      background: rgba(0,0,0,.025);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .breakdown-empty {
+      text-align: center;
+      padding: 24px;
+      color: rgba(0,0,0,.45);
+      font-size: 13px;
+    }
+    .breakdown-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .breakdown-row {
+      padding: 10px 4px;
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+    .breakdown-row:last-child { border-bottom: none; }
+    .breakdown-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .breakdown-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text, #111);
+      line-height: 1.35;
+    }
+    .breakdown-count {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--maroon, #A90D22);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .breakdown-trend {
+      font-size: 11px;
+      margin-left: 4px;
+    }
+    .breakdown-trend--down { color: #16A34A; }
+    .breakdown-trend--up { color: #dc2626; }
+    .breakdown-bar {
+      height: 5px;
+      background: rgba(0,0,0,.06);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .breakdown-bar-fill {
+      height: 100%;
+      background: var(--maroon, #A90D22);
+      opacity: .75;
+      border-radius: 999px;
+    }
+    .breakdown-sub {
+      font-size: 11px;
+      color: rgba(0,0,0,.45);
+    }
 
     /* ── Roster chip comment preview ── */
     .roster-chip-comment-preview {
@@ -3019,8 +3099,26 @@
           openSemesterCommentModal(name);
         });
 
+        // Breakdown icon — shows per-rule violation counts
+        const breakdownBtn = document.createElement("button");
+        breakdownBtn.type = "button";
+        breakdownBtn.className = "roster-chip-breakdown";
+        breakdownBtn.title = "Rule breakdown";
+        breakdownBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>`;
+        if (!hasData) {
+          breakdownBtn.disabled = true;
+          breakdownBtn.style.opacity = "0.3";
+          breakdownBtn.style.cursor = "not-allowed";
+        }
+        breakdownBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!hasData) return;
+          openSemesterCommentModal(name, "breakdown");
+        });
+
         chip.appendChild(avatar);
         chip.appendChild(info);
+        chip.appendChild(breakdownBtn);
         chip.appendChild(commentBtn);
         chip.appendChild(removeBtn);
 
@@ -3302,7 +3400,101 @@
     // ── Modal logic ──
     let _scState = null; // { stats, tiers, recommendedTiers, texts, vars, studentName, courseName }
 
-    function openSemesterCommentModal(studentName) {
+    // ===== Rule-level breakdown for a student =====
+    // Aggregates label_counts across all of a student's essays and returns
+    // a ranked HTML list with per-rule totals, essay counts, and trend.
+    function renderRuleBreakdownHTML(rows) {
+      if (!rows || rows.length === 0) {
+        return '<div class="breakdown-empty">No essays marked yet for this student.</div>';
+      }
+      // Sort chronologically to compute trend (first half vs second half)
+      const sorted = [...rows].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      // Aggregate: per-rule totals + how many essays each rule appeared in
+      const perRuleTotals = new Map();
+      const perRuleEssayCount = new Map();
+      const perRuleFirstHalf = new Map();
+      const perRuleSecondHalf = new Map();
+      const half = Math.ceil(sorted.length / 2);
+
+      sorted.forEach((row, idx) => {
+        const lc = row.label_counts || {};
+        for (const [label, count] of Object.entries(lc)) {
+          if (!label || label.startsWith("__")) continue;
+          const n = Number(count) || 0;
+          if (n <= 0) continue;
+          perRuleTotals.set(label, (perRuleTotals.get(label) || 0) + n);
+          perRuleEssayCount.set(label, (perRuleEssayCount.get(label) || 0) + 1);
+          if (idx < half) {
+            perRuleFirstHalf.set(label, (perRuleFirstHalf.get(label) || 0) + n);
+          } else {
+            perRuleSecondHalf.set(label, (perRuleSecondHalf.get(label) || 0) + n);
+          }
+        }
+      });
+
+      if (perRuleTotals.size === 0) {
+        return '<div class="breakdown-empty">No rule violations recorded across these essays.</div>';
+      }
+
+      // Sort rules by total count desc
+      const sortedRules = [...perRuleTotals.entries()].sort((a, b) => b[1] - a[1]);
+      const totalEssays = sorted.length;
+      const maxCount = sortedRules[0][1];
+
+      // Overall total
+      const overallTotal = [...perRuleTotals.values()].reduce((a, b) => a + b, 0);
+
+      let html = '<div class="breakdown-summary">' +
+        '<strong>' + overallTotal + '</strong> rule violation' + (overallTotal !== 1 ? 's' : '') +
+        ' across <strong>' + totalEssays + '</strong> essay' + (totalEssays !== 1 ? 's' : '') +
+        ' \u00b7 <strong>' + sortedRules.length + '</strong> distinct rule' + (sortedRules.length !== 1 ? 's' : '') +
+        '</div>';
+
+      html += '<ul class="breakdown-list">';
+      for (const [label, count] of sortedRules) {
+        const essayCount = perRuleEssayCount.get(label) || 0;
+        const barWidth = Math.max(4, Math.round((count / maxCount) * 100));
+
+        // Trend: compare second half density to first half density (per essay)
+        const firstCount = perRuleFirstHalf.get(label) || 0;
+        const secondCount = perRuleSecondHalf.get(label) || 0;
+        const firstHalfSize = half;
+        const secondHalfSize = sorted.length - half;
+        let trendHtml = "";
+        if (sorted.length >= 2 && firstHalfSize > 0 && secondHalfSize > 0) {
+          const firstAvg = firstCount / firstHalfSize;
+          const secondAvg = secondCount / secondHalfSize;
+          if (secondAvg < firstAvg * 0.8) {
+            trendHtml = '<span class="breakdown-trend breakdown-trend--down" title="Improving">\u25BC</span>';
+          } else if (secondAvg > firstAvg * 1.2) {
+            trendHtml = '<span class="breakdown-trend breakdown-trend--up" title="Getting worse">\u25B2</span>';
+          }
+        }
+
+        html += '<li class="breakdown-row">' +
+          '<div class="breakdown-row-top">' +
+            '<span class="breakdown-label">' + escapeHtml(label) + '</span>' +
+            '<span class="breakdown-count">' + count + trendHtml + '</span>' +
+          '</div>' +
+          '<div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:' + barWidth + '%"></div></div>' +
+          '<div class="breakdown-sub">in ' + essayCount + ' of ' + totalEssays + ' essays</div>' +
+        '</li>';
+      }
+      html += '</ul>';
+      return html;
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function openSemesterCommentModal(studentName, initialTab) {
       const rows = allData.filter(r => r.student_name === studentName);
       const hasData = rows.length > 0;
       const overlay = document.getElementById("semesterOverlay");
@@ -3310,16 +3502,20 @@
       const title = document.getElementById("semesterTitle");
       title.textContent = studentName;
       const roster = rosterStudents.find(s => s.student_name === studentName);
+      const startTab = initialTab || "note";
 
       // ── Build tabbed layout ──
       let html = '<div class="semester-tabs">' +
-        '<button class="semester-tab active" data-tab="note">Note</button>' +
-        '<button class="semester-tab' + (hasData ? '' : ' disabled') + '"' +
+        '<button class="semester-tab' + (startTab === "note" ? " active" : "") + '" data-tab="note">Note</button>' +
+        '<button class="semester-tab' + (startTab === "breakdown" ? " active" : "") + (hasData ? '' : ' disabled') + '"' +
+        (hasData ? '' : ' disabled title="Mark at least one essay to see a rule breakdown"') +
+        ' data-tab="breakdown">Breakdown</button>' +
+        '<button class="semester-tab' + (startTab === "final" ? " active" : "") + (hasData ? '' : ' disabled') + '"' +
         (hasData ? '' : ' disabled title="Mark at least one essay to generate a final comment"') +
         ' data-tab="final">Final Comment</button></div>';
 
       // ── Note tab ──
-      html += '<div class="semester-tab-panel active" id="scPanelNote">' +
+      html += '<div class="semester-tab-panel' + (startTab === "note" ? " active" : "") + '" id="scPanelNote">' +
         '<div class="semester-combined-label">NOTE</div>' +
         '<textarea class="semester-combined-textarea" id="semesterNoteText" placeholder="Write a note about this student\u2026"></textarea>' +
         '<div class="semester-actions"><div></div><div class="semester-actions-right">' +
@@ -3327,8 +3523,12 @@
         '<button class="semester-btn semester-btn-primary" id="semesterNoteSave">Save</button>' +
         '</div></div></div>';
 
+      // ── Breakdown tab ──
+      html += '<div class="semester-tab-panel' + (startTab === "breakdown" ? " active" : "") + '" id="scPanelBreakdown">' +
+        renderRuleBreakdownHTML(rows) + '</div>';
+
       // ── Final Comment tab ──
-      html += '<div class="semester-tab-panel" id="scPanelFinal"></div>';
+      html += '<div class="semester-tab-panel' + (startTab === "final" ? " active" : "") + '" id="scPanelFinal"></div>';
 
       body.innerHTML = html;
 
@@ -3338,13 +3538,15 @@
       }
 
       // ── Tab switching ──
+      const TAB_PANEL_IDS = { note: "scPanelNote", breakdown: "scPanelBreakdown", final: "scPanelFinal" };
       body.querySelectorAll(".semester-tab").forEach(tab => {
         tab.addEventListener("click", () => {
           if (tab.disabled) return;
           body.querySelectorAll(".semester-tab").forEach(t => t.classList.remove("active"));
           body.querySelectorAll(".semester-tab-panel").forEach(p => p.classList.remove("active"));
           tab.classList.add("active");
-          document.getElementById(tab.dataset.tab === "note" ? "scPanelNote" : "scPanelFinal").classList.add("active");
+          const panelId = TAB_PANEL_IDS[tab.dataset.tab];
+          if (panelId) document.getElementById(panelId)?.classList.add("active");
         });
       });
 
