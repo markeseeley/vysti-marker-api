@@ -252,7 +252,13 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             "Content-Type": "application/json",
             Authorization: `Bearer ${sess.session.access_token}`,
           },
-          body: JSON.stringify({ file_name: outputName, text, comment: commentText || "" }),
+          body: JSON.stringify({
+            file_name: outputName,
+            text,
+            comment: commentText || "",
+            label_counts: doc.labelCounts || {},
+            include_details: Boolean(doc.teacherComment?.includeDetailsInDownload),
+          }),
         });
         if (resp.ok) {
           const blob = await resp.blob();
@@ -812,7 +818,13 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                   "Content-Type": "application/json",
                   Authorization: `Bearer ${sess.session.access_token}`,
                 },
-                body: JSON.stringify({ file_name: outputName, text, comment: commentText || "" }),
+                body: JSON.stringify({
+            file_name: outputName,
+            text,
+            comment: commentText || "",
+            label_counts: doc.labelCounts || {},
+            include_details: Boolean(doc.teacherComment?.includeDetailsInDownload),
+          }),
               });
               if (resp.ok) downloadMe = await resp.blob();
             }
@@ -851,7 +863,13 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${sess.session.access_token}`,
               },
-              body: JSON.stringify({ file_name: outputName, text, comment: commentText || "" }),
+              body: JSON.stringify({
+            file_name: outputName,
+            text,
+            comment: commentText || "",
+            label_counts: doc.labelCounts || {},
+            include_details: Boolean(doc.teacherComment?.includeDetailsInDownload),
+          }),
             });
             if (resp.ok) downloadMe = await resp.blob();
           }
@@ -1694,7 +1712,13 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                           "Content-Type": "application/json",
                           Authorization: `Bearer ${sess.access_token}`,
                         },
-                        body: JSON.stringify({ file_name: name, text, comment: commentText || "" }),
+                        body: JSON.stringify({
+                          file_name: name,
+                          text,
+                          comment: commentText || "",
+                          label_counts: f.labelCounts || {},
+                          include_details: Boolean(f.teacherComment?.includeDetailsInDownload),
+                        }),
                       });
                       if (resp.ok) blob = await resp.blob();
                     }
@@ -1851,6 +1875,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
         onCommentChange={(c) => dispatch({ type: "SET_TEACHER_COMMENT", id: doc.id, comment: c })}
         onScoreChange={(s) => dispatch({ type: "SET_TEACHER_SCORE", id: doc.id, score: s })}
         onToggleDownload={() => dispatch({ type: "TOGGLE_COMMENT_DOWNLOAD", id: doc.id })}
+        onToggleDetailsDownload={() => dispatch({ type: "TOGGLE_DETAILS_DOWNLOAD", id: doc.id })}
         onStudentNameChange={(name) => dispatch({ type: "UPDATE_FILE_FIELD", id: doc.id, field: "studentName", value: name })}
         notes={doc.notes || ""}
         onNotesChange={(val) => dispatch({ type: "UPDATE_FILE_FIELD", id: doc.id, field: "notes", value: val })}

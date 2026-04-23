@@ -317,6 +317,8 @@ class ExportTeacherDocxRequest(BaseModel):
     file_name: str = ""
     text: str = ""
     comment: str = ""
+    label_counts: dict = {}       # {rule_label: count}
+    include_details: bool = False  # Append detailed issues list at end
 
 
 class DeleteMarkEventsRequest(BaseModel):
@@ -2628,7 +2630,12 @@ async def export_teacher_docx(
     # limit, so once a teacher has marked an essay they should always be
     # able to download the result — regardless of tier.
 
-    docx_bytes = build_teacher_doc_from_text(body.text, body.comment or "")
+    docx_bytes = build_teacher_doc_from_text(
+        body.text,
+        body.comment or "",
+        label_counts=body.label_counts or {},
+        include_details=bool(body.include_details),
+    )
 
     safe_name = _sanitize_filename(body.file_name.strip() if body.file_name else "essay_marked.docx")
     if not safe_name.lower().endswith(".docx"):
@@ -3566,7 +3573,34 @@ def _wrap_run_with_comment(run, comment_id):
     end.addnext(ref_run)
 
 
-def build_teacher_doc_from_text(text: str, comment: str = "") -> bytes:
+# Cache for brief (IP-safe) explanations loaded from Vysti Rules spreadsheet
+_BRIEF_EXPLANATIONS_CACHE = None
+
+
+def _get_brief_explanations() -> dict:
+    """Load brief (IP-safe) explanations from the Vysti Rules spreadsheet.
+    Cached after first call. Returns {} on failure so downloads still work.
+    """
+    global _BRIEF_EXPLANATIONS_CACHE
+    if _BRIEF_EXPLANATIONS_CACHE is not None:
+        return _BRIEF_EXPLANATIONS_CACHE
+    try:
+        from marker import load_shared_explanations
+        _BRIEF_EXPLANATIONS_CACHE = load_shared_explanations(
+            "Vysti Rules for Writing.xlsx"
+        )
+    except Exception as e:
+        print(f"[brief] load failed: {e!r}")
+        _BRIEF_EXPLANATIONS_CACHE = {}
+    return _BRIEF_EXPLANATIONS_CACHE
+
+
+def build_teacher_doc_from_text(
+    text: str,
+    comment: str = "",
+    label_counts: dict | None = None,
+    include_details: bool = False,
+) -> bytes:
     """Build a .docx for teacher 'Download Marked Essay'.
 
     Vysti labels (wrapped in «→ Label» by the frontend) are rendered with
@@ -3904,6 +3938,65 @@ def build_teacher_doc_from_text(text: str, comment: str = "") -> bytes:
             r = p.add_run(line)
             r.font.size = Pt(12)
             r.font.name = "Times New Roman"
+
+    # ── Detailed Issues section (teacher toggle) ──
+    if include_details and label_counts:
+        # Filter internal labels and zero-counts
+        cleaned = [
+            (lbl, int(c))
+            for lbl, c in label_counts.items()
+            if lbl and not lbl.startswith("__") and int(c or 0) > 0
+        ]
+        if cleaned:
+            briefs = _get_brief_explanations()
+            cleaned.sort(key=lambda x: (-x[1], x[0]))
+
+            # Separator line
+            sep = doc.add_paragraph()
+            sep.paragraph_format.first_line_indent = Inches(0)
+            sep_run = sep.add_run("\u2500" * 40)
+            sep_run.font.size = Pt(10)
+            sep_run.font.color.rgb = RGBColor(160, 160, 160)
+
+            # Header
+            header_para = doc.add_paragraph()
+            header_para.paragraph_format.first_line_indent = Inches(0)
+            header_run = header_para.add_run("Issues in this essay")
+            header_run.bold = True
+            header_run.font.size = Pt(14)
+            header_run.font.name = "Times New Roman"
+
+            for lbl, cnt in cleaned:
+                brief = briefs.get(lbl, "")
+                para = doc.add_paragraph()
+                para.paragraph_format.first_line_indent = Inches(0)
+                para.paragraph_format.left_indent = Inches(0.25)
+                para.paragraph_format.space_after = Pt(4)
+
+                # Rule name (bold)
+                name_run = para.add_run(lbl)
+                name_run.bold = True
+                name_run.font.size = Pt(12)
+                name_run.font.name = "Times New Roman"
+
+                # Count in parentheses
+                count_run = para.add_run(
+                    f"  ({cnt} instance{'s' if cnt != 1 else ''})"
+                )
+                count_run.font.size = Pt(10)
+                count_run.font.color.rgb = RGBColor(128, 128, 128)
+                count_run.font.name = "Times New Roman"
+
+                # Brief explanation on next line
+                if brief:
+                    brief_para = doc.add_paragraph()
+                    brief_para.paragraph_format.first_line_indent = Inches(0)
+                    brief_para.paragraph_format.left_indent = Inches(0.25)
+                    brief_para.paragraph_format.space_after = Pt(8)
+                    brief_run = brief_para.add_run(brief)
+                    brief_run.font.size = Pt(11)
+                    brief_run.font.name = "Times New Roman"
+                    brief_run.italic = True
 
     docx_buffer = BytesIO()
     doc.save(docx_buffer)

@@ -3418,6 +3418,11 @@ span.vysti-preview-hit.vysti-conventions-hit[data-vysti-hit]:hover {
   padding-top: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
+.cn-toggles-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
 .cn-download-toggle {
   display: flex;

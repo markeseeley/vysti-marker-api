@@ -151,6 +151,7 @@ export default function TeacherCommentNotebook({
   onCommentChange,
   onScoreChange,
   onToggleDownload,
+  onToggleDetailsDownload,
   onStudentNameChange,
   notes,
   onNotesChange,
@@ -837,15 +838,26 @@ export default function TeacherCommentNotebook({
 
       {/* Actions */}
       <div className="cn-actions">
-        <label className="cn-download-toggle">
-          <input
-            type="checkbox"
-            name="include-in-download"
-            checked={comment.includeInDownload !== false}
-            onChange={onToggleDownload}
-          />
-          <span>Include in download</span>
-        </label>
+        <div className="cn-toggles-col">
+          <label className="cn-download-toggle">
+            <input
+              type="checkbox"
+              name="include-in-download"
+              checked={comment.includeInDownload !== false}
+              onChange={onToggleDownload}
+            />
+            <span>Include in download</span>
+          </label>
+          <label className="cn-download-toggle">
+            <input
+              type="checkbox"
+              name="include-details-in-download"
+              checked={Boolean(comment.includeDetailsInDownload)}
+              onChange={onToggleDetailsDownload}
+            />
+            <span>Include detailed issues list</span>
+          </label>
+        </div>
         <button
           type="button"
           className="cn-copy-btn"
