@@ -3222,8 +3222,14 @@ WEAK_TRANSITIONS_MULTI = [
 
 WEAK_TRANSITIONS_SINGLE = [
     "first",
+    "firstly",
     "second",
+    "secondly",
     "third",
+    "thirdly",
+    "fourth",
+    "fourthly",
+    "lastly",
     "next",
     "then",
     "afterward",
