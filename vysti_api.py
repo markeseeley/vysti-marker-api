@@ -318,7 +318,10 @@ class ExportTeacherDocxRequest(BaseModel):
     text: str = ""
     comment: str = ""
     label_counts: dict = {}       # {rule_label: count}
-    include_details: bool = False  # Append detailed issues list at end
+    include_details: bool = False  # Append detailed issues + charts at end
+    metrics: dict = {}            # {power: {score: n}, variety: {...}, ...}
+    word_count: int = 0
+    mode: str = ""
 
 
 class DeleteMarkEventsRequest(BaseModel):
@@ -2635,6 +2638,9 @@ async def export_teacher_docx(
         body.comment or "",
         label_counts=body.label_counts or {},
         include_details=bool(body.include_details),
+        metrics=body.metrics or {},
+        word_count=int(body.word_count or 0),
+        mode=body.mode or "",
     )
 
     safe_name = _sanitize_filename(body.file_name.strip() if body.file_name else "essay_marked.docx")
@@ -3573,6 +3579,172 @@ def _wrap_run_with_comment(run, comment_id):
     end.addnext(ref_run)
 
 
+# ── Chart generation (Pillow) for teacher .docx visual summary ──
+_METRIC_ORDER = ["power", "variety", "cohesion", "precision"]
+_METRIC_LABELS = {
+    "power": "Power",
+    "variety": "Analysis",
+    "cohesion": "Cohesion",
+    "precision": "Precision",
+}
+_METRIC_COLORS = {
+    "power":     (220, 53, 69),    # red
+    "variety":   (13, 110, 253),   # blue
+    "cohesion":  (25, 135, 84),    # green
+    "precision": (212, 160, 0),    # amber
+}
+_MAROON = (169, 13, 34)
+
+
+def _try_load_font(size: int, bold: bool = False):
+    """Find a decent system font; fall back to default."""
+    try:
+        from PIL import ImageFont
+        candidates = []
+        if bold:
+            candidates = [
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/Library/Fonts/Arial Bold.ttf",
+            ]
+        else:
+            candidates = [
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/System/Library/Fonts/Supplemental/Arial.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/Library/Fonts/Arial.ttf",
+            ]
+        for path in candidates:
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+        return ImageFont.load_default()
+    except Exception:
+        return None
+
+
+def _generate_meter_chart(metrics: dict, mode: str = "") -> bytes | None:
+    """Render a horizontal bar chart of the 4 meter scores. Returns PNG bytes."""
+    try:
+        from PIL import Image, ImageDraw
+    except Exception:
+        return None
+    if not metrics:
+        return None
+
+    hide_cohesion = (mode == "peel_paragraph")
+    order = [m for m in _METRIC_ORDER if not (hide_cohesion and m == "cohesion")]
+
+    W, H = 760, 60 + 40 * len(order) + 30
+    img = Image.new("RGB", (W, H), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    title_font = _try_load_font(18, bold=True)
+    label_font = _try_load_font(14, bold=True)
+    score_font = _try_load_font(14, bold=True)
+
+    # Title
+    draw.text((20, 14), "Essay Analysis \u2014 Vysti Meters", fill=(30, 30, 30), font=title_font)
+
+    # Bars
+    bar_x0 = 150
+    bar_x1 = W - 80
+    bar_w = bar_x1 - bar_x0
+    y = 50
+    for key in order:
+        label = _METRIC_LABELS.get(key, key.title())
+        color = _METRIC_COLORS.get(key, _MAROON)
+        raw = metrics.get(key, {})
+        score = int(round(raw.get("score") or 0))
+        score = max(0, min(100, score))
+
+        # Label
+        draw.text((20, y + 8), label, fill=(60, 60, 60), font=label_font)
+
+        # Track (background bar)
+        draw.rounded_rectangle(
+            [bar_x0, y + 6, bar_x1, y + 26],
+            radius=10, fill=(240, 240, 240),
+        )
+        # Fill
+        fill_w = max(8, int(bar_w * (score / 100)))
+        draw.rounded_rectangle(
+            [bar_x0, y + 6, bar_x0 + fill_w, y + 26],
+            radius=10, fill=color,
+        )
+        # Score number on the right
+        draw.text((bar_x1 + 10, y + 8), f"{score}", fill=(30, 30, 30), font=score_font)
+        y += 40
+
+    # Legend band at bottom
+    legend_y = H - 22
+    draw.text(
+        (20, legend_y),
+        "Higher is better \u00b7 100 is the ceiling",
+        fill=(140, 140, 140),
+        font=_try_load_font(11, bold=False),
+    )
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _generate_top_issues_chart(label_counts: dict, top_n: int = 5) -> bytes | None:
+    """Render horizontal bar chart of top N most-violated rules. Returns PNG bytes."""
+    try:
+        from PIL import Image, ImageDraw
+    except Exception:
+        return None
+    items = [
+        (lbl, int(c))
+        for lbl, c in (label_counts or {}).items()
+        if lbl and not lbl.startswith("__") and int(c or 0) > 0
+    ]
+    if not items:
+        return None
+    items.sort(key=lambda x: (-x[1], x[0]))
+    items = items[:top_n]
+    max_count = max(c for _, c in items) or 1
+
+    W, H = 760, 60 + 40 * len(items) + 20
+    img = Image.new("RGB", (W, H), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    title_font = _try_load_font(18, bold=True)
+    label_font = _try_load_font(12, bold=False)
+    count_font = _try_load_font(14, bold=True)
+
+    draw.text((20, 14), f"Most Common Issues (Top {len(items)})", fill=(30, 30, 30), font=title_font)
+
+    bar_x0 = 330
+    bar_x1 = W - 60
+    bar_w = bar_x1 - bar_x0
+    y = 50
+    for lbl, cnt in items:
+        # Truncate long labels
+        display = lbl if len(lbl) <= 42 else lbl[:40].rstrip() + "\u2026"
+        draw.text((20, y + 8), display, fill=(60, 60, 60), font=label_font)
+
+        draw.rounded_rectangle(
+            [bar_x0, y + 6, bar_x1, y + 26],
+            radius=10, fill=(240, 240, 240),
+        )
+        fill_w = max(8, int(bar_w * (cnt / max_count)))
+        draw.rounded_rectangle(
+            [bar_x0, y + 6, bar_x0 + fill_w, y + 26],
+            radius=10, fill=_MAROON,
+        )
+        draw.text((bar_x1 + 8, y + 8), str(cnt), fill=(30, 30, 30), font=count_font)
+        y += 40
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 # Cache for brief (IP-safe) explanations loaded from Vysti Rules spreadsheet
 _BRIEF_EXPLANATIONS_CACHE = None
 
@@ -3600,6 +3772,9 @@ def build_teacher_doc_from_text(
     comment: str = "",
     label_counts: dict | None = None,
     include_details: bool = False,
+    metrics: dict | None = None,
+    word_count: int = 0,
+    mode: str = "",
 ) -> bytes:
     """Build a .docx for teacher 'Download Marked Essay'.
 
@@ -3957,6 +4132,30 @@ def build_teacher_doc_from_text(
             sep_run = sep.add_run("\u2500" * 40)
             sep_run.font.size = Pt(10)
             sep_run.font.color.rgb = RGBColor(160, 160, 160)
+
+            # ── Meter chart (Power / Analysis / Cohesion / Precision) ──
+            meter_png = _generate_meter_chart(metrics or {}, mode=mode or "")
+            if meter_png:
+                try:
+                    chart_para = doc.add_paragraph()
+                    chart_para.paragraph_format.first_line_indent = Inches(0)
+                    chart_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                    chart_run = chart_para.add_run()
+                    chart_run.add_picture(BytesIO(meter_png), width=Inches(6.5))
+                except Exception as e:
+                    print(f"[chart] meter embed failed: {e!r}")
+
+            # ── Top Issues chart ──
+            issues_png = _generate_top_issues_chart(label_counts, top_n=5)
+            if issues_png:
+                try:
+                    chart_para2 = doc.add_paragraph()
+                    chart_para2.paragraph_format.first_line_indent = Inches(0)
+                    chart_para2.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                    chart_run2 = chart_para2.add_run()
+                    chart_run2.add_picture(BytesIO(issues_png), width=Inches(6.5))
+                except Exception as e:
+                    print(f"[chart] issues embed failed: {e!r}")
 
             # Header
             header_para = doc.add_paragraph()

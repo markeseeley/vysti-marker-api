@@ -258,6 +258,9 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             comment: commentText || "",
             label_counts: doc.labelCounts || {},
             include_details: Boolean(doc.teacherComment?.includeDetailsInDownload),
+            metrics: doc.metrics || {},
+            word_count: doc.wordCount || 0,
+            mode: state.mode || "",
           }),
         });
         if (resp.ok) {
@@ -824,6 +827,9 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             comment: commentText || "",
             label_counts: doc.labelCounts || {},
             include_details: Boolean(doc.teacherComment?.includeDetailsInDownload),
+            metrics: doc.metrics || {},
+            word_count: doc.wordCount || 0,
+            mode: state.mode || "",
           }),
               });
               if (resp.ok) downloadMe = await resp.blob();
@@ -869,6 +875,9 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             comment: commentText || "",
             label_counts: doc.labelCounts || {},
             include_details: Boolean(doc.teacherComment?.includeDetailsInDownload),
+            metrics: doc.metrics || {},
+            word_count: doc.wordCount || 0,
+            mode: state.mode || "",
           }),
             });
             if (resp.ok) downloadMe = await resp.blob();
@@ -1718,6 +1727,9 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                           comment: commentText || "",
                           label_counts: f.labelCounts || {},
                           include_details: Boolean(f.teacherComment?.includeDetailsInDownload),
+                          metrics: f.metrics || {},
+                          word_count: f.wordCount || 0,
+                          mode: state.mode || "",
                         }),
                       });
                       if (resp.ok) blob = await resp.blob();
