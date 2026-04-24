@@ -287,6 +287,15 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     setTimeout(async () => {
       try {
         const modeLabel = TEACHER_MODES.find((m) => m.value === state.mode)?.label || state.mode;
+        const _ibBase = computeIBScores(doc.labelCounts, doc.wordCount);
+        const _ibOv = doc.teacherComment?.ibOverrides || {};
+        const effectiveIB = _ibBase ? {
+          a: _ibOv.a ?? _ibBase.a,
+          b: _ibOv.b ?? _ibBase.b,
+          c: _ibOv.c ?? _ibBase.c,
+          d: _ibOv.d ?? _ibBase.d,
+          total: (_ibOv.a ?? _ibBase.a) + (_ibOv.b ?? _ibBase.b) + (_ibOv.c ?? _ibBase.c) + (_ibOv.d ?? _ibBase.d),
+        } : null;
         const blob = await generateReportPdf({
           metrics: doc.metrics,
           labelCounts: doc.labelCounts,
@@ -298,6 +307,8 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
           fileName: doc.fileName || "essay",
           studentName: doc.studentName || "",
           assignmentName: doc.assignmentName || "",
+          teacherComment: doc.teacherComment || null,
+          effectiveIB,
           date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         });
         if (doc.id !== docId) return; // Document switched
@@ -955,6 +966,15 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
 
       if (!blob) {
         const modeLabel = TEACHER_MODES.find((m) => m.value === state.mode)?.label || state.mode;
+        const _ibBase2 = computeIBScores(doc.labelCounts, doc.wordCount);
+        const _ibOv2 = doc.teacherComment?.ibOverrides || {};
+        const effectiveIB2 = _ibBase2 ? {
+          a: _ibOv2.a ?? _ibBase2.a,
+          b: _ibOv2.b ?? _ibBase2.b,
+          c: _ibOv2.c ?? _ibBase2.c,
+          d: _ibOv2.d ?? _ibBase2.d,
+          total: (_ibOv2.a ?? _ibBase2.a) + (_ibOv2.b ?? _ibBase2.b) + (_ibOv2.c ?? _ibBase2.c) + (_ibOv2.d ?? _ibBase2.d),
+        } : null;
         blob = await generateReportPdf({
           metrics: doc.metrics,
           labelCounts: doc.labelCounts,
@@ -966,6 +986,8 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
           fileName: doc.fileName || "essay",
           studentName: doc.studentName || "",
           assignmentName: doc.assignmentName || "",
+          teacherComment: doc.teacherComment || null,
+          effectiveIB: effectiveIB2,
           date: new Date().toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",

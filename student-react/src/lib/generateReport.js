@@ -238,42 +238,91 @@ function renderScoreAndMetrics(doc, y, opts, logoDataUrl) {
 
   const metersBottomY = y;
 
-  // ── Right column: Score (vertically centered) ──
-  const overall = computeOverallScore(
-    opts.metrics,
-    opts.mode,
-    opts.totalIssues,
-    opts.wordCount
-  );
+  // ── Right column: Teacher-provided score(s) + word stats ──
+  // Replaces the old "Score X%" (Vysti-computed) which was misleading:
+  // parents confused rule-adherence score with writing quality.
+  //
+  // Now shows teacher-inputted scores only when the teacher toggled them
+  // on in the Comment card (scoreFormats.percent / scoreFormats.ib):
+  //   - Both on  → stacked "X%" and "IB Y/20"
+  //   - Percent  → large "X%" labeled "Teacher Score"
+  //   - IB only  → large "Y/20" labeled "IB Paper 1"
+  //   - Neither  → right column shows only word/issue stats (no big number)
+  const teacherComment = opts.teacherComment || null;
+  const scoreFormats = teacherComment?.scoreFormats || {};
+  const showPercent = Boolean(scoreFormats.percent) && teacherComment?.score != null;
+  const effectiveIB = opts.effectiveIB || null;
+  const showIB = Boolean(scoreFormats.ib) && effectiveIB != null;
 
-  const scoreText = overall != null ? `Score ${overall}%` : "Score \u2014";
   const scoreCenterY = blockTopY + (metersBottomY - blockTopY) / 2;
   const scoreMidX = RIGHT_X + RIGHT_W / 2;
 
-  // Large bold score
-  doc.setFontSize(32);
-  doc.setFont(FONT_HEADING, "bold");
-  doc.setTextColor(...BLACK);
-  doc.text(scoreText, scoreMidX, scoreCenterY - 4, { align: "center" });
+  if (showPercent && showIB) {
+    // Both: stacked, medium size
+    doc.setFontSize(22);
+    doc.setFont(FONT_HEADING, "bold");
+    doc.setTextColor(...BLACK);
+    doc.text(`${teacherComment.score}%`, scoreMidX, scoreCenterY - 8, { align: "center" });
+    doc.setFontSize(7);
+    doc.setFont(FONT_BODY, "normal");
+    doc.setTextColor(...MUTED);
+    doc.text("Teacher Score", scoreMidX, scoreCenterY - 3, { align: "center" });
 
-  // Issue density subtitle
+    doc.setFontSize(22);
+    doc.setFont(FONT_HEADING, "bold");
+    doc.setTextColor(...BLACK);
+    doc.text(`${effectiveIB.total}/20`, scoreMidX, scoreCenterY + 8, { align: "center" });
+    doc.setFontSize(7);
+    doc.setFont(FONT_BODY, "normal");
+    doc.setTextColor(...MUTED);
+    doc.text(
+      `IB A:${effectiveIB.a} B:${effectiveIB.b} C:${effectiveIB.c} D:${effectiveIB.d}`,
+      scoreMidX, scoreCenterY + 13,
+      { align: "center" }
+    );
+  } else if (showPercent) {
+    doc.setFontSize(32);
+    doc.setFont(FONT_HEADING, "bold");
+    doc.setTextColor(...BLACK);
+    doc.text(`${teacherComment.score}%`, scoreMidX, scoreCenterY - 4, { align: "center" });
+    doc.setFontSize(7.5);
+    doc.setFont(FONT_BODY, "normal");
+    doc.setTextColor(...MUTED);
+    doc.text("Teacher Score", scoreMidX, scoreCenterY + 2, { align: "center" });
+  } else if (showIB) {
+    doc.setFontSize(32);
+    doc.setFont(FONT_HEADING, "bold");
+    doc.setTextColor(...BLACK);
+    doc.text(`${effectiveIB.total}/20`, scoreMidX, scoreCenterY - 4, { align: "center" });
+    doc.setFontSize(7.5);
+    doc.setFont(FONT_BODY, "normal");
+    doc.setTextColor(...MUTED);
+    doc.text(
+      `IB A:${effectiveIB.a} B:${effectiveIB.b} C:${effectiveIB.c} D:${effectiveIB.d}`,
+      scoreMidX, scoreCenterY + 2,
+      { align: "center" }
+    );
+  }
+
+  // Issue density — always at the bottom of the right column
   const density =
     opts.wordCount > 0
       ? ((opts.totalIssues / opts.wordCount) * 100).toFixed(1)
       : "N/A";
+  const statsY = (showPercent || showIB) ? scoreCenterY + 16 : scoreCenterY - 2;
   doc.setFontSize(7.5);
   doc.setFont(FONT_BODY, "normal");
   doc.setTextColor(...MUTED);
   doc.text(
     `${opts.totalIssues} issues in ${opts.wordCount ?? 0} words`,
     scoreMidX,
-    scoreCenterY + 6,
+    statsY + 6,
     { align: "center" }
   );
   doc.text(
     `${density} issues per 100 words`,
     scoreMidX,
-    scoreCenterY + 10,
+    statsY + 10,
     { align: "center" }
   );
 
