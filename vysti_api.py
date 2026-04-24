@@ -3646,7 +3646,7 @@ def _generate_meter_chart(metrics: dict, mode: str = "") -> bytes | None:
     score_font = _try_load_font(14, bold=True)
 
     # Title
-    draw.text((20, 14), "Essay Analysis \u2014 Vysti Meters", fill=(30, 30, 30), font=title_font)
+    draw.text((20, 14), "Essay Analysis", fill=(30, 30, 30), font=title_font)
 
     # Bars
     bar_x0 = 150
