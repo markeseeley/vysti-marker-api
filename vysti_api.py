@@ -4197,6 +4197,35 @@ def build_teacher_doc_from_text(
                     brief_run.font.name = "Times New Roman"
                     brief_run.italic = True
 
+                # For Noun repetition, list the specific repeated nouns
+                if lbl == "Noun repetition":
+                    repeated = (
+                        (metrics or {})
+                        .get("power", {})
+                        .get("details", {})
+                        .get("repeatedNouns")
+                        or []
+                    )
+                    if repeated:
+                        items = []
+                        for n in repeated:
+                            word = n.get("lemma") or ""
+                            c = n.get("activeCount") or n.get("count") or 0
+                            if word:
+                                items.append(f'"{word}" ({c}x)')
+                        if items:
+                            nouns_para = doc.add_paragraph()
+                            nouns_para.paragraph_format.first_line_indent = Inches(0)
+                            nouns_para.paragraph_format.left_indent = Inches(0.25)
+                            nouns_para.paragraph_format.space_after = Pt(8)
+                            prefix_run = nouns_para.add_run("Repeated nouns: ")
+                            prefix_run.bold = True
+                            prefix_run.font.size = Pt(11)
+                            prefix_run.font.name = "Times New Roman"
+                            list_run = nouns_para.add_run(", ".join(items))
+                            list_run.font.size = Pt(11)
+                            list_run.font.name = "Times New Roman"
+
     docx_buffer = BytesIO()
     doc.save(docx_buffer)
     docx_buffer.seek(0)
