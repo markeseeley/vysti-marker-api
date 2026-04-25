@@ -323,6 +323,7 @@ class ExportTeacherDocxRequest(BaseModel):
     word_count: int = 0
     mode: str = ""
     repeated_nouns: list = []     # [{lemma, count}] — extracted client-side
+    techniques: list = []         # [{name, count}] — rhetorical/literary devices used
 
 
 class DeleteMarkEventsRequest(BaseModel):
@@ -2643,6 +2644,7 @@ async def export_teacher_docx(
         word_count=int(body.word_count or 0),
         mode=body.mode or "",
         repeated_nouns=body.repeated_nouns or [],
+        techniques=body.techniques or [],
     )
 
     safe_name = _sanitize_filename(body.file_name.strip() if body.file_name else "essay_marked.docx")
@@ -3778,6 +3780,7 @@ def build_teacher_doc_from_text(
     word_count: int = 0,
     mode: str = "",
     repeated_nouns: list | None = None,
+    techniques: list | None = None,
 ) -> bytes:
     """Build a .docx for teacher 'Download Marked Essay'.
 
@@ -4159,6 +4162,43 @@ def build_teacher_doc_from_text(
                     chart_run2.add_picture(BytesIO(issues_png), width=Inches(6.5))
                 except Exception as e:
                     print(f"[chart] issues embed failed: {e!r}")
+
+            # ── Techniques used (positive recognition) ──
+            cleaned_tech = [
+                (t.get("name") or "", int(t.get("count") or 0))
+                for t in (techniques or [])
+                if isinstance(t, dict) and t.get("name")
+            ]
+            cleaned_tech = [(n, c) for (n, c) in cleaned_tech if c > 0]
+            if cleaned_tech:
+                cleaned_tech.sort(key=lambda x: (-x[1], x[0]))
+
+                tech_header = doc.add_paragraph()
+                tech_header.paragraph_format.first_line_indent = Inches(0)
+                tech_header_run = tech_header.add_run("Techniques used")
+                tech_header_run.bold = True
+                tech_header_run.font.size = Pt(14)
+                tech_header_run.font.name = "Times New Roman"
+
+                tech_intro = doc.add_paragraph()
+                tech_intro.paragraph_format.first_line_indent = Inches(0)
+                tech_intro.paragraph_format.left_indent = Inches(0.25)
+                tech_intro.paragraph_format.space_after = Pt(6)
+                tech_intro_run = tech_intro.add_run(
+                    "Rhetorical and literary devices identified in this essay:"
+                )
+                tech_intro_run.italic = True
+                tech_intro_run.font.size = Pt(11)
+                tech_intro_run.font.name = "Times New Roman"
+
+                tech_para = doc.add_paragraph()
+                tech_para.paragraph_format.first_line_indent = Inches(0)
+                tech_para.paragraph_format.left_indent = Inches(0.25)
+                tech_para.paragraph_format.space_after = Pt(10)
+                items = [f"{name} ({c}×)" for (name, c) in cleaned_tech]
+                tech_run = tech_para.add_run(", ".join(items))
+                tech_run.font.size = Pt(11)
+                tech_run.font.name = "Times New Roman"
 
             # Header
             header_para = doc.add_paragraph()

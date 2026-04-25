@@ -142,6 +142,20 @@ function extractRepeatedNouns(d) {
   return [...byLemma.values()].sort((a, b) => b.count - a.count);
 }
 
+// Extract the techniques_discussed list from the doc/file metadata.
+// Returns [{name, count}] sorted by frequency desc.
+function extractTechniques(d) {
+  const arr = d?.metadata?.techniques_discussed;
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+  return arr
+    .map((t) => ({
+      name: String(t?.name || "").trim(),
+      count: Number(t?.count || 0) || 0,
+    }))
+    .filter((t) => t.name && t.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
+
 export default function DocumentDetail({ doc, state, dispatch, supa, derived, powerVerbFormsSet, thesisDevicesLexicon, toolkitEnabled, onToolkitChange, onAddFiles, entitlement, onUpgrade }) {
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -303,6 +317,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             word_count: doc.wordCount || 0,
             mode: state.mode || "",
             repeated_nouns: extractRepeatedNouns(doc),
+            techniques: extractTechniques(doc),
           }),
         });
         if (resp.ok) {
@@ -884,6 +899,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             word_count: doc.wordCount || 0,
             mode: state.mode || "",
             repeated_nouns: extractRepeatedNouns(doc),
+            techniques: extractTechniques(doc),
           }),
               });
               if (resp.ok) downloadMe = await resp.blob();
@@ -933,6 +949,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             word_count: doc.wordCount || 0,
             mode: state.mode || "",
             repeated_nouns: extractRepeatedNouns(doc),
+            techniques: extractTechniques(doc),
           }),
             });
             if (resp.ok) downloadMe = await resp.blob();
@@ -1797,6 +1814,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                           word_count: f.wordCount || 0,
                           mode: state.mode || "",
                           repeated_nouns: extractRepeatedNouns(f),
+                          techniques: extractTechniques(f),
                         }),
                       });
                       if (resp.ok) blob = await resp.blob();
