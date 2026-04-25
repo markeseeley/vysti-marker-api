@@ -9065,9 +9065,13 @@ def extract_richer_examples(doc: Document) -> list[dict]:
 
 
 def build_techniques_discussed(docx_bytes: bytes, mode: str) -> list[dict]:
+    """Count every rhetorical/literary device the student deployed across
+    the entire essay. Previously this filtered to only thesis-declared
+    devices (THESIS_ALL_DEVICE_KEYS), which caused the downloaded
+    "Techniques used" list to undercount what the student actually used
+    in their body paragraphs. Now counts every detected device span.
+    """
     if mode == "argumentation":
-        return []
-    if not THESIS_ALL_DEVICE_KEYS:
         return []
     try:
         base_doc = Document(BytesIO(docx_bytes))
@@ -9082,12 +9086,13 @@ def build_techniques_discussed(docx_bytes: bytes, mode: str) -> list[dict]:
         from collections import Counter
         counts = Counter()
         for device_key, _, _ in iter_device_spans(doc_spacy):
-            if device_key in THESIS_ALL_DEVICE_KEYS:
-                counts[device_key] += 1
+            counts[device_key] += 1
 
         if not counts:
             return []
 
+        # Order: thesis-declared devices first (in thesis order), then
+        # any other devices ranked by count desc.
         ordered_keys = []
         for key in THESIS_TOPIC_ORDER:
             if key in counts and key not in ordered_keys:
