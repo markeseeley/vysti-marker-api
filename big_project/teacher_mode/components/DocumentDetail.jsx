@@ -101,6 +101,47 @@ function triggerDownload(blob, filename) {
   };
 }
 
+// Extract a list of repeated nouns from a doc/file object.
+// Tries metrics.power.details.repeatedNouns first, then scans issues
+// for "Noun repetition" entries (older mark_events). Returns [{lemma, count}].
+function extractRepeatedNouns(d) {
+  if (!d) return [];
+  const fromMetrics = d?.metrics?.power?.details?.repeatedNouns;
+  if (Array.isArray(fromMetrics) && fromMetrics.length) {
+    return fromMetrics
+      .map((n) => ({
+        lemma: n?.lemma || n?.word || "",
+        count: Number(n?.activeCount ?? n?.count ?? 0) || 0,
+      }))
+      .filter((n) => n.lemma);
+  }
+  // Fallback: parse issues array for Noun repetition entries with found_value
+  const issues = Array.isArray(d?.issues) ? d.issues : [];
+  const byLemma = new Map();
+  for (const iss of issues) {
+    if (!iss || iss.label !== "Noun repetition") continue;
+    let lemma = "";
+    let count = Number(iss.count) || 0;
+    const fv = String(iss.found_value || "");
+    // First-occurrence form: "lemma (N)" where N is the count
+    const m = fv.match(/^(.+?)\s*\((\d+)\)\s*$/);
+    if (m) {
+      lemma = m[1].trim();
+      if (!count) count = Number(m[2]) || 0;
+    } else if (fv) {
+      lemma = fv.trim();
+    }
+    if (!lemma) continue;
+    const prev = byLemma.get(lemma);
+    if (!prev || (count && count > prev.count)) {
+      byLemma.set(lemma, { lemma, count: count || (prev?.count ?? 1) });
+    } else if (!prev) {
+      byLemma.set(lemma, { lemma, count: 1 });
+    }
+  }
+  return [...byLemma.values()].sort((a, b) => b.count - a.count);
+}
+
 export default function DocumentDetail({ doc, state, dispatch, supa, derived, powerVerbFormsSet, thesisDevicesLexicon, toolkitEnabled, onToolkitChange, onAddFiles, entitlement, onUpgrade }) {
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -261,6 +302,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             metrics: doc.metrics || {},
             word_count: doc.wordCount || 0,
             mode: state.mode || "",
+            repeated_nouns: extractRepeatedNouns(doc),
           }),
         });
         if (resp.ok) {
@@ -841,6 +883,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             metrics: doc.metrics || {},
             word_count: doc.wordCount || 0,
             mode: state.mode || "",
+            repeated_nouns: extractRepeatedNouns(doc),
           }),
               });
               if (resp.ok) downloadMe = await resp.blob();
@@ -889,6 +932,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             metrics: doc.metrics || {},
             word_count: doc.wordCount || 0,
             mode: state.mode || "",
+            repeated_nouns: extractRepeatedNouns(doc),
           }),
             });
             if (resp.ok) downloadMe = await resp.blob();
@@ -1752,6 +1796,7 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                           metrics: f.metrics || {},
                           word_count: f.wordCount || 0,
                           mode: state.mode || "",
+                          repeated_nouns: extractRepeatedNouns(f),
                         }),
                       });
                       if (resp.ok) blob = await resp.blob();

@@ -322,6 +322,7 @@ class ExportTeacherDocxRequest(BaseModel):
     metrics: dict = {}            # {power: {score: n}, variety: {...}, ...}
     word_count: int = 0
     mode: str = ""
+    repeated_nouns: list = []     # [{lemma, count}] — extracted client-side
 
 
 class DeleteMarkEventsRequest(BaseModel):
@@ -2641,6 +2642,7 @@ async def export_teacher_docx(
         metrics=body.metrics or {},
         word_count=int(body.word_count or 0),
         mode=body.mode or "",
+        repeated_nouns=body.repeated_nouns or [],
     )
 
     safe_name = _sanitize_filename(body.file_name.strip() if body.file_name else "essay_marked.docx")
@@ -3775,6 +3777,7 @@ def build_teacher_doc_from_text(
     metrics: dict | None = None,
     word_count: int = 0,
     mode: str = "",
+    repeated_nouns: list | None = None,
 ) -> bytes:
     """Build a .docx for teacher 'Download Marked Essay'.
 
@@ -4197,19 +4200,20 @@ def build_teacher_doc_from_text(
                     brief_run.font.name = "Times New Roman"
                     brief_run.italic = True
 
-                # For Noun repetition, list the specific repeated nouns
+                # For Noun repetition, list the specific repeated nouns.
+                # Try multiple sources in order — explicit param, metrics, etc.
                 if lbl == "Noun repetition":
                     repeated = (
-                        (metrics or {})
-                        .get("power", {})
-                        .get("details", {})
-                        .get("repeatedNouns")
+                        list(repeated_nouns or [])
+                        or (metrics or {}).get("power", {}).get("details", {}).get("repeatedNouns")
                         or []
                     )
                     if repeated:
                         items = []
                         for n in repeated:
-                            word = n.get("lemma") or ""
+                            if not isinstance(n, dict):
+                                continue
+                            word = n.get("lemma") or n.get("word") or ""
                             c = n.get("activeCount") or n.get("count") or 0
                             if word:
                                 items.append(f'"{word}" ({c}x)')
