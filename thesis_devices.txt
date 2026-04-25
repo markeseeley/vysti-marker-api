@@ -66,6 +66,9 @@ narrative,narrative
 narratives,narrative
 story,story
 stories,story
+anecdote,anecdote
+anecdotes,anecdote
+anecdotal,anecdote
 
 # From the workbook list: argument / logic / modes
 definition,definition
@@ -479,6 +482,11 @@ speaking to the reader,direct address
 limited narrator,focalization
 omniscient narrator,focalization
 free indirect discourse,focalization
+internal monologue,internal monologue
+interior monologue,internal monologue
+inner monologue,internal monologue
+monologue,monologue
+stream of consciousness,stream of consciousness
 point of view,focalization
 pov,focalization
 structure shift,structure
