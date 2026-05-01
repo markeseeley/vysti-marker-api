@@ -1652,7 +1652,11 @@ async def redeem_coupon(
         raise HTTPException(status_code=502, detail="Redemption failed")
 
     # 5. Grant access
-    grants_tier = coupon.get("grants_tier", "paid")
+    # Coerce NULL → "paid". coupon.get(..., "paid") only handles the
+    # missing-key case; PostgREST returns null for unset columns, which
+    # would otherwise propagate and leave students stuck at tier='free'
+    # despite holding products — letting them hit the free-tier paywall.
+    grants_tier = coupon.get("grants_tier") or "paid"
     update_fields = {
         "subscription_tier": grants_tier,
         "subscription_status": "active",
