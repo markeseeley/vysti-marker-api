@@ -767,9 +767,36 @@ async def get_user_profile(user_id: str) -> dict | None:
 
 
 async def count_user_marks(user_id: str) -> int:
-    """Count total mark_events for a user (for free tier usage tracking)."""
+    """Return the user's lifetime mark count (monotonic; immune to row deletion).
+
+    Reads the immutable profiles.lifetime_marks counter rather than COUNT(*)
+    on mark_events. The old approach let users bypass the free tier by
+    deleting their previous mark_events. lifetime_marks only goes up.
+
+    Falls back to COUNT(*) on mark_events if lifetime_marks is null
+    (pre-migration profile that wasn't backfilled).
+    """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return 0
+    profile_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=lifetime_marks"
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(profile_url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            })
+        if resp.status_code == 200:
+            rows = resp.json()
+            if rows:
+                lt = rows[0].get("lifetime_marks")
+                if lt is not None:
+                    return int(lt)
+    except Exception:
+        pass
+
+    # Fallback to legacy row-count (for profiles missing the column,
+    # or before backfill). Not abuse-resistant — but ensures the function
+    # never returns wildly wrong numbers if migration hasn't been run.
     url = f"{SUPABASE_URL}/rest/v1/mark_events?user_id=eq.{user_id}&select=id"
     try:
         async with httpx.AsyncClient(timeout=5) as client:
@@ -784,6 +811,65 @@ async def count_user_marks(user_id: str) -> int:
         return int(content_range.split("/")[-1])
     except (ValueError, IndexError, Exception):
         return 0
+
+
+async def _is_new_filename_for_user(user_id: str, file_name: str) -> bool:
+    """Return True if this (user, file_name) pair has no existing mark_events row.
+    Used to avoid double-counting re-marks of the same essay against the
+    monotonic lifetime_marks counter."""
+    if not user_id or not file_name or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return False
+    try:
+        encoded = urllib.parse.quote(file_name)
+        url = (
+            f"{SUPABASE_URL}/rest/v1/mark_events?"
+            f"user_id=eq.{user_id}&file_name=eq.{encoded}&select=id&limit=1"
+        )
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            })
+        if resp.status_code != 200:
+            return False
+        return len(resp.json() or []) == 0
+    except Exception:
+        return False
+
+
+async def _bump_lifetime_marks(user_id: str) -> None:
+    """Increment profiles.lifetime_marks by 1 (best-effort, fire-and-forget).
+
+    Read-modify-write — race window is tiny and free-tier users
+    mark slowly enough that conflicts are negligible.
+    """
+    if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return
+    try:
+        get_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=lifetime_marks"
+        patch_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(get_url, headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            })
+            current = 0
+            if resp.status_code == 200:
+                rows = resp.json()
+                if rows:
+                    current = int(rows[0].get("lifetime_marks") or 0)
+            await client.patch(
+                patch_url,
+                json={"lifetime_marks": current + 1},
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+            )
+    except Exception as e:
+        print(f"[lifetime_marks] bump failed for {user_id}: {e!r}")
 
 
 _FREE_TIER_MARK_LIMIT = 3
@@ -2355,6 +2441,10 @@ async def mark_essay(
         if SUPABASE_URL and SUPABASE_SERVICE_KEY:
             user_id = user.get("id") if isinstance(user, dict) else None
 
+            # Detect new-vs-remark BEFORE we delete the old row so the
+            # monotonic lifetime_marks counter stays correct.
+            _is_new_mark = await _is_new_filename_for_user(user_id, file.filename)
+
             # Clear old mark_events for this user/file to ensure fresh start
             encoded_filename = urllib.parse.quote(file.filename)
             delete_url = f"{SUPABASE_URL}/rest/v1/mark_events"
@@ -2401,6 +2491,9 @@ async def mark_essay(
                     resp_data = resp.json()
                     if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
                         mark_event_id = resp_data[0].get("id")
+                        # Bump monotonic lifetime mark counter — only on new marks
+                        if _is_new_mark and user_id:
+                            await _bump_lifetime_marks(user_id)
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
 
@@ -4908,6 +5001,9 @@ async def mark_text(
         if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client:
             user_id = user.get("id") if isinstance(user, dict) else None
 
+            # Detect new-vs-remark BEFORE delete so the monotonic counter stays correct
+            _is_new_mt = await _is_new_filename_for_user(user_id, body.file_name or "")
+
             # Clear old mark_events for this user/file to ensure fresh start
             delete_url = f"{SUPABASE_URL}/rest/v1/mark_events"
             encoded_fn = urllib.parse.quote(body.file_name or "", safe="")
@@ -4948,6 +5044,9 @@ async def mark_text(
                     resp_data = resp.json()
                     if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
                         mark_event_id = resp_data[0].get("id")
+                        # Bump monotonic lifetime mark counter — only on new marks
+                        if _is_new_mt and user_id:
+                            await _bump_lifetime_marks(user_id)
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
 
@@ -5174,10 +5273,16 @@ async def check_text(
     try:
         if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client:
             user_id = user.get("id") if isinstance(user, dict) else None
+            _ct_filename = body.file_name or "write_session"
+
+            # Detect new-vs-remark for the monotonic counter (only matters
+            # for teacher rechecks; student rechecks bypass free-tier).
+            _is_new_ct = await _is_new_filename_for_user(user_id, _ct_filename)
+
             db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
             payload = {
                 "user_id": user_id,
-                "file_name": body.file_name or "write_session",
+                "file_name": _ct_filename,
                 "mode": mode,
                 "bytes": len(docx_bytes),
                 "total_labels": total_labels,
@@ -5202,6 +5307,10 @@ async def check_text(
                     resp_data = resp.json()
                     if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
                         mark_event_id = resp_data[0].get("id")
+                        # Bump monotonic counter only for new teacher marks
+                        # (student rechecks don't hit free-tier so this is moot for them)
+                        if _is_new_ct and user_id and not body.student_mode:
+                            await _bump_lifetime_marks(user_id)
     except Exception as e:
         print("Failed to log mark_event (check_text):", repr(e))
 
