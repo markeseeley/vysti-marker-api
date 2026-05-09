@@ -2055,7 +2055,12 @@ async def get_all_lexis(request: Request):
 @app.get("/api/lexis/{term_norm}")
 @limiter.limit("60/minute")
 async def get_lexis_term(request: Request, term_norm: str):
-    """Look up a single lexis term by its normalised name."""
+    """Look up a single lexis term by its normalised name.
+
+    Lookup is forgiving — handles common data quality issues in the
+    Related Terms chips (article prefixes, stray brackets/quotes,
+    plural/singular mismatches, and minor typos via edit distance).
+    """
     from marker import load_lexis_database
     import math
 
@@ -2064,17 +2069,59 @@ async def get_lexis_term(request: Request, term_norm: str):
         return JSONResponse({"error": "Lexis database not loaded"}, status_code=503)
 
     import re
-    query = re.sub(r"['\"\[\]]+", "", term_norm).lower().strip()
+
+    def _normalize(s: str) -> str:
+        # Strip stray brackets, quotes, leading articles ("the/a/an"),
+        # collapse non-alphanumerics to underscore, lower-case.
+        s = re.sub(r"['\"\[\]]+", "", s or "").strip().lower()
+        s = re.sub(r"^(the|a|an)\s+", "", s)
+        return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+
+    query = _normalize(term_norm)
+    if not query:
+        return JSONResponse({"error": "Term not found"}, status_code=404)
+
     # Exact match first
-    matches = lexis_df[lexis_df["term_norm"] == query]
-    # Fallback: term_norm starts with query or query starts with term_norm
-    # (handles plural/singular mismatches like leitmotif vs leitmotifs)
+    matches = lexis_df[lexis_df["term_norm"].str.lower() == query]
+
+    # Plural/singular and prefix containment fallback
+    if matches.empty:
+        candidates = []
+        for variant in (query, query.rstrip("s"), query + "s",
+                        query.rstrip("es"), query + "es"):
+            if not variant:
+                continue
+            hit = lexis_df[lexis_df["term_norm"].str.lower() == variant]
+            if not hit.empty:
+                candidates.append(hit)
+                break
+        if candidates:
+            matches = candidates[0]
+
+    # Substring containment (term_norm contains query, or vice versa)
     if matches.empty:
         matches = lexis_df[
             lexis_df["term_norm"].apply(
-                lambda t: t.startswith(query) or query.startswith(t)
+                lambda t: bool(t) and (
+                    t.lower().startswith(query) or
+                    query.startswith(t.lower()) or
+                    query in t.lower() or
+                    t.lower() in query
+                )
             )
         ]
+
+    # Fuzzy edit-distance fallback for short typos (e.g., "feminity" → "femininity")
+    if matches.empty and len(query) >= 5:
+        try:
+            from difflib import get_close_matches
+            all_norms = lexis_df["term_norm"].astype(str).str.lower().tolist()
+            close = get_close_matches(query, all_norms, n=1, cutoff=0.82)
+            if close:
+                matches = lexis_df[lexis_df["term_norm"].str.lower() == close[0]]
+        except Exception:
+            pass
+
     if matches.empty:
         return JSONResponse({"error": "Term not found"}, status_code=404)
 
