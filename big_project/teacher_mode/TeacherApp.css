@@ -81,12 +81,14 @@ button, input, select, textarea {
 }
 
 /* Mode select — Source Serif for the select, DM Sans for options */
-#mode, .mode-badge {
+/* Class select matches mode-select styling for visual consistency. */
+#mode, .mode-badge, #teacher-class-select {
   font-family: var(--font-heading);
   font-weight: 700;
 }
 
-#mode option {
+#mode option,
+#teacher-class-select option {
   font-family: var(--font-body);
   font-weight: 500;
 }
