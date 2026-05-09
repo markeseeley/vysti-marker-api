@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778304162499" />
+  <meta name="app-build-id" content="1778305935844" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -2039,7 +2039,7 @@
           <button type="button" class="delete-selected-btn" id="deleteSelectedBtn" disabled>Delete selected</button>
           <button type="button" class="compare-btn" id="compareBtn" disabled>Compare</button>
           <button type="button" class="report-btn" id="reportBtn" disabled>See Overview</button>
-          <button type="button" class="report-btn final-report-btn" id="finalReportBtn" disabled>Final Report</button>
+          <button type="button" class="report-btn final-report-btn" id="finalReportBtn" disabled>Progress Report</button>
           <button type="button" class="refresh-btn" id="refreshDataBtn">Refresh</button>
           <span class="delete-progress" id="deleteProgress" style="display:none;"><span class="spinner"></span> Deleting...</span>
           <span class="selected-count" id="selectedCount"></span>
@@ -6128,7 +6128,7 @@
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...FR_BLACK);
-      doc.text("Final Writing Report", FR_PAGE_W / 2, y, { align: "center" });
+      doc.text("Progress Report", FR_PAGE_W / 2, y, { align: "center" });
       y += 10;
 
       doc.setFontSize(9);
@@ -6432,14 +6432,14 @@
         // Generate one PDF per student
         for (const [name, rows] of byStudent) {
           const doc = await generateFinalReport(name, rows);
-          doc.save(`Final_Report_${name.replace(/\s+/g, "_")}.pdf`);
+          doc.save(`Progress_Report_${name.replace(/\s+/g, "_")}.pdf`);
         }
       } catch (err) {
         console.error("Final report generation failed:", err);
         alert("Failed to generate report: " + (err.message || "Unknown error"));
       } finally {
         finalReportBtn.disabled = selectedFileNames.size === 0;
-        finalReportBtn.textContent = "Final Report";
+        finalReportBtn.textContent = "Progress Report";
       }
     });
 
