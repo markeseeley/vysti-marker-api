@@ -2782,6 +2782,38 @@ button.loading-cursor::after {
   background: rgb(220, 53, 69);
   box-shadow: 0 0 4px rgba(220, 53, 69, 0.4);
 }
+.scan-dot--spelling { background: rgba(220, 53, 69, 0.4); }
+.teacher-scan-btn.active .scan-dot--spelling {
+  background: rgb(220, 53, 69);
+  box-shadow: 0 0 4px rgba(220, 53, 69, 0.4);
+}
+.scan-dot--grammar { background: rgba(13, 110, 253, 0.4); }
+.teacher-scan-btn.active .scan-dot--grammar {
+  background: rgb(13, 110, 253);
+  box-shadow: 0 0 4px rgba(13, 110, 253, 0.4);
+}
+
+/* ── Spelling / Grammar squiggles — hidden by default, shown on toggle ── */
+/* Squiggles only appear when the teacher activates the toggle. */
+#markedPreview [data-vysti-grammar] {
+  /* hidden by default: no decoration */
+}
+#markedPreview.vysti-show-spelling [data-vysti-grammar="spelling"] {
+  text-decoration: underline wavy rgb(220, 53, 69);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+#markedPreview.vysti-show-grammar [data-vysti-grammar="grammar"] {
+  text-decoration: underline wavy rgb(13, 110, 253);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+.scan-popover-text {
+  font-size: 12px;
+  color: rgba(0,0,0,.65);
+  line-height: 1.4;
+  padding: 4px 0;
+}
 
 /* Scan info popover (techniques / repetition summary) */
 .scan-info-popover {

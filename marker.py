@@ -6337,21 +6337,32 @@ def analyze_text(
                     _config_words.add(_w.lower().strip(".,;:!?\"'()[]"))
         _APOSTROPHE_RULE = "POSSESSIVE_APOSTROPHE"
 
+        # Spelling errors get PINK highlight, grammar issues get TEAL.
+        # The frontend identifies these by color, hides them by default,
+        # and the teacher reveals them via the Spelling/Grammar pill toggles.
+        # Skip the arrow label entirely — squiggle is the visual idiom.
+        _LT_SPELLING_LABELS = {SPELLING_LABEL}
+
         def _lt_mark(label, short, start, end):
-            """Build a LanguageTool mark dict and handle first-label vs repeat."""
-            m = {
+            """Build a LanguageTool mark dict.
+
+            No arrow label is added — these are toggle-controlled in the UI.
+            Pink for spelling, teal for grammar (SVA, confused words, comma,
+            apostrophe).
+            """
+            color = (
+                WD_COLOR_INDEX.PINK
+                if label in _LT_SPELLING_LABELS
+                else WD_COLOR_INDEX.TEAL
+            )
+            return {
                 "start": start, "end": end,
                 "note": label,
-                "color": WD_COLOR_INDEX.GRAY_25,
+                "color": color,
                 "found_value": flat_text[start:end],
+                # Note: no "label": True — we don't want an arrow span,
+                # just the highlight on the offending word.
             }
-            if label not in labels_used:
-                m["label"] = True
-                labels_used.append(label)
-            else:
-                m["display_note"] = short
-                m["label"] = True
-            return m
 
         try:
             lt = get_language_tool()

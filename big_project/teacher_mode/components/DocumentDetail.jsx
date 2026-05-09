@@ -194,6 +194,8 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
   // ── Scan toggles (techniques + repetition) ──
   const [scanTechniques, setScanTechniques] = useState(false);
   const [scanRepetition, setScanRepetition] = useState(false);
+  const [scanSpelling, setScanSpelling] = useState(false);
+  const [scanGrammar, setScanGrammar] = useState(false);
   const [scanPopover, setScanPopover] = useState(null); // { type, rect, data }
   const scanPopoverRef = useRef(null);
 
@@ -1112,10 +1114,23 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
 
     // Tag and hide technique (green) highlights from the .docx
     const GREEN_RE = /^(lime|green|#00ff00)$|^rgb\(0,\s*(255|128),\s*0/i;
+    // Word's PINK and TEAL highlights mark LT spelling/grammar issues.
+    // We hide them by default and let the teacher reveal via toggle pills.
+    const PINK_RE = /^(pink|#ffc0cb|#ff00ff|#f0c)$|^rgb\(255,\s*(?:192,\s*203|0,\s*255|0,\s*204)/i;
+    const TEAL_RE = /^(teal|#008080|#0c9)$|^rgb\(0,\s*128,\s*128|^rgb\(0,\s*204,\s*153/i;
     for (const span of container.querySelectorAll("span")) {
       const bg = (span.style.backgroundColor || "").toLowerCase().trim();
-      if (bg && GREEN_RE.test(bg)) {
+      if (!bg) continue;
+      if (GREEN_RE.test(bg)) {
         span.setAttribute("data-vysti-technique-bg", bg);
+        span.style.backgroundColor = "transparent";
+      } else if (PINK_RE.test(bg)) {
+        span.setAttribute("data-vysti-grammar", "spelling");
+        span.setAttribute("data-vysti-grammar-bg", bg);
+        span.style.backgroundColor = "transparent";
+      } else if (TEAL_RE.test(bg)) {
+        span.setAttribute("data-vysti-grammar", "grammar");
+        span.setAttribute("data-vysti-grammar-bg", bg);
         span.style.backgroundColor = "transparent";
       }
     }
@@ -1280,6 +1295,49 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     }
     setScanRepetition(result.total > 0);
   }, [scanRepetition, scanTechniques, doc?.metrics]);
+
+  // ── Spelling toggle: reveal pink-tagged spans as red wavy underline ──
+  const handleToggleScanSpelling = useCallback(() => {
+    const container = previewRef.current;
+    if (!container) return;
+    if (scanSpelling) {
+      container.classList.remove("vysti-show-spelling");
+      setScanSpelling(false);
+      setScanPopover(null);
+      return;
+    }
+    container.classList.add("vysti-show-spelling");
+    setScanSpelling(true);
+    // Build count for popover
+    const hits = container.querySelectorAll('[data-vysti-grammar="spelling"]');
+    if (hits.length > 0) {
+      setScanPopover({ type: "spelling", data: hits.length });
+    }
+  }, [scanSpelling]);
+
+  // ── Grammar toggle: reveal teal-tagged spans as blue wavy underline ──
+  const handleToggleScanGrammar = useCallback(() => {
+    const container = previewRef.current;
+    if (!container) return;
+    if (scanGrammar) {
+      container.classList.remove("vysti-show-grammar");
+      setScanGrammar(false);
+      setScanPopover(null);
+      return;
+    }
+    container.classList.add("vysti-show-grammar");
+    setScanGrammar(true);
+    const hits = container.querySelectorAll('[data-vysti-grammar="grammar"]');
+    if (hits.length > 0) {
+      setScanPopover({ type: "grammar", data: hits.length });
+    }
+  }, [scanGrammar]);
+
+  // Reset spelling/grammar toggles when switching documents
+  useEffect(() => {
+    setScanSpelling(false);
+    setScanGrammar(false);
+  }, [doc?.id]);
 
   // Fallback: dispatch server metrics if not yet dispatched
   useEffect(() => {
@@ -1872,6 +1930,24 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
             <span className="scan-dot scan-dot--red" />
             Repetition
           </button>
+          <button
+            type="button"
+            className={`teacher-scan-btn${scanSpelling ? " active" : ""}`}
+            onClick={handleToggleScanSpelling}
+            title={scanSpelling ? "Hide spelling marks" : "Show spelling errors (red squiggle)"}
+          >
+            <span className="scan-dot scan-dot--spelling" />
+            Spelling
+          </button>
+          <button
+            type="button"
+            className={`teacher-scan-btn${scanGrammar ? " active" : ""}`}
+            onClick={handleToggleScanGrammar}
+            title={scanGrammar ? "Hide grammar marks" : "Show grammar issues (blue squiggle)"}
+          >
+            <span className="scan-dot scan-dot--grammar" />
+            Grammar
+          </button>
         </div>
         {scanPopover && (
           <div ref={scanPopoverRef} className="scan-info-popover">
@@ -1895,6 +1971,24 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
                     </li>
                   ))}
                 </ul>
+              </>
+            )}
+            {scanPopover.type === "spelling" && (
+              <>
+                <div className="scan-popover-title">Spelling</div>
+                <div className="scan-popover-text">
+                  {scanPopover.data} possible {scanPopover.data === 1 ? "issue" : "issues"} found.
+                  Click a squiggle to dismiss false positives.
+                </div>
+              </>
+            )}
+            {scanPopover.type === "grammar" && (
+              <>
+                <div className="scan-popover-title">Grammar</div>
+                <div className="scan-popover-text">
+                  {scanPopover.data} possible {scanPopover.data === 1 ? "issue" : "issues"} found.
+                  Click a squiggle to dismiss false positives.
+                </div>
               </>
             )}
           </div>

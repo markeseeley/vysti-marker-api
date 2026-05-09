@@ -116,6 +116,30 @@ export function extractTextWithTeacherAnnotations(containerEl) {
 
   const clone = containerEl.cloneNode(true);
 
+  // ── 0. Spelling/Grammar squiggles ──
+  // Convert tagged spans to {~text~} (red squiggle) ONLY when the teacher
+  // had the corresponding toggle ON at the time of extract. Otherwise the
+  // tags are stripped and the underlying text is left plain — keeping the
+  // download clean of any unverified LT noise.
+  const showSpelling = containerEl.classList.contains("vysti-show-spelling");
+  const showGrammar = containerEl.classList.contains("vysti-show-grammar");
+  for (const span of clone.querySelectorAll('[data-vysti-grammar]')) {
+    const cat = span.getAttribute("data-vysti-grammar");
+    const text = span.textContent || "";
+    if (!text) {
+      span.removeAttribute("data-vysti-grammar");
+      span.removeAttribute("data-vysti-grammar-bg");
+      continue;
+    }
+    if ((cat === "spelling" && showSpelling) || (cat === "grammar" && showGrammar)) {
+      // Wrap in red squiggle marker — backend converts to WD_UNDERLINE.WAVY
+      span.textContent = `{~${text}~}`;
+    }
+    // Strip the marker attributes either way so they don't survive serialization
+    span.removeAttribute("data-vysti-grammar");
+    span.removeAttribute("data-vysti-grammar-bg");
+  }
+
   // ── 1. Convert SelectionPopover comments (data-vysti-comment attribute) ──
   // These spans wrap the anchor text with the comment stored as a data attribute.
   // Remove the pencil indicators first, then convert wrapper to {c|anchor|comment}.
