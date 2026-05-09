@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778307096824" />
+  <meta name="app-build-id" content="1778313525307" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -20,6 +20,8 @@
   <!-- jsPDF + autoTable for Final Report -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3/dist/jspdf.plugin.autotable.min.js"></script>
+  <!-- JSZip for batch report bundling -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <style>
     .progress-page {
@@ -2040,6 +2042,7 @@
           <button type="button" class="compare-btn" id="compareBtn" disabled>Compare</button>
           <button type="button" class="report-btn" id="reportBtn" disabled>See Overview</button>
           <button type="button" class="report-btn final-report-btn" id="finalReportBtn" disabled>Progress Report</button>
+          <button type="button" class="report-btn final-report-btn" id="batchReportBtn" title="Generate Progress Reports for every student in the selected class">Class Reports</button>
           <button type="button" class="refresh-btn" id="refreshDataBtn">Refresh</button>
           <span class="delete-progress" id="deleteProgress" style="display:none;"><span class="spinner"></span> Deleting...</span>
           <span class="selected-count" id="selectedCount"></span>
@@ -6117,6 +6120,98 @@
       return Math.round(Math.sqrt(Math.max(0, avg) / 100) * 100);
     }
 
+    // Fetch the saved HTML preview for an essay. Returns null if missing
+    // or fetch fails. Used to embed full essay text + per-paragraph labels
+    // into Progress Reports.
+    async function _fetchSavedHtmlForRow(userId, row) {
+      if (!row?.file_name) return null;
+      try {
+        const path = `${userId}/${row.file_name}.saved.html`;
+        const { data, error } = await supa.storage.from("originals").download(path);
+        if (error || !data) return null;
+        return await data.text();
+      } catch {
+        return null;
+      }
+    }
+
+    // Parse essay HTML into a list of paragraphs with text + label set.
+    // Labels are extracted from any arrow-span (text starts with →) inside
+    // the paragraph, OR from spans tagged data-vysti-label.
+    function _parseEssayParagraphs(html) {
+      if (!html) return [];
+      const tmp = document.createElement("div");
+      tmp.innerHTML = html;
+
+      // Strip teacher comment markers (data-vysti-comment-indicator)
+      tmp.querySelectorAll("[data-vysti-comment-indicator='1']").forEach(n => n.remove());
+      // Strip techniques highlights and grammar/spelling tags so they don't
+      // appear as raw colors in plain-text rendering.
+      tmp.querySelectorAll("[data-vysti-technique-bg], [data-vysti-grammar]").forEach(span => {
+        // unwrap — replace span with its text
+        const parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span);
+      });
+
+      const paragraphs = [];
+      const seen = new Set();
+      // Walk paragraph-level elements
+      const blocks = tmp.querySelectorAll("p, .docx p");
+      const list = blocks.length > 0 ? blocks : tmp.querySelectorAll("div");
+      for (const p of list) {
+        // Extract labels first (so we can strip the arrow text from the paragraph text)
+        const labels = new Set();
+        // 1. From engine-label data attribute
+        for (const labeled of p.querySelectorAll("[data-vysti-label]")) {
+          const lbl = (labeled.getAttribute("data-vysti-label") || "").trim();
+          if (lbl) labels.add(lbl);
+        }
+        // 2. From arrow text spans
+        for (const span of p.querySelectorAll("span, a")) {
+          const t = (span.textContent || "").trim();
+          const m = t.match(/^→\s*(.+)$/);
+          if (m) {
+            const lbl = m[1].trim();
+            // Filter: ignore arrow notes that are obviously teacher annotations
+            // (single-word affirmations like "Good", "Yes", or those starting with [Teacher:])
+            if (lbl.length >= 4 && !lbl.startsWith("[Teacher")) labels.add(lbl);
+          }
+        }
+
+        // Now extract the underlying text — strip arrow spans first
+        const pClone = p.cloneNode(true);
+        pClone.querySelectorAll("span, a").forEach(s => {
+          const t = (s.textContent || "").trim();
+          if (t.startsWith("→")) s.remove();
+        });
+        const text = (pClone.textContent || "").replace(/\s+/g, " ").trim();
+        if (!text || text.length < 20) continue; // skip empty/header lines
+        if (seen.has(text)) continue; // dedup
+        seen.add(text);
+
+        paragraphs.push({ text, labels: [...labels] });
+      }
+      return paragraphs;
+    }
+
+    // Pick first / middle / last from a chronologically-asc list, with
+    // sensible fallbacks for short workloads.
+    function _firstMiddleLast(rows) {
+      const n = rows.length;
+      if (n === 0) return [];
+      if (n === 1) return [{ row: rows[0], label: "Selected Work" }];
+      if (n === 2) return [
+        { row: rows[0], label: "Earliest assignment" },
+        { row: rows[1], label: "Most recent assignment" },
+      ];
+      return [
+        { row: rows[0], label: "Earliest assignment" },
+        { row: rows[Math.floor(n / 2)], label: "Midpoint check-in" },
+        { row: rows[n - 1], label: "Most recent assignment" },
+      ];
+    }
+
     async function generateFinalReport(studentName, rows) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -6342,6 +6437,74 @@
         doc.setTextColor(...FR_MAROON);
         doc.text(`${best.finalScore}%`, FR_ML + FR_CONTENT_W - 4, y + 10, { align: "right" });
         y += 20;
+      }
+
+      // ── Sample Essays — first / middle / last ──
+      // Embeds the actual student-written text for three representative
+      // essays, with a per-paragraph label list (italic) so parents can
+      // see exactly what the teacher analyzed in each paragraph.
+      try {
+        const { data: sessRes } = await supa.auth.getSession();
+        const userId = sessRes?.session?.user?.id;
+        if (userId) {
+          const samples = _firstMiddleLast(rows);
+          for (const sample of samples) {
+            const html = await _fetchSavedHtmlForRow(userId, sample.row);
+            if (!html) continue; // silently skip if no savedHtml
+            const paragraphs = _parseEssayParagraphs(html);
+            if (paragraphs.length === 0) continue;
+
+            // Section header
+            y = frEnsureSpace(doc, y, 24, logo);
+            doc.setFontSize(13);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...FR_BLACK);
+            doc.text(sample.label, FR_ML, y);
+            y += 6;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(...FR_MUTED);
+            const dt = new Date(sample.row.created_at).toLocaleDateString();
+            const sub = `${sample.row.assignment_display || "Untitled"}  ·  ${dt}`;
+            doc.text(sub, FR_ML, y);
+            y += 6;
+
+            // Paragraphs
+            doc.setFont("helvetica", "normal");
+            for (const para of paragraphs) {
+              const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
+              const labelLineH = para.labels.length > 0 ? 5 : 0;
+              const blockH = wrapped.length * 4 + labelLineH + 3;
+              y = frEnsureSpace(doc, y, blockH, logo);
+
+              doc.setFontSize(9);
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(...FR_BLACK);
+              wrapped.forEach(line => {
+                doc.text(line, FR_ML, y);
+                y += 4;
+              });
+
+              // Per-paragraph labels (italic, muted)
+              if (para.labels.length > 0) {
+                const labelLine = "→ " + para.labels.join(", ");
+                doc.setFontSize(8);
+                doc.setFont("helvetica", "italic");
+                doc.setTextColor(...FR_MAROON);
+                const labelWrapped = doc.splitTextToSize(labelLine, FR_CONTENT_W - 4);
+                labelWrapped.forEach(line => {
+                  y = frEnsureSpace(doc, y, 4, logo);
+                  doc.text(line, FR_ML + 4, y);
+                  y += 4;
+                });
+              }
+              y += 2; // small gap between paragraphs
+            }
+            y += 6;
+          }
+        }
+      } catch (err) {
+        console.warn("[report] sample essays section failed:", err);
       }
 
       // ── Assignment Summary Table ──
@@ -6630,6 +6793,126 @@
       } finally {
         finalReportBtn.disabled = selectedFileNames.size === 0;
         finalReportBtn.textContent = "Progress Report";
+      }
+    });
+
+    // ===== Batch (Class) Progress Reports =====
+    const batchReportBtn = document.getElementById("batchReportBtn");
+
+    function _updateBatchReportBtnState() {
+      // Enabled only when on classes lens with a specific class selected
+      // (not "All classes" or "Unassigned"), and at least one row is in view.
+      if (currentLens !== "classes") {
+        batchReportBtn.style.display = "none";
+        return;
+      }
+      const sel = classFilter ? classFilter.value : "";
+      const enabled = sel && sel !== "__unassigned__" && (filteredData?.length || 0) > 0;
+      batchReportBtn.style.display = "inline-block";
+      batchReportBtn.disabled = !enabled;
+      batchReportBtn.title = enabled
+        ? "Generate Progress Reports for every student in the selected class"
+        : "Select a specific class to enable Class Reports";
+    }
+
+    // Hook to refresh batch button state whenever filters/lens/data change.
+    // The existing `updateUI()` runs after most state changes; we wrap into
+    // a small observer pattern by polling on common UI hooks.
+    if (classFilter) classFilter.addEventListener("change", _updateBatchReportBtnState);
+    document.addEventListener("DOMContentLoaded", _updateBatchReportBtnState);
+    // Also run after initial data load fires
+    setTimeout(_updateBatchReportBtnState, 500);
+    setInterval(_updateBatchReportBtnState, 1500); // light polling — cheap
+
+    batchReportBtn.addEventListener("click", async () => {
+      if (currentLens !== "classes") return;
+      const selectedClass = classFilter ? classFilter.value : "";
+      if (!selectedClass || selectedClass === "__unassigned__") return;
+
+      // Pull every marked essay in the currently filtered class.
+      const allRows = filteredData.filter(r => r.student_name && r.student_name.trim());
+      if (allRows.length === 0) {
+        alert("No marked essays in this class to report on.");
+        return;
+      }
+
+      // Group by student
+      const byStudent = new Map();
+      for (const row of allRows) {
+        const name = row.student_name.trim();
+        if (!byStudent.has(name)) byStudent.set(name, []);
+        byStudent.get(name).push(row);
+      }
+
+      // Dedup latest-per-(student, assignment_display); chronological asc
+      const dedupedByStudent = new Map();
+      for (const [name, rows] of byStudent) {
+        const sortedDesc = [...rows].sort((a, b) =>
+          new Date(b.created_at) - new Date(a.created_at)
+        );
+        const seen = new Set();
+        const kept = [];
+        for (const row of sortedDesc) {
+          const key = (row.assignment_display || "").trim();
+          if (key && seen.has(key)) continue;
+          if (key) seen.add(key);
+          kept.push(row);
+        }
+        kept.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        dedupedByStudent.set(name, kept);
+      }
+
+      // Skip students with zero assignments after dedup
+      const eligible = [...dedupedByStudent.entries()]
+        .filter(([, rows]) => rows.length > 0);
+      if (eligible.length === 0) {
+        alert("No students with marked essays in this class.");
+        return;
+      }
+
+      const className = (classFilter.options[classFilter.selectedIndex]?.text || "Class").trim();
+      const proceed = await vystiConfirm(
+        `Generate Progress Reports for ${eligible.length} student${eligible.length === 1 ? "" : "s"} in "${className}"? This may take 30–60 seconds.`,
+        "Generate"
+      );
+      if (!proceed) return;
+
+      batchReportBtn.disabled = true;
+      const origLabel = batchReportBtn.textContent;
+      batchReportBtn.textContent = "Generating 0/" + eligible.length + "…";
+
+      try {
+        const zip = new JSZip();
+        let i = 0;
+        for (const [name, rows] of eligible) {
+          i++;
+          batchReportBtn.textContent = `Generating ${i}/${eligible.length}…`;
+          try {
+            const doc = await generateFinalReport(name, rows);
+            const pdfBlob = doc.output("blob");
+            zip.file(`Progress_Report_${name.replace(/\s+/g, "_")}.pdf`, pdfBlob);
+          } catch (err) {
+            console.warn(`[batch] failed for ${name}:`, err);
+          }
+        }
+        batchReportBtn.textContent = "Bundling…";
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = `Progress_Reports_${className.replace(/\s+/g, "_")}_${dateStr}.zip`;
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("[batch] generation failed:", err);
+        alert("Failed to generate batch reports: " + (err.message || "Unknown error"));
+      } finally {
+        batchReportBtn.textContent = origLabel;
+        _updateBatchReportBtnState();
       }
     });
 
