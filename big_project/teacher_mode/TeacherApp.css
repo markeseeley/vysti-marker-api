@@ -2354,7 +2354,8 @@ button.loading-cursor::after {
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
-  width: 360px;
+  width: 720px;
+  max-width: 100%;
 }
 
 .preview-work-inputs {
@@ -2373,8 +2374,8 @@ button.loading-cursor::after {
   min-width: 0;
 }
 
-.preview-work-field:first-child { flex: 1 1 0; }
-.preview-work-field:last-child  { flex: 2 1 0; }
+.preview-work-field:first-child { flex: 1 1 220px; }
+.preview-work-field:last-child  { flex: 2 1 280px; }
 
 .preview-work-label {
   font-size: 10px;
