@@ -43,20 +43,38 @@ from typing import Dict, Tuple, NamedTuple
 _language_tool_instance = None
 
 def get_language_tool():
-    """Lazy-load LanguageTool. Import is deferred so marker.py works even without Java."""
+    """Lazy-load LanguageTool.
+
+    On environments with Java installed (local dev, Docker), runs LT as a
+    local server for fastest checks. On environments without Java (Render's
+    native Python builds), falls back to LT's hosted public API so spelling
+    and grammar checks still run. The hosted API is rate-limited to ~20
+    requests/minute per IP, which is acceptable for our current scale.
+    """
     global _language_tool_instance
     if _language_tool_instance is None:
-        # Quick check: Java must be installed for LanguageTool to work.
-        # Skip entirely if Java is missing (avoids a long hang on Render).
-        import shutil
-        if not shutil.which("java"):
-            print("⚠️  Java not found — LanguageTool disabled (grammar checks skipped)")
-            _language_tool_instance = False
-            return None
         try:
             import language_tool_python
-            _language_tool_instance = language_tool_python.LanguageTool('en-US')
-            print("✓ LanguageTool initialized")
+        except Exception as e:
+            print(f"⚠️  language_tool_python import failed: {e}")
+            _language_tool_instance = False
+            return None
+
+        import shutil
+        java_present = bool(shutil.which("java"))
+        try:
+            if java_present:
+                _language_tool_instance = language_tool_python.LanguageTool('en-US')
+                print("✓ LanguageTool initialized (local Java server)")
+            else:
+                # NOTE: pinning the remote_server explicitly. The package's
+                # default URL ("https://languagetool.org/api/") is stale and
+                # returns HTML; the real API endpoint is api.languagetool.org.
+                _language_tool_instance = language_tool_python.LanguageToolPublicAPI(
+                    'en-US',
+                    remote_server='https://api.languagetool.org',
+                )
+                print("✓ LanguageTool initialized (hosted public API — Java not found)")
         except Exception as e:
             print(f"⚠️  LanguageTool initialization failed: {e}")
             _language_tool_instance = False  # Mark as failed, don't retry
