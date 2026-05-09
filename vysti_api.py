@@ -4295,6 +4295,33 @@ def build_teacher_doc_from_text(
                 except Exception as e:
                     print(f"[chart] meter embed failed: {e!r}")
 
+            # ── Meter glossary (one short line per meter) ──
+            _METER_GLOSSARY = [
+                ("Power", "verb specificity and analytical strength"),
+                ("Analysis", "depth of analysis: techniques, evidence, and structure"),
+                ("Cohesion", "flow of ideas within and across paragraphs"),
+                ("Precision", "prose quality: concision, clarity, and conventions"),
+            ]
+            try:
+                for name, desc in _METER_GLOSSARY:
+                    gp = doc.add_paragraph()
+                    gp.paragraph_format.first_line_indent = Inches(0)
+                    gp.paragraph_format.left_indent = Inches(0.25)
+                    gp.paragraph_format.space_after = Pt(2)
+                    bold_run = gp.add_run(name)
+                    bold_run.bold = True
+                    bold_run.font.size = Pt(9)
+                    bold_run.font.name = "Times New Roman"
+                    desc_run = gp.add_run(f": {desc}")
+                    desc_run.font.size = Pt(9)
+                    desc_run.font.color.rgb = RGBColor(100, 100, 100)
+                    desc_run.font.name = "Times New Roman"
+                # Trailing spacer
+                spacer = doc.add_paragraph()
+                spacer.paragraph_format.space_after = Pt(6)
+            except Exception as e:
+                print(f"[glossary] embed failed: {e!r}")
+
             # ── Top Issues chart ──
             issues_png = _generate_top_issues_chart(label_counts, top_n=5)
             if issues_png:

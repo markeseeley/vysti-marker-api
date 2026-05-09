@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778305935844" />
+  <meta name="app-build-id" content="1778307096824" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -6279,6 +6279,69 @@
         }
 
         y = metersBottomY + 6;
+
+        // Meter glossary — short, plain-English explanation of each meter
+        // so parents and students learn what the bars actually mean.
+        const FR_METER_GLOSSARY = [
+          ["Power", "verb specificity and analytical strength"],
+          ["Analysis", "depth of analysis: techniques, evidence, and structure"],
+          ["Cohesion", "flow of ideas within and across paragraphs"],
+          ["Precision", "prose quality: concision, clarity, and conventions"]
+        ];
+        y = frEnsureSpace(doc, y, FR_METER_GLOSSARY.length * 4 + 4, logo);
+        FR_METER_GLOSSARY.forEach(([name, desc]) => {
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...FR_BLACK);
+          doc.text(name, FR_ML, y);
+          const nameW = doc.getTextWidth(name);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...FR_MUTED);
+          doc.text(`: ${desc}`, FR_ML + nameW, y);
+          y += 4;
+        });
+        y += 4;
+      }
+
+      // ── Best Assignment callout ──
+      // Picks the row with the highest score (teacher score preferred,
+      // falls back to Vysti overall %), with a 1-line caption.
+      const scoredRows = rows
+        .map(r => {
+          const teacherScore = (typeof r.score === "number" && r.score >= 0) ? r.score : null;
+          const vysti = computeFrOverall(r.scores, r.mode);
+          const finalScore = teacherScore != null ? teacherScore : vysti;
+          return { row: r, finalScore, source: teacherScore != null ? "teacher" : "vysti" };
+        })
+        .filter(x => x.finalScore != null);
+
+      if (scoredRows.length > 0) {
+        scoredRows.sort((a, b) => b.finalScore - a.finalScore);
+        const best = scoredRows[0];
+        y = frEnsureSpace(doc, y, 22, logo);
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text("Best Assignment", FR_ML, y);
+        y += 6;
+        doc.setFillColor(248, 248, 250);
+        frRoundedRect(doc, FR_ML, y, FR_CONTENT_W, 14, 3);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        const title = best.row.assignment_display || "Untitled";
+        doc.text(title, FR_ML + 4, y + 6);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...FR_MUTED);
+        const dateStr = new Date(best.row.created_at).toLocaleDateString();
+        const sourceLabel = best.source === "teacher" ? "teacher score" : "Vysti score";
+        doc.text(`${dateStr}  ·  ${sourceLabel}`, FR_ML + 4, y + 11);
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_MAROON);
+        doc.text(`${best.finalScore}%`, FR_ML + FR_CONTENT_W - 4, y + 10, { align: "right" });
+        y += 20;
       }
 
       // ── Assignment Summary Table ──
@@ -6394,6 +6457,133 @@
           tableWidth: FR_CONTENT_W
         });
         y = doc.lastAutoTable.finalY + 10;
+      }
+
+      // ── Strengths block — concrete evidence of what the student is doing well ──
+      // Pulls from each row's scores object (persisted in mark_events.scores).
+      let totalPowerVerbs = 0;
+      let totalTechniqueOk = 0;
+      let totalEvidenceOk = 0;
+      let totalStructureOk = 0;
+      let bodyParaCount = 0;
+      rows.forEach(r => {
+        const s = r.scores || {};
+        const pv = s.power?.details?.powerCount;
+        const to = s.variety?.details?.techniqueOkCount;
+        const eo = s.variety?.details?.evidenceDevOkCount;
+        const so = s.variety?.details?.structureOkCount;
+        const bp = s.variety?.details?.bodyParagraphCount;
+        if (typeof pv === "number") totalPowerVerbs += pv;
+        if (typeof to === "number") totalTechniqueOk += to;
+        if (typeof eo === "number") totalEvidenceOk += eo;
+        if (typeof so === "number") totalStructureOk += so;
+        if (typeof bp === "number") bodyParaCount += bp;
+      });
+
+      const hasStrength = totalPowerVerbs > 0 || totalTechniqueOk > 0 || totalEvidenceOk > 0 || totalStructureOk > 0;
+      if (hasStrength) {
+        y = frEnsureSpace(doc, y, 28, logo);
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text("Strengths", FR_ML, y);
+        y += 7;
+
+        const strengthLines = [];
+        if (totalPowerVerbs > 0) {
+          strengthLines.push([
+            "Power verbs deployed:",
+            `${totalPowerVerbs} across ${rows.length} assignment${rows.length !== 1 ? "s" : ""}`,
+          ]);
+        }
+        if (totalTechniqueOk > 0 && bodyParaCount > 0) {
+          strengthLines.push([
+            "Body paragraphs with strong technique analysis:",
+            `${totalTechniqueOk} of ${bodyParaCount}`,
+          ]);
+        }
+        if (totalEvidenceOk > 0 && bodyParaCount > 0) {
+          strengthLines.push([
+            "Body paragraphs with well-developed evidence:",
+            `${totalEvidenceOk} of ${bodyParaCount}`,
+          ]);
+        }
+        if (totalStructureOk > 0 && bodyParaCount > 0) {
+          strengthLines.push([
+            "Body paragraphs with strong structure:",
+            `${totalStructureOk} of ${bodyParaCount}`,
+          ]);
+        }
+
+        strengthLines.forEach(([label, value]) => {
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...FR_BLACK);
+          doc.text(label, FR_ML, y);
+          const lw = doc.getTextWidth(label);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...FR_MUTED);
+          doc.text(value, FR_ML + lw + 2, y);
+          y += 5;
+        });
+        y += 4;
+      }
+
+      // ── Teacher Comments per assignment ──
+      // Pulls the actual instructor feedback the teacher entered for each
+      // marking, in chronological order. Most direct evidence to parents
+      // of the depth of instruction being provided.
+      const commentRows = rows.filter(r => {
+        const c = (r.teacher_comment || "").trim();
+        // Strip the leading "Score: 87%" line if present
+        const stripped = c.replace(/^Score:\s*\d+%\s*\n+/, "").trim();
+        return stripped.length > 0;
+      });
+
+      if (commentRows.length > 0) {
+        y = frEnsureSpace(doc, y, 30, logo);
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text("Teacher Comments", FR_ML, y);
+        y += 7;
+
+        commentRows.forEach(r => {
+          const dateStr = new Date(r.created_at).toLocaleDateString();
+          const title = r.assignment_display || "Untitled";
+          const rawComment = (r.teacher_comment || "").trim();
+          const comment = rawComment.replace(/^Score:\s*\d+%\s*\n+/, "").trim();
+          if (!comment) return;
+
+          // Estimate space needed (header + wrapped comment lines)
+          const wrapped = doc.splitTextToSize(comment, FR_CONTENT_W - 6);
+          const blockH = 7 + wrapped.length * 4 + 4;
+          y = frEnsureSpace(doc, y, blockH, logo);
+
+          // Assignment title + date header
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...FR_BLACK);
+          doc.text(title, FR_ML, y);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...FR_MUTED);
+          doc.text(dateStr, FR_ML + FR_CONTENT_W, y, { align: "right" });
+          y += 4;
+
+          // Comment text
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...FR_BLACK);
+          // Maroon left border to set comment off
+          doc.setFillColor(...FR_MAROON);
+          doc.rect(FR_ML, y - 1, 1, wrapped.length * 4 + 2, "F");
+          wrapped.forEach(line => {
+            doc.text(line, FR_ML + 4, y + 3);
+            y += 4;
+          });
+          y += 5;
+        });
       }
 
       frAddFooters(doc, logo);
