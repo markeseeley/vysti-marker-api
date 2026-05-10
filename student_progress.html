@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778313525307" />
+  <meta name="app-build-id" content="1778379647894" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -6439,72 +6439,120 @@
         y += 20;
       }
 
-      // ── Sample Essays — first / middle / last ──
-      // Embeds the actual student-written text for three representative
-      // essays, with a per-paragraph label list (italic) so parents can
-      // see exactly what the teacher analyzed in each paragraph.
+      // ── Meter Trend Chart — Power/Analysis/Cohesion/Precision over time ──
+      // Builds an offscreen Chart.js line chart and embeds as a PNG.
+      // Visualizes the student's journey across each assignment.
+      const trendRowsWithScores = rows.filter(r => r.scores);
+      if (trendRowsWithScores.length >= 2) {
+        try {
+          const trendCanvas = document.createElement("canvas");
+          trendCanvas.width = 900;
+          trendCanvas.height = 350;
+          // Off-DOM rendering — append briefly to compute, then remove
+          trendCanvas.style.position = "fixed";
+          trendCanvas.style.left = "-9999px";
+          trendCanvas.style.top = "0";
+          document.body.appendChild(trendCanvas);
+
+          const labels = trendRowsWithScores.map((_, i) => `#${i + 1}`);
+          const datasets = meterOrder.map((key) => ({
+            label: FR_METRIC_NAMES[key],
+            data: trendRowsWithScores.map(r => r.scores?.[key]?.score ?? null),
+            borderColor: `rgb(${FR_METRIC_COLORS[key].join(",")})`,
+            backgroundColor: `rgb(${FR_METRIC_COLORS[key].join(",")})`,
+            tension: 0.35,
+            spanGaps: true,
+            pointRadius: 4,
+            borderWidth: 2,
+          }));
+
+          const trendChart = new Chart(trendCanvas, {
+            type: "line",
+            data: { labels, datasets },
+            options: {
+              responsive: false,
+              animation: false,
+              plugins: {
+                legend: { position: "top", labels: { font: { size: 14 } } },
+                tooltip: { enabled: false },
+              },
+              scales: {
+                y: { beginAtZero: true, max: 100, ticks: { font: { size: 12 } } },
+                x: { ticks: { font: { size: 12 } } },
+              },
+            },
+          });
+
+          // Wait one tick for chart to render
+          await new Promise(r => requestAnimationFrame(r));
+          await new Promise(r => setTimeout(r, 50));
+
+          const trendImg = trendCanvas.toDataURL("image/png");
+          trendChart.destroy();
+          document.body.removeChild(trendCanvas);
+
+          y = frEnsureSpace(doc, y, 75, logo);
+          doc.setFontSize(13);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...FR_BLACK);
+          doc.text("Progress Across Assignments", FR_ML, y);
+          y += 6;
+          // Embed chart at full content width, ~65mm tall
+          doc.addImage(trendImg, "PNG", FR_ML, y, FR_CONTENT_W, 65);
+          y += 70;
+        } catch (err) {
+          console.warn("[report] trend chart failed:", err);
+        }
+      }
+
+      // ── Most Recent Essay (sample artifact) ──
+      // Embeds plain text of the student's most recent assignment so
+      // parents can read what their child wrote. No per-paragraph
+      // annotations — Top Issues table covers the marking summary.
       try {
         const { data: sessRes } = await supa.auth.getSession();
         const userId = sessRes?.session?.user?.id;
-        if (userId) {
-          const samples = _firstMiddleLast(rows);
-          for (const sample of samples) {
-            const html = await _fetchSavedHtmlForRow(userId, sample.row);
-            if (!html) continue; // silently skip if no savedHtml
+        if (userId && rows.length > 0) {
+          const recent = rows[rows.length - 1];
+          const html = await _fetchSavedHtmlForRow(userId, recent);
+          if (html) {
             const paragraphs = _parseEssayParagraphs(html);
-            if (paragraphs.length === 0) continue;
+            if (paragraphs.length > 0) {
+              // Section header
+              y = frEnsureSpace(doc, y, 24, logo);
+              doc.setFontSize(13);
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(...FR_BLACK);
+              doc.text("Most Recent Essay", FR_ML, y);
+              y += 6;
+              doc.setFontSize(10);
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(...FR_MUTED);
+              const dt = new Date(recent.created_at).toLocaleDateString();
+              const sub = `${recent.assignment_display || "Untitled"}  -  ${dt}`;
+              doc.text(sub, FR_ML, y);
+              y += 6;
 
-            // Section header
-            y = frEnsureSpace(doc, y, 24, logo);
-            doc.setFontSize(13);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(...FR_BLACK);
-            doc.text(sample.label, FR_ML, y);
-            y += 6;
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(...FR_MUTED);
-            const dt = new Date(sample.row.created_at).toLocaleDateString();
-            const sub = `${sample.row.assignment_display || "Untitled"}  ·  ${dt}`;
-            doc.text(sub, FR_ML, y);
-            y += 6;
-
-            // Paragraphs
-            doc.setFont("helvetica", "normal");
-            for (const para of paragraphs) {
-              const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
-              const labelLineH = para.labels.length > 0 ? 5 : 0;
-              const blockH = wrapped.length * 4 + labelLineH + 3;
-              y = frEnsureSpace(doc, y, blockH, logo);
-
-              doc.setFontSize(9);
+              // Plain-text paragraphs
+              doc.setFontSize(9.5);
               doc.setFont("helvetica", "normal");
               doc.setTextColor(...FR_BLACK);
-              wrapped.forEach(line => {
-                doc.text(line, FR_ML, y);
-                y += 4;
-              });
-
-              // Per-paragraph labels (italic, muted)
-              if (para.labels.length > 0) {
-                const labelLine = "→ " + para.labels.join(", ");
-                doc.setFontSize(8);
-                doc.setFont("helvetica", "italic");
-                doc.setTextColor(...FR_MAROON);
-                const labelWrapped = doc.splitTextToSize(labelLine, FR_CONTENT_W - 4);
-                labelWrapped.forEach(line => {
-                  y = frEnsureSpace(doc, y, 4, logo);
-                  doc.text(line, FR_ML + 4, y);
-                  y += 4;
+              for (const para of paragraphs) {
+                const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
+                const blockH = wrapped.length * 4.5 + 3;
+                y = frEnsureSpace(doc, y, blockH, logo);
+                wrapped.forEach(line => {
+                  doc.text(line, FR_ML, y);
+                  y += 4.5;
                 });
+                y += 3; // paragraph break
               }
-              y += 2; // small gap between paragraphs
+              y += 4;
             }
-            y += 6;
           }
         }
       } catch (err) {
-        console.warn("[report] sample essays section failed:", err);
+        console.warn("[report] most recent essay section failed:", err);
       }
 
       // ── Assignment Summary Table ──
