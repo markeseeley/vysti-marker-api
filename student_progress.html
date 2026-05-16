@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778379647894" />
+  <meta name="app-build-id" content="1778906611177" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -22,6 +22,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3/dist/jspdf.plugin.autotable.min.js"></script>
   <!-- JSZip for batch report bundling -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- html2canvas for embedding marked-essay snapshots in Progress Reports -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <style>
     .progress-page {
@@ -6135,6 +6137,113 @@
       }
     }
 
+    // Render savedHtml into a canvas snapshot suitable for embedding in
+    // the Progress Report PDF — preserves all yellow highlights, label
+    // arrows, teacher edits, etc. Returns a canvas element or null on
+    // failure. The container loads our marker.css so spans render with
+    // the same visual styling as the live preview.
+    async function _snapshotMarkedEssayHtml(html, opts) {
+      if (!html || typeof html2canvas !== "function") return null;
+      const widthPx = (opts && opts.widthPx) || 900;
+      const container = document.createElement("div");
+      container.style.cssText = [
+        "position: fixed",
+        "left: -10000px",
+        "top: 0",
+        `width: ${widthPx}px`,
+        "background: #ffffff",
+        "padding: 24px",
+        "box-sizing: border-box",
+        "font-family: 'Source Serif 4', Georgia, serif",
+        "font-size: 14px",
+        "line-height: 1.6",
+        "color: #111",
+        "z-index: -1",
+      ].join(";");
+      container.innerHTML = html;
+
+      // Reapply our preview stylesheet rules inline so html2canvas picks them up.
+      // The marker.css is already loaded on this page (via /assets/marker.css),
+      // so document-level rules cascade in. We just need to ensure paragraph
+      // defaults look right.
+      container.querySelectorAll("p").forEach(p => {
+        if (!p.style.margin) p.style.margin = "0 0 0.6em 0";
+      });
+      // Make sure yellow highlights and other inline styles survive
+      // (docx-preview emits these as inline styles already).
+
+      document.body.appendChild(container);
+      try {
+        // Give the browser a frame to lay out fonts/images
+        await new Promise(r => requestAnimationFrame(r));
+        await new Promise(r => setTimeout(r, 60));
+
+        const canvas = await html2canvas(container, {
+          backgroundColor: "#ffffff",
+          scale: 2, // higher DPI for crisp text
+          useCORS: true,
+          logging: false,
+          windowWidth: widthPx,
+        });
+        return canvas;
+      } catch (err) {
+        console.warn("[snapshot] html2canvas failed:", err);
+        return null;
+      } finally {
+        if (container.parentNode) container.parentNode.removeChild(container);
+      }
+    }
+
+    // Slice a tall canvas across multiple PDF pages. Adds image segments
+    // to the existing doc at full content width, starting a new page for
+    // each segment beyond the first.
+    function _addCanvasSlicedToPdf(doc, canvas, opts) {
+      const pageW = opts.pageW;
+      const pageH = opts.pageH;
+      const marginX = opts.marginX;
+      const marginTop = opts.marginTop;
+      const marginBottom = opts.marginBottom;
+
+      const contentW = pageW - 2 * marginX;
+      // Compute mm-per-pixel based on the rendered image width
+      const mmPerPx = contentW / canvas.width;
+      const fullHeightMm = canvas.height * mmPerPx;
+      const usablePageHmm = pageH - marginTop - marginBottom;
+
+      // Image data URL — convert once
+      const imgData = canvas.toDataURL("image/png");
+
+      let renderedMm = 0;
+      let firstPage = true;
+      // Cap at 5 pages to avoid runaway essays
+      const MAX_PAGES = 5;
+      let pageCount = 0;
+
+      while (renderedMm < fullHeightMm && pageCount < MAX_PAGES) {
+        if (!firstPage) {
+          doc.addPage();
+        }
+        firstPage = false;
+        pageCount++;
+
+        // Negative offset technique: addImage with the FULL image but
+        // shifted up so only the portion we want shows in the current page.
+        const offsetY = marginTop - renderedMm;
+        doc.addImage(imgData, "PNG", marginX, offsetY, contentW, fullHeightMm);
+
+        // Mask above and below the visible band so other pages' content
+        // doesn't bleed through (jsPDF will accept overflow images).
+        // Top mask
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageW, marginTop, "F");
+        // Bottom mask
+        doc.rect(0, pageH - marginBottom, pageW, marginBottom + 10, "F");
+
+        renderedMm += usablePageHmm;
+      }
+      return { pagesAdded: pageCount, truncated: pageCount >= MAX_PAGES && renderedMm < fullHeightMm };
+    }
+
     // Parse essay HTML into a list of paragraphs with text + label set.
     // Labels are extracted from any arrow-span (text starts with →) inside
     // the paragraph, OR from spans tagged data-vysti-label.
@@ -6505,10 +6614,11 @@
         }
       }
 
-      // ── Most Recent Essay (sample artifact) ──
-      // Embeds plain text of the student's most recent assignment so
-      // parents can read what their child wrote. No per-paragraph
-      // annotations — Top Issues table covers the marking summary.
+      // ── Most Recent Marked Essay (rendered snapshot) ──
+      // Renders the savedHtml exactly as it appears in the preview
+      // (yellow labels, arrows, teacher edits) via html2canvas, then
+      // embeds across PDF pages. Falls back to plain text if snapshot
+      // fails or savedHtml is missing.
       try {
         const { data: sessRes } = await supa.auth.getSession();
         const userId = sessRes?.session?.user?.id;
@@ -6516,38 +6626,71 @@
           const recent = rows[rows.length - 1];
           const html = await _fetchSavedHtmlForRow(userId, recent);
           if (html) {
-            const paragraphs = _parseEssayParagraphs(html);
-            if (paragraphs.length > 0) {
-              // Section header
-              y = frEnsureSpace(doc, y, 24, logo);
-              doc.setFontSize(13);
-              doc.setFont("helvetica", "bold");
-              doc.setTextColor(...FR_BLACK);
-              doc.text("Most Recent Essay", FR_ML, y);
-              y += 6;
-              doc.setFontSize(10);
-              doc.setFont("helvetica", "normal");
-              doc.setTextColor(...FR_MUTED);
-              const dt = new Date(recent.created_at).toLocaleDateString();
-              const sub = `${recent.assignment_display || "Untitled"}  -  ${dt}`;
-              doc.text(sub, FR_ML, y);
-              y += 6;
+            // Section header (always on a fresh page so the essay starts cleanly)
+            doc.addPage();
+            y = 16;
+            doc.setFontSize(13);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...FR_BLACK);
+            doc.text("Most Recent Marked Essay", FR_ML, y);
+            y += 6;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(...FR_MUTED);
+            const dt = new Date(recent.created_at).toLocaleDateString();
+            const sub = `${recent.assignment_display || "Untitled"}  -  ${dt}`;
+            doc.text(sub, FR_ML, y);
+            y += 7;
 
-              // Plain-text paragraphs
-              doc.setFontSize(9.5);
-              doc.setFont("helvetica", "normal");
-              doc.setTextColor(...FR_BLACK);
-              for (const para of paragraphs) {
-                const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
-                const blockH = wrapped.length * 4.5 + 3;
-                y = frEnsureSpace(doc, y, blockH, logo);
-                wrapped.forEach(line => {
-                  doc.text(line, FR_ML, y);
-                  y += 4.5;
+            // Snapshot the marked HTML
+            const canvas = await _snapshotMarkedEssayHtml(html, { widthPx: 900 });
+            let snapshotEmbedded = false;
+            if (canvas) {
+              try {
+                // Use the slicer — page break + marginTop already accounted for
+                // by the addPage above. Account for the header we just printed.
+                const { truncated } = _addCanvasSlicedToPdf(doc, canvas, {
+                  pageW: FR_PAGE_W,
+                  pageH: 297,            // A4 height in mm
+                  marginX: FR_ML,
+                  marginTop: y,          // first page starts after the header
+                  marginBottom: 297 - FR_FOOTER_Y + 4,
                 });
-                y += 3; // paragraph break
+                snapshotEmbedded = true;
+                if (truncated) {
+                  // Note: only first 5 pages embedded
+                  doc.addPage();
+                  doc.setFontSize(9);
+                  doc.setFont("helvetica", "italic");
+                  doc.setTextColor(...FR_MUTED);
+                  doc.text(
+                    "(Essay continues — additional pages truncated for report length.)",
+                    FR_ML, 20
+                  );
+                }
+              } catch (err) {
+                console.warn("[report] snapshot embed failed:", err);
               }
-              y += 4;
+            }
+
+            // Fallback to plain text if snapshot failed
+            if (!snapshotEmbedded) {
+              const paragraphs = _parseEssayParagraphs(html);
+              if (paragraphs.length > 0) {
+                doc.setFontSize(9.5);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(...FR_BLACK);
+                for (const para of paragraphs) {
+                  const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
+                  const blockH = wrapped.length * 4.5 + 3;
+                  y = frEnsureSpace(doc, y, blockH, logo);
+                  wrapped.forEach(line => {
+                    doc.text(line, FR_ML, y);
+                    y += 4.5;
+                  });
+                  y += 3;
+                }
+              }
             }
           }
         }
