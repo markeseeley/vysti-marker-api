@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778906611177" />
+  <meta name="app-build-id" content="1778907403161" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -6614,90 +6614,6 @@
         }
       }
 
-      // ── Most Recent Marked Essay (rendered snapshot) ──
-      // Renders the savedHtml exactly as it appears in the preview
-      // (yellow labels, arrows, teacher edits) via html2canvas, then
-      // embeds across PDF pages. Falls back to plain text if snapshot
-      // fails or savedHtml is missing.
-      try {
-        const { data: sessRes } = await supa.auth.getSession();
-        const userId = sessRes?.session?.user?.id;
-        if (userId && rows.length > 0) {
-          const recent = rows[rows.length - 1];
-          const html = await _fetchSavedHtmlForRow(userId, recent);
-          if (html) {
-            // Section header (always on a fresh page so the essay starts cleanly)
-            doc.addPage();
-            y = 16;
-            doc.setFontSize(13);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(...FR_BLACK);
-            doc.text("Most Recent Marked Essay", FR_ML, y);
-            y += 6;
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(...FR_MUTED);
-            const dt = new Date(recent.created_at).toLocaleDateString();
-            const sub = `${recent.assignment_display || "Untitled"}  -  ${dt}`;
-            doc.text(sub, FR_ML, y);
-            y += 7;
-
-            // Snapshot the marked HTML
-            const canvas = await _snapshotMarkedEssayHtml(html, { widthPx: 900 });
-            let snapshotEmbedded = false;
-            if (canvas) {
-              try {
-                // Use the slicer — page break + marginTop already accounted for
-                // by the addPage above. Account for the header we just printed.
-                const { truncated } = _addCanvasSlicedToPdf(doc, canvas, {
-                  pageW: FR_PAGE_W,
-                  pageH: 297,            // A4 height in mm
-                  marginX: FR_ML,
-                  marginTop: y,          // first page starts after the header
-                  marginBottom: 297 - FR_FOOTER_Y + 4,
-                });
-                snapshotEmbedded = true;
-                if (truncated) {
-                  // Note: only first 5 pages embedded
-                  doc.addPage();
-                  doc.setFontSize(9);
-                  doc.setFont("helvetica", "italic");
-                  doc.setTextColor(...FR_MUTED);
-                  doc.text(
-                    "(Essay continues — additional pages truncated for report length.)",
-                    FR_ML, 20
-                  );
-                }
-              } catch (err) {
-                console.warn("[report] snapshot embed failed:", err);
-              }
-            }
-
-            // Fallback to plain text if snapshot failed
-            if (!snapshotEmbedded) {
-              const paragraphs = _parseEssayParagraphs(html);
-              if (paragraphs.length > 0) {
-                doc.setFontSize(9.5);
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor(...FR_BLACK);
-                for (const para of paragraphs) {
-                  const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
-                  const blockH = wrapped.length * 4.5 + 3;
-                  y = frEnsureSpace(doc, y, blockH, logo);
-                  wrapped.forEach(line => {
-                    doc.text(line, FR_ML, y);
-                    y += 4.5;
-                  });
-                  y += 3;
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("[report] most recent essay section failed:", err);
-      }
-
       // ── Assignment Summary Table ──
       y = frEnsureSpace(doc, y, 40, logo);
       doc.setFontSize(13);
@@ -6938,6 +6854,89 @@
           });
           y += 5;
         });
+      }
+
+      // ── Most Recent Marked Essay (rendered snapshot) ──
+      // MUST be the last section before footers — _addCanvasSlicedToPdf
+      // adds pages internally but doesn't update the caller's y, so
+      // nothing should render after this or it will land on top of the
+      // snapshot image. Renders savedHtml exactly as it appears in the
+      // preview (yellow labels, arrows, teacher edits) via html2canvas
+      // and slices across PDF pages. Falls back to plain text if
+      // savedHtml is missing or html2canvas fails.
+      try {
+        const { data: sessRes } = await supa.auth.getSession();
+        const userId = sessRes?.session?.user?.id;
+        if (userId && rows.length > 0) {
+          const recent = rows[rows.length - 1];
+          const html = await _fetchSavedHtmlForRow(userId, recent);
+          if (html) {
+            // Fresh page so the essay starts cleanly
+            doc.addPage();
+            let essayY = 16;
+            doc.setFontSize(13);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...FR_BLACK);
+            doc.text("Most Recent Marked Essay", FR_ML, essayY);
+            essayY += 6;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(...FR_MUTED);
+            const dt = new Date(recent.created_at).toLocaleDateString();
+            const sub = `${recent.assignment_display || "Untitled"}  -  ${dt}`;
+            doc.text(sub, FR_ML, essayY);
+            essayY += 7;
+
+            const canvas = await _snapshotMarkedEssayHtml(html, { widthPx: 900 });
+            let snapshotEmbedded = false;
+            if (canvas) {
+              try {
+                const { truncated } = _addCanvasSlicedToPdf(doc, canvas, {
+                  pageW: FR_PAGE_W,
+                  pageH: 297,
+                  marginX: FR_ML,
+                  marginTop: essayY,
+                  marginBottom: 297 - FR_FOOTER_Y + 4,
+                });
+                snapshotEmbedded = true;
+                if (truncated) {
+                  doc.addPage();
+                  doc.setFontSize(9);
+                  doc.setFont("helvetica", "normal");
+                  doc.setTextColor(...FR_MUTED);
+                  doc.text(
+                    "(Essay continues - additional pages truncated for report length.)",
+                    FR_ML, 20
+                  );
+                }
+              } catch (err) {
+                console.warn("[report] snapshot embed failed:", err);
+              }
+            }
+
+            // Fallback: plain-text paragraphs if snapshot failed
+            if (!snapshotEmbedded) {
+              const paragraphs = _parseEssayParagraphs(html);
+              if (paragraphs.length > 0) {
+                doc.setFontSize(9.5);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(...FR_BLACK);
+                for (const para of paragraphs) {
+                  const wrapped = doc.splitTextToSize(para.text, FR_CONTENT_W);
+                  const blockH = wrapped.length * 4.5 + 3;
+                  essayY = frEnsureSpace(doc, essayY, blockH, logo);
+                  wrapped.forEach(line => {
+                    doc.text(line, FR_ML, essayY);
+                    essayY += 4.5;
+                  });
+                  essayY += 3;
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[report] most recent essay section failed:", err);
       }
 
       frAddFooters(doc, logo);
