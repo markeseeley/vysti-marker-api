@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1779068188039" />
+  <meta name="app-build-id" content="1779069187808" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -6217,6 +6217,32 @@
       container.querySelectorAll("p").forEach(p => {
         if (!p.style.margin) p.style.margin = "0 0 0.6em 0";
       });
+
+      // Strip verbose label arrows ("→ Floating quotation", etc.).
+      // The saved HTML wraps these in spans that render very long in a
+      // flat snapshot and visually compete with the essay text. Parents
+      // get the rule list in the Top Issues table elsewhere in the
+      // report. The yellow highlights on the actual problem text stay,
+      // so parents still see "here's where the teacher marked something."
+      const _ARROW_RE = /^\s*(?:«\s*)?→/;
+      for (const span of [...container.querySelectorAll("span, a")]) {
+        const text = span.textContent || "";
+        if (_ARROW_RE.test(text)) {
+          span.remove();
+        }
+      }
+      // Also remove leftover text nodes that contain only arrow markers
+      // (e.g., raw "→ Label" text not wrapped in a span).
+      const _walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      const _toRemove = [];
+      let _node;
+      while ((_node = _walker.nextNode())) {
+        const v = _node.nodeValue || "";
+        if (/^\s*«?\s*→[^«»]*»?\s*$/.test(v)) {
+          _toRemove.push(_node);
+        }
+      }
+      _toRemove.forEach(n => n.parentNode && n.parentNode.removeChild(n));
 
       document.body.appendChild(container);
       try {
