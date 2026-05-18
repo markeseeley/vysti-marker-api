@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1778907403161" />
+  <meta name="app-build-id" content="1779068188039" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -6144,7 +6144,11 @@
     // the same visual styling as the live preview.
     async function _snapshotMarkedEssayHtml(html, opts) {
       if (!html || typeof html2canvas !== "function") return null;
-      const widthPx = (opts && opts.widthPx) || 900;
+      // Wider container matches docx-preview's natural page width
+      // (~816px Letter / ~794px A4 inner). Use 1100px so the fixed-width
+      // <section class="docx"> pages have breathing room and don't
+      // produce overflow that html2canvas captures as right-aligned.
+      const widthPx = (opts && opts.widthPx) || 1100;
       const container = document.createElement("div");
       container.style.cssText = [
         "position: fixed",
@@ -6158,29 +6162,70 @@
         "font-size: 14px",
         "line-height: 1.6",
         "color: #111",
+        "text-align: left",
         "z-index: -1",
       ].join(";");
-      container.innerHTML = html;
 
-      // Reapply our preview stylesheet rules inline so html2canvas picks them up.
-      // The marker.css is already loaded on this page (via /assets/marker.css),
-      // so document-level rules cascade in. We just need to ensure paragraph
-      // defaults look right.
+      // Inject scoped CSS overrides BEFORE the HTML so layout-breaking
+      // rules from docx-preview (fixed widths, page margins, internal
+      // padding) don't push content around or clip the rendering.
+      // Also force left-alignment + remove floats that come from inline
+      // styles on highlight spans.
+      const styleOverride = `
+        <style>
+          /* Force docx-preview page wrappers to be plain blocks at full width */
+          .docx, .docx-wrapper, section.docx,
+          [class^="docx"], [class*=" docx"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 0 8px 0 !important;
+            background: transparent !important;
+            display: block !important;
+          }
+          /* Strip any per-paragraph horizontal alignment that the .docx might
+             carry (some uploaded essays have CENTER or RIGHT alignment baked in,
+             which then propagates to inline styles via docx-preview) */
+          .vysti-snapshot p,
+          .vysti-snapshot div {
+            text-align: left !important;
+            float: none !important;
+          }
+          .vysti-snapshot p { margin: 0 0 0.6em 0 !important; }
+          /* Yellow rule labels — keep inline, never floated/positioned */
+          .vysti-snapshot .vysti-arrow-label,
+          .vysti-snapshot .vysti-preview-hit,
+          .vysti-snapshot [data-vysti-label] {
+            float: none !important;
+            position: static !important;
+            display: inline !important;
+          }
+        </style>
+      `;
+      container.className = "vysti-snapshot";
+      container.innerHTML = styleOverride + html;
+
+      // Belt-and-suspenders: strip inline text-align from paragraphs that
+      // the .docx might have carried (CSS !important should handle this,
+      // but inline style takes precedence sometimes).
+      container.querySelectorAll("[style*='text-align']").forEach(el => {
+        try { el.style.textAlign = "left"; } catch {}
+      });
       container.querySelectorAll("p").forEach(p => {
         if (!p.style.margin) p.style.margin = "0 0 0.6em 0";
       });
-      // Make sure yellow highlights and other inline styles survive
-      // (docx-preview emits these as inline styles already).
 
       document.body.appendChild(container);
       try {
-        // Give the browser a frame to lay out fonts/images
         await new Promise(r => requestAnimationFrame(r));
         await new Promise(r => setTimeout(r, 60));
 
         const canvas = await html2canvas(container, {
           backgroundColor: "#ffffff",
-          scale: 2, // higher DPI for crisp text
+          scale: 2,
           useCORS: true,
           logging: false,
           windowWidth: widthPx,
