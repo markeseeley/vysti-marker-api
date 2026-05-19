@@ -30,7 +30,8 @@ export const CLARITY_LABELS = [
   "Avoid the word 'fact'",
   "Avoid the word 'proof'",
   "Avoid the word 'prove'",
-  "Noun repetition"
+  "Noun repetition",
+  "Avoid unnecessary repetition"
 ];
 
 export const DEVELOPMENT_LABELS = [

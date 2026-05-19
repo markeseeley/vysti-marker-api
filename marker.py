@@ -1004,6 +1004,8 @@ INTRO_COMMA_LABEL = "Comma after introductory word"
 INTRO_COMMA_SHORT = "cm"
 APOSTROPHE_LABEL = "Possessive apostrophe"
 APOSTROPHE_SHORT = "ap"
+UNNECESSARY_REPETITION_LABEL = "Avoid unnecessary repetition"
+UNNECESSARY_REPETITION_SHORT = "rep"
 EXPLAIN_EVIDENCE_LABEL = "Explain the significance of evidence"
 INLINE_LABEL_ALLOWLIST = {
     ARTICLE_ERROR_LABEL,
@@ -1020,6 +1022,7 @@ INLINE_LABEL_ALLOWLIST = {
     CONFUSED_WORD_LABEL,
     INTRO_COMMA_LABEL,
     APOSTROPHE_LABEL,
+    UNNECESSARY_REPETITION_LABEL,
     EXPLAIN_EVIDENCE_LABEL,
     "Avoid subjective language",
     "Unnecessary language",
@@ -1078,6 +1081,21 @@ APOSTROPHE_EXPLANATION = (
 APOSTROPHE_GUIDANCE = (
     "Add an apostrophe to show possession. Ask yourself: does this noun own "
     "something? If so, it needs 's (singular) or s' (plural ending in s)."
+)
+
+UNNECESSARY_REPETITION_EXPLANATION = (
+    "When the same word appears two or more times in a single sentence, "
+    "the writing usually signals a narrow active vocabulary, under-developed "
+    "thinking that loops on the same idea, or weak organization that fails "
+    "to combine related thoughts. Substitute a pronoun, choose a precise "
+    "synonym, or restructure the sentence — an appositive can fold the "
+    "second reference into the first."
+)
+UNNECESSARY_REPETITION_GUIDANCE = (
+    "Replace one of the repeated words with a pronoun, a precise synonym, "
+    "or rework the sentence so the idea is expressed more concisely. Try "
+    "using an appositive — e.g., \"Hester wore Hester's red letter\" "
+    "becomes \"Hester wore the red letter, a mark of her shame.\""
 )
 
 EXPLAIN_EVIDENCE_EXPLANATION = (
@@ -1206,6 +1224,7 @@ HARDCODED_SHARED_ISSUES = {
     CONFUSED_WORD_LABEL: "Word usage",
     INTRO_COMMA_LABEL: "Punctuation",
     APOSTROPHE_LABEL: "Punctuation",
+    UNNECESSARY_REPETITION_LABEL: "Word choice",
     EXPLAIN_EVIDENCE_LABEL: "Evidence development",
     FINAL_SENTENCE_LABEL: "Paragraph structure",
     AUTHOR_REF_LABEL: "Academic convention",
@@ -1225,6 +1244,7 @@ HARDCODED_SHARED_EXPLANATIONS = {
     CONFUSED_WORD_LABEL: "Verify that this is the word you intended.",
     INTRO_COMMA_LABEL: "Review punctuation after the introductory word.",
     APOSTROPHE_LABEL: "Review apostrophe usage for possession.",
+    UNNECESSARY_REPETITION_LABEL: "Use a synonym or restructure to avoid repeating the same word within a sentence.",
     EXPLAIN_EVIDENCE_LABEL: "Develop your analysis of the evidence presented.",
     FINAL_SENTENCE_LABEL: "Review how this paragraph concludes.",
     AUTHOR_REF_LABEL: "Review how you refer to the author.",
@@ -1462,6 +1482,7 @@ class MarkerConfig:
     enforce_intro_comma_rule: bool = True
     enforce_apostrophe_rule: bool = True
     enforce_present_tense_rule: bool = True
+    enforce_repetition_rule: bool = True  # Avoid unnecessary repetition (per-sentence)
 
     # MLA parenthetical citation check (Research paper mode)
     enforce_mla_citation: bool = False
@@ -1647,6 +1668,7 @@ def get_preset_config(mode: str = "textual_analysis") -> MarkerConfig:
         cfg.enforce_intro_comma_rule = False
         cfg.enforce_apostrophe_rule = False
         cfg.enforce_present_tense_rule = False
+        cfg.enforce_repetition_rule = False
         cfg.enforce_intro_quote_rule = False
         cfg.enforce_essay_title_format = False
         cfg.enforce_essay_title_capitalization = False
@@ -5893,6 +5915,110 @@ def analyze_text(
                 marks.append(mark)
 
     # -----------------------
+    # UNNECESSARY REPETITION (per-sentence content-word lemma repeats)
+    # -----------------------
+    # Flags content-word lemmas that appear 2+ times in a single sentence
+    # with at least 3 tokens between occurrences. Signals narrow vocabulary,
+    # under-developed thinking, or weak organization. Skips proper nouns,
+    # stopwords, quotes, teacher-supplied author/title words, and the word
+    # "and" (covered by its own dedicated rule).
+    if getattr(config, "enforce_repetition_rule", True):
+        # Build a set of teacher-supplied author/title words to never flag
+        # (characters and works will naturally repeat in literary analysis).
+        _rep_skip_words = set()
+        for _val in (
+            getattr(config, "author_name", None),
+            getattr(config, "author_name_2", None),
+            getattr(config, "author_name_3", None),
+            getattr(config, "text_title", None),
+            getattr(config, "text_title_2", None),
+            getattr(config, "text_title_3", None),
+        ):
+            if _val:
+                for _w in _val.split():
+                    _rep_skip_words.add(_w.lower().strip(".,;:!?\"'()[]"))
+
+        # Extra stopword/auxiliary lemmas (catches what spaCy misses)
+        _REP_EXTRA_SKIP = {
+            "be", "have", "do", "say", "go", "get", "make", "take",
+            "and", "or", "but", "not", "no", "yes", "very",
+            "that", "this", "these", "those", "which", "who", "what",
+            "when", "where", "why", "how",
+            "of", "in", "to", "for", "with", "as", "by", "from", "at",
+            "on", "into", "out", "up", "down", "over", "under",
+            "i", "we", "you", "he", "she", "it", "they", "them",
+            "my", "our", "your", "his", "her", "its", "their",
+            "more", "most", "less", "some", "any", "all", "each",
+            "one", "two", "three", "first", "second", "last",
+        }
+
+        for sent in doc.sents:
+            # Skip very short sentences — repetition there is usually
+            # intentional ("She came, she saw, she conquered") and noise.
+            word_count = sum(1 for t in sent if not (t.is_space or t.is_punct))
+            if word_count < 8:
+                continue
+
+            # Collect content-lemma positions within this sentence
+            lemma_positions = {}
+            for token in sent:
+                if token.is_space or token.is_punct or token.is_stop:
+                    continue
+                if token.pos_ in ("PROPN", "NUM"):
+                    continue
+                if len(token.text) <= 1:
+                    continue
+                lemma = (token.lemma_ or token.text).lower().strip()
+                if not lemma or len(lemma) <= 2:
+                    continue
+                if lemma in _REP_EXTRA_SKIP:
+                    continue
+                if lemma in _rep_skip_words:
+                    continue
+                tok_start = token.idx
+                tok_end = token.idx + len(token.text)
+                # Skip inside quotes or teacher-supplied titles
+                if pos_in_spans(tok_start, spans) or pos_in_spans(tok_end - 1, spans):
+                    continue
+                if in_teacher_title(tok_start) or in_teacher_title(tok_end - 1):
+                    continue
+                lemma_positions.setdefault(lemma, []).append((tok_start, tok_end, token.i))
+
+            # For each lemma with ≥2 hits, require at least one pair ≥3 tokens apart
+            for lemma, positions in lemma_positions.items():
+                if len(positions) < 2:
+                    continue
+                sorted_pos = sorted(positions, key=lambda p: p[2])
+                non_adjacent = any(
+                    sorted_pos[i + 1][2] - sorted_pos[i][2] >= 3
+                    for i in range(len(sorted_pos) - 1)
+                )
+                if not non_adjacent:
+                    continue
+
+                # Mark 2nd+ occurrences with TURQUOISE highlight; arrow label
+                # on the FIRST repeat (idx==1). Full label arrow shown the
+                # first time the rule fires in this paragraph; subsequent
+                # offending sentences get the short "rep" tag.
+                for idx, (tok_start, tok_end, _ti) in enumerate(sorted_pos):
+                    if idx == 0:
+                        continue  # original occurrence reads as normal
+                    mark = {
+                        "start": tok_start,
+                        "end": tok_end,
+                        "color": WD_COLOR_INDEX.TURQUOISE,
+                        "found_value": flat_text[tok_start:tok_end],
+                    }
+                    if idx == 1:
+                        mark["note"] = UNNECESSARY_REPETITION_LABEL
+                        mark["label"] = True
+                        if UNNECESSARY_REPETITION_LABEL not in labels_used:
+                            labels_used.append(UNNECESSARY_REPETITION_LABEL)
+                        else:
+                            mark["display_note"] = UNNECESSARY_REPETITION_SHORT
+                    marks.append(mark)
+
+    # -----------------------
     # HIGHLIGHT THESIS DEVICE WORDS (from thesis_devices.txt)
     # -----------------------
     # Any token/phrase that resolves to a canonical thesis device (including synonyms
@@ -9260,6 +9386,7 @@ def mark_docx_bytes(
             CONFUSED_WORD_LABEL: CONFUSED_WORD_GUIDANCE,
             INTRO_COMMA_LABEL: INTRO_COMMA_GUIDANCE,
             APOSTROPHE_LABEL: APOSTROPHE_GUIDANCE,
+            UNNECESSARY_REPETITION_LABEL: UNNECESSARY_REPETITION_GUIDANCE,
             EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_GUIDANCE,
             "Noun repetition": "Repeating the same noun {COUNT} times weakens your vocabulary range. Use synonyms, pronouns with clear antecedents, or rephrase to demonstrate analytical variety.",
             "Avoid subjective language": "The word <b>{FOUND}</b> is a subjective evaluation — it tells the reader what to think instead of showing them through analysis. Delete it and let the evidence speak for itself. For example, instead of 'Shakespeare's <i>great</i> use of imagery,' write 'Shakespeare's use of imagery reveals…' Your analysis is stronger when it explains <i>how</i> and <i>why</i> rather than making value judgments.",
@@ -9428,6 +9555,7 @@ def run_marker(
         CONFUSED_WORD_LABEL: CONFUSED_WORD_EXPLANATION,
         INTRO_COMMA_LABEL: INTRO_COMMA_EXPLANATION,
         APOSTROPHE_LABEL: APOSTROPHE_EXPLANATION,
+        UNNECESSARY_REPETITION_LABEL: UNNECESSARY_REPETITION_EXPLANATION,
         EXPLAIN_EVIDENCE_LABEL: EXPLAIN_EVIDENCE_EXPLANATION,
         "Avoid subjective language": "Words like 'great', 'successful', and 'compelling' are subjective evaluations. Remove them and let your analysis speak for itself.",
         "Unnecessary language": "This word or phrase adds no analytical value. Remove it to tighten your prose.",
