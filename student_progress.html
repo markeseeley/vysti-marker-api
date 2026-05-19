@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1779154405537" />
+  <meta name="app-build-id" content="1779159114610" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -680,6 +680,25 @@
     .editable-cell:focus { border-color: var(--maroon); outline: none; background: #fff; }
     .editable-cell.save-flash { border-color: rgb(25, 135, 84); background: rgba(25,135,84,.06); }
     .editable-date { width: auto; cursor: pointer; font-size: 12px; }
+    /* Score color tiers (>=80 high, 60-79 mid, <60 low) */
+    .score-tier-high { color: rgb(25, 135, 84); }
+    .score-tier-mid  { color: rgb(212, 160, 0); }
+    .score-tier-low  { color: rgb(220, 53, 69); }
+    /* Inline edit cells in the score column shouldn't show input chrome */
+    .score-cell-input, .ib-cell-input { padding: 2px 4px; }
+    /* Roster running average badge */
+    .roster-chip-avg {
+      display: inline-block;
+      margin-top: 2px;
+      padding: 1px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(0,0,0,.04);
+    }
+    .roster-chip-avg.avg-high { color: #fff; background: rgb(25, 135, 84); }
+    .roster-chip-avg.avg-mid  { color: #fff; background: rgb(212, 160, 0); }
+    .roster-chip-avg.avg-low  { color: #fff; background: rgb(220, 53, 69); }
 
     /* ── Class select in expand panel ── */
     .expand-class-select {
@@ -2061,6 +2080,8 @@
               <th class="nowrap sortable meter-col-cohesion" data-sort="cohesion" title="Cohesion" style="width:40px;">C <span class="sort-arrow">▼</span></th>
               <th class="nowrap sortable meter-col-precision" data-sort="precision" title="Precision" style="width:40px;">Pr <span class="sort-arrow">▼</span></th>
               <th class="nowrap sortable" data-sort="total">Total <span class="sort-arrow">▼</span></th>
+              <th class="nowrap sortable" data-sort="score" title="Teacher percentage score" style="width:64px;">Score <span class="sort-arrow">▼</span></th>
+              <th class="nowrap sortable" data-sort="ib" title="IB Paper 1 score (0-20)" style="width:60px;">IB <span class="sort-arrow">▼</span></th>
               <th style="width:60px;">Actions</th>
             </tr>
           </thead>
@@ -2876,7 +2897,7 @@
         // ── My Classes lens: include student_name and class_id ──
         let query = supa
           .from("mark_events")
-          .select("id, created_at, student_name, assignment_name, file_name, mode, label_counts, issues, essay_title, class_id, total_labels, review_status, word_count, scores, teacher_comment, score")
+          .select("id, created_at, student_name, assignment_name, file_name, mode, label_counts, issues, essay_title, class_id, total_labels, review_status, word_count, scores, teacher_comment, score, ib_score")
           .eq("user_id", userId);
 
         const selectedClass = classFilter ? classFilter.value : "";
@@ -2893,7 +2914,7 @@
         // ── My Writing lens: original personal query ──
         const result = await supa
           .from("mark_events")
-          .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id, teacher_comment, score")
+          .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id, teacher_comment, score, ib_score")
           .eq("user_id", userId)
           .order("created_at", { ascending: false });
         data = result.data;
@@ -3065,6 +3086,24 @@
 
         info.appendChild(nameEl);
         info.appendChild(statsEl);
+
+        // Running average (mean of teacher % scores for this student).
+        // Skips rows without a teacher score so we don't dilute averages
+        // with unmarked work. Color-coded: red/amber/green by threshold.
+        if (hasData) {
+          const scored = rows
+            .map(r => (typeof r.score === "number" ? r.score : null))
+            .filter(s => s != null);
+          if (scored.length > 0) {
+            const avg = Math.round(scored.reduce((a, b) => a + b, 0) / scored.length);
+            const tier = avg >= 80 ? "avg-high" : avg >= 60 ? "avg-mid" : "avg-low";
+            const avgEl = document.createElement("div");
+            avgEl.className = "roster-chip-avg " + tier;
+            avgEl.textContent = `Avg ${avg}%`;
+            avgEl.title = `Average of ${scored.length} graded essay${scored.length !== 1 ? "s" : ""}`;
+            info.appendChild(avgEl);
+          }
+        }
 
         // Comment preview (visible below stats when comment exists)
         const commentPreview = document.createElement("div");
@@ -4377,6 +4416,20 @@
       }
     }
 
+    // ===== Score color coding =====
+    // Visual threshold cues for inline score cells. Tunable thresholds
+    // — these match common A/B/C/D mappings without being prescriptive.
+    function _applyScoreColor(el, score) {
+      if (el == null) return;
+      el.classList.remove("score-tier-high", "score-tier-mid", "score-tier-low");
+      if (score == null || score === "") return;
+      const n = Number(score);
+      if (isNaN(n)) return;
+      if (n >= 80) el.classList.add("score-tier-high");
+      else if (n >= 60) el.classList.add("score-tier-mid");
+      else el.classList.add("score-tier-low");
+    }
+
     // ===== PATCH helper for inline editing =====
     async function patchMarkEvent(fileName, updates) {
       const { data: sessionData } = await supa.auth.getSession();
@@ -5303,6 +5356,77 @@
         totalCell.style.fontWeight = "700";
         totalCell.textContent = row.total_labels || 0;
         tr.appendChild(totalCell);
+
+        // 10b. Teacher % Score (inline editable, 0-100)
+        const scoreCell = document.createElement("td");
+        scoreCell.className = "nowrap";
+        const scoreInputCell = document.createElement("input");
+        scoreInputCell.type = "number";
+        scoreInputCell.min = "0";
+        scoreInputCell.max = "100";
+        scoreInputCell.className = "editable-cell score-cell-input";
+        scoreInputCell.style.cssText = "width:48px;text-align:center;font-weight:600;font-size:13px;";
+        scoreInputCell.value = (row.score != null && row.score !== "") ? row.score : "";
+        scoreInputCell.placeholder = "—";
+        _applyScoreColor(scoreInputCell, row.score);
+        scoreInputCell.addEventListener("click", (e) => e.stopPropagation());
+        scoreInputCell.addEventListener("blur", async () => {
+          const raw = scoreInputCell.value.trim();
+          const newVal = raw === "" ? null : Math.max(0, Math.min(100, parseInt(raw, 10)));
+          if (raw !== "" && isNaN(newVal)) return;
+          const oldVal = row.score != null ? row.score : null;
+          if (newVal !== oldVal && row.file_name) {
+            const ok = await patchMarkEvent(row.file_name, { score: newVal != null ? newVal : 0 });
+            if (ok) {
+              row.score = newVal;
+              scoreInputCell.classList.add("save-flash");
+              setTimeout(() => scoreInputCell.classList.remove("save-flash"), 800);
+              _applyScoreColor(scoreInputCell, newVal);
+              renderRoster(); // refresh running averages
+            }
+          }
+        });
+        scoreInputCell.addEventListener("keydown", (e) => { if (e.key === "Enter") scoreInputCell.blur(); });
+        scoreCell.appendChild(scoreInputCell);
+        const pctSpan = document.createElement("span");
+        pctSpan.style.cssText = "font-size:11px;color:var(--muted);margin-left:2px;";
+        pctSpan.textContent = "%";
+        scoreCell.appendChild(pctSpan);
+        tr.appendChild(scoreCell);
+
+        // 10c. IB Score (inline editable, 0-20)
+        const ibCell = document.createElement("td");
+        ibCell.className = "nowrap";
+        const ibInputCell = document.createElement("input");
+        ibInputCell.type = "number";
+        ibInputCell.min = "0";
+        ibInputCell.max = "20";
+        ibInputCell.className = "editable-cell ib-cell-input";
+        ibInputCell.style.cssText = "width:38px;text-align:center;font-weight:600;font-size:13px;";
+        ibInputCell.value = (row.ib_score != null && row.ib_score !== "") ? row.ib_score : "";
+        ibInputCell.placeholder = "—";
+        ibInputCell.addEventListener("click", (e) => e.stopPropagation());
+        ibInputCell.addEventListener("blur", async () => {
+          const raw = ibInputCell.value.trim();
+          const newVal = raw === "" ? null : Math.max(0, Math.min(20, parseInt(raw, 10)));
+          if (raw !== "" && isNaN(newVal)) return;
+          const oldVal = row.ib_score != null ? row.ib_score : null;
+          if (newVal !== oldVal && row.file_name) {
+            const ok = await patchMarkEvent(row.file_name, { ib_score: newVal != null ? newVal : 0 });
+            if (ok) {
+              row.ib_score = newVal;
+              ibInputCell.classList.add("save-flash");
+              setTimeout(() => ibInputCell.classList.remove("save-flash"), 800);
+            }
+          }
+        });
+        ibInputCell.addEventListener("keydown", (e) => { if (e.key === "Enter") ibInputCell.blur(); });
+        ibCell.appendChild(ibInputCell);
+        const ibUnitSpan = document.createElement("span");
+        ibUnitSpan.style.cssText = "font-size:11px;color:var(--muted);margin-left:2px;";
+        ibUnitSpan.textContent = "/20";
+        ibCell.appendChild(ibUnitSpan);
+        tr.appendChild(ibCell);
 
         // 11. Actions
         const actionsCell = document.createElement("td");

@@ -1390,10 +1390,30 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
           body.source_works = works.map((w) => ({ author: w.author || "", title: w.title || "" }));
         }
       }
-      // Include score so the Progress page stays current
-      if (body.score === undefined && doc.teacherComment?.score != null) {
+      // Include score so the Progress page stays current.
+      // Only persist when the % score toggle is ON in the Comment card,
+      // OR when an explicit score override is in place (legacy behavior).
+      const _scoreFormats = doc.teacherComment?.scoreFormats || {};
+      const _showPercent = _scoreFormats.percent !== false; // default to true
+      if (body.score === undefined && doc.teacherComment?.score != null && _showPercent) {
         body.score = doc.teacherComment.score;
       }
+
+      // Include IB score (0-20 total) when the IB toggle is ON. We pull
+      // the effective IB total (with any teacher overrides) by recomputing
+      // from labelCounts + applying override values when present.
+      if (body.ib_score === undefined && _scoreFormats.ib) {
+        const _ibBase = computeIBScores(doc.labelCounts, doc.wordCount);
+        const _ibOv = doc.teacherComment?.ibOverrides || {};
+        if (_ibBase) {
+          const a = _ibOv.a ?? _ibBase.a;
+          const b = _ibOv.b ?? _ibBase.b;
+          const c = _ibOv.c ?? _ibBase.c;
+          const d = _ibOv.d ?? _ibBase.d;
+          body.ib_score = a + b + c + d;
+        }
+      }
+
       // Include notes
       if (body.notes === undefined && doc.notes != null) {
         body.notes = doc.notes;
