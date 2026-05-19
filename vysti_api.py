@@ -2914,8 +2914,15 @@ async def update_mark_event(
             patch_body["review_status"] = body.review_status
     if body.score is not None:
         patch_body["score"] = max(0, min(100, body.score))
-    if body.ib_score is not None:
-        patch_body["ib_score"] = max(0, min(20, body.ib_score))
+    # IB score handled defensively — uses getattr in case of model
+    # version skew, and wraps the int coercion. Failures log and skip
+    # the field rather than crashing the whole PATCH.
+    _ib_val = getattr(body, "ib_score", None)
+    if _ib_val is not None:
+        try:
+            patch_body["ib_score"] = max(0, min(20, int(_ib_val)))
+        except (TypeError, ValueError) as _ib_err:
+            print(f"[update_mark_event] ib_score coerce failed: {_ib_err!r}")
     if body.created_at is not None:
         patch_body["created_at"] = body.created_at
 
@@ -2951,8 +2958,18 @@ async def update_mark_event(
             except Exception:
                 updated = 1
         else:
-            if _DEBUG: print(f"[update_mark_event] mark_events: status={resp.status_code} body={resp.text[:300]}")
-            raise HTTPException(status_code=502, detail="Failed to update mark event")
+            # Bubble Supabase's error text back so the client can see what
+            # went wrong (e.g., missing column, RLS denial, type mismatch).
+            err_text = ""
+            try:
+                err_text = resp.text[:500]
+            except Exception:
+                pass
+            print(f"[update_mark_event] mark_events: status={resp.status_code} body={err_text}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"mark_events update failed (HTTP {resp.status_code}): {err_text}",
+            )
 
         # If assignment_name changed, also update issue_examples for consistency
         if body.assignment_name is not None:
