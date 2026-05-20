@@ -2957,6 +2957,24 @@ async def update_mark_event(
                     updated = len(result)
             except Exception:
                 updated = 1
+            # Surface zero-match cases as an explicit error so the client
+            # knows the save didn't actually persist. The most common cause
+            # is a row whose user_id doesn't match the authenticated user
+            # (e.g., legacy data from a test account).
+            if updated == 0:
+                _filter_desc = (
+                    f"id={body.mark_event_id}" if body.mark_event_id
+                    else f"file_name={body.file_name!r}"
+                )
+                print(f"[update_mark_event] zero-match filter: user_id={user_id} {_filter_desc} patch={patch_body!r}")
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"No mark_event row matched filter (user_id={user_id}, {_filter_desc}). "
+                        "The row may belong to a different user, or its file_name has drifted. "
+                        "Check Supabase directly to confirm ownership."
+                    ),
+                )
         else:
             # Bubble Supabase's error text back so the client can see what
             # went wrong (e.g., missing column, RLS denial, type mismatch).
