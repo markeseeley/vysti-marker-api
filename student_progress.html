@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1779159114610" />
+  <meta name="app-build-id" content="1779252622039" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -3920,7 +3920,7 @@
         bulkBtn.textContent = "Saving...";
         let ok = true;
         for (const row of inProgress) {
-          const result = await patchMarkEvent(row.file_name, { review_status: "completed" });
+          const result = await patchMarkEvent(row, { review_status: "completed" });
           if (result) {
             row.review_status = "completed";
           } else {
@@ -3944,7 +3944,7 @@
         archiveBtn.textContent = "Archiving...";
         let ok = true;
         for (const row of completed) {
-          const result = await patchMarkEvent(row.file_name, { review_status: "archived" });
+          const result = await patchMarkEvent(row, { review_status: "archived" });
           if (result) {
             row.review_status = "archived";
           } else {
@@ -4028,7 +4028,7 @@
               opt.addEventListener("click", async (ev) => {
                 ev.stopPropagation();
                 menu.remove();
-                const ok = await patchMarkEvent(row.file_name, { review_status: status });
+                const ok = await patchMarkEvent(row, { review_status: status });
                 if (ok) {
                   row.review_status = status;
                   renderWorkflowCards();
@@ -4431,9 +4431,19 @@
     }
 
     // ===== PATCH helper for inline editing =====
-    async function patchMarkEvent(fileName, updates) {
+    // Accepts either a row object {id, file_name} (preferred — uses
+    // mark_event_id UUID for precise row matching) or a bare file_name
+    // string (legacy — kept for any older callers). The UUID path avoids
+    // file_name encoding/whitespace mismatches that can cause silent
+    // "updated: 0" results from PostgREST.
+    async function patchMarkEvent(rowOrFileName, updates) {
       const { data: sessionData } = await supa.auth.getSession();
       if (!sessionData || !sessionData.session) return false;
+      const isRow = rowOrFileName && typeof rowOrFileName === "object";
+      const fileName = isRow ? (rowOrFileName.file_name || "") : rowOrFileName;
+      const markEventId = isRow ? (rowOrFileName.id || null) : null;
+      const body = { file_name: fileName, ...updates };
+      if (markEventId) body.mark_event_id = markEventId;
       try {
         const resp = await fetch("/update_mark_event", {
           method: "PATCH",
@@ -4441,7 +4451,7 @@
             "Content-Type": "application/json",
             "Authorization": `Bearer ${sessionData.session.access_token}`
           },
-          body: JSON.stringify({ file_name: fileName, ...updates })
+          body: JSON.stringify(body)
         });
         return resp.ok;
       } catch (err) {
@@ -5243,7 +5253,7 @@
           if (!newDate || !row.file_name) return;
           const newISO = new Date(newDate + "T12:00:00").toISOString();
           if (newISO === row.created_at) return;
-          const ok = await patchMarkEvent(row.file_name, { created_at: newISO });
+          const ok = await patchMarkEvent(row, { created_at: newISO });
           if (ok) {
             row.created_at = newISO;
             dateInput.classList.add("save-flash");
@@ -5273,7 +5283,7 @@
           studentInput.addEventListener("blur", async () => {
             const newVal = studentInput.value.trim();
             if (newVal !== (row.student_name || "") && row.file_name) {
-              const ok = await patchMarkEvent(row.file_name, { student_name: newVal });
+              const ok = await patchMarkEvent(row, { student_name: newVal });
               if (ok) {
                 row.student_name = newVal;
                 studentInput.classList.add("save-flash");
@@ -5296,7 +5306,7 @@
         assignInput.addEventListener("blur", async () => {
           const newVal = assignInput.value.trim();
           if (newVal !== (row.assignment_name || "") && row.file_name) {
-            const ok = await patchMarkEvent(row.file_name, { assignment_name: newVal });
+            const ok = await patchMarkEvent(row, { assignment_name: newVal });
             if (ok) {
               row.assignment_name = newVal;
               row.assignment_display = newVal || row.file_name || "Unnamed";
@@ -5376,7 +5386,7 @@
           if (raw !== "" && isNaN(newVal)) return;
           const oldVal = row.score != null ? row.score : null;
           if (newVal !== oldVal && row.file_name) {
-            const ok = await patchMarkEvent(row.file_name, { score: newVal != null ? newVal : 0 });
+            const ok = await patchMarkEvent(row, { score: newVal != null ? newVal : 0 });
             if (ok) {
               row.score = newVal;
               scoreInputCell.classList.add("save-flash");
@@ -5412,7 +5422,7 @@
           if (raw !== "" && isNaN(newVal)) return;
           const oldVal = row.ib_score != null ? row.ib_score : null;
           if (newVal !== oldVal && row.file_name) {
-            const ok = await patchMarkEvent(row.file_name, { ib_score: newVal != null ? newVal : 0 });
+            const ok = await patchMarkEvent(row, { ib_score: newVal != null ? newVal : 0 });
             if (ok) {
               row.ib_score = newVal;
               ibInputCell.classList.add("save-flash");
@@ -5643,7 +5653,7 @@
       async function saveWorks() {
         if (!row.file_name) return;
         const cleaned = works.filter(w => w.author || w.title);
-        const ok = await patchMarkEvent(row.file_name, { source_works: cleaned });
+        const ok = await patchMarkEvent(row, { source_works: cleaned });
         if (ok) {
           row.source_works = cleaned;
           // Update compact display in parent row
@@ -5673,7 +5683,7 @@
       textarea.addEventListener("blur", async () => {
         const newVal = textarea.value.trim();
         if (newVal !== (row.notes || "") && row.file_name) {
-          const ok = await patchMarkEvent(row.file_name, { notes: newVal });
+          const ok = await patchMarkEvent(row, { notes: newVal });
           if (ok) row.notes = newVal;
         }
       });
@@ -5711,7 +5721,7 @@
         classSelect.addEventListener("change", async () => {
           const newClassId = classSelect.value;
           if (!row.file_name) return;
-          const ok = await patchMarkEvent(row.file_name, { class_id: newClassId || "" });
+          const ok = await patchMarkEvent(row, { class_id: newClassId || "" });
           if (ok) {
             row.class_id = newClassId || null;
             classSelect.classList.add("save-flash");
@@ -5741,7 +5751,7 @@
       studentEdit.addEventListener("blur", async () => {
         const newVal = studentEdit.value.trim();
         if (newVal !== (row.student_name || "") && row.file_name) {
-          const ok = await patchMarkEvent(row.file_name, { student_name: newVal });
+          const ok = await patchMarkEvent(row, { student_name: newVal });
           if (ok) {
             row.student_name = newVal;
             studentEdit.classList.add("save-flash");
@@ -5776,7 +5786,7 @@
       assignEdit.addEventListener("blur", async () => {
         const newVal = assignEdit.value.trim();
         if (newVal !== (row.assignment_name || "") && row.file_name) {
-          const ok = await patchMarkEvent(row.file_name, { assignment_name: newVal });
+          const ok = await patchMarkEvent(row, { assignment_name: newVal });
           if (ok) {
             row.assignment_name = newVal;
             row.assignment_display = newVal || row.file_name || "Unnamed";
@@ -5811,7 +5821,7 @@
       commentArea.addEventListener("blur", async () => {
         const newVal = commentArea.value.trim();
         if (newVal !== (row.teacher_comment || "") && row.file_name) {
-          const ok = await patchMarkEvent(row.file_name, { teacher_comment: newVal });
+          const ok = await patchMarkEvent(row, { teacher_comment: newVal });
           if (ok) row.teacher_comment = newVal;
         }
       });
@@ -5845,7 +5855,7 @@
         if (isNaN(newVal) && raw !== "") return;
         const oldVal = row.score != null ? row.score : null;
         if (newVal !== oldVal && row.file_name) {
-          const ok = await patchMarkEvent(row.file_name, { score: newVal != null ? newVal : 0 });
+          const ok = await patchMarkEvent(row, { score: newVal != null ? newVal : 0 });
           if (ok) {
             row.score = newVal;
             scoreInput.classList.add("save-flash");
