@@ -2927,7 +2927,17 @@ async def update_mark_event(
         patch_body["created_at"] = body.created_at
 
     if not patch_body:
-        return {"updated": 0}
+        # Don't silently no-op. The frontend should never send an empty
+        # update — if it does, that's a bug worth surfacing. Common cause:
+        # Pydantic stripped an unknown field from an outdated request shape.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No updateable fields recognized in request. "
+                "If you sent ib_score or another newly-added field, the "
+                "server may not yet support it. Refresh and retry."
+            ),
+        )
 
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
@@ -2943,6 +2953,8 @@ async def update_mark_event(
         target_params = {"user_id": f"eq.{user_id}", "file_name": f"eq.{body.file_name}"}
 
     updated = 0
+    # Unconditional logging until ib_score editing is verified working
+    print(f"[update_mark_event] params={target_params} patch_body={patch_body}")
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.patch(
             f"{SUPABASE_URL}/rest/v1/mark_events",
@@ -2950,6 +2962,7 @@ async def update_mark_event(
             params=target_params,
             json=patch_body,
         )
+        print(f"[update_mark_event] supabase resp: status={resp.status_code} body={resp.text[:500]}")
         if resp.status_code in (200, 204):
             try:
                 result = resp.json()
