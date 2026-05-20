@@ -347,6 +347,7 @@ class UpdateMarkEventRequest(BaseModel):
     teacher_comment: str | None = None
     review_status: str | None = None
     score: int | None = None
+    ib_score: int | None = None  # IB Paper 1 total score, 0-20
     created_at: str | None = None
 
 
@@ -371,7 +372,6 @@ class AutoErrorLogRequest(BaseModel):
     teacher_comment: str | None = None
     review_status: str | None = None  # 'pending' | 'in_progress' | 'completed' | 'archived'
     score: int | None = None  # 0-100 percentage score
-    ib_score: int | None = None  # IB Paper 1 total score, 0-20
     created_at: str | None = None  # ISO-8601 datetime string
 
 
