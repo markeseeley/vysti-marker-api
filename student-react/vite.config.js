@@ -34,11 +34,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
-      '/practice': {
-        target: 'https://app.vysti.org',
-        changeOrigin: true,
-        secure: true,
-      },
     },
   },
   build: {
@@ -50,7 +45,6 @@ export default defineConfig({
         'write-main': path.resolve(__dirname, 'src/write-main.jsx'),
         'teacher-main': path.resolve(__dirname, '../big_project/teacher_mode/teacher-main.jsx'),
         'profile-main': path.resolve(__dirname, 'src/profile-main.jsx'),
-        'practice-main': path.resolve(__dirname, 'src/practice-main.jsx'),
       },
       output: {
         entryFileNames: '[name].js',
