@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { redirectToSignin } from "../lib/auth";
 import { logEvent, logCriticalError } from "../lib/logger";
 import { getSupaClient } from "../lib/supa";
@@ -15,6 +15,49 @@ export function useAuthSession(role = "student", { skipRedirect = false } = {}) 
     marks_limit: 1,
   });
   const guardActive = useRef(true);
+
+  // Fetch and apply profile/entitlement state for a given session.
+  // Extracted so refreshProfile() (e.g. after coupon redemption) can
+  // reuse the exact same shape without duplicating the parse logic.
+  const applyProfile = useCallback(async (session) => {
+    if (!session?.access_token) return false;
+    try {
+      const apiBase = getApiBaseUrl();
+      const profileResp = await fetch(`${apiBase}/api/profile`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!profileResp.ok) return false;
+      const profileData = await profileResp.json();
+      if (!guardActive.current) return false;
+      setEntitlement({
+        subscription_tier: profileData.subscription_tier || "free",
+        marks_used: profileData.marks_used || 0,
+        marks_limit: 1,
+      });
+      const apiProducts = {
+        has_mark: !!profileData.has_mark,
+        has_revise: !!profileData.has_revise,
+        has_write: !!profileData.has_write,
+      };
+      setProducts(apiProducts);
+      try { localStorage.setItem("vysti_products", JSON.stringify(apiProducts)); } catch {}
+      return true;
+    } catch (e) {
+      console.warn("Failed to fetch entitlement:", e);
+      return false;
+    }
+  }, []);
+
+  // Re-fetch profile on demand (e.g. after coupon redemption flips
+  // subscription_tier from 'free' to 'paid' so the paywall can close
+  // and the user's next mark/upload attempt sees fresh entitlement).
+  const refreshProfile = useCallback(async () => {
+    const client = supa || getSupaClient();
+    if (!client) return false;
+    const { data } = await client.auth.getSession();
+    if (!data?.session) return false;
+    return applyProfile(data.session);
+  }, [supa, applyProfile]);
 
   useEffect(() => {
     guardActive.current = true;
@@ -56,32 +99,7 @@ export function useAuthSession(role = "student", { skipRedirect = false } = {}) 
           }
         } catch {}
 
-        // Fetch entitlement + product data from profile API
-        try {
-          const apiBase = getApiBaseUrl();
-          const profileResp = await fetch(`${apiBase}/api/profile`, {
-            headers: { Authorization: `Bearer ${data.session.access_token}` },
-          });
-          if (profileResp.ok && guardActive.current) {
-            const profileData = await profileResp.json();
-            setEntitlement({
-              subscription_tier: profileData.subscription_tier || "free",
-              marks_used: profileData.marks_used || 0,
-              marks_limit: 1,
-            });
-            // Update products from API (source of truth) and sync localStorage
-            const apiProducts = {
-              has_mark: !!profileData.has_mark,
-              has_revise: !!profileData.has_revise,
-              has_write: !!profileData.has_write,
-            };
-            setProducts(apiProducts);
-            try { localStorage.setItem("vysti_products", JSON.stringify(apiProducts)); } catch {}
-          }
-        } catch (e) {
-          // Non-critical: entitlement defaults to free tier
-          console.warn("Failed to fetch entitlement:", e);
-        }
+        await applyProfile(data.session);
 
         if (guardActive.current) {
           setIsChecking(false);
@@ -107,7 +125,7 @@ export function useAuthSession(role = "student", { skipRedirect = false } = {}) 
       guardActive.current = false;
       subscription?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [applyProfile, role, skipRedirect]);
 
   return {
     supa,
@@ -116,6 +134,7 @@ export function useAuthSession(role = "student", { skipRedirect = false } = {}) 
     products,
     entitlement,
     setEntitlement,
+    refreshProfile,
     redirectToSignin
   };
 }

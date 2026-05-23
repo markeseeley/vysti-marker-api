@@ -101,7 +101,7 @@ const MAX_DOCX_BYTES = 15 * 1024 * 1024;
 const METRIC_DETAILS_COLLAPSE_KEY = "vysti_metric_details_collapsed";
 
 function App() {
-  const { supa, isChecking, authError, products, entitlement, redirectToSignin } = useAuthSession();
+  const { supa, isChecking, authError, products, entitlement, refreshProfile, redirectToSignin } = useAuthSession();
   const [mode, setMode] = useState("textual_analysis");
   const [assignmentName, setAssignmentName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -3043,6 +3043,7 @@ function App() {
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
         returnPath="/student_react.html"
+        onRedeemSuccess={refreshProfile}
       />
     </div>
   );

@@ -13,10 +13,32 @@ export default defineConfig({
     },
   },
   server: {
-    host: '127.0.0.1',
+    host: '0.0.0.0',
     port: 5173,
     fs: {
       allow: [path.resolve(__dirname, '..')],
+    },
+    proxy: {
+      '/api': {
+        target: 'https://app.vysti.org',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/assets/pwa': {
+        target: 'https://app.vysti.org',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/signin.html': {
+        target: 'https://app.vysti.org',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/practice': {
+        target: 'https://app.vysti.org',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   build: {
@@ -28,6 +50,7 @@ export default defineConfig({
         'write-main': path.resolve(__dirname, 'src/write-main.jsx'),
         'teacher-main': path.resolve(__dirname, '../big_project/teacher_mode/teacher-main.jsx'),
         'profile-main': path.resolve(__dirname, 'src/profile-main.jsx'),
+        'practice-main': path.resolve(__dirname, 'src/practice-main.jsx'),
       },
       output: {
         entryFileNames: '[name].js',

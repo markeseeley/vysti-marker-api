@@ -27,7 +27,7 @@ import { parseFilename } from "./lib/filenameParser";
 import PaywallModal from "./components/PaywallModal";
 
 export default function TeacherApp() {
-  const { supa, isChecking, authError, products, entitlement, setEntitlement } = useAuthSession("teacher");
+  const { supa, isChecking, authError, products, entitlement, setEntitlement, refreshProfile } = useAuthSession("teacher");
   const [state, dispatch, derived] = useTeacherReducer();
   const [userId, setUserId] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
@@ -446,6 +446,7 @@ export default function TeacherApp() {
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
         returnPath="/teacher_react.html"
+        onRedeemSuccess={refreshProfile}
       />
     </>
   );

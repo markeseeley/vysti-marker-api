@@ -56,7 +56,7 @@ const DESKTOP_NUDGES = [
 // ── Phase type: "upload" | "transcribing" | "review" | "marking" | "results" ──
 
 export default function MobileApp() {
-  const { supa, isChecking, entitlement, redirectToSignin } = useAuthSession();
+  const { supa, isChecking, entitlement, refreshProfile, redirectToSignin } = useAuthSession();
   const [phase, setPhase] = useState("upload");
   const [ocrPages, setOcrPages] = useState(null);
   const [ocrError, setOcrError] = useState("");
@@ -361,6 +361,7 @@ export default function MobileApp() {
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
         returnPath={window.location.pathname}
+        onRedeemSuccess={refreshProfile}
       />
 
       {/* ── Desktop nudge ── */}
