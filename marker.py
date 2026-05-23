@@ -1005,7 +1005,6 @@ INTRO_COMMA_SHORT = "cm"
 APOSTROPHE_LABEL = "Possessive apostrophe"
 APOSTROPHE_SHORT = "ap"
 UNNECESSARY_REPETITION_LABEL = "Avoid unnecessary repetition"
-UNNECESSARY_REPETITION_SHORT = "rep"
 EXPLAIN_EVIDENCE_LABEL = "Explain the significance of evidence"
 INLINE_LABEL_ALLOWLIST = {
     ARTICLE_ERROR_LABEL,
@@ -5997,9 +5996,7 @@ def analyze_text(
                     continue
 
                 # Mark 2nd+ occurrences with TURQUOISE highlight; arrow label
-                # on the FIRST repeat (idx==1). Full label arrow shown the
-                # first time the rule fires in this paragraph; subsequent
-                # offending sentences get the short "rep" tag.
+                # on the FIRST repeat (idx==1) shows the full label every time.
                 for idx, (tok_start, tok_end, _ti) in enumerate(sorted_pos):
                     if idx == 0:
                         continue  # original occurrence reads as normal
@@ -6014,8 +6011,6 @@ def analyze_text(
                         mark["label"] = True
                         if UNNECESSARY_REPETITION_LABEL not in labels_used:
                             labels_used.append(UNNECESSARY_REPETITION_LABEL)
-                        else:
-                            mark["display_note"] = UNNECESSARY_REPETITION_SHORT
                     marks.append(mark)
 
     # -----------------------
