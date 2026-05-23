@@ -2075,11 +2075,7 @@
               <th class="sortable" data-sort="assignment">Assignment <span class="sort-arrow">▼</span></th>
               <th>Source</th>
               <th class="nowrap sortable" data-sort="mode">Mode <span class="sort-arrow">▼</span></th>
-              <th class="nowrap sortable meter-col-power" data-sort="power" title="Power" style="width:40px;">P <span class="sort-arrow">▼</span></th>
-              <th class="nowrap sortable meter-col-variety" data-sort="variety" title="Analysis" style="width:40px;">A <span class="sort-arrow">▼</span></th>
-              <th class="nowrap sortable meter-col-cohesion" data-sort="cohesion" title="Cohesion" style="width:40px;">C <span class="sort-arrow">▼</span></th>
-              <th class="nowrap sortable meter-col-precision" data-sort="precision" title="Precision" style="width:40px;">Pr <span class="sort-arrow">▼</span></th>
-              <th class="nowrap sortable" data-sort="total">Total <span class="sort-arrow">▼</span></th>
+              <th class="nowrap sortable" data-sort="total" title="Total flagged issues">Total <span class="sort-arrow">▼</span></th>
               <th class="nowrap sortable" data-sort="score" title="Teacher percentage score" style="width:64px;">Score <span class="sort-arrow">▼</span></th>
               <th class="nowrap sortable" data-sort="ib" title="IB Paper 1 score (0-20)" style="width:60px;">IB <span class="sort-arrow">▼</span></th>
               <th style="width:60px;">Actions</th>
@@ -5149,7 +5145,7 @@
       selectedFileNames.clear();
       expandedRows.clear();
 
-      const COL_SPAN = currentLens === "classes" ? 12 : 11;
+      const COL_SPAN = currentLens === "classes" ? 8 : 7;
 
       // Toggle Student column header visibility
       document.querySelectorAll(".class-lens-col").forEach(el => {
@@ -5198,15 +5194,6 @@
           case "total":
             cmp = (a.total_labels || 0) - (b.total_labels || 0);
             break;
-          case "power":
-          case "variety":
-          case "cohesion":
-          case "precision": {
-            const aCounts = bucketCountsFromRow(a);
-            const bCounts = bucketCountsFromRow(b);
-            cmp = (aCounts.get(sortColumn) || 0) - (bCounts.get(sortColumn) || 0);
-            break;
-          }
           case "mode":
             cmp = formatModeLabel(a.mode).localeCompare(formatModeLabel(b.mode));
             break;
@@ -5347,19 +5334,6 @@
         modeCell.textContent = formatModeLabel(row.mode);
         tr.appendChild(modeCell);
 
-        // 6-9. Meter columns (P, A, C, Pr)
-        ["power", "variety", "cohesion", "precision"].forEach(metricId => {
-          const td = document.createElement("td");
-          td.className = "nowrap";
-          const n = meterCounts.get(metricId) || 0;
-          const span = document.createElement("span");
-          span.className = n > 0 ? "meter-count" : "meter-count meter-count-zero";
-          if (n > 0) span.style.color = getBucketColor(metricId, 1.0);
-          span.textContent = n;
-          td.appendChild(span);
-          tr.appendChild(td);
-        });
-
         // 10. Total
         const totalCell = document.createElement("td");
         totalCell.className = "nowrap";
@@ -5442,27 +5416,33 @@
         const actionsCell = document.createElement("td");
         actionsCell.style.whiteSpace = "nowrap";
 
-        // Download original button
+        // Download marked .docx (fall back to original for legacy rows
+        // marked before storage of annotated copies was enabled)
         const dlBtn = document.createElement("button");
         dlBtn.className = "download-btn";
         dlBtn.textContent = "\u2193";
-        dlBtn.title = "Download original";
+        dlBtn.title = "Download marked essay";
         dlBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
           dlBtn.disabled = true;
           try {
             const { data: sd } = await supa.auth.getSession();
             if (!sd || !sd.session) return;
-            const resp = await fetch("/download_original?" + new URLSearchParams({
-              file_name: row.file_name
-            }), {
-              headers: { "Authorization": `Bearer ${sd.session.access_token}` }
-            });
-            if (!resp.ok) { vystiAlert("Original not available"); return; }
+            const qs = new URLSearchParams({ file_name: row.file_name });
+            const auth = { "Authorization": `Bearer ${sd.session.access_token}` };
+            const base = (row.file_name || "essay").replace(/\.[^.]+$/, "");
+            let resp = await fetch("/download_marked?" + qs, { headers: auth });
+            let downloadName = `${base}_marked.docx`;
+            if (resp.status === 404) {
+              // No marked copy yet \u2014 fall back to original
+              resp = await fetch("/download_original?" + qs, { headers: auth });
+              downloadName = row.file_name || "original.docx";
+            }
+            if (!resp.ok) { vystiAlert("File not available"); return; }
             const blob = await resp.blob();
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
-            a.download = row.file_name || "original.docx";
+            a.download = downloadName;
             a.click();
             URL.revokeObjectURL(a.href);
           } catch { vystiAlert("Download failed"); }
