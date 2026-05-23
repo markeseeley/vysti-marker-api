@@ -2444,6 +2444,30 @@ async def mark_essay(
     finally:
         _active_marks.discard(_mark_user_id or "")
 
+    # 5b. Upload marked .docx to Supabase Storage (best-effort) so the
+    # Progress page download button can serve the annotated version later.
+    # Path mirrors the originals bucket: marked/{user_id}/{safe_filename}
+    try:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and marked_bytes:
+            _marked_uid = user.get("id") if isinstance(user, dict) else None
+            if _marked_uid and file.filename:
+                _marked_safe = _sanitize_filename(file.filename)
+                _marked_url = f"{SUPABASE_URL}/storage/v1/object/marked/{_marked_uid}/{_marked_safe}"
+                async with httpx.AsyncClient(timeout=15) as client:
+                    _mresp = await client.post(
+                        _marked_url,
+                        content=marked_bytes,
+                        headers={
+                            "apikey": SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "x-upsert": "true",
+                        },
+                    )
+                    if _DEBUG: print(f"[DEBUG] Marked upload: status={_mresp.status_code}, path={_marked_uid}/{_marked_safe}")
+    except Exception as e:
+        print(f"Failed to upload marked: {repr(e)}")
+
     if _DEBUG:
         print("Vysti metadata:", metadata)
         print("Teacher config used:", teacher_config)
@@ -3093,6 +3117,51 @@ async def download_original(
             io.BytesIO(resp.content),
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        )
+
+
+@app.get("/download_marked")
+@limiter.limit("30/minute")
+async def download_marked(
+    request: Request,
+    file_name: str,
+    user: dict = Depends(get_current_user),
+):
+    """Download the annotated/marked .docx from Supabase Storage.
+
+    Falls back to 404 if no marked copy exists (e.g. essays marked before
+    this feature shipped). The client should fall back to /download_original.
+    """
+    user_id = user.get("id") if isinstance(user, dict) else None
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Could not determine user")
+    if not file_name:
+        raise HTTPException(status_code=400, detail="file_name is required")
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase config missing")
+
+    safe_name = _sanitize_filename(file_name)
+    storage_path = f"{user_id}/{safe_name}"
+    storage_url = f"{SUPABASE_URL}/storage/v1/object/marked/{storage_path}"
+
+    base = safe_name.rsplit(".", 1)[0] if safe_name else "essay"
+    download_name = f"{base}_marked.docx"
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(
+            storage_url,
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            },
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Marked copy not found")
+
+        return StreamingResponse(
+            io.BytesIO(resp.content),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
         )
 
 
