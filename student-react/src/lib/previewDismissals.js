@@ -70,7 +70,27 @@ export function removeIssueLabelAndHighlight(
     return { ok: false, message: "Couldn't find the issue label in the preview." };
   }
 
+  // When the example carries a found_value (e.g. the specific repeated
+  // word that triggered the arrow), prefer the arrow whose nearest
+  // highlighted preceding element matches that word. This matters when
+  // a single paragraph has multiple arrows with the same label (e.g.
+  // multiple "→ Avoid unnecessary repetition", one per repeated lemma).
+  // Without this, arrowCandidates[0] removes the wrong arrow and the
+  // re-applying useEffect cascades into removing all of them.
   let selectedLabelEl = arrowCandidates[0];
+  const foundValue = normalizeWhitespace(example?.found_value || "").toLowerCase();
+  if (foundValue && arrowCandidates.length > 1) {
+    const better = arrowCandidates.find((arrowEl) => {
+      let s = arrowEl.previousSibling;
+      // Walk back over text-node whitespace to the previous element
+      while (s && s.nodeType !== Node.ELEMENT_NODE) s = s.previousSibling;
+      if (!s) return false;
+      if (!hasInlineHighlight(s)) return false;
+      const sib = normalizeWhitespace(s.textContent).toLowerCase();
+      return sib === foundValue || sib.includes(foundValue);
+    });
+    if (better) selectedLabelEl = better;
+  }
   const removalTarget =
     selectedLabelEl.parentElement &&
     selectedLabelEl.parentElement.tagName === "SPAN" &&

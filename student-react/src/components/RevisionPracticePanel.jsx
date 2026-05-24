@@ -828,6 +828,13 @@ export default function RevisionPracticePanel({
       label: label || "",
       sentence: example?.sentence || "",
       paragraph_index: example?.paragraph_index ?? null,
+      // found_value identifies WHICH arrow to remove when a single paragraph
+      // has multiple instances of the same label (e.g. multiple
+      // "→ Avoid unnecessary repetition" arrows, one per repeated lemma).
+      // Without this, removeIssueLabelAndHighlight removes arrowCandidates[0]
+      // every time, so subsequent re-applications (via the App.jsx useEffect
+      // that re-runs on dismissedIssues change) keep nuking different arrows.
+      found_value: example?.found_value || "",
       file_name: fileName,
       created_at: new Date().toISOString(),
       reason: result.reason,
@@ -986,6 +993,7 @@ export default function RevisionPracticePanel({
       label: label || "",
       sentence: ex?.sentence || "",
       paragraph_index: ex?.paragraph_index ?? null,
+      found_value: ex?.found_value || "",
       file_name: fileName,
       created_at: now,
       reason,
