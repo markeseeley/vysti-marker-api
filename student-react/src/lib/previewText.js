@@ -170,12 +170,24 @@ export function extractTextWithTeacherAnnotations(containerEl) {
   // rest so they are treated as normal teacher highlights instead.
   for (const span of clone.querySelectorAll("span[data-vysti-arrow-mark='1']")) {
     if (span.textContent.includes("\u2192")) {
-      // If nested inside a teacher highlight (e.g. gray), move it out so the
-      // serialized {arrow} doesn't end up inside {g:...} — backend regex
-      // uses [^}]+ which chokes on nested braces.
-      const parentHL = span.parentElement?.closest("span[data-vysti-teacher-highlight='1']");
-      if (parentHL && parentHL !== span) {
-        parentHL.after(span);
+      // Walk up and move the arrow OUT of every inline ancestor until it
+      // is a direct child of a block element (p / li / div / td). The
+      // serialized " {arrow}" must not sit inside any wrapper that itself
+      // becomes a braced token — teacher highlight {g:...}, engine label
+      // «→ ...», tagged highlight {tag:...}, comment {c|...|...},
+      // insert {ins:...}, star {star:...}, etc. — because each of those
+      // backend regexes is `[^}]+` (non-recursive), so they swallow the
+      // arrow's closing brace and render "{arrow" as literal text in the
+      // exported .docx. This is a superset of the prior teacher-highlight
+      // guard; it also catches engine labels, comments, and any future
+      // wrapper that uses brace serialization.
+      const _isBlock = (tag) =>
+        tag === "P" || tag === "LI" || tag === "DIV" ||
+        tag === "TD" || tag === "TH" || tag === "BODY";
+      let parent = span.parentElement;
+      while (parent && parent !== clone && !_isBlock(parent.tagName)) {
+        parent.after(span);
+        parent = span.parentElement;
       }
       span.textContent = " {arrow}";
     } else {
