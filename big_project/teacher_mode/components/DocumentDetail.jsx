@@ -541,13 +541,42 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     element.style.removeProperty("font-weight");
 
     if (block) {
-      const arrows = Array.from(block.querySelectorAll("span, a")).filter((el) => {
+      // Remove ONLY the single arrow tied to the clicked element \u2014 NOT every
+      // arrow in the paragraph. A paragraph can hold multiple arrows of the
+      // same label (e.g. several "\u2192 Avoid unnecessary repetition", one per
+      // repeated lemma); the old code removed all of them, so dismissing one
+      // wiped the whole paragraph's worth.
+      const isArrow = (el) => {
         const text = (el.textContent || "").replace(/\s+/g, " ").trim();
         return text.startsWith("\u2192") && text.includes(label);
-      });
-      for (const arrow of arrows) {
-        clearHighlightsBeforeArrow(arrow);
-        arrow.remove();
+      };
+      let arrowEl = null;
+      if (isArrow(element)) {
+        // Clicked element is the arrow label itself (the repetition case —
+        // only the yellow arrow is tagged; the turquoise repeated words are
+        // not, so the clicked element is always the arrow here).
+        arrowEl = element;
+      } else {
+        // Clicked element is a highlighted word; its arrow is the next
+        // matching span walking forward within the block.
+        let n = element.nextElementSibling;
+        while (n) {
+          if (isArrow(n)) { arrowEl = n; break; }
+          n = n.nextElementSibling;
+        }
+        // Fallback (multi-run labels split by docx-preview): the arrow may
+        // sit just before a clicked continuation span — search backward.
+        if (!arrowEl) {
+          let p = element.previousElementSibling;
+          while (p) {
+            if (isArrow(p)) { arrowEl = p; break; }
+            p = p.previousElementSibling;
+          }
+        }
+      }
+      if (arrowEl) {
+        clearHighlightsBeforeArrow(arrowEl);
+        arrowEl.remove();
       }
       block.normalize();
     }
