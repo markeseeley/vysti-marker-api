@@ -1907,7 +1907,19 @@ async def stripe_webhook(request: Request):
 
 @app.get("/")
 def read_root():
-    return RedirectResponse(url="/signin.html")
+    return RedirectResponse(url="/signin.html", status_code=301)
+
+
+@app.get("/robots.txt")
+def serve_robots():
+    """Serve robots.txt for search engine crawlers"""
+    return FileResponse("robots.txt", media_type="text/plain")
+
+
+@app.get("/sitemap.xml")
+def serve_sitemap():
+    """Serve sitemap.xml for search engine crawlers"""
+    return FileResponse("sitemap.xml", media_type="application/xml")
 
 
 @app.get("/student_react.html")
@@ -1945,6 +1957,12 @@ def serve_service_worker():
     """Serve PWA service worker (must be at root scope)"""
     return FileResponse("sw.js", media_type="application/javascript",
                         headers={"Service-Worker-Allowed": "/"})
+
+
+@app.get("/pwa-install.js")
+def serve_pwa_install():
+    """Serve the PWA install + service-worker bootstrap script"""
+    return FileResponse("pwa-install.js", media_type="application/javascript")
 
 
 @app.get("/student-react-config.json")

@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Logged-in app shells — no public content, keep them out of the index
+Disallow: /student_react.html
+Disallow: /teacher_react.html
+Disallow: /write_react.html
+Disallow: /profile_react.html
+Disallow: /dashboard.html
+Disallow: /classes.html
+Disallow: /progress.html
+Disallow: /student_progress.html
+Disallow: /ingest.html
+Disallow: /role.html
+
+Sitemap: https://app.vysti.org/sitemap.xml
