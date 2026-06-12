@@ -1145,8 +1145,13 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     const GREEN_RE = /^(lime|green|#00ff00)$|^rgb\(0,\s*(255|128),\s*0/i;
     // Word's PINK and TEAL highlights mark LT spelling/grammar issues.
     // We hide them by default and let the teacher reveal via toggle pills.
-    const PINK_RE = /^(pink|#ffc0cb|#ff00ff|#f0c)$|^rgb\(255,\s*(?:192,\s*203|0,\s*255|0,\s*204)/i;
-    const TEAL_RE = /^(teal|#008080|#0c9)$|^rgb\(0,\s*128,\s*128|^rgb\(0,\s*204,\s*153/i;
+    // NOTE: python-docx WD_COLOR_INDEX.PINK maps to OOXML "magenta", and
+    // WD_COLOR_INDEX.TEAL maps to OOXML "darkCyan" — docx-preview emits
+    // those names as the CSS keywords "magenta" / "darkcyan", so the
+    // keyword forms MUST be in the regex or the strip-and-tag step skips
+    // them and the raw highlight stays visible in the preview.
+    const PINK_RE = /^(pink|magenta|#ffc0cb|#ff00ff|#f0c)$|^rgb\(255,\s*(?:192,\s*203|0,\s*255|0,\s*204)/i;
+    const TEAL_RE = /^(teal|darkcyan|#008080|#008b8b|#0c9)$|^rgb\(0,\s*(?:128,\s*128|139,\s*139|204,\s*153)/i;
     for (const span of container.querySelectorAll("span")) {
       const bg = (span.style.backgroundColor || "").toLowerCase().trim();
       if (!bg) continue;
