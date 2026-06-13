@@ -36,12 +36,21 @@ function isEngineHighlight(bg) {
   return true;
 }
 
-/** Walk backward from an arrow span and clear the engine highlights that precede it. */
+/** Walk backward from an arrow span and clear the engine highlights that precede it.
+ *  Returns the styling profile of the FIRST cleared highlight (or null) so callers
+ *  can then clear matching trailing highlights elsewhere in the block. */
 function clearHighlightsBeforeArrow(arrow) {
   let prev = arrow.previousElementSibling;
   let gap = 0;
+  let profile = null;
   while (prev && gap < 4) {
     if (isEngineHighlight(prev.style?.backgroundColor)) {
+      if (!profile) {
+        profile = {
+          bg: (prev.style.backgroundColor || "").toLowerCase().trim(),
+          strike: (prev.style.textDecoration || "").toLowerCase().includes("line-through"),
+        };
+      }
       prev.style.backgroundColor = "";
       prev.style.background = "";
       prev.style.textDecoration = "";
@@ -59,6 +68,36 @@ function clearHighlightsBeforeArrow(arrow) {
       }
     }
   }
+  return profile;
+}
+
+/** Clear every span in `block` whose styling matches `profile` (bg color +
+ *  optional strikethrough). Used after dismiss to wipe trailing same-label
+ *  highlights that the marker rendered without a per-instance arrow \u2014 e.g.
+ *  the 2nd, 3rd, \u2026 "beautiful" for Avoid subjective language, where only
+ *  the first occurrence per paragraph gets an arrow. Skips spans that no
+ *  longer carry the original highlight (so it's a no-op for already-cleared
+ *  spans, and won't touch unrelated text). */
+function clearMatchingHighlightsInBlock(block, profile, { exclude = null } = {}) {
+  if (!block || !profile?.bg) return 0;
+  const targetBg = profile.bg;
+  const requireStrike = profile.strike;
+  let cleared = 0;
+  for (const span of block.querySelectorAll("span")) {
+    if (span === exclude) continue;
+    const bg = (span.style?.backgroundColor || "").toLowerCase().trim();
+    if (!bg || bg !== targetBg) continue;
+    if (requireStrike) {
+      const td = (span.style?.textDecoration || "").toLowerCase();
+      if (!td.includes("line-through")) continue;
+    }
+    span.style.backgroundColor = "";
+    span.style.background = "";
+    span.style.textDecoration = "";
+    span.style.removeProperty("font-weight");
+    cleared++;
+  }
+  return cleared;
 }
 
 function makeDownloadBase(doc) {
@@ -575,8 +614,15 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
         }
       }
       if (arrowEl) {
-        clearHighlightsBeforeArrow(arrowEl);
+        const profile = clearHighlightsBeforeArrow(arrowEl);
         arrowEl.remove();
+        // Also clear any TRAILING same-style highlights in the block. The
+        // marker emits an arrow only at the first occurrence per paragraph
+        // for labels like "Avoid subjective language" / "Unnecessary
+        // language" (red + strikethrough); subsequent occurrences are
+        // highlight-only with no arrow. Without this sweep, those trailing
+        // words stayed red+strike after dismiss.
+        if (profile) clearMatchingHighlightsInBlock(block, profile);
       }
       block.normalize();
     }
@@ -615,13 +661,24 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       }
     }
 
-    // For each arrow: clear its preceding highlights, strip any tagged siblings, remove arrow
+    // For each arrow: clear its preceding highlights, sweep any same-style
+    // trailing highlights in that block (handles marker labels that emit
+    // only one arrow per paragraph but multiple highlight-only words —
+    // e.g. "Avoid subjective language", "Unnecessary language"), strip any
+    // tagged siblings, remove arrow.
     const clearedBlocks = new Set();
+    const blockProfiles = new Map(); // block → first profile captured
     for (const arrow of arrows) {
       const block = arrow.closest("p, li, div") || arrow.parentElement;
       if (block) clearedBlocks.add(block);
-      clearHighlightsBeforeArrow(arrow);
+      const profile = clearHighlightsBeforeArrow(arrow);
+      if (block && profile && !blockProfiles.has(block)) {
+        blockProfiles.set(block, profile);
+      }
       arrow.remove();
+    }
+    for (const [block, profile] of blockProfiles) {
+      clearMatchingHighlightsInBlock(block, profile);
     }
 
     // Also strip any tagged highlight spans for this label (yellow-tagged by tagYellowLabels)
