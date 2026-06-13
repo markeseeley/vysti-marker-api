@@ -78,7 +78,35 @@ function clearHighlightsBeforeArrow(arrow) {
  *  the first occurrence per paragraph gets an arrow. Skips spans that no
  *  longer carry the original highlight (so it's a no-op for already-cleared
  *  spans, and won't touch unrelated text). */
-function clearMatchingHighlightsInBlock(block, profile, { exclude = null } = {}) {
+/** Find the styling profile of an engine highlight inside `block` that
+ *  belongs to this label's marker — used when the walk-back fails to find
+ *  the highlight adjacent to the arrow (docx-preview can wrap runs in
+ *  ways that break previousElementSibling chains). Skips yellow arrow
+ *  spans and previously-cleared spans. */
+function findHighlightProfileInBlock(block, { exclude = null } = {}) {
+  if (!block) return null;
+  for (const span of block.querySelectorAll("span")) {
+    if (span === exclude) continue;
+    const bg = (span.style?.backgroundColor || "").toLowerCase().trim();
+    if (!bg || !isEngineHighlight(bg)) continue;
+    // Skip yellow arrow labels — those mark a DIFFERENT label and would
+    // hijack the profile, then clearMatchingHighlightsInBlock would wipe
+    // unrelated arrow labels' yellow highlights.
+    if (span.classList?.contains("vysti-arrow-label") ||
+        span.hasAttribute("data-vysti-label")) continue;
+    // Skip the yellow body of arrows that haven't been cleared yet:
+    // arrow text starts with "→".
+    const t = (span.textContent || "").trim();
+    if (t.startsWith("→")) continue;
+    return {
+      bg,
+      strike: (span.style?.textDecoration || "").toLowerCase().includes("line-through"),
+    };
+  }
+  return null;
+}
+
+function clearMatchingHighlightsInBlock(block, profile, { exclude = null, skipYellow = true } = {}) {
   if (!block || !profile?.bg) return 0;
   const targetBg = profile.bg;
   const requireStrike = profile.strike;
@@ -91,6 +119,10 @@ function clearMatchingHighlightsInBlock(block, profile, { exclude = null } = {})
       const td = (span.style?.textDecoration || "").toLowerCase();
       if (!td.includes("line-through")) continue;
     }
+    // Never strip a still-active yellow label arrow — that's a different
+    // label's marker, not a same-style trailing highlight.
+    if (skipYellow && (span.classList?.contains("vysti-arrow-label") ||
+                       span.hasAttribute("data-vysti-label"))) continue;
     span.style.backgroundColor = "";
     span.style.background = "";
     span.style.textDecoration = "";
@@ -614,15 +646,21 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
         }
       }
       if (arrowEl) {
-        const profile = clearHighlightsBeforeArrow(arrowEl);
+        // Try walking back from the arrow to clear its preceding highlight
+        // and capture the styling profile.
+        let profile = clearHighlightsBeforeArrow(arrowEl);
+        // Fallback: walk-back can miss the highlight when docx-preview
+        // wraps runs in a way that breaks previousElementSibling — scan
+        // the block to find an engine highlight and use its profile.
+        if (!profile) profile = findHighlightProfileInBlock(block, { exclude: arrowEl });
         arrowEl.remove();
-        // Also clear any TRAILING same-style highlights in the block. The
-        // marker emits an arrow only at the first occurrence per paragraph
-        // for labels like "Avoid subjective language" / "Unnecessary
-        // language" (red + strikethrough); subsequent occurrences are
-        // highlight-only with no arrow. Without this sweep, those trailing
-        // words stayed red+strike after dismiss.
-        if (profile) clearMatchingHighlightsInBlock(block, profile);
+        // Sweep the rest of the block for same-style highlights. The
+        // marker's labels_used set is DOCUMENT-wide, so labels like
+        // "Avoid subjective language" / "Unnecessary language" emit only
+        // ONE arrow doc-wide and every other occurrence is highlight-only.
+        // Block-scoped here for single Dismiss — Dismiss-all sweeps the
+        // whole container below.
+        if (profile) clearMatchingHighlightsInBlock(block, profile, { exclude: arrowEl });
       }
       block.normalize();
     }
@@ -661,24 +699,26 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       }
     }
 
-    // For each arrow: clear its preceding highlights, sweep any same-style
-    // trailing highlights in that block (handles marker labels that emit
-    // only one arrow per paragraph but multiple highlight-only words —
-    // e.g. "Avoid subjective language", "Unnecessary language"), strip any
-    // tagged siblings, remove arrow.
+    // For each arrow: clear its preceding highlights, capture the
+    // styling profile, remove the arrow.
     const clearedBlocks = new Set();
-    const blockProfiles = new Map(); // block → first profile captured
+    let dominantProfile = null;
     for (const arrow of arrows) {
       const block = arrow.closest("p, li, div") || arrow.parentElement;
       if (block) clearedBlocks.add(block);
       const profile = clearHighlightsBeforeArrow(arrow);
-      if (block && profile && !blockProfiles.has(block)) {
-        blockProfiles.set(block, profile);
-      }
+      // Fallback for when walk-back can't find the highlight (DOM
+      // wrapping that breaks previousElementSibling).
+      const effectiveProfile = profile || findHighlightProfileInBlock(block, { exclude: arrow });
+      if (!dominantProfile && effectiveProfile) dominantProfile = effectiveProfile;
       arrow.remove();
     }
-    for (const [block, profile] of blockProfiles) {
-      clearMatchingHighlightsInBlock(block, profile);
+    // Container-wide sweep so cross-paragraph instances clear too. The
+    // marker emits arrows only at first-per-paragraph (or first-per-doc,
+    // depending on label) — trailing highlight-only occurrences elsewhere
+    // in the document stay flagged without this.
+    if (dominantProfile) {
+      clearMatchingHighlightsInBlock(container, dominantProfile);
     }
 
     // Also strip any tagged highlight spans for this label (yellow-tagged by tagYellowLabels)
