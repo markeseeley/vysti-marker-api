@@ -1241,12 +1241,19 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
     // Tag and hide technique (green) highlights from the .docx
     const GREEN_RE = /^(lime|green|#00ff00)$|^rgb\(0,\s*(255|128),\s*0/i;
     // Word's PINK and TEAL highlights mark LT spelling/grammar issues.
-    // We hide them by default and let the teacher reveal via toggle pills.
-    // NOTE: python-docx WD_COLOR_INDEX.PINK maps to OOXML "magenta", and
+    // NOTE: python-docx WD_COLOR_INDEX.PINK maps to OOXML "magenta" and
     // WD_COLOR_INDEX.TEAL maps to OOXML "darkCyan" — docx-preview emits
     // those names as the CSS keywords "magenta" / "darkcyan", so the
     // keyword forms MUST be in the regex or the strip-and-tag step skips
-    // them and the raw highlight stays visible in the preview.
+    // them and the raw highlight stays visible without our tagging.
+    //
+    // Pink spans (spelling errors) are KEPT visible so teachers see them
+    // at a glance, and tagged with data-vysti-label + vysti-preview-hit
+    // so a double-click triggers the same Dismiss / Dismiss-all prompt
+    // as any other label. Teal (grammar) is tagged but not made
+    // individually dismissable — the teal color covers several distinct
+    // labels (SVA, confused word, comma, apostrophe), so there's no one
+    // label to attribute a teal span to without the marker emitting it.
     const PINK_RE = /^(pink|magenta|#ffc0cb|#ff00ff|#f0c)$|^rgb\(255,\s*(?:192,\s*203|0,\s*255|0,\s*204)/i;
     const TEAL_RE = /^(teal|darkcyan|#008080|#008b8b|#0c9)$|^rgb\(0,\s*(?:128,\s*128|139,\s*139|204,\s*153)/i;
     for (const span of container.querySelectorAll("span")) {
@@ -1258,11 +1265,15 @@ export default function DocumentDetail({ doc, state, dispatch, supa, derived, po
       } else if (PINK_RE.test(bg)) {
         span.setAttribute("data-vysti-grammar", "spelling");
         span.setAttribute("data-vysti-grammar-bg", bg);
-        span.style.backgroundColor = "transparent";
+        // Make the pink span dismissable via double-click.
+        span.setAttribute("data-vysti-label", "Spelling error");
+        span.setAttribute("data-vysti-hit", "1");
+        span.setAttribute("data-vysti-original", "1");
+        span.classList.add("vysti-preview-hit");
+        span.style.cursor = "pointer";
       } else if (TEAL_RE.test(bg)) {
         span.setAttribute("data-vysti-grammar", "grammar");
         span.setAttribute("data-vysti-grammar-bg", bg);
-        span.style.backgroundColor = "transparent";
       }
     }
   }, []);
