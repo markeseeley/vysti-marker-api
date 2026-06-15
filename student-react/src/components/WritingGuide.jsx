@@ -7,8 +7,10 @@ import {
   STAGE_TOPIC_SENTENCE,
   STAGE_BODY_EVIDENCE,
   STAGE_CONCLUSION,
+  STAGE_COMPLETE,
   STAGE_ORDER,
 } from "../lib/writingStage";
+import { extractThesisDevices, extractContentWords } from "../lib/extractThesisDevices";
 import ThesisPlanner from "./ThesisPlanner";
 import TopicSentenceHelper from "./TopicSentenceHelper";
 import BodyEvidenceHelper from "./BodyEvidenceHelper";
@@ -34,7 +36,8 @@ const GENRE_TERMS = [
   // Other
   "monologue", "soliloquy", "satire", "narrative", "myth", "legend",
   "folk tale", "fairy tale", "anthem", "hymn", "vignette", "prose",
-  "transcript", "interview",
+  "transcript", "interview", "dialogue", "treatise", "pamphlet",
+  "chapter", "address", "letter", "lecture", "sermon",
   // Common student shorthand
   "story", "book",
 ];
@@ -130,7 +133,7 @@ function buildSteps(authorName, textTitle, textIsMinor) {
         ? `Write a conclusion that summarizes your analysis of ${textIsMinor ? `\u201C${title}\u201D` : title} without introducing new evidence. Then add a properly formatted title using the pattern: \u201CQuotation\u201D: Topic in Title.`
         : "Write a conclusion that summarizes your analysis without introducing new evidence. Then add a properly formatted title using the pattern: \u201CQuotation\u201D: Topic in Title.",
       example: null,
-      doneAfter: null,
+      doneAfter: STAGE_CONCLUSION,
     },
   ];
 }
@@ -142,6 +145,97 @@ const COMPONENT_NAMES = {
   has_summary_verb: "a summary verb (e.g., depicts, examines, explores)",
 };
 
+// ── Client-side first-sentence component detection ──
+// Mirrors the backend logic in marker.py so we can give instant feedback
+// before the API responds (2.7s debounce + network).
+
+const SUMMARY_VERBS = new Set([
+  // Thesis verbs
+  "argue", "argues", "arguing", "claim", "claims", "claiming",
+  "suggest", "suggests", "suggesting", "show", "shows", "showing",
+  "demonstrate", "demonstrates", "demonstrating", "reveal", "reveals", "revealing",
+  "explore", "explores", "exploring", "emphasize", "emphasizes", "emphasizing",
+  "illustrate", "illustrates", "illustrating", "highlight", "highlights", "highlighting",
+  "contend", "contends", "contending", "assert", "asserts", "asserting",
+  "imply", "implies", "implying", "maintain", "maintains", "maintaining",
+  "propose", "proposes", "proposing", "present", "presents", "presenting",
+  "explain", "explains", "explaining", "convey", "conveys", "conveying",
+  "portray", "portrays", "portraying",
+  // Summary-only verbs
+  "describe", "describes", "describing", "depict", "depicts", "depicting",
+  "examine", "examines", "examining", "analyze", "analyzes", "analyzing",
+  "focus", "focuses", "focusing", "discuss", "discusses", "discussing",
+  "encounter", "encounters", "encountering", "navigate", "navigates", "navigating",
+  "recount", "recounts", "recounting", "reflect", "reflects", "reflecting",
+  "address", "addresses", "addressing", "chronicle", "chronicles", "chronicling",
+  "capture", "captures", "capturing", "confront", "confronts", "confronting",
+  "grapple", "grapples", "grappling", "contemplate", "contemplates", "contemplating",
+  "consider", "considers", "considering", "critique", "critiques", "critiquing",
+  "challenge", "challenges", "challenging", "investigate", "investigates", "investigating",
+  "uncover", "uncovers", "uncovering", "document", "documents", "documenting",
+  "detail", "details", "detailing", "trace", "traces", "tracing",
+  "express", "expresses", "expressing", "articulate", "articulates", "articulating",
+  "expose", "exposes", "exposing",
+]);
+
+const TITLE_QUOTE_RE = /["""][^"""]+["""]/;
+
+/**
+ * Detect first-sentence components entirely client-side.
+ * Returns { has_author, has_genre, has_title, has_summary_verb }.
+ */
+function detectFirstSentenceComponents(firstSentence, authorName, textTitle) {
+  const result = { has_author: false, has_genre: false, has_title: false, has_summary_verb: false };
+  if (!firstSentence) return result;
+
+  const sent = firstSentence.trim();
+
+  // Author: check that the name entered in the Author field appears in the sentence.
+  // Works for multi-word names ("Toni Morrison") and single-word names ("Plato").
+  // "Morrison's" alone won't pass when the full name is "Toni Morrison".
+  if (authorName?.trim()) {
+    result.has_author = sent.toLowerCase().includes(authorName.trim().toLowerCase());
+  } else {
+    // No author entered yet — look for a capitalized proper noun as heuristic
+    // Matches "Plato's", "Toni Morrison's", "George Orwell", etc.
+    result.has_author = /[A-Z][a-z]+'s\b/.test(sent) || /[A-Z][a-z]+\s+[A-Z][a-z]+/.test(sent);
+  }
+
+  // Genre: reuse the existing GENRE_PATTERNS
+  result.has_genre = textContainsGenre(sent);
+
+  // Title: check for quoted text or if the entered title appears
+  if (TITLE_QUOTE_RE.test(sent)) {
+    result.has_title = true;
+  } else if (textTitle?.trim()) {
+    // Check for italicized title (plain text match — italics are in the DOM, not text)
+    result.has_title = sent.toLowerCase().includes(textTitle.trim().toLowerCase());
+  }
+
+  // Summary verb: the sentence should contain a concrete action verb (not just
+  // a linking verb like "is/was/are"). Rather than maintaining an exhaustive
+  // allow-list, we check that the sentence has a verb beyond bare copulas.
+  // If the sentence has author + title + genre and ends with a period,
+  // it almost certainly has a summary — but "X is about Y" is too vague.
+  const lowerSent = sent.toLowerCase();
+  const wordsArr = lowerSent.split(/\s+/).map((w) => w.replace(/[.,;:!?'"]+$/, ""));
+  const WEAK_VERBS = new Set(["is", "was", "are", "were", "be", "been", "being", "has", "had", "have"]);
+  // Check if any word is a known strong summary verb (fast path)
+  const hasStrongVerb = wordsArr.some((w) => SUMMARY_VERBS.has(w));
+  if (hasStrongVerb) {
+    result.has_summary_verb = true;
+  } else {
+    // Fallback: flag as missing only if the only verbs present are weak/linking
+    // Common pattern: "Morrison's novel Beloved is about..." — "is about" is too vague
+    const hasAnyNonWeakVerb = wordsArr.some(
+      (w) => !WEAK_VERBS.has(w) && /^[a-z]{3,}(s|es|ed|ing|tes|ses|zes)$/.test(w)
+    );
+    result.has_summary_verb = hasAnyNonWeakVerb;
+  }
+
+  return result;
+}
+
 function formatList(parts) {
   if (parts.length === 0) return "";
   if (parts.length === 1) return parts[0];
@@ -150,6 +244,9 @@ function formatList(parts) {
 }
 
 function getStepStatus(step, stage) {
+  // When the essay is complete, all steps are done
+  if (stage === STAGE_COMPLETE) return "done";
+
   const stageIdx = STAGE_ORDER.indexOf(stage);
   const doneIdx = step.doneAfter ? STAGE_ORDER.indexOf(step.doneAfter) : -1;
 
@@ -171,44 +268,77 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
   const [thesisDevices, setThesisDevices] = useState([""]);
   const STEPS = buildSteps(authorName, textTitle, textIsMinor);
 
-  // Client-side genre detection from the first sentence of the essay
-  const clientGenreDetected = useMemo(() => {
+  // Extract the first sentence from the essay text
+  const firstSentence = useMemo(() => {
     const trimmed = (essayText || "").trim();
-    if (!trimmed) return false;
-    // Get the first sentence (up to first sentence-ending punctuation)
-    const firstSentMatch = trimmed.match(/^[^.!?]+[.!?]/);
-    const firstSent = firstSentMatch ? firstSentMatch[0] : trimmed;
-    return textContainsGenre(firstSent);
+    if (!trimmed) return "";
+    const match = trimmed.match(/^[^.!?]+[.!?]/);
+    return match ? match[0] : trimmed;
   }, [essayText]);
 
+  // Instant client-side detection of all four first-sentence components.
+  // This gives feedback as the student types — no API roundtrip needed.
+  const clientComponents = useMemo(
+    () => detectFirstSentenceComponents(firstSentence, authorName, textTitle),
+    [firstSentence, authorName, textTitle]
+  );
+
+  // Merge: prefer client-side (instant) over API (delayed).
+  // A component is "present" if EITHER source says so.
+  const mergedComponents = useMemo(() => {
+    const api = missingComponents || {};
+    return {
+      has_author: clientComponents.has_author || Boolean(api.has_author),
+      has_genre: clientComponents.has_genre || Boolean(api.has_genre),
+      has_title: clientComponents.has_title || Boolean(api.has_title),
+      has_summary_verb: clientComponents.has_summary_verb || Boolean(api.has_summary_verb),
+    };
+  }, [clientComponents, missingComponents]);
+
   const missingParts = useMemo(() => {
+    // Don't show missing parts until there's some text
+    if (!firstSentence || firstSentence.length < 15) return [];
     const parts = [];
-    if (missingComponents) {
-      for (const [k, label] of Object.entries(COMPONENT_NAMES)) {
-        if (k === "has_genre") {
-          // Prefer client-side genre check (faster, works before API responds)
-          if (!missingComponents[k] && !clientGenreDetected) parts.push(label);
-        } else {
-          if (!missingComponents[k]) parts.push(label);
-        }
-      }
-    } else if (!clientGenreDetected && essayText?.trim().length > 20) {
-      // Before API has responded, still check genre client-side
-      parts.push(COMPONENT_NAMES.has_genre);
+    for (const [k, label] of Object.entries(COMPONENT_NAMES)) {
+      if (!mergedComponents[k]) parts.push(label);
     }
     return parts;
-  }, [missingComponents, clientGenreDetected, essayText]);
+  }, [mergedComponents, firstSentence]);
 
   const filledDevices = thesisDevices.filter((d) => d.trim());
 
+  // Auto-detect devices from the actual thesis sentence text
+  const detectedDevices = useMemo(
+    () => extractThesisDevices(thesisSentence),
+    [thesisSentence]
+  );
+
+  // Use planner devices if the student filled them in, otherwise fall back
+  // to auto-detected devices from the thesis text
+  const activeDevices = filledDevices.length > 0 ? filledDevices : detectedDevices;
+
+  // Extract boundary words from the last sentence of the intro paragraph
+  // (useful for topic-sentence boundary-statement suggestions)
+  const introBoundaryWords = useMemo(() => {
+    const trimmed = (essayText || "").trim();
+    if (!trimmed) return [];
+    const paragraphs = trimmed.split(/\n\s*\n|\n/).map(p => p.trim()).filter(p => p.length > 0);
+    if (paragraphs.length === 0) return [];
+    const intro = paragraphs[0];
+    // Get the last sentence of the intro (the thesis)
+    const sentences = intro.match(/[^.!?]+[.!?]+/g);
+    if (!sentences || sentences.length === 0) return [];
+    return extractContentWords(sentences[sentences.length - 1]);
+  }, [essayText]);
+
   // Report device count to parent so resolveStage can gate promotion
   useEffect(() => {
-    onDeviceCountChange?.(filledDevices.length);
-  }, [filledDevices.length, onDeviceCountChange]);
+    onDeviceCountChange?.(activeDevices.length);
+  }, [activeDevices.length, onDeviceCountChange]);
 
   // Expected: 1 (first sentence) + N (one per device) + 1 (thesis) = N + 2
-  const introSentencesNeeded = filledDevices.length + 2;
-  const needsMoreIntro = filledDevices.length > 0 && (sentenceCount || 0) < introSentencesNeeded;
+  const introSentencesNeeded = activeDevices.length + 2;
+  const needsMoreIntro = activeDevices.length > 0 && (sentenceCount || 0) < introSentencesNeeded;
 
   return (
     <div className="writing-guide">
@@ -287,31 +417,41 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
                         onDevicesChange={setThesisDevices}
                       />
                     )}
-                    {step.id === "intro-summary" && filledDevices.length > 0 && (
+                    {step.id === "intro-summary" && activeDevices.length > 0 && (
                       <>
+                        <p className="intro-detected-note">
+                          It looks like the techniques you will analyze are:
+                        </p>
                         <ul className="intro-device-list">
-                          {filledDevices.map((d, idx) => (
+                          {activeDevices.map((d, idx) => (
                             <li key={idx} className="intro-device-item">
                               <strong>{d}</strong>
                               <span>
-                                {" "}&mdash; Write a sentence placing the reader where
-                                this appears in the text.
+                                {" "}&mdash; Write a sentence that situates the reader
+                                in the moment of the text where this technique appears.
+                                Don&rsquo;t name the device directly&mdash;let the
+                                reader feel it.
                               </span>
                             </li>
                           ))}
                         </ul>
                         {needsMoreIntro && (
                           <p className="step-missing">
-                            Did you adequately introduce both the text and your thesis?
+                            Your introduction needs at least {introSentencesNeeded} sentences:
+                            a first sentence, one summary sentence per device, and your thesis.
                           </p>
                         )}
                       </>
                     )}
                     {step.id === "topic-sentence" && (
-                      <TopicSentenceHelper devices={thesisDevices} />
+                      <TopicSentenceHelper
+                        devices={activeDevices.length > 0 ? activeDevices : thesisDevices.filter(d => d.trim())}
+                        boundaryWords={introBoundaryWords}
+                        thesisSentence={thesisSentence}
+                      />
                     )}
                     {step.id === "body-evidence" && (
-                      <BodyEvidenceHelper bodyParaStats={bodyParaStats} devices={filledDevices} thesisSentence={thesisSentence} />
+                      <BodyEvidenceHelper bodyParaStats={bodyParaStats} devices={activeDevices} thesisSentence={thesisSentence} />
                     )}
                     {step.id === "conclusion" && (
                       <ConclusionHelper textTitle={textTitle} />
@@ -332,6 +472,24 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
           );
         })}
       </div>
+
+      {stage === STAGE_COMPLETE && (
+        <div className="writing-guide-complete">
+          <div className="complete-icon">&#x2714;</div>
+          <p className="complete-heading">Essay complete</p>
+          <p className="complete-body">
+            Your essay has all the structural elements: title, introduction,
+            body paragraphs, and conclusion. Review any remaining issues in the
+            sidebar, then download your essay or run it through Revise for
+            detailed feedback.
+          </p>
+          <div className="complete-actions">
+            <a href="/student_react.html" className="complete-link">
+              Open in Revise &rarr;
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

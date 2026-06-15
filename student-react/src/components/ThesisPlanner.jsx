@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { validateDevice } from "../lib/deviceValidation";
 
 /** Suffixes to strip when extracting a family name */
 const SUFFIX_RE = /^(jr\.?|sr\.?|senior|junior|ii|iii|iv|v|vi|vii|viii|esq\.?)$/i;
@@ -47,6 +48,13 @@ export default function ThesisPlanner({
   };
 
   const filled = safeDevices.filter((d) => d.trim());
+
+  // Validate each device against the lexicon
+  const validations = useMemo(
+    () => safeDevices.map((d) => validateDevice(d)),
+    [safeDevices]
+  );
+
   const lastName = getLastName(authorName);
   const author = lastName || "[Author\u2019s last name]";
   const argText = argument.trim();
@@ -122,7 +130,7 @@ export default function ThesisPlanner({
             <div className="thesis-planner-input-row">
               <input
                 type="text"
-                className="thesis-planner-input"
+                className={`thesis-planner-input${validations[i]?.status === "valid" ? " device-valid" : validations[i]?.status === "close" || validations[i]?.status === "unknown" ? " device-warn" : ""}`}
                 name={`thesis-device-${i + 1}`}
                 placeholder={
                   i === 0
@@ -144,6 +152,29 @@ export default function ThesisPlanner({
                 >&times;</button>
               )}
             </div>
+            {validations[i]?.status === "valid" && (
+              <span className="device-feedback device-feedback-valid">
+                &#x2713; {validations[i].canonical}
+              </span>
+            )}
+            {validations[i]?.status === "close" && (
+              <span className="device-feedback device-feedback-close">
+                Did you mean:{" "}
+                {validations[i].suggestions.map((s, si) => (
+                  <button
+                    key={si}
+                    type="button"
+                    className="device-suggestion-btn"
+                    onClick={() => updateDevice(i, s)}
+                  >{s}</button>
+                ))}
+              </span>
+            )}
+            {validations[i]?.status === "unknown" && val.trim() && (
+              <span className="device-feedback device-feedback-unknown">
+                Not a recognized device &mdash; try a specific literary term
+              </span>
+            )}
           </div>
         ))}
         {safeDevices.length < 5 && (

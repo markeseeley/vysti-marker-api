@@ -7,7 +7,7 @@ import { getConfig } from "./config";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { exportDocx } from "@shared/markingApi";
 import { downloadBlob } from "@shared/download";
-import { detectStage, resolveStage, filterByStage, countSentences, nextStage, STAGE_ORDER, STAGE_FIRST_SENTENCE, STAGE_CLOSED_THESIS, STAGE_INTRO_SUMMARY, STAGE_TOPIC_SENTENCE, STAGE_BODY_EVIDENCE, STAGE_CONCLUSION } from "./lib/writingStage";
+import { detectStage, resolveStage, filterByStage, countSentences, nextStage, STAGE_ORDER, STAGE_FIRST_SENTENCE, STAGE_CLOSED_THESIS, STAGE_INTRO_SUMMARY, STAGE_TOPIC_SENTENCE, STAGE_BODY_EVIDENCE, STAGE_CONCLUSION, STAGE_COMPLETE } from "./lib/writingStage";
 import { peekTeacherSession } from "./services/teacherSessionStore";
 import { findAllRevisionDrafts } from "./services/revisionDraftStore";
 import WriteTopbar from "./components/WriteTopbar";

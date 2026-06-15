@@ -50,8 +50,16 @@ export default function WriteSidebar({
               >
                 <span className="write-issue-label">{issue.label}</span>
                 <span className="write-issue-count">{issue.count}</span>
+                {issue.found_value && issue.label === "Noun repetition" && (
+                  <p className="write-issue-found">Repeated: <strong>{issue.found_value}</strong></p>
+                )}
                 {issue.short_explanation ? (
-                  <p className="write-issue-hint">{issue.short_explanation}</p>
+                  <p className="write-issue-hint">
+                    {issue.short_explanation
+                      .replace(/\{FOUND\}/g, issue.found_value || "that word")
+                      .replace(/\{COUNT\}/g, String(issue.count || "several"))
+                      .replace(/<\/?[^>]+>/g, "")}
+                  </p>
                 ) : null}
               </li>
             ))}

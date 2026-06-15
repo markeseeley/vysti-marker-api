@@ -272,6 +272,14 @@ mark.write-issue-flash {
   text-align: center;
 }
 
+.write-issue-found {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--maroon, #A90D22);
+  line-height: 1.4;
+}
+
 .write-issue-hint {
   width: 100%;
   margin: 2px 0 0;
@@ -545,6 +553,45 @@ mark.write-issue-flash {
   color: var(--maroon, #A90D22);
 }
 
+/* Device validation feedback */
+.thesis-planner-input.device-valid {
+  border-color: #2e7d32;
+}
+.thesis-planner-input.device-warn {
+  border-color: #e67e22;
+}
+.device-feedback {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.device-feedback-valid {
+  color: #2e7d32;
+}
+.device-feedback-close {
+  color: #e67e22;
+}
+.device-feedback-unknown {
+  color: #c0392b;
+  font-style: italic;
+}
+.device-suggestion-btn {
+  background: rgba(230, 126, 34, 0.1);
+  border: 1px solid rgba(230, 126, 34, 0.3);
+  color: #e67e22;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 4px;
+  font-family: "DM Sans", sans-serif;
+}
+.device-suggestion-btn:hover {
+  background: rgba(230, 126, 34, 0.2);
+  border-color: #e67e22;
+}
+
 .thesis-planner-argument {
   margin-top: 4px;
   padding-top: 8px;
@@ -652,6 +699,64 @@ mark.write-issue-flash {
   font-style: italic;
 }
 
+/* ── Essay complete state ── */
+.writing-guide-complete {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.complete-icon {
+  font-size: 32px;
+  color: #16a34a;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.complete-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: #15803d;
+  margin: 0 0 8px;
+}
+
+.complete-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #495057;
+  margin: 0 0 12px;
+}
+
+.complete-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.complete-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--maroon, #A90D22);
+  text-decoration: none;
+}
+
+.complete-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Intro detected-devices note (Step 3) ── */
+.intro-detected-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 10px 0 4px;
+  line-height: 1.4;
+}
+
 /* ── Topic Sentence helper (Step 4) ── */
 .topic-sentence-helper {
   margin-top: 10px;
@@ -664,6 +769,55 @@ mark.write-issue-flash {
   margin: 0 0 8px;
 }
 
+/* Boundary-statement word suggestions */
+.topic-boundary-suggestions {
+  background: #f0f4f8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+
+.topic-boundary-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 6px;
+}
+
+.topic-boundary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 6px;
+}
+
+.topic-boundary-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--maroon, #A90D22);
+  background: #fff;
+  border: 1px solid rgba(169, 13, 34, 0.2);
+  border-radius: 12px;
+  padding: 2px 10px;
+  line-height: 1.5;
+}
+
+.topic-boundary-hint {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Device order list */
+.topic-helper-order-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 6px;
+}
+
 .topic-helper-list {
   list-style: none;
   padding: 0;
@@ -671,32 +825,39 @@ mark.write-issue-flash {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  counter-reset: topic-counter;
 }
 
 .topic-helper-item {
   font-size: 12px;
   line-height: 1.5;
   color: #495057;
-  padding: 6px 10px 6px 28px;
+  padding: 6px 10px;
   background: #f8f9fa;
   border-radius: 6px;
   border-left: 2px solid var(--maroon, #A90D22);
-  position: relative;
-  counter-increment: topic-counter;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.topic-helper-item::before {
-  content: counter(topic-counter) ".";
-  position: absolute;
-  left: 10px;
+.topic-helper-badge {
+  font-size: 10px;
   font-weight: 700;
-  color: var(--maroon, #A90D22);
-  font-size: 11px;
+  color: #fff;
+  background: var(--maroon, #A90D22);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .topic-helper-item strong {
   color: #2c3e50;
+}
+
+.topic-helper-instruction {
+  color: #6c757d;
 }
 
 .topic-helper-tip {

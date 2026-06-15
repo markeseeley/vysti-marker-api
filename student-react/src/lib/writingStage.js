@@ -22,6 +22,7 @@ export const STAGE_INTRO_SUMMARY = "INTRO_SUMMARY";         // Foundation 3
 export const STAGE_TOPIC_SENTENCE = "TOPIC_SENTENCE";       // Foundation 4
 export const STAGE_BODY_EVIDENCE = "BODY_EVIDENCE";         // Foundation 5
 export const STAGE_CONCLUSION = "CONCLUSION";               // Foundation 6
+export const STAGE_COMPLETE = "COMPLETE";                    // Essay finished
 
 // Backward-compat aliases — kept so existing imports still resolve.
 // These map to the closest equivalent in the new 6-stage system.
@@ -37,6 +38,7 @@ export const STAGE_ORDER = [
   STAGE_TOPIC_SENTENCE,
   STAGE_BODY_EVIDENCE,
   STAGE_CONCLUSION,
+  STAGE_COMPLETE,
 ];
 
 /** Return the next stage after the given one, or null if already at the end. */
@@ -174,9 +176,17 @@ export function detectStage(text, { deviceCount = 0 } = {}) {
     const minParasForConclusion = expectedBodyParas + 2; // intro + body + conclusion
 
     if (paraCount >= minParasForConclusion) {
-      // Check if ALL body paragraphs are substantial (not just one)
-      const bodyParagraphs = paragraphs.slice(1, -1);
-      const allBodySubstantial = bodyParagraphs.every(
+      // Detect a title paragraph: short, no sentence-ending punctuation,
+      // often contains a colon. If present, shift the window down by one.
+      const firstPara = paragraphs[0];
+      const looksLikeTitle = firstPara.length < 120
+        && countSentences(firstPara) === 0
+        && !/[.!?]\s*$/.test(firstPara.trim());
+      const offset = looksLikeTitle ? 1 : 0;
+
+      // Body paragraphs: everything between intro and conclusion
+      const bodyParagraphs = paragraphs.slice(1 + offset, -1);
+      const allBodySubstantial = bodyParagraphs.length > 0 && bodyParagraphs.every(
         (p) => countSentences(p) >= 3
       );
 
@@ -186,6 +196,8 @@ export function detectStage(text, { deviceCount = 0 } = {}) {
         // Conclusion paragraphs typically don't contain quotations
         const lastHasQuotes = /[""\u201C\u201D]/.test(lastPara);
         if (lastSentences >= 2 && !lastHasQuotes) {
+          // If there's a title AND a conclusion, the essay is complete
+          if (looksLikeTitle) return STAGE_COMPLETE;
           return STAGE_CONCLUSION;
         }
       }
@@ -280,11 +292,16 @@ export function resolveStage(structuralStage, rawIssues, hasChecked, opts = {}) 
   }
 
   // Topic sentence passes → advance guide to body evidence
+  // Gate: require at least one body paragraph with 3+ sentences AND
+  // no topic-sentence issues before promoting. This prevents the guide
+  // from jumping ahead when the student has only written a single line.
   if (structuralStage === STAGE_TOPIC_SENTENCE) {
     const hasTopicIssues = issues.some((i) =>
       matchesAny(i.label, TOPIC_SENTENCE_PATTERNS)
     );
-    if (!hasTopicIssues) return STAGE_BODY_EVIDENCE;
+    const bodyStats = opts?.bodyParaStats || [];
+    const hasSubstantialBody = bodyStats.some((s) => s.sentences >= 3);
+    if (!hasTopicIssues && hasSubstantialBody) return STAGE_BODY_EVIDENCE;
   }
 
   // Body evidence → conclusion: promote when expected body paragraphs
@@ -322,8 +339,8 @@ function isLabelAllowedAtStage(label, stage) {
   // Never show internal labels (e.g., __title_checked:Strangers)
   if (label.startsWith("__")) return false;
 
-  // Conclusion / full analysis — show everything
-  if (stage === STAGE_CONCLUSION) return true;
+  // Conclusion / complete / full analysis — show everything
+  if (stage === STAGE_CONCLUSION || stage === STAGE_COMPLETE) return true;
 
   // Body evidence — show everything EXCEPT conclusion-only labels
   if (stage === STAGE_BODY_EVIDENCE) {
