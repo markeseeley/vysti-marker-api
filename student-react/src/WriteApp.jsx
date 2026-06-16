@@ -493,16 +493,47 @@ export default function WriteApp() {
     };
   }, [state.text, supa, isLocalDev, isAnonymous]);
 
+  // "Open in Revise" — stash the current essay so Revise can auto-load
+  // it after auth, then navigate. Anonymous users go through the sign-in
+  // prompt first (the modal also stashes under vysti_write_pending_essay
+  // so the essay is restored on return to Write).
+  const handleOpenInRevise = useCallback(() => {
+    if (!state.text.trim()) return;
+    if (isAnonymous) {
+      setSigninPrompt("revise");
+      return;
+    }
+    try {
+      localStorage.setItem(
+        "vysti_write_to_revise",
+        JSON.stringify({
+          text: state.text,
+          authorName: state.authorName,
+          textTitle: state.textTitle,
+          textIsMinor: state.textIsMinor,
+          stashed_at: new Date().toISOString(),
+        })
+      );
+    } catch {}
+    window.location.href = "/student_react.html";
+  }, [state.text, state.authorName, state.textTitle, state.textIsMinor, isAnonymous]);
+
   // Synchronous Download click — clicks a real HTTP URL whose
   // Content-Disposition controls the filename. No blob URL involved.
   // For anonymous users: open the sign-in prompt instead; downloading
   // requires an account so we have somewhere to bill it against.
+  // After a successful click we flip to a "downloaded" state for 3s so
+  // rapid re-clicks don't trigger a second download. The token is also
+  // single-use server-side (GET pops the entry from _pending_downloads),
+  // so a duplicate click would just 404 if we didn't pre-fetch a fresh
+  // token — which we don't do until the text changes again.
   const handleDownload = useCallback(() => {
     if (isAnonymous) {
       setSigninPrompt("download");
       return;
     }
     if (!downloadUrl) return;
+    if (downloadState === "downloaded") return; // double-click guard
     try {
       const apiBase = isLocalDev ? "" : getApiBaseUrl("");
       const link = document.createElement("a");
@@ -512,12 +543,17 @@ export default function WriteApp() {
       document.body.appendChild(link);
       link.click();
       setTimeout(() => { try { link.remove(); } catch {} }, 1000);
+      // Invalidate the token client-side too. Pre-fetch effect will
+      // grab a fresh one only when state.text next changes.
+      setDownloadUrl(null);
+      setDownloadState("downloaded");
+      setTimeout(() => setDownloadState("idle"), 3000);
     } catch (err) {
       console.error("Download failed:", err);
       setDownloadState("failed");
       setDownloadError(err?.message || String(err));
     }
-  }, [downloadUrl, isLocalDev, isAnonymous]);
+  }, [downloadUrl, isLocalDev, isAnonymous, downloadState]);
 
   // Sign out handler
   const handleSignOut = useCallback(async () => {
@@ -636,6 +672,7 @@ export default function WriteApp() {
               onSkipStage={handleSkipStage}
               essayText={state.text}
               repeatedNouns={state.repeatedNouns}
+              onOpenInRevise={handleOpenInRevise}
             />
           </aside>
         </div>

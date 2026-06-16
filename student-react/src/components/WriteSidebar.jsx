@@ -27,6 +27,7 @@ export default function WriteSidebar({
   onSkipStage,
   essayText,
   repeatedNouns,
+  onOpenInRevise,
 }) {
   // Map noun-repetition issue → top repeated noun for display
   const topRepeatedNoun = (repeatedNouns || [])[0]?.lemma || null;
@@ -36,7 +37,7 @@ export default function WriteSidebar({
 
   return (
     <div className="write-sidebar">
-      {showGuide && <WritingGuide stage={stage} missingComponents={firstSentenceComponents} authorName={authorName} textTitle={textTitle} textIsMinor={textIsMinor} onTextIsMinorChange={onTextIsMinorChange} sentenceCount={sentenceCount} onDeviceCountChange={onDeviceCountChange} bodyParaStats={bodyParaStats} thesisSentence={thesisSentence} onSkipStage={onSkipStage} essayText={essayText} />}
+      {showGuide && <WritingGuide stage={stage} missingComponents={firstSentenceComponents} authorName={authorName} textTitle={textTitle} textIsMinor={textIsMinor} onTextIsMinorChange={onTextIsMinorChange} sentenceCount={sentenceCount} onDeviceCountChange={onDeviceCountChange} bodyParaStats={bodyParaStats} thesisSentence={thesisSentence} onSkipStage={onSkipStage} essayText={essayText} onOpenInRevise={onOpenInRevise} />}
 
       {issues.length > 0 && (
         <div className="write-issues-list">

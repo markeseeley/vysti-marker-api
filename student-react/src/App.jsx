@@ -2463,6 +2463,38 @@ function App() {
       }).catch(() => {});
   }, [supa, userId]);
 
+  // ── Auto-load an essay sent from Write (via "Open in Revise") ──
+  // WriteApp stashes { text, authorName, textTitle, textIsMinor } to
+  // localStorage["vysti_write_to_revise"] just before navigating here.
+  // We reuse handleKeepWorking to build the synthetic file, mark it,
+  // and land the student on the marked-preview view — no drag-and-drop,
+  // no upload step.
+  const writeToReviseHandled = useRef(false);
+  useEffect(() => {
+    if (writeToReviseHandled.current) return;
+    if (!supa || !userId) return;
+    let payload = null;
+    try {
+      const raw = localStorage.getItem("vysti_write_to_revise");
+      if (!raw) return;
+      payload = JSON.parse(raw);
+      if (!payload?.text?.trim()) return;
+    } catch { return; }
+    writeToReviseHandled.current = true;
+    // Single-use — clear immediately so a refresh doesn't re-mark
+    try { localStorage.removeItem("vysti_write_to_revise"); } catch {}
+
+    const fileName = payload.textTitle?.trim()
+      ? `${payload.textTitle.trim().replace(/[^\w\s-]/g, "")} - draft.docx`
+      : "Write draft.docx";
+    handleKeepWorking({
+      fileName,
+      mode: "textual_analysis",
+      text: payload.text,
+      savedAt: payload.stashed_at || new Date().toISOString(),
+    });
+  }, [supa, userId]);
+
   async function refreshAttemptHistory() {
     if (!showAttemptHistory || !supa || !userId || !selectedFile) return;
     setAttemptsLoading(true);

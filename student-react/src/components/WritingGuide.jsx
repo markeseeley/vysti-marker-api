@@ -264,7 +264,7 @@ function getStepStatus(step, stage) {
   return "upcoming";
 }
 
-export default function WritingGuide({ stage, missingComponents, authorName, textTitle, textIsMinor, onTextIsMinorChange, sentenceCount, onDeviceCountChange, bodyParaStats, thesisSentence, onSkipStage, essayText }) {
+export default function WritingGuide({ stage, missingComponents, authorName, textTitle, textIsMinor, onTextIsMinorChange, sentenceCount, onDeviceCountChange, bodyParaStats, thesisSentence, onSkipStage, essayText, onOpenInRevise }) {
   const [thesisDevices, setThesisDevices] = useState([""]);
   const STEPS = buildSteps(authorName, textTitle, textIsMinor);
 
@@ -527,9 +527,13 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
             detailed feedback.
           </p>
           <div className="complete-actions">
-            <a href="/student_react.html" className="complete-link">
+            <button
+              type="button"
+              className="complete-link"
+              onClick={() => onOpenInRevise?.()}
+            >
               Open in Revise &rarr;
-            </a>
+            </button>
           </div>
         </div>
       )}
