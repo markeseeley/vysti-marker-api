@@ -431,6 +431,7 @@ mark.write-issue-flash {
   font-weight: 600;
   cursor: pointer;
   padding: 8px 0 0;
+  margin-right: 14px;
   font-family: "DM Sans", sans-serif;
   text-decoration: underline;
   text-decoration-style: dotted;

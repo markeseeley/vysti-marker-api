@@ -292,16 +292,18 @@ export function resolveStage(structuralStage, rawIssues, hasChecked, opts = {}) 
   }
 
   // Topic sentence passes → advance guide to body evidence
-  // Gate: require at least one body paragraph with 3+ sentences AND
-  // no topic-sentence issues before promoting. This prevents the guide
-  // from jumping ahead when the student has only written a single line.
+  // Gate: require at least one body paragraph with a topic sentence
+  // (1+ sentences) AND no topic-sentence issues. The next stage is
+  // where the student adds evidence sentences (CEER), so we don't
+  // require a full paragraph here — that would make this stage
+  // un-completable while the student is on it.
   if (structuralStage === STAGE_TOPIC_SENTENCE) {
     const hasTopicIssues = issues.some((i) =>
       matchesAny(i.label, TOPIC_SENTENCE_PATTERNS)
     );
     const bodyStats = opts?.bodyParaStats || [];
-    const hasSubstantialBody = bodyStats.some((s) => s.sentences >= 3);
-    if (!hasTopicIssues && hasSubstantialBody) return STAGE_BODY_EVIDENCE;
+    const hasTopicSentence = bodyStats.some((s) => s.sentences >= 1);
+    if (!hasTopicIssues && hasTopicSentence) return STAGE_BODY_EVIDENCE;
   }
 
   // Body evidence → conclusion: promote when expected body paragraphs
