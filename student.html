@@ -62,13 +62,13 @@
         nextParams.delete("react");
         nextParams.set("from", "classic");
         const query = nextParams.toString();
-        return `/student_react.html${query ? `?${query}` : ""}`;
+        return `/revise${query ? `?${query}` : ""}`;
       };
 
       const checkHealthcheck = async (enabled) => {
         if (!enabled) return true;
         const urls = [
-          "/student_react.html",
+          "/revise",
           "/assets/student-react/main.js",
           "/assets/student-react/assets/index.css",
           "/shared/runtimeConfig.js",
@@ -3107,7 +3107,7 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-device="1"]{
     const progressBtn = document.getElementById("progressBtn");
     if (progressBtn) {
       progressBtn.addEventListener("click", () => {
-        window.location.href = "/student_progress.html";
+        window.location.href = "/progress";
       });
     }
 

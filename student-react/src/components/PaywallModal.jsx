@@ -36,7 +36,7 @@ export default function PaywallModal({ isOpen, onClose, returnPath, onRedeemSucc
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ product, return_path: returnPath || "/profile_react.html" }),
+        body: JSON.stringify({ product, return_path: returnPath || "/profile" }),
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));

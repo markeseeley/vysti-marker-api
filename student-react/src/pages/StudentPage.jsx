@@ -368,7 +368,7 @@ export default function StudentPage() {
             id="progressBtn"
             type="button"
             onClick={() => {
-              window.location.assign("/student_progress.html");
+              window.location.assign("/progress");
             }}
           >
             Progress

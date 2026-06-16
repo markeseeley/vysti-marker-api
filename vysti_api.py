@@ -1454,11 +1454,14 @@ async def create_checkout_session(
 
     # Determine where Stripe redirects after checkout.
     # Only allow known local paths to prevent open-redirect attacks.
+    # Accept both the legacy .html paths and the clean Phase 1 aliases
+    # so checkout sessions in flight when Phase 2 ships still resolve.
     allowed_return_pages = {
+        "/mark", "/revise", "/profile", "/write",
         "/teacher_react.html", "/student_react.html",
         "/profile_react.html", "/write_react.html",
     }
-    return_page = body.return_path if body.return_path in allowed_return_pages else "/profile_react.html"
+    return_page = body.return_path if body.return_path in allowed_return_pages else "/profile"
     base = str(request.base_url).rstrip("/")
 
     try:
@@ -1494,7 +1497,7 @@ async def create_portal_session(
 
     session = stripe.billing_portal.Session.create(
         customer=customer_id,
-        return_url=str(request.base_url).rstrip("/") + "/profile_react.html",
+        return_url=str(request.base_url).rstrip("/") + "/profile",
     )
     return {"portal_url": session.url}
 

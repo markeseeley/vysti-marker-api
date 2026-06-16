@@ -110,7 +110,7 @@ export default function ProfileApp() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ product: product || "both", return_path: "/profile_react.html" }),
+      body: JSON.stringify({ product: product || "both", return_path: "/profile" }),
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
@@ -171,13 +171,13 @@ export default function ProfileApp() {
         </div>
         <nav>
           {products?.has_mark
-            ? <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
-            : <a className="disabled upgrade" title="Upgrade to unlock Mark" onClick={() => window.location.assign("/profile_react.html?upgrade=mark")}>Mark</a>}
+            ? <a href="/mark" title="Upload and grade student essays">Mark</a>
+            : <a className="disabled upgrade" title="Upgrade to unlock Mark" onClick={() => window.location.assign("/profile?upgrade=mark")}>Mark</a>}
           {products?.has_revise
-            ? <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
-            : <a className="disabled upgrade" title="Upgrade to unlock Revise" onClick={() => window.location.assign("/profile_react.html?upgrade=revise")}>Revise</a>}
-          <a href="/write_react.html" title="Draft an essay with guidance">Write</a>
-          <a href="/student_progress.html" title="Track your writing progress">Progress</a>
+            ? <a href="/revise" title="Upload your essay for feedback">Revise</a>
+            : <a className="disabled upgrade" title="Upgrade to unlock Revise" onClick={() => window.location.assign("/profile?upgrade=revise")}>Revise</a>}
+          <a href="/write" title="Draft an essay with guidance">Write</a>
+          <a href="/progress" title="Track your writing progress">Progress</a>
         </nav>
         <div className="actions">
           <UserMenu onSignOut={handleSignOut} />

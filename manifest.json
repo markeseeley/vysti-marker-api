@@ -2,7 +2,7 @@
   "name": "Vysti Marker",
   "short_name": "Vysti",
   "description": "Writing analysis and marking tool for teachers and students",
-  "start_url": "/teacher_react.html",
+  "start_url": "/mark",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#141414",

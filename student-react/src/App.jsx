@@ -2428,7 +2428,7 @@ function App() {
         label: "Mark",
         sublabel: `${markInfo.fileCount} document${markInfo.fileCount === 1 ? "" : "s"}`,
         time: markInfo.savedAt,
-        href: "/teacher_react.html",
+        href: "/mark",
       });
     }
     const writeInfo = peekWriteDraft(userId);
@@ -2438,7 +2438,7 @@ function App() {
         label: "Write",
         sublabel: writeInfo.textTitle || "Draft",
         time: writeInfo.savedAt,
-        href: "/write_react.html",
+        href: "/write",
       });
     }
     setKeepWorkingItems(items);
@@ -2673,7 +2673,7 @@ function App() {
   const handleSignOut = async () => {
     if (!supa) {
       window.location.replace(
-        `/signin.html?redirect=${encodeURIComponent("/student_react.html")}`
+        `/signin.html?redirect=${encodeURIComponent("/revise")}`
       );
       return;
     }
@@ -2683,7 +2683,7 @@ function App() {
     } finally {
       try { localStorage.removeItem("vysti_role"); localStorage.removeItem("vysti_products"); } catch {}
       window.location.replace(
-        `/signin.html?redirect=${encodeURIComponent("/student_react.html")}`
+        `/signin.html?redirect=${encodeURIComponent("/revise")}`
       );
     }
   };
@@ -3096,7 +3096,7 @@ function App() {
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
-        returnPath="/student_react.html"
+        returnPath="/revise"
         onRedeemSuccess={refreshProfile}
       />
     </div>

@@ -327,7 +327,7 @@ export default function MobileApp() {
           </button>
           {menuOpen && (
             <div className="mob-menu">
-              <a href="/profile_react.html" className="mob-menu-item">
+              <a href="/profile" className="mob-menu-item">
                 Profile
               </a>
               <button

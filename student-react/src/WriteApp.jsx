@@ -207,7 +207,7 @@ export default function WriteApp() {
           label: "Mark",
           sublabel: `${markInfo.fileCount} document${markInfo.fileCount === 1 ? "" : "s"}`,
           time: markInfo.savedAt,
-          href: "/teacher_react.html",
+          href: "/mark",
         });
       }
       // Check for Revise drafts
@@ -219,7 +219,7 @@ export default function WriteApp() {
             label: "Revise",
             sublabel: drafts[0].fileName,
             time: drafts[0].savedAt,
-            href: `/student_react.html?resumeDraft=${encodeURIComponent(drafts[0].fileName)}&resumeMode=${encodeURIComponent(drafts[0].mode || "textual_analysis")}`,
+            href: `/revise?resumeDraft=${encodeURIComponent(drafts[0].fileName)}&resumeMode=${encodeURIComponent(drafts[0].mode || "textual_analysis")}`,
           });
         }
       } catch {}
@@ -515,7 +515,7 @@ export default function WriteApp() {
         })
       );
     } catch {}
-    window.location.href = "/student_react.html";
+    window.location.href = "/revise";
   }, [state.text, state.authorName, state.textTitle, state.textIsMinor, isAnonymous]);
 
   // Synchronous Download click — clicks a real HTTP URL whose
@@ -559,7 +559,7 @@ export default function WriteApp() {
   const handleSignOut = useCallback(async () => {
     if (!supa) {
       window.location.replace(
-        `/signin.html?redirect=${encodeURIComponent("/write_react.html")}`
+        `/signin.html?redirect=${encodeURIComponent("/write")}`
       );
       return;
     }
@@ -569,7 +569,7 @@ export default function WriteApp() {
       localStorage.removeItem("vysti_role");
       localStorage.removeItem("vysti_products");
       window.location.replace(
-        `/signin.html?redirect=${encodeURIComponent("/write_react.html")}`
+        `/signin.html?redirect=${encodeURIComponent("/write")}`
       );
     }
   }, [supa]);
@@ -602,7 +602,7 @@ export default function WriteApp() {
           </span>
           <a
             className="write-anon-banner-link"
-            href={`/signin.html?redirect=${encodeURIComponent("/write_react.html")}`}
+            href={`/signin.html?redirect=${encodeURIComponent("/write")}`}
           >
             Sign in to save & download &rarr;
           </a>
@@ -724,7 +724,7 @@ function SigninPromptModal({ intent, essay, onClose }) {
     // Always return to Write after sign-in. The essay restores on mount and
     // the user can re-click Save / Download / Revise from there, now
     // authenticated. This avoids landing them in Revise empty-handed.
-    window.location.href = `/signin.html?redirect=${encodeURIComponent("/write_react.html")}`;
+    window.location.href = `/signin.html?redirect=${encodeURIComponent("/write")}`;
   };
   return (
     <div className="write-signin-prompt-backdrop" onClick={onClose}>

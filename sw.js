@@ -5,9 +5,9 @@
 
 const CACHE = "vysti-v1";
 const SHELL = new Set([
-  "/teacher_react.html",
-  "/student_react.html",
-  "/write_react.html",
+  "/mark",
+  "/revise",
+  "/write",
 ]);
 
 self.addEventListener("install", (e) => {

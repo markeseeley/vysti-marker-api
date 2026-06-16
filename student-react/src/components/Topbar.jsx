@@ -37,10 +37,10 @@ export default function Topbar({ onRepeatTutorial, onSignOut, pendingSavedDrafts
       </div>
 
       <nav>
-        <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
-        <a href="/student_react.html" className="active" title="Upload your essay for feedback">Revise</a>
-        <a href="/write_react.html" title="Draft an essay with guidance">Write</a>
-        <a href="/student_progress.html" title="Track your writing progress">Progress</a>
+        <a href="/mark" title="Upload and grade student essays">Mark</a>
+        <a href="/revise" className="active" title="Upload your essay for feedback">Revise</a>
+        <a href="/write" title="Draft an essay with guidance">Write</a>
+        <a href="/progress" title="Track your writing progress">Progress</a>
       </nav>
 
       <div className="actions">

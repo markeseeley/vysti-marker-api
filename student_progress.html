@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="app-build-id" content="1781622091353" />
+  <meta name="app-build-id" content="1781624532367" />
   <title>Vysti – My Progress</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -1807,10 +1807,10 @@
     </div>
 
     <nav>
-      <a href="/teacher_react.html" title="Upload and grade student essays">Mark</a>
-      <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
+      <a href="/mark" title="Upload and grade student essays">Mark</a>
+      <a href="/revise" title="Upload your essay for feedback">Revise</a>
       <a class="disabled" title="Coming soon..." aria-disabled="true">Write</a>
-      <a href="/student_progress.html" class="active" title="Track your writing progress">Progress</a>
+      <a href="/progress" class="active" title="Track your writing progress">Progress</a>
     </nav>
 
     <div class="actions">
@@ -1827,7 +1827,7 @@
         </button>
         <ul class="user-menu" role="menu" id="userMenuDropdown" style="display:none;">
           <li>
-            <a href="/profile_react.html" role="menuitem">
+            <a href="/profile" role="menuitem">
               <svg class="user-menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Profile
             </a>
@@ -2753,7 +2753,7 @@
         const btn = document.createElement("a");
         btn.className = "draft-resume-btn";
         btn.textContent = "Resume";
-        btn.href = `/student_react.html?resumeDraft=${encodeURIComponent(draft.file_name)}&resumeMode=${encodeURIComponent(draft.mode || "textual_analysis")}`;
+        btn.href = `/revise?resumeDraft=${encodeURIComponent(draft.file_name)}&resumeMode=${encodeURIComponent(draft.mode || "textual_analysis")}`;
         btn.title = "Resume this revision in Vysti Revise";
 
         const delBtn = document.createElement("button");
@@ -4071,7 +4071,7 @@
               return;
             }
             const params = new URLSearchParams({ event_id: row.id });
-            window.open(`/teacher_react.html?${params.toString()}`, "_blank");
+            window.open(`/mark?${params.toString()}`, "_blank");
           });
 
           container.appendChild(item);

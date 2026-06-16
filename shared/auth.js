@@ -25,7 +25,7 @@ export function buildReturnTo() {
 
 export function buildSigninUrl(returnTo) {
   // Only allow relative paths to prevent open redirect attacks
-  const safe = (returnTo || "").startsWith("/") ? returnTo : "/student_react.html";
+  const safe = (returnTo || "").startsWith("/") ? returnTo : "/revise";
   return `/signin.html?redirect=${encodeURIComponent(safe)}`;
 }
 

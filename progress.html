@@ -8,12 +8,12 @@
     // Redirect to unified Progress page (My Classes lens)
     const params = new URLSearchParams(window.location.search);
     const classId = params.get("class_id");
-    let url = "/student_progress.html?lens=classes";
+    let url = "/progress?lens=classes";
     if (classId) url += "&class_id=" + encodeURIComponent(classId);
     window.location.replace(url);
   </script>
 </head>
 <body>
-  <p>Redirecting to <a href="/student_progress.html?lens=classes">Progress</a>…</p>
+  <p>Redirecting to <a href="/progress?lens=classes">Progress</a>…</p>
 </body>
 </html>

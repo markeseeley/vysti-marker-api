@@ -578,7 +578,7 @@
     document.getElementById("navSignup").addEventListener("click", () => openAuth("signup"));
     document.getElementById("heroCta").addEventListener("click", () => openAuth("signup"));
     document.getElementById("cameraCameraBtn").addEventListener("click", () => {
-      sessionStorage.setItem(redirectKey, "/student_react.html");
+      sessionStorage.setItem(redirectKey, "/revise");
       openAuth("signup", {
         title: "Get your results in seconds",
         subtitle: "Create a free account to mark your essay — takes 10 seconds."
@@ -626,7 +626,7 @@
       sessionStorage.setItem(redirectKey, redirectParam);
     }
 
-    const getSafeRedirectTarget = (defaultTarget = "/student_react.html") => {
+    const getSafeRedirectTarget = (defaultTarget = "/revise") => {
       let target = defaultTarget;
       const raw = sessionStorage.getItem(redirectKey);
       if (raw && raw.startsWith("/") && !raw.startsWith("//")) {
@@ -726,10 +726,10 @@
 
         if (has_mark) {
           localStorage.setItem("vysti_role", "teacher");
-          window.location.assign(getSafeRedirectTarget("/teacher_react.html"));
+          window.location.assign(getSafeRedirectTarget("/mark"));
         } else {
           localStorage.setItem("vysti_role", "student");
-          window.location.assign(getSafeRedirectTarget("/student_react.html"));
+          window.location.assign(getSafeRedirectTarget("/revise"));
         }
       } catch (err) {
         console.warn("Profile parse failed:", err);

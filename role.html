@@ -194,7 +194,7 @@
               has_revise: profile.has_revise,
               has_write: profile.has_write || false,
             }));
-            const landing = profile.has_mark ? "/teacher_react.html" : "/student_react.html";
+            const landing = profile.has_mark ? "/mark" : "/revise";
             localStorage.setItem("vysti_role", profile.has_mark ? "teacher" : "student");
             window.location.assign(landing);
             return;
@@ -235,7 +235,7 @@
         }));
 
         localStorage.setItem("vysti_role", landing === "teacher" ? "teacher" : "student");
-        window.location.assign(landing === "teacher" ? "/teacher_react.html" : "/student_react.html");
+        window.location.assign(landing === "teacher" ? "/mark" : "/revise");
       } catch (err) {
         console.error("Role selection error:", err);
         statusMsg.textContent = err.message || "Something went wrong. Please try again.";

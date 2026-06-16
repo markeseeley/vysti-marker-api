@@ -46,7 +46,7 @@ export default function TeacherApp() {
     if (!products.has_mark && !products.has_revise) {
       window.location.assign("/role.html");
     } else if (products.has_mark === false && products.has_revise === true) {
-      window.location.assign("/student_react.html");
+      window.location.assign("/revise");
     }
   }, [isChecking, products]);
 
@@ -108,7 +108,7 @@ export default function TeacherApp() {
             label: "Revise",
             sublabel: drafts[0].fileName,
             time: drafts[0].savedAt,
-            href: `/student_react.html?resumeDraft=${encodeURIComponent(drafts[0].fileName)}&resumeMode=${encodeURIComponent(drafts[0].mode || "textual_analysis")}`,
+            href: `/revise?resumeDraft=${encodeURIComponent(drafts[0].fileName)}&resumeMode=${encodeURIComponent(drafts[0].mode || "textual_analysis")}`,
           });
         }
       } catch {}
@@ -120,7 +120,7 @@ export default function TeacherApp() {
           label: "Write",
           sublabel: writeInfo.textTitle || "Draft",
           time: writeInfo.savedAt,
-          href: "/write_react.html",
+          href: "/write",
         });
       }
       if (!cancelled) setKeepWorkingItems(items);
@@ -445,7 +445,7 @@ export default function TeacherApp() {
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
-        returnPath="/teacher_react.html"
+        returnPath="/mark"
         onRedeemSuccess={refreshProfile}
       />
     </>
