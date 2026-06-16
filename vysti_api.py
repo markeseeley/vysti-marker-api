@@ -1952,35 +1952,11 @@ def serve_sitemap():
     return FileResponse("sitemap.xml", media_type="application/xml")
 
 
-@app.get("/student_react.html")
-def serve_student_react():
-    """Serve the React student interface"""
-    return FileResponse("student_react.html")
-
-
-@app.get("/write_react.html")
-def serve_write_react():
-    """Serve the React write interface"""
-    return FileResponse("write_react.html")
-
-
-@app.get("/teacher_react.html")
-def serve_teacher_react():
-    """Serve the React teacher interface"""
-    return FileResponse("teacher_react.html")
-
-
-@app.get("/profile_react.html")
-def serve_profile_react():
-    """Serve the React profile page"""
-    return FileResponse("profile_react.html")
-
-
-# ── Clean URL aliases (Phase 1) ──
-# Modern, share-friendly URLs for the same React entry pages. Internal
-# links still point at the .html paths today, so both forms keep working
-# until those are migrated. Once the codebase is updated to link to the
-# clean URLs everywhere, the .html routes can become 301 redirects.
+# ── Clean URLs (Phase 1 → canonical after Phase 2) ──
+# These are the canonical, share-friendly URLs for each React entry.
+# Phase 2 migrated every internal link to use these forms; the legacy
+# .html routes now 301-redirect to here (below) so external bookmarks
+# and search-engine indexes update naturally.
 @app.get("/write")
 def serve_write_clean():
     return FileResponse("write_react.html")
@@ -2004,6 +1980,40 @@ def serve_profile_clean():
 @app.get("/progress")
 def serve_progress_clean():
     return FileResponse("student_progress.html")
+
+
+# ── Phase 3: legacy .html → 301 redirect to clean URL ──
+# 301 (Moved Permanently) so browsers and crawlers cache the redirect
+# and stop hitting the old paths. Query strings + fragments are
+# preserved automatically by the browser when following a redirect,
+# but FastAPI's RedirectResponse doesn't pass them through, so we
+# rebuild the destination including the request's query string.
+def _redirect_with_query(request: Request, dest: str):
+    qs = request.url.query
+    return RedirectResponse(
+        url=f"{dest}?{qs}" if qs else dest,
+        status_code=301,
+    )
+
+
+@app.get("/student_react.html")
+def redirect_student_react(request: Request):
+    return _redirect_with_query(request, "/revise")
+
+
+@app.get("/write_react.html")
+def redirect_write_react(request: Request):
+    return _redirect_with_query(request, "/write")
+
+
+@app.get("/teacher_react.html")
+def redirect_teacher_react(request: Request):
+    return _redirect_with_query(request, "/mark")
+
+
+@app.get("/profile_react.html")
+def redirect_profile_react(request: Request):
+    return _redirect_with_query(request, "/profile")
 
 
 @app.get("/manifest.json")
@@ -2056,9 +2066,9 @@ def serve_signin():
 
 
 @app.get("/student_progress.html")
-def serve_student_progress():
-    """Serve the student progress page"""
-    return FileResponse("student_progress.html")
+def redirect_student_progress(request: Request):
+    """Legacy → 301 to /progress (Phase 3)."""
+    return _redirect_with_query(request, "/progress")
 
 
 @app.get("/progress.html")
