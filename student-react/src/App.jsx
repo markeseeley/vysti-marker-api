@@ -1476,6 +1476,13 @@ function App() {
     } finally {
       setIsRechecking(false);
       setIsRestoringDraft(false);
+      // Remove the inline pre-React splash from student_react.html now
+      // that the marked preview is ready (or has failed). The splash
+      // exists outside the React tree so it must be removed imperatively.
+      try {
+        const splash = document.getElementById("inlineWriteSplash");
+        if (splash) splash.remove();
+      } catch {}
     }
   };
 
