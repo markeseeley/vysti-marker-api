@@ -1784,6 +1784,47 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-meter="OTHER"] {
   color: rgba(0,0,0,.55);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+/* Touch-friendly target on coarse pointers (iPad / tablet / phone).
+   Apple HIG recommends 44pt minimum; we bump to 44x44 with CSS-pixel
+   parity for the standard 2x iPad scale. Desktop hover devices keep
+   the compact 30x26 look so the toolbar density isn't disturbed. */
+@media (pointer: coarse) {
+  .preview-toolbar-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+  /* Topbar action buttons (Save, Download, ?, user menu) — defined
+     in assets/marker.css at 36px height. Bump on touch devices. */
+  .topbar-btn,
+  .iconbtn {
+    min-height: 44px !important;
+    min-width: 44px;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .iconbtn {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  /* Step-3 device dismiss × and Plan-it-out toggle inside the
+     Writing Guide — easy to mis-tap at 16px font size. */
+  .intro-device-dismiss {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 20px;
+  }
+  /* Writing Guide skip / complete-link buttons — already large enough
+     visually but small hit targets. */
+  .writing-guide-skip,
+  .complete-link {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 .preview-toolbar-btn:hover {
