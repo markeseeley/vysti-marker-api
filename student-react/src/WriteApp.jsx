@@ -6,7 +6,7 @@ import { useAuthSession } from "./hooks/useAuthSession";
 import { getConfig } from "./config";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { exportDocx } from "@shared/markingApi";
-import { downloadBlob, saveBlobWithPicker } from "@shared/download";
+import { downloadBlob } from "@shared/download";
 import { detectStage, resolveStage, filterByStage, countSentences, nextStage, STAGE_ORDER, STAGE_FIRST_SENTENCE, STAGE_CLOSED_THESIS, STAGE_INTRO_SUMMARY, STAGE_TOPIC_SENTENCE, STAGE_BODY_EVIDENCE, STAGE_CONCLUSION, STAGE_COMPLETE } from "./lib/writingStage";
 import { peekTeacherSession } from "./services/teacherSessionStore";
 import { findAllRevisionDrafts } from "./services/revisionDraftStore";
@@ -375,6 +375,35 @@ export default function WriteApp() {
   // Download handler
   const handleDownload = useCallback(async () => {
     if (!state.text.trim()) return;
+    const fileName = "essay.docx";
+
+    // Chrome requires showSaveFilePicker to be called from a fresh user
+    // activation. Any awaited async call BEFORE it (e.g., the fetch to
+    // /export_docx) silently consumes the activation, so the picker
+    // throws SecurityError and the user sees nothing. Call the picker
+    // FIRST (synchronously off the click), then fetch + write.
+    let fileHandle = null;
+    if (typeof window.showSaveFilePicker === "function") {
+      try {
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{
+            description: "Word Document",
+            accept: {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+            },
+          }],
+        });
+      } catch (err) {
+        if (err && (err.name === "AbortError" || err.code === 20)) {
+          // User cancelled the dialog — abort the download entirely.
+          return;
+        }
+        // Some other picker error — log and fall through to legacy.
+        console.warn("Save picker unavailable, falling back:", err);
+      }
+    }
+
     try {
       let token = "dev";
       if (!isLocalDev && supa) {
@@ -382,7 +411,6 @@ export default function WriteApp() {
         token = data?.session?.access_token || "";
       }
       const apiBase = isLocalDev ? "" : getApiBaseUrl("");
-      const fileName = "essay.docx";
 
       const blob = await exportDocx({
         apiBaseUrl: apiBase,
@@ -390,16 +418,12 @@ export default function WriteApp() {
         fileName,
         text: state.text,
       });
-      // Prefer the File System Access API where available — gives a real
-      // Save As dialog and avoids Brave/Safari silently blocking the
-      // synthetic <a>.click() download after an awaited fetch.
-      let saved = false;
-      try {
-        saved = await saveBlobWithPicker(blob, fileName);
-      } catch (pickerErr) {
-        console.warn("Save picker failed, falling back:", pickerErr);
-      }
-      if (!saved) {
+
+      if (fileHandle) {
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
         downloadBlob(blob, fileName);
       }
     } catch (err) {
