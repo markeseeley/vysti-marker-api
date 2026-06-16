@@ -13,6 +13,7 @@ import { findAllRevisionDrafts } from "./services/revisionDraftStore";
 import WriteTopbar from "./components/WriteTopbar";
 import WriteEditor from "./components/WriteEditor";
 import WriteSidebar from "./components/WriteSidebar";
+import WriteTour from "./components/WriteTour";
 import Footer from "./components/Footer";
 
 const WRITE_DRAFT_KEY = "vysti:write-draft";
@@ -67,6 +68,7 @@ export default function WriteApp() {
   const downloadFetchTimerRef = useRef(null);
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
   const saveTimerRef = useRef(null);
+  const tourRef = useRef(null);
   const draftRestoredRef = useRef(false);
   const editorWrapRef = useRef(null);
 
@@ -468,7 +470,7 @@ export default function WriteApp() {
   return (
     <div className="student-react-shell">
       <WriteTopbar
-        onRepeatTutorial={() => {}}
+        onRepeatTutorial={() => tourRef.current?.restartTour()}
         onSignOut={handleSignOut}
         onDownload={handleDownload}
         canDownload={Boolean(downloadUrl)}
@@ -533,6 +535,8 @@ export default function WriteApp() {
       </main>
 
       <Footer />
+
+      <WriteTour ref={tourRef} />
     </div>
   );
 }
