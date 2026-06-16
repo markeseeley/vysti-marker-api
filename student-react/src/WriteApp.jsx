@@ -375,35 +375,6 @@ export default function WriteApp() {
   // Download handler
   const handleDownload = useCallback(async () => {
     if (!state.text.trim()) return;
-    const fileName = "essay.docx";
-
-    // Chrome requires showSaveFilePicker to be called from a fresh user
-    // activation. Any awaited async call BEFORE it (e.g., the fetch to
-    // /export_docx) silently consumes the activation, so the picker
-    // throws SecurityError and the user sees nothing. Call the picker
-    // FIRST (synchronously off the click), then fetch + write.
-    let fileHandle = null;
-    if (typeof window.showSaveFilePicker === "function") {
-      try {
-        fileHandle = await window.showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{
-            description: "Word Document",
-            accept: {
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-            },
-          }],
-        });
-      } catch (err) {
-        if (err && (err.name === "AbortError" || err.code === 20)) {
-          // User cancelled the dialog — abort the download entirely.
-          return;
-        }
-        // Some other picker error — log and fall through to legacy.
-        console.warn("Save picker unavailable, falling back:", err);
-      }
-    }
-
     try {
       let token = "dev";
       if (!isLocalDev && supa) {
@@ -411,6 +382,7 @@ export default function WriteApp() {
         token = data?.session?.access_token || "";
       }
       const apiBase = isLocalDev ? "" : getApiBaseUrl("");
+      const fileName = "essay.docx";
 
       const blob = await exportDocx({
         apiBaseUrl: apiBase,
@@ -418,14 +390,7 @@ export default function WriteApp() {
         fileName,
         text: state.text,
       });
-
-      if (fileHandle) {
-        const writable = await fileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-      } else {
-        downloadBlob(blob, fileName);
-      }
+      downloadBlob(blob, fileName);
     } catch (err) {
       console.error("Download failed:", err);
     }
