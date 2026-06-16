@@ -43,23 +43,18 @@ export default function TopicSentenceHelper({
       <p className="topic-helper-order-label">
         Your body paragraphs should follow the order of your thesis:
       </p>
+      <p className="topic-helper-order-guidance">
+        For each, name the device in your topic sentence and connect it back
+        to your thesis. Start with Body 1.
+      </p>
       <ol className="topic-helper-list">
         {filled.map((device, idx) => (
           <li key={idx} className="topic-helper-item">
             <span className="topic-helper-badge">Body {idx + 1}</span>
             <strong>{device}</strong>
-            <span className="topic-helper-instruction">
-              {idx === 0
-                ? " \u2014 Start here. Name this device in your topic sentence and connect it to your thesis."
-                : " \u2014 Name this device and connect it to your thesis."}
-            </span>
           </li>
         ))}
       </ol>
-      <p className="topic-helper-tip">
-        Each topic sentence should clearly state which device or strategy you
-        are analyzing in that paragraph. Use the same order as your thesis.
-      </p>
     </div>
   );
 }

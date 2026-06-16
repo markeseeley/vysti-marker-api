@@ -845,7 +845,14 @@ mark.write-issue-flash {
   font-size: 12px;
   font-weight: 600;
   color: #2c3e50;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
+}
+
+.topic-helper-order-guidance {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #495057;
+  margin: 0 0 8px;
 }
 
 .topic-helper-list {
