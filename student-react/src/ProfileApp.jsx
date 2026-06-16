@@ -176,7 +176,7 @@ export default function ProfileApp() {
           {products?.has_revise
             ? <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
             : <a className="disabled upgrade" title="Upgrade to unlock Revise" onClick={() => window.location.assign("/profile_react.html?upgrade=revise")}>Revise</a>}
-          <a className="disabled" title="Coming soon..." aria-disabled="true">Write</a>
+          <a href="/write_react.html" title="Draft an essay with guidance">Write</a>
           <a href="/student_progress.html" title="Track your writing progress">Progress</a>
         </nav>
         <div className="actions">
