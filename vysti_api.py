@@ -2766,9 +2766,9 @@ async def export_docx(
     Export a clean .docx from plain text.
     This is for Student mode "Download revised essay" — no Vysti marks, no summary table.
     """
-    # Free-tier students cannot download
+    # Free-tier students cannot download (local-dev bypasses for testing)
     _exp_user_id = user.get("id") if isinstance(user, dict) else None
-    if _exp_user_id:
+    if _exp_user_id and _exp_user_id != "local-dev":
         _exp_profile = await get_user_profile(_exp_user_id)
         _exp_tier = (_exp_profile or {}).get("subscription_tier", "free")
         if _exp_tier == "free":

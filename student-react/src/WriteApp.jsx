@@ -374,11 +374,14 @@ export default function WriteApp() {
 
   // Download handler
   const handleDownload = useCallback(async () => {
-    if (!supa || !state.text.trim()) return;
+    if (!state.text.trim()) return;
     try {
-      const { data } = await supa.auth.getSession();
-      const token = data?.session?.access_token;
-      const apiBase = getApiBaseUrl("");
+      let token = "dev";
+      if (!isLocalDev && supa) {
+        const { data } = await supa.auth.getSession();
+        token = data?.session?.access_token || "";
+      }
+      const apiBase = isLocalDev ? "" : getApiBaseUrl("");
       const fileName = "essay.docx";
 
       const blob = await exportDocx({
@@ -391,7 +394,7 @@ export default function WriteApp() {
     } catch (err) {
       console.error("Download failed:", err);
     }
-  }, [supa, state.text]);
+  }, [supa, state.text, isLocalDev]);
 
   // Sign out handler
   const handleSignOut = useCallback(async () => {

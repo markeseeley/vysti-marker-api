@@ -40,7 +40,7 @@ export default function WriteTopbar({ onRepeatTutorial, onSignOut, onDownload, c
             onClick={onDownload}
             disabled={!canDownload}
           >
-            Download .docx
+            Download
           </button>
         ) : null}
         <button
