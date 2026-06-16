@@ -2797,6 +2797,86 @@ async def export_docx(
     )
 
 
+# ── Token-based two-step download (POST prepares, GET delivers) ───────
+# Browsers in some user environments (extensions, privacy tooling, OS
+# policies) silently strip the `download` attribute on blob: URLs,
+# producing files named after the blob UUID. Two-step download avoids
+# the blob URL entirely: the browser navigates to a REAL HTTP URL whose
+# Content-Disposition header dictates the filename, which is honored
+# universally.
+import secrets
+
+# token -> (docx_bytes, filename, expiry_epoch_seconds)
+_pending_downloads: dict[str, tuple] = {}
+_PENDING_TTL_SECONDS = 120
+
+
+def _cleanup_pending_downloads() -> None:
+    now = time.time()
+    expired = [t for t, (_, _, exp) in _pending_downloads.items() if exp < now]
+    for t in expired:
+        _pending_downloads.pop(t, None)
+
+
+@app.post("/prepare_download")
+@limiter.limit("30/minute")
+async def prepare_download(
+    request: Request,
+    body: ExportDocxRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Build the .docx, stash it under a one-time token, return the URL.
+
+    The browser later issues a normal GET to /download/{token} which
+    streams the docx with a proper Content-Disposition header.
+    """
+    # Same paywall logic as /export_docx (local-dev bypasses).
+    _exp_user_id = user.get("id") if isinstance(user, dict) else None
+    if _exp_user_id and _exp_user_id != "local-dev":
+        _exp_profile = await get_user_profile(_exp_user_id)
+        _exp_tier = (_exp_profile or {}).get("subscription_tier", "free")
+        if _exp_tier == "free":
+            raise HTTPException(
+                status_code=402,
+                detail={"message": "Subscribe to download your essay.", "code": "DOWNLOAD_BLOCKED"},
+            )
+
+    if not body.text or not body.text.strip():
+        raise HTTPException(status_code=400, detail="Missing text")
+
+    docx_bytes = build_doc_from_text(body.text)
+    safe_name = _sanitize_filename(body.file_name.strip() if body.file_name else "essay.docx")
+    if not safe_name.lower().endswith(".docx"):
+        safe_name += ".docx"
+
+    _cleanup_pending_downloads()
+    token = secrets.token_urlsafe(18)
+    _pending_downloads[token] = (docx_bytes, safe_name, time.time() + _PENDING_TTL_SECONDS)
+    return JSONResponse({"download_url": f"/download/{token}", "filename": safe_name})
+
+
+@app.get("/download/{token}")
+@limiter.limit("60/minute")
+async def get_prepared_download(request: Request, token: str):
+    """Deliver a previously-prepared docx by one-time token.
+
+    Open to any caller: tokens are unguessable (~18 bytes of entropy),
+    short-lived (120s), single-use (popped on first GET), and only
+    exist briefly between the authenticated /prepare_download call and
+    the immediate browser-initiated download.
+    """
+    _cleanup_pending_downloads()
+    entry = _pending_downloads.pop(token, None)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Download token expired or already used")
+    docx_bytes, filename, _ = entry
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.post("/export_teacher_docx")
 @limiter.limit("30/minute")
 async def export_teacher_docx(

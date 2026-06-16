@@ -63,7 +63,7 @@ export default function WriteApp() {
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
   const [downloadState, setDownloadState] = useState("idle"); // idle | preparing | failed
   const [downloadError, setDownloadError] = useState(null);
-  const [downloadBlobCache, setDownloadBlobCache] = useState(null);
+  const [downloadUrl, setDownloadUrl] = useState(null);
   const downloadFetchTimerRef = useRef(null);
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
   const saveTimerRef = useRef(null);
@@ -377,20 +377,20 @@ export default function WriteApp() {
   }, [state.examples, state.repeatedNouns]);
 
   // Download handler
-  // Background pre-fetch: whenever the text changes, build the .docx blob in
-  // the background so the Download click can be SYNCHRONOUS. Mark's download
-  // works in Chrome because its blob is already in memory when the user
-  // clicks. With an `await` in the click handler, Chrome treats the
-  // subsequent <a>.click() as not-user-initiated and silently blocks it
-  // (the request still goes through, but the file never lands).
+  // Background pre-prepare the download: every time the text changes,
+  // call /prepare_download to get a short-lived URL that serves the .docx
+  // with a proper Content-Disposition header. The Download click then
+  // navigates to that REAL URL (not a blob: URL), which gets the filename
+  // from the server header — reliable across browsers/extensions even
+  // when the `download` attribute on blob URLs is silently ignored.
   useEffect(() => {
     if (!state.text.trim()) {
-      setDownloadBlobCache(null);
+      setDownloadUrl(null);
       setDownloadState("idle");
       return;
     }
     if (downloadFetchTimerRef.current) clearTimeout(downloadFetchTimerRef.current);
-    setDownloadBlobCache(null); // invalidate stale blob immediately
+    setDownloadUrl(null); // invalidate stale token immediately
     setDownloadState("preparing");
     downloadFetchTimerRef.current = setTimeout(async () => {
       try {
@@ -400,13 +400,15 @@ export default function WriteApp() {
           token = data?.session?.access_token || "";
         }
         const apiBase = isLocalDev ? "" : getApiBaseUrl("");
-        const blob = await exportDocx({
-          apiBaseUrl: apiBase,
-          token,
-          fileName: "essay.docx",
-          text: state.text,
+        const resp = await fetch(`${apiBase}/prepare_download`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ text: state.text, file_name: "essay.docx" }),
         });
-        setDownloadBlobCache(blob);
+        if (!resp.ok) throw new Error(`prepare_download failed (${resp.status})`);
+        const data = await resp.json();
+        if (!data.download_url) throw new Error("Missing download_url in response");
+        setDownloadUrl(data.download_url);
         setDownloadState("idle");
         setDownloadError(null);
       } catch (err) {
@@ -420,18 +422,25 @@ export default function WriteApp() {
     };
   }, [state.text, supa, isLocalDev]);
 
-  // Synchronous Download click — uses the cached blob so the user gesture
-  // is preserved when downloadBlob calls link.click().
+  // Synchronous Download click — clicks a real HTTP URL whose
+  // Content-Disposition controls the filename. No blob URL involved.
   const handleDownload = useCallback(() => {
-    if (!downloadBlobCache) return;
+    if (!downloadUrl) return;
     try {
-      downloadBlob(downloadBlobCache, "essay.docx");
+      const apiBase = isLocalDev ? "" : getApiBaseUrl("");
+      const link = document.createElement("a");
+      link.href = `${apiBase}${downloadUrl}`;
+      link.download = "essay.docx"; // hint; server's Content-Disposition is authoritative
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => { try { link.remove(); } catch {} }, 1000);
     } catch (err) {
       console.error("Download failed:", err);
       setDownloadState("failed");
       setDownloadError(err?.message || String(err));
     }
-  }, [downloadBlobCache]);
+  }, [downloadUrl, isLocalDev]);
 
   // Sign out handler
   const handleSignOut = useCallback(async () => {
@@ -462,7 +471,7 @@ export default function WriteApp() {
         onRepeatTutorial={() => {}}
         onSignOut={handleSignOut}
         onDownload={handleDownload}
-        canDownload={Boolean(state.text.trim())}
+        canDownload={Boolean(downloadUrl)}
         downloadState={downloadState}
         downloadError={downloadError}
         onSave={handleSave}
