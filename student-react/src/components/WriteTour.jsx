@@ -10,14 +10,19 @@ const WRITE_TOUR_STEPS = [
   {
     anchor: ".write-editor-wrap",
     title: "Welcome to Write — a guide for analytic essays",
-    body:
-      "Write is built for one job: helping you draft an ANALYTIC essay using the same rules Vysti uses to mark them. Mechanics, structure, and style — the content of your ideas is up to you.",
+    body: (
+      <>
+        Write is built for one job: helping you draft an <strong>analytic</strong>{" "}
+        essay using the same rules Vysti uses to mark them. Mechanics, structure,
+        and style — the content of your ideas is up to you.
+      </>
+    ),
   },
   {
     anchor: ".write-context-fields",
     title: "1. Tell us what you’re analyzing",
     body:
-      "Start the same way you would in Mark or Revise: enter the author’s full name and the title of the text. Choose whether it’s a minor work (essay, poem, short story) or a major work (novel, play, memoir) so we format the title correctly.",
+      "Enter the author’s full name and the title of the text. Choose whether it’s a minor work (essay, poem, short story) or a major work (novel, play, memoir) so we format the title correctly.",
   },
   {
     anchor: ".write-editor-toolbar",
@@ -35,7 +40,7 @@ const WRITE_TOUR_STEPS = [
     anchor: ".write-sidebar",
     title: "4. Issues are guidance, not gospel",
     body:
-      "As you type, Vysti checks your essay against its rules and lists any issues. Click an issue to jump to it in your essay. Vysti is rule-based and accurate, but it can be wrong — trust your judgment when the analysis is solid.",
+      "As you type, Vysti checks your essay against its rules and lists any issues. Click an issue to jump to it in your essay. Vysti is rule-based and accurate, but it cannot understand content (only structure) — so trust your judgment when the analysis is solid.",
     fallbackAnchor: ".write-editor-wrap",
   },
 ];
