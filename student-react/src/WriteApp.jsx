@@ -54,52 +54,113 @@ export function peekWriteDraft(uid) {
   } catch { return null; }
 }
 
+// Stable anonymous identifier for draft-scoping and analytics. Generated on
+// first Write visit and persisted in localStorage so the same browser keeps
+// the same "anon-" prefix across sessions until the user signs in.
+function getAnonymousId() {
+  try {
+    let id = localStorage.getItem("vysti_anon_id");
+    if (!id) {
+      id = "anon-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+      localStorage.setItem("vysti_anon_id", id);
+    }
+    return id;
+  } catch {
+    return "anon-fallback";
+  }
+}
+
 export default function WriteApp() {
-  const { supa, isChecking: authChecking, products } = useAuthSession();
+  // skipRedirect: stay on Write even without a session — Write is a free,
+  // sign-in-optional tool. The hook still applies the session if one exists
+  // so logged-in users get their normal entitlements.
+  const { supa, isChecking: authChecking, products } = useAuthSession("student", { skipRedirect: true });
   const [state, dispatch] = useWriteReducer();
   const [authReady, setAuthReady] = useState(false);
   const [deviceCount, setDeviceCount] = useState(0);
   const [stageOverride, setStageOverride] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
   const [downloadState, setDownloadState] = useState("idle"); // idle | preparing | failed
   const [downloadError, setDownloadError] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const downloadFetchTimerRef = useRef(null);
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
+  const [signinPrompt, setSigninPrompt] = useState(null); // null | "save" | "download" | "revise"
   const saveTimerRef = useRef(null);
   const tourRef = useRef(null);
   const draftRestoredRef = useRef(false);
   const editorWrapRef = useRef(null);
 
-  // Extract userId on auth ready
+  // Extract userId on auth ready. If no session: fall back to an anonymous
+  // ID so draft autosave / KeepWorking menu still scope correctly.
   const isLocalDev = window.location.hostname === "localhost";
   useEffect(() => {
     if (isLocalDev) {
       setAuthReady(true);
       setUserId("local-dev");
+      setIsAnonymous(false);
       return;
     }
-    if (!authChecking && supa) {
+    if (!authChecking) {
       setAuthReady(true);
+      if (!supa) {
+        // Supabase client not available — treat as anonymous
+        setUserId(getAnonymousId());
+        setIsAnonymous(true);
+        return;
+      }
       (async () => {
         try {
           const { data } = await supa.auth.getSession();
-          setUserId(data?.session?.user?.id || null);
-        } catch {}
+          const uid = data?.session?.user?.id;
+          if (uid) {
+            setUserId(uid);
+            setIsAnonymous(false);
+          } else {
+            setUserId(getAnonymousId());
+            setIsAnonymous(true);
+          }
+        } catch {
+          setUserId(getAnonymousId());
+          setIsAnonymous(true);
+        }
       })();
     }
   }, [authChecking, supa, isLocalDev]);
 
-  // Restore draft from localStorage on mount
+  // Restore draft from localStorage on mount. Pending-essay (from a
+  // pre-sign-in stash) takes priority over a regular draft and gets
+  // cleared after restore so it only fires once.
+  const [postSigninNotice, setPostSigninNotice] = useState(null);
   useEffect(() => {
     if (!userId || draftRestoredRef.current) return;
     draftRestoredRef.current = true;
-    const draft = loadWriteDraft(userId);
-    if (draft) {
-      dispatch({ type: "RESTORE_DRAFT", payload: draft });
+
+    let restored = false;
+    try {
+      const pendingRaw = localStorage.getItem("vysti_write_pending_essay");
+      if (pendingRaw) {
+        const pending = JSON.parse(pendingRaw);
+        if (pending?.text?.trim() && !isAnonymous) {
+          // Only restore if user is actually signed in now — otherwise
+          // they could keep the stash and we'd loop the sign-in prompt.
+          dispatch({ type: "RESTORE_DRAFT", payload: pending });
+          setPostSigninNotice(pending.intent || "save");
+          try { localStorage.removeItem("vysti_write_pending_essay"); } catch {}
+          restored = true;
+        }
+      }
+    } catch {}
+
+    if (!restored) {
+      const draft = loadWriteDraft(userId);
+      if (draft) {
+        dispatch({ type: "RESTORE_DRAFT", payload: draft });
+      }
     }
-  }, [userId, dispatch]);
+  }, [userId, isAnonymous, dispatch]);
 
   // Auto-save to localStorage (throttled 5s)
   useEffect(() => {
@@ -385,7 +446,15 @@ export default function WriteApp() {
   // navigates to that REAL URL (not a blob: URL), which gets the filename
   // from the server header — reliable across browsers/extensions even
   // when the `download` attribute on blob URLs is silently ignored.
+  //
+  // Skip entirely for anonymous users — /prepare_download requires auth
+  // and the click will open a sign-in prompt instead.
   useEffect(() => {
+    if (isAnonymous) {
+      setDownloadUrl(null);
+      setDownloadState("idle");
+      return;
+    }
     if (!state.text.trim()) {
       setDownloadUrl(null);
       setDownloadState("idle");
@@ -422,11 +491,17 @@ export default function WriteApp() {
     return () => {
       if (downloadFetchTimerRef.current) clearTimeout(downloadFetchTimerRef.current);
     };
-  }, [state.text, supa, isLocalDev]);
+  }, [state.text, supa, isLocalDev, isAnonymous]);
 
   // Synchronous Download click — clicks a real HTTP URL whose
   // Content-Disposition controls the filename. No blob URL involved.
+  // For anonymous users: open the sign-in prompt instead; downloading
+  // requires an account so we have somewhere to bill it against.
   const handleDownload = useCallback(() => {
+    if (isAnonymous) {
+      setSigninPrompt("download");
+      return;
+    }
     if (!downloadUrl) return;
     try {
       const apiBase = isLocalDev ? "" : getApiBaseUrl("");
@@ -442,7 +517,7 @@ export default function WriteApp() {
       setDownloadState("failed");
       setDownloadError(err?.message || String(err));
     }
-  }, [downloadUrl, isLocalDev]);
+  }, [downloadUrl, isLocalDev, isAnonymous]);
 
   // Sign out handler
   const handleSignOut = useCallback(async () => {
@@ -473,15 +548,47 @@ export default function WriteApp() {
         onRepeatTutorial={() => tourRef.current?.restartTour()}
         onSignOut={handleSignOut}
         onDownload={handleDownload}
-        canDownload={Boolean(downloadUrl)}
-        downloadState={downloadState}
+        canDownload={isAnonymous ? Boolean(state.text.trim()) : Boolean(downloadUrl)}
+        downloadState={isAnonymous ? "idle" : downloadState}
         downloadError={downloadError}
         onSave={handleSave}
         saveState={saveState}
         canSave={Boolean(state.text.trim())}
         keepWorkingItems={keepWorkingItems}
         products={products}
+        isAnonymous={isAnonymous}
       />
+
+      {isAnonymous && (
+        <div className="write-anon-banner" role="status">
+          <span>
+            <strong>Working anonymously</strong> — your draft is saved on this device only.
+          </span>
+          <a
+            className="write-anon-banner-link"
+            href={`/signin.html?redirect=${encodeURIComponent("/write_react.html")}`}
+          >
+            Sign in to save & download &rarr;
+          </a>
+        </div>
+      )}
+
+      {postSigninNotice && !isAnonymous && (
+        <div className="write-postsignin-notice" role="status">
+          <span>
+            Signed in — your essay is restored.
+            {" "}
+            {postSigninNotice === "download" && "Click Download to save it as a Word doc."}
+            {postSigninNotice === "save" && "Click Save to keep it across devices."}
+            {postSigninNotice === "revise" && "Finish your draft, then Open in Revise from the conclusion step."}
+          </span>
+          <button
+            className="write-postsignin-dismiss"
+            onClick={() => setPostSigninNotice(null)}
+            aria-label="Dismiss"
+          >&times;</button>
+        </div>
+      )}
 
       <main className="page write-page">
         <div className="write-grid">
@@ -537,6 +644,62 @@ export default function WriteApp() {
       <Footer />
 
       <WriteTour ref={tourRef} />
+
+      {signinPrompt && (
+        <SigninPromptModal
+          intent={signinPrompt}
+          essay={{ text: state.text, authorName: state.authorName, textTitle: state.textTitle, textIsMinor: state.textIsMinor }}
+          onClose={() => setSigninPrompt(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Sign-in prompt shown when an anonymous user tries to Save/Download/Revise.
+// Stashes the current essay to localStorage so it's restored after sign-in.
+function SigninPromptModal({ intent, essay, onClose }) {
+  const copy = {
+    save: {
+      title: "Sign in to save your draft",
+      body: "Your draft is currently saved on this device only. Sign in to keep your work across devices and access it any time.",
+      cta: "Sign in to save",
+    },
+    download: {
+      title: "Sign in to download your essay",
+      body: "Downloading a polished .docx copy of your essay is included with any paid plan. Sign in to unlock the download.",
+      cta: "Sign in to download",
+    },
+    revise: {
+      title: "Sign in to open Revise",
+      body: "Revise gives you full feedback on your essay — every rule, every rewrite suggestion. Sign in to continue with your essay already filled in.",
+      cta: "Sign in to continue",
+    },
+  };
+  const m = copy[intent] || copy.save;
+  const handleSignin = () => {
+    try {
+      localStorage.setItem(
+        "vysti_write_pending_essay",
+        JSON.stringify({ ...essay, intent, stashed_at: new Date().toISOString() })
+      );
+    } catch {}
+    // Always return to Write after sign-in. The essay restores on mount and
+    // the user can re-click Save / Download / Revise from there, now
+    // authenticated. This avoids landing them in Revise empty-handed.
+    window.location.href = `/signin.html?redirect=${encodeURIComponent("/write_react.html")}`;
+  };
+  return (
+    <div className="write-signin-prompt-backdrop" onClick={onClose}>
+      <div className="write-signin-prompt" onClick={(e) => e.stopPropagation()}>
+        <button className="write-signin-prompt-close" onClick={onClose} aria-label="Close">&times;</button>
+        <h3>{m.title}</h3>
+        <p>{m.body}</p>
+        <div className="write-signin-prompt-actions">
+          <button className="write-signin-prompt-secondary" onClick={onClose}>Not yet</button>
+          <button className="write-signin-prompt-primary" onClick={handleSignin}>{m.cta}</button>
+        </div>
+      </div>
     </div>
   );
 }

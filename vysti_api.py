@@ -112,6 +112,14 @@ def _sanitize_for_json(obj):
     return obj
 
 
+def _is_write_mode(mode: str | None) -> bool:
+    """True when the request comes from the Write product (write_first_sentence,
+    write_intro, write_body, write_conclusion). These modes can be served
+    anonymously — no Authorization header required — because Write is a free
+    on-ramp to the paid Mark/Revise flow."""
+    return isinstance(mode, str) and mode.startswith("write_")
+
+
 def _strip_ip_from_issues(issues: list) -> list:
     """Remove proprietary rule explanations from issues before sending to client.
 
@@ -127,6 +135,25 @@ def _strip_ip_from_issues(issues: list) -> list:
         # Replace full explanation with shared (generalized) version
         clean["explanation"] = clean.pop("shared_explanation", "")
         # Keep label, short_explanation, student_guidance, shared_issue, count
+        stripped.append(clean)
+    return stripped
+
+
+def _strip_ip_from_issues_anonymous(issues: list) -> list:
+    """Stricter version of _strip_ip_from_issues for unauthenticated callers.
+
+    Anonymous Write users get just enough to understand WHICH rule fired,
+    not the full teacher-grade explanation or the engine's reasoning.
+    Strips: explanation, short_explanation, student_guidance, shared_explanation.
+    Keeps: label, count, found_value, shared_issue (the generalized short tag).
+    """
+    stripped = []
+    _DROP = {"explanation", "short_explanation", "student_guidance", "shared_explanation"}
+    for issue in issues:
+        if not isinstance(issue, dict):
+            stripped.append(issue)
+            continue
+        clean = {k: v for k, v in issue.items() if k not in _DROP}
         stripped.append(clean)
     return stripped
 
@@ -5154,28 +5181,98 @@ async def mark_text(
     )
 
 
+# In-memory rate window for anonymous /check_text calls.
+# Key: client IP. Value: list of unix timestamps within the trailing window.
+# Stricter than authenticated limits (20/min vs 60/min) because anonymous
+# Write is publicly accessible without sign-in.
+_anon_check_rate_window: dict[str, list[float]] = {}
+_ANON_CHECK_RATE_LIMIT = 20  # requests per minute per IP
+_ANON_CHECK_RATE_WINDOW_SECONDS = 60
+
+
+def _enforce_anon_check_rate_limit(request: Request) -> None:
+    ip = get_remote_address(request) or "unknown"
+    now = time.time()
+    window_start = now - _ANON_CHECK_RATE_WINDOW_SECONDS
+    bucket = _anon_check_rate_window.setdefault(ip, [])
+    # Drop entries outside the trailing window
+    while bucket and bucket[0] < window_start:
+        bucket.pop(0)
+    if len(bucket) >= _ANON_CHECK_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Too many requests. Sign in for higher limits.",
+                "code": "ANON_RATE_LIMIT",
+            },
+        )
+    bucket.append(now)
+
+
 @app.post("/check_text")
 @limiter.limit("60/minute")
 async def check_text(
     request: Request,
     body: MarkTextRequest,
-    user: dict = Depends(require_api_product("mark", "revise")),
+    cred: HTTPAuthorizationCredentials = Depends(auth_scheme),
 ):
     """
     Analyse text and return JSON feedback (issues, examples, label counts).
     Same marking pipeline as /mark_text but returns structured JSON instead
     of a .docx binary — designed for the live Write page.
+
+    Anonymous access: Write modes (write_first_sentence, write_intro,
+    write_body, write_conclusion) accept requests with no Authorization
+    header. Anonymous responses are stripped (no student_guidance,
+    short_explanation, examples) and rate-limited more aggressively
+    (20/min per IP). Non-Write modes still require a valid token.
     """
-    _is_api_client = user.get("_is_api_client", False) if isinstance(user, dict) else False
+    _is_write = _is_write_mode(body.mode)
+
+    # ── Auth dispatch ────────────────────────────────────────────────
+    # For Write modes: auth is optional. user=None means anonymous.
+    # For all other modes: enforce the existing product/auth checks.
+    user: dict | None = None
+    if _is_write:
+        # Try to read a user if a token IS present (gives authenticated
+        # users their normal entitlements), but tolerate missing/invalid.
+        if cred is not None:
+            try:
+                # First try API key, then JWT — same logic as require_api_product
+                api_client = await get_api_client(request)
+                if api_client:
+                    user = {
+                        "id": f"apikey:{api_client['id']}",
+                        "email": api_client.get("contact_email", ""),
+                        "_is_api_client": True,
+                        "_api_key_id": api_client["id"],
+                        "_client_name": api_client.get("client_name", ""),
+                    }
+                else:
+                    user = await get_current_user(request, cred)
+            except HTTPException:
+                # Invalid token on a Write call: treat as anonymous rather
+                # than 401, so a stale token doesn't break the free tool.
+                user = None
+        if user is None:
+            _enforce_anon_check_rate_limit(request)
+    else:
+        # Non-Write modes: enforce auth + product access as before.
+        user = await require_api_product("mark", "revise")(request, cred)
+
+    _is_anonymous = user is None
+    _is_api_client = bool(user and user.get("_is_api_client", False))
     _api_start_time = time.time()
 
-    # 0. Product-level access check based on calling context
-    await _enforce_product_for_mode(user, body.student_mode)
+    # 0. Product-level access check based on calling context (authenticated only)
+    if user is not None:
+        await _enforce_product_for_mode(user, body.student_mode)
 
-    # 0a. Free-tier usage check — skip for API key clients and student rechecks.
-    #     Students can recheck freely; their paywall is on download only.
-    if not _is_api_client and not body.student_mode:
-        _ct_user_id = user.get("id") if isinstance(user, dict) else None
+    # 0a. Free-tier usage check — skip for API key clients, student rechecks,
+    #     AND anonymous Write callers (anonymous /check_text is itself the
+    #     paywall-free preview; the paywall lives on download/save).
+    if user is not None and not _is_api_client and not body.student_mode:
+        _ct_user_id = user.get("id")
         if _ct_user_id and _ct_user_id != "local-dev":
             _ct_profile = await get_user_profile(_ct_user_id)
             _ct_tier = (_ct_profile or {}).get("subscription_tier", "free")
@@ -5256,9 +5353,10 @@ async def check_text(
         pass
 
     # 7. Log to Supabase mark_events (best-effort) — skip for API key clients
+    #    AND skip for anonymous Write callers (no user_id to attach).
     mark_event_id = None
     try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client:
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client and not _is_anonymous:
             user_id = user.get("id") if isinstance(user, dict) else None
             _ct_filename = body.file_name or "write_session"
 
@@ -5301,10 +5399,11 @@ async def check_text(
     except Exception as e:
         print("Failed to log mark_event (check_text):", repr(e))
 
-    # 8. Log examples to Supabase issue_examples (best-effort) — skip for API clients
+    # 8. Log examples to Supabase issue_examples (best-effort) — skip for API
+    #    clients AND skip for anonymous Write callers (no user_id, no need).
     try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY and examples and not _is_api_client:
-            user_id = user.get("id") if isinstance(user, dict) else None
+        if SUPABASE_URL and SUPABASE_SERVICE_KEY and examples and not _is_api_client and not _is_anonymous:
+            user_id = user.get("id")
             if user_id:
                 example_rows = []
                 for ex in examples:
@@ -5357,22 +5456,41 @@ async def check_text(
             metadata={"mode": mode, "total_labels": total_labels, "word_count": word_count},
         )
 
-    # 10. Return JSON response (strip proprietary fields)
+    # 10. Return JSON response (strip proprietary fields).
+    #     Anonymous Write callers get a stricter strip: no teacher-grade
+    #     student_guidance / short_explanation / examples / scores, just the
+    #     label set + counts so the guide can still surface issues.
     repeated_nouns = metadata.get("repeated_nouns", []) if isinstance(metadata, dict) else []
-    _response_data = {
-        "issues": _strip_ip_from_issues(issues),
-        "examples": _strip_ip_from_examples(examples),
-        "label_counts": dict(label_counter),
-        "detected_lexis": detected_lexis,
-        "techniques_discussed": techniques_discussed,
-        "total_labels": total_labels,
-        "word_count": word_count,
-        "sentence_types": {str(k): v for k, v in sentence_types.items()},
-        "first_sentence_components": first_sentence_components,
-        "repeated_nouns": repeated_nouns,
-        "scores": scores,
-    }
-    # For regular users, include mark_event_id; strip it for API clients
-    if not _is_api_client:
-        _response_data["mark_event_id"] = mark_event_id
+    if _is_anonymous:
+        _response_data = {
+            "issues": _strip_ip_from_issues_anonymous(issues),
+            "examples": [],  # no per-sentence reveals for anon
+            "label_counts": dict(label_counter),
+            "detected_lexis": [],
+            "techniques_discussed": [],
+            "total_labels": total_labels,
+            "word_count": word_count,
+            "sentence_types": {},
+            "first_sentence_components": first_sentence_components,
+            "repeated_nouns": repeated_nouns,
+            "scores": None,
+            "is_anonymous": True,
+        }
+    else:
+        _response_data = {
+            "issues": _strip_ip_from_issues(issues),
+            "examples": _strip_ip_from_examples(examples),
+            "label_counts": dict(label_counter),
+            "detected_lexis": detected_lexis,
+            "techniques_discussed": techniques_discussed,
+            "total_labels": total_labels,
+            "word_count": word_count,
+            "sentence_types": {str(k): v for k, v in sentence_types.items()},
+            "first_sentence_components": first_sentence_components,
+            "repeated_nouns": repeated_nouns,
+            "scores": scores,
+        }
+        # For regular users, include mark_event_id; strip it for API clients
+        if not _is_api_client:
+            _response_data["mark_event_id"] = mark_event_id
     return JSONResponse(_sanitize_for_json(_response_data))
