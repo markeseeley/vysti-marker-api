@@ -2689,6 +2689,21 @@ function App() {
 
 
   if (isChecking) {
+    // Special case: if the user is coming from Write with a stashed
+    // essay, show an explicit "loading from Write…" splash instead of
+    // a blank page. The mark API can take a few seconds and a blank
+    // screen is jarring after the "Open in Revise" click.
+    let hasWritePending = false;
+    try { hasWritePending = !!localStorage.getItem("vysti_write_to_revise"); } catch {}
+    if (hasWritePending) {
+      return (
+        <div className="write-to-revise-splash" role="status">
+          <div className="write-to-revise-spinner" aria-hidden="true" />
+          <p className="write-to-revise-text">Opening your essay in Revise…</p>
+          <p className="write-to-revise-sub">Running Vysti&rsquo;s analysis. This can take a few seconds.</p>
+        </div>
+      );
+    }
     return null;
   }
 

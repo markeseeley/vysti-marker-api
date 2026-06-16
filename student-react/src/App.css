@@ -3265,3 +3265,43 @@ span.vysti-preview-hit[data-vysti-hit="1"][data-vysti-meter="OTHER"] {
   width: 100%;
   margin-bottom: 24px;
 }
+/* ── Write → Revise splash (covers blank-page period between
+   navigation and mark API completion) ────────────────────────────── */
+.write-to-revise-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  z-index: 9999;
+  padding: 24px;
+  text-align: center;
+}
+.write-to-revise-spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 4px solid #f1f3f5;
+  border-top-color: var(--maroon, #A90D22);
+  animation: write-to-revise-spin 0.9s linear infinite;
+  margin-bottom: 24px;
+}
+@keyframes write-to-revise-spin {
+  to { transform: rotate(360deg); }
+}
+.write-to-revise-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 8px;
+  font-family: "DM Sans", sans-serif;
+}
+.write-to-revise-sub {
+  font-size: 14px;
+  color: #6c757d;
+  margin: 0;
+  font-family: "DM Sans", sans-serif;
+  max-width: 360px;
+}
