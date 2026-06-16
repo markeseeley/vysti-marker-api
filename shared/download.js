@@ -21,6 +21,38 @@
  * Call `revoke()` when the fallback is no longer needed (or let the 60 s
  * auto-revoke handle it).
  */
+/**
+ * Save a Blob via the File System Access API (showSaveFilePicker).
+ *
+ * Returns `true` if the user picked a location and the file was written,
+ * `false` if they cancelled, and throws on a real error.
+ *
+ * Browsers without the API (Safari, Firefox) cause this to return `false`
+ * so the caller can fall through to `downloadBlob`.
+ */
+export async function saveBlobWithPicker(blob, filename) {
+  if (typeof window === "undefined" || typeof window.showSaveFilePicker !== "function") {
+    return false;
+  }
+  const ext = (filename.match(/\.([^.]+)$/) || [, ""])[1].toLowerCase();
+  const accept = ext === "docx"
+    ? { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] }
+    : { "application/octet-stream": [`.${ext || "bin"}`] };
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: ext === "docx" ? "Word Document" : "File", accept }],
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  } catch (err) {
+    if (err && (err.name === "AbortError" || err.code === 20)) return false;
+    throw err;
+  }
+}
+
 export function downloadBlob(blob, filename, { enableIframeFallback = false } = {}) {
   // Wrap as octet-stream so the browser won't try to render/display the blob
   // inline — it will always treat it as a download.

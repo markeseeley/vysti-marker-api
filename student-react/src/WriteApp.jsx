@@ -6,7 +6,7 @@ import { useAuthSession } from "./hooks/useAuthSession";
 import { getConfig } from "./config";
 import { getApiBaseUrl } from "@shared/runtimeConfig";
 import { exportDocx } from "@shared/markingApi";
-import { downloadBlob } from "@shared/download";
+import { downloadBlob, saveBlobWithPicker } from "@shared/download";
 import { detectStage, resolveStage, filterByStage, countSentences, nextStage, STAGE_ORDER, STAGE_FIRST_SENTENCE, STAGE_CLOSED_THESIS, STAGE_INTRO_SUMMARY, STAGE_TOPIC_SENTENCE, STAGE_BODY_EVIDENCE, STAGE_CONCLUSION, STAGE_COMPLETE } from "./lib/writingStage";
 import { peekTeacherSession } from "./services/teacherSessionStore";
 import { findAllRevisionDrafts } from "./services/revisionDraftStore";
@@ -390,7 +390,18 @@ export default function WriteApp() {
         fileName,
         text: state.text,
       });
-      downloadBlob(blob, fileName);
+      // Prefer the File System Access API where available — gives a real
+      // Save As dialog and avoids Brave/Safari silently blocking the
+      // synthetic <a>.click() download after an awaited fetch.
+      let saved = false;
+      try {
+        saved = await saveBlobWithPicker(blob, fileName);
+      } catch (pickerErr) {
+        console.warn("Save picker failed, falling back:", pickerErr);
+      }
+      if (!saved) {
+        downloadBlob(blob, fileName);
+      }
     } catch (err) {
       console.error("Download failed:", err);
     }
