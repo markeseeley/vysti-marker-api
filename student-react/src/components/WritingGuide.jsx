@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   STAGE_EMPTY,
   STAGE_FIRST_SENTENCE,
@@ -313,9 +313,37 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
     [thesisSentence]
   );
 
+  // Track devices the student dismissed (e.g., "parallel" detected as
+  // parallelism when the student meant the adjective). Reset whenever
+  // the underlying detection set changes (thesis edited).
+  const [dismissedDevices, setDismissedDevices] = useState(new Set());
+  const lastDetectedKey = useRef("");
+  useEffect(() => {
+    const key = detectedDevices.join("|");
+    if (key !== lastDetectedKey.current) {
+      lastDetectedKey.current = key;
+      // Keep dismissals only for devices that still exist in the new detection
+      setDismissedDevices((prev) => {
+        const next = new Set();
+        for (const d of prev) if (detectedDevices.includes(d)) next.add(d);
+        return next;
+      });
+    }
+  }, [detectedDevices]);
+
+  const dismissDevice = useCallback((device) => {
+    setDismissedDevices((prev) => {
+      const next = new Set(prev);
+      next.add(device);
+      return next;
+    });
+  }, []);
+
   // Use planner devices if the student filled them in, otherwise fall back
-  // to auto-detected devices from the thesis text
-  const activeDevices = filledDevices.length > 0 ? filledDevices : detectedDevices;
+  // to auto-detected devices from the thesis text (minus any dismissed).
+  const activeDevices = filledDevices.length > 0
+    ? filledDevices
+    : detectedDevices.filter((d) => !dismissedDevices.has(d));
 
   // Extract boundary words from the last sentence of the intro paragraph
   // (useful for topic-sentence boundary-statement suggestions)
@@ -420,18 +448,29 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
                     {step.id === "intro-summary" && activeDevices.length > 0 && (
                       <>
                         <p className="intro-detected-note">
-                          It looks like the techniques you will analyze are:
+                          It looks like the techniques you will analyze are
+                          {filledDevices.length === 0 ? " (click × to remove a false match):" : ":"}
+                        </p>
+                        <p className="intro-detected-guidance">
+                          For each one, write a sentence that situates the
+                          reader where the technique appears. Don&rsquo;t name
+                          the device directly&mdash;let the reader feel it.
                         </p>
                         <ul className="intro-device-list">
                           {activeDevices.map((d, idx) => (
                             <li key={idx} className="intro-device-item">
                               <strong>{d}</strong>
-                              <span>
-                                {" "}&mdash; Write a sentence that situates the reader
-                                in the moment of the text where this technique appears.
-                                Don&rsquo;t name the device directly&mdash;let the
-                                reader feel it.
-                              </span>
+                              {filledDevices.length === 0 && (
+                                <button
+                                  type="button"
+                                  className="intro-device-dismiss"
+                                  onClick={() => dismissDevice(d)}
+                                  aria-label={`Remove ${d} from detected techniques`}
+                                  title="Not actually one of my techniques"
+                                >
+                                  &times;
+                                </button>
+                              )}
                             </li>
                           ))}
                         </ul>

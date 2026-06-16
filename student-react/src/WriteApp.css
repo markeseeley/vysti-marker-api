@@ -661,10 +661,39 @@ mark.write-issue-flash {
   background: #f8f9fa;
   border-radius: 6px;
   border-left: 2px solid var(--maroon, #A90D22);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .intro-device-item strong {
   color: #2c3e50;
+}
+
+.intro-device-dismiss {
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.35);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.intro-device-dismiss:hover {
+  background: rgba(169, 13, 34, 0.08);
+  color: var(--maroon, #A90D22);
+}
+
+.intro-detected-guidance {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #495057;
+  margin: 4px 0 8px;
 }
 
 /* ── Minor / Major text type selector (Step 1) ── */
