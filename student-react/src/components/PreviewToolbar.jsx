@@ -13,6 +13,32 @@ function formatTimeAgo(date) {
   return `${hours}h ago`;
 }
 
+/** Temporary "Last saved..." toast that fades out after 3 seconds */
+function SavedToast({ lastSavedAt, saveProgressState }) {
+  const [visible, setVisible] = useState(false);
+  const [text, setText] = useState("");
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (!lastSavedAt || saveProgressState !== "idle") {
+      setVisible(false);
+      return;
+    }
+    setText(`Saved ${formatTimeAgo(lastSavedAt)}`);
+    setVisible(true);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setVisible(false), 3000);
+    return () => clearTimeout(timerRef.current);
+  }, [lastSavedAt, saveProgressState]);
+
+  if (!visible) return null;
+  return (
+    <span className="preview-toolbar-last-saved preview-toolbar-last-saved--toast" title={lastSavedAt?.toLocaleString()}>
+      {text}
+    </span>
+  );
+}
+
 function undoEditFallback(container) {
   if (!container) return;
   container.focus();
@@ -936,11 +962,7 @@ export default function PreviewToolbar({ previewRef, onEdit, onBeforeEdit, onRec
           >
             {saveProgressState === "saving" ? "Saving\u2026" : saveProgressState === "saved" ? "Saved!" : saveProgressState === "failed" ? "Save failed" : "Save"}
           </button>
-          {lastSavedAt && saveProgressState === "idle" && (
-            <span className="preview-toolbar-last-saved" title={lastSavedAt.toLocaleString()}>
-              Last saved {formatTimeAgo(lastSavedAt)}
-            </span>
-          )}
+          <SavedToast lastSavedAt={lastSavedAt} saveProgressState={saveProgressState} />
         </>
       )}
       {onFinishReview && reviewStatus !== "completed" && (

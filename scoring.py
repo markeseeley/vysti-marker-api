@@ -1019,6 +1019,10 @@ def compute_scores(
         "wordyCount": 0, "impreciseCount": 0, "conventionsCount": 0,
         "hasCounts": False,
     }
+    if not has_precision_counts and isinstance(label_counts, dict):
+        # Essay was marked but had zero issues — perfect precision.
+        precision_score = 100
+        precision_details["hasCounts"] = True
     if has_precision_counts:
         # Raw totals (for display / detail reporting)
         concision = _sum_label_counts(CONCISION_LABELS, counts)

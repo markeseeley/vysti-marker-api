@@ -11,7 +11,7 @@ export default function TeacherTopbar({ onRepeatTutorial, onSignOut, entitlement
       <nav>
         <a href="/teacher_react.html" className="active" title="Upload and grade student essays">Mark</a>
         <a href="/student_react.html" title="Upload your essay for feedback">Revise</a>
-        <a className="disabled" title="Coming soon..." aria-disabled="true">Write</a>
+        <a href="/write_react.html" title="Draft an essay with guidance">Write</a>
         <a href="/student_progress.html" title="Track your writing progress">Progress</a>
       </nav>
 
