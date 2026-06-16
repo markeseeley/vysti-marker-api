@@ -448,8 +448,7 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
                     {step.id === "intro-summary" && activeDevices.length > 0 && (
                       <>
                         <p className="intro-detected-note">
-                          It looks like the techniques you will analyze are
-                          {filledDevices.length === 0 ? " (click × to remove a false match):" : ":"}
+                          It looks like the techniques you will analyze are:
                         </p>
                         <p className="intro-detected-guidance">
                           For each one, write a sentence that situates the
