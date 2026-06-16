@@ -1,7 +1,7 @@
 import KeepWorkingMenu from "./KeepWorkingMenu";
 import UserMenu from "./UserMenu";
 
-export default function WriteTopbar({ onRepeatTutorial, onSignOut, onDownload, canDownload, onSave, saveState, canSave, keepWorkingItems, products }) {
+export default function WriteTopbar({ onRepeatTutorial, onSignOut, onDownload, canDownload, downloadState, downloadError, onSave, saveState, canSave, keepWorkingItems, products }) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -34,13 +34,13 @@ export default function WriteTopbar({ onRepeatTutorial, onSignOut, onDownload, c
         )}
         {onDownload ? (
           <button
-            className="topbar-btn"
+            className={`topbar-btn${downloadState === "failed" ? " download-failed" : ""}`}
             type="button"
-            title="Download your essay as a Word document"
+            title={downloadError || "Download your essay as a Word document"}
             onClick={onDownload}
-            disabled={!canDownload}
+            disabled={!canDownload || downloadState === "downloading"}
           >
-            Download
+            {downloadState === "downloading" ? "Downloading…" : downloadState === "failed" ? "Download failed" : "Download"}
           </button>
         ) : null}
         <button

@@ -61,6 +61,8 @@ export default function WriteApp() {
   const [stageOverride, setStageOverride] = useState(null);
   const [userId, setUserId] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
+  const [downloadState, setDownloadState] = useState("idle"); // idle | downloading | failed
+  const [downloadError, setDownloadError] = useState(null);
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
   const saveTimerRef = useRef(null);
   const draftRestoredRef = useRef(false);
@@ -375,6 +377,8 @@ export default function WriteApp() {
   // Download handler
   const handleDownload = useCallback(async () => {
     if (!state.text.trim()) return;
+    setDownloadState("downloading");
+    setDownloadError(null);
     try {
       let token = "dev";
       if (!isLocalDev && supa) {
@@ -391,8 +395,11 @@ export default function WriteApp() {
         text: state.text,
       });
       downloadBlob(blob, fileName);
+      setDownloadState("idle");
     } catch (err) {
       console.error("Download failed:", err);
+      setDownloadState("failed");
+      setDownloadError(err?.message || String(err));
     }
   }, [supa, state.text, isLocalDev]);
 
@@ -426,6 +433,8 @@ export default function WriteApp() {
         onSignOut={handleSignOut}
         onDownload={handleDownload}
         canDownload={Boolean(state.text.trim())}
+        downloadState={downloadState}
+        downloadError={downloadError}
         onSave={handleSave}
         saveState={saveState}
         canSave={Boolean(state.text.trim())}
