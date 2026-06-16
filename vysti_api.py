@@ -1973,6 +1973,36 @@ def serve_profile_react():
     return FileResponse("profile_react.html")
 
 
+# ── Clean URL aliases (Phase 1) ──
+# Modern, share-friendly URLs for the same React entry pages. Internal
+# links still point at the .html paths today, so both forms keep working
+# until those are migrated. Once the codebase is updated to link to the
+# clean URLs everywhere, the .html routes can become 301 redirects.
+@app.get("/write")
+def serve_write_clean():
+    return FileResponse("write_react.html")
+
+
+@app.get("/revise")
+def serve_revise_clean():
+    return FileResponse("student_react.html")
+
+
+@app.get("/mark")
+def serve_mark_clean():
+    return FileResponse("teacher_react.html")
+
+
+@app.get("/profile")
+def serve_profile_clean():
+    return FileResponse("profile_react.html")
+
+
+@app.get("/progress")
+def serve_progress_clean():
+    return FileResponse("student_progress.html")
+
+
 @app.get("/manifest.json")
 def serve_manifest():
     """Serve PWA manifest"""
