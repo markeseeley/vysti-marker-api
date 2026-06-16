@@ -36,11 +36,11 @@ export default function WriteTopbar({ onRepeatTutorial, onSignOut, onDownload, c
           <button
             className={`topbar-btn${downloadState === "failed" ? " download-failed" : ""}`}
             type="button"
-            title={downloadError || "Download your essay as a Word document"}
+            title={downloadError || (downloadState === "preparing" ? "Preparing your download…" : "Download your essay as a Word document")}
             onClick={onDownload}
-            disabled={!canDownload || downloadState === "downloading"}
+            disabled={!canDownload || downloadState === "preparing"}
           >
-            {downloadState === "downloading" ? "Downloading…" : downloadState === "failed" ? "Download failed" : "Download"}
+            {downloadState === "preparing" ? "Preparing…" : downloadState === "failed" ? "Download failed" : "Download"}
           </button>
         ) : null}
         <button

@@ -61,8 +61,10 @@ export default function WriteApp() {
   const [stageOverride, setStageOverride] = useState(null);
   const [userId, setUserId] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
-  const [downloadState, setDownloadState] = useState("idle"); // idle | downloading | failed
+  const [downloadState, setDownloadState] = useState("idle"); // idle | preparing | failed
   const [downloadError, setDownloadError] = useState(null);
+  const [downloadBlobCache, setDownloadBlobCache] = useState(null);
+  const downloadFetchTimerRef = useRef(null);
   const [keepWorkingItems, setKeepWorkingItems] = useState([]);
   const saveTimerRef = useRef(null);
   const draftRestoredRef = useRef(false);
@@ -375,33 +377,61 @@ export default function WriteApp() {
   }, [state.examples, state.repeatedNouns]);
 
   // Download handler
-  const handleDownload = useCallback(async () => {
-    if (!state.text.trim()) return;
-    setDownloadState("downloading");
-    setDownloadError(null);
-    try {
-      let token = "dev";
-      if (!isLocalDev && supa) {
-        const { data } = await supa.auth.getSession();
-        token = data?.session?.access_token || "";
-      }
-      const apiBase = isLocalDev ? "" : getApiBaseUrl("");
-      const fileName = "essay.docx";
-
-      const blob = await exportDocx({
-        apiBaseUrl: apiBase,
-        token,
-        fileName,
-        text: state.text,
-      });
-      downloadBlob(blob, fileName);
+  // Background pre-fetch: whenever the text changes, build the .docx blob in
+  // the background so the Download click can be SYNCHRONOUS. Mark's download
+  // works in Chrome because its blob is already in memory when the user
+  // clicks. With an `await` in the click handler, Chrome treats the
+  // subsequent <a>.click() as not-user-initiated and silently blocks it
+  // (the request still goes through, but the file never lands).
+  useEffect(() => {
+    if (!state.text.trim()) {
+      setDownloadBlobCache(null);
       setDownloadState("idle");
+      return;
+    }
+    if (downloadFetchTimerRef.current) clearTimeout(downloadFetchTimerRef.current);
+    setDownloadBlobCache(null); // invalidate stale blob immediately
+    setDownloadState("preparing");
+    downloadFetchTimerRef.current = setTimeout(async () => {
+      try {
+        let token = "dev";
+        if (!isLocalDev && supa) {
+          const { data } = await supa.auth.getSession();
+          token = data?.session?.access_token || "";
+        }
+        const apiBase = isLocalDev ? "" : getApiBaseUrl("");
+        const blob = await exportDocx({
+          apiBaseUrl: apiBase,
+          token,
+          fileName: "essay.docx",
+          text: state.text,
+        });
+        setDownloadBlobCache(blob);
+        setDownloadState("idle");
+        setDownloadError(null);
+      } catch (err) {
+        console.error("Pre-fetch failed:", err);
+        setDownloadState("failed");
+        setDownloadError(err?.message || String(err));
+      }
+    }, 1500);
+    return () => {
+      if (downloadFetchTimerRef.current) clearTimeout(downloadFetchTimerRef.current);
+    };
+  }, [state.text, supa, isLocalDev]);
+
+  // Synchronous Download click — uses the cached blob so the user gesture
+  // is preserved when downloadBlob calls link.click().
+  const handleDownload = useCallback(() => {
+    if (!downloadBlobCache) return;
+    try {
+      downloadBlob(downloadBlobCache, "essay.docx");
     } catch (err) {
       console.error("Download failed:", err);
       setDownloadState("failed");
       setDownloadError(err?.message || String(err));
     }
-  }, [supa, state.text, isLocalDev]);
+  }, [downloadBlobCache]);
 
   // Sign out handler
   const handleSignOut = useCallback(async () => {
