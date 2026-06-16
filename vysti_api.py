@@ -5278,6 +5278,7 @@ async def check_text(
         )
 
     # 10. Return JSON response (strip proprietary fields)
+    repeated_nouns = metadata.get("repeated_nouns", []) if isinstance(metadata, dict) else []
     _response_data = {
         "issues": _strip_ip_from_issues(issues),
         "examples": _strip_ip_from_examples(examples),
@@ -5288,6 +5289,7 @@ async def check_text(
         "word_count": word_count,
         "sentence_types": {str(k): v for k, v in sentence_types.items()},
         "first_sentence_components": first_sentence_components,
+        "repeated_nouns": repeated_nouns,
         "scores": scores,
     }
     # For regular users, include mark_event_id; strip it for API clients

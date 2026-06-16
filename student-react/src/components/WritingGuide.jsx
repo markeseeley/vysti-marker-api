@@ -492,7 +492,12 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
                       <BodyEvidenceHelper bodyParaStats={bodyParaStats} devices={activeDevices} thesisSentence={thesisSentence} />
                     )}
                     {step.id === "conclusion" && (
-                      <ConclusionHelper textTitle={textTitle} />
+                      <ConclusionHelper
+                        textTitle={textTitle}
+                        textIsMinor={textIsMinor}
+                        essayText={essayText}
+                        devices={activeDevices}
+                      />
                     )}
                     {step.id !== "conclusion" && onSkipStage && (
                       <button

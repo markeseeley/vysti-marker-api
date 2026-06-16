@@ -264,18 +264,60 @@ export default function WriteApp() {
   );
 
   // Jump to issue in editor when sidebar issue is clicked
-  const handleIssueClick = useCallback((label) => {
-    // Find an example sentence for this label
+  const handleIssueClick = useCallback((label, issue) => {
+    const editorEl = editorWrapRef.current?.querySelector(".write-editor-area");
+    if (!editorEl) return;
+
+    // Noun repetition: highlight the actual repeated noun (word-level),
+    // not the surrounding sentence. Use the most-repeated noun from
+    // state.repeatedNouns (sorted by count descending in the backend).
+    let snippet = null;
+    if (label === "Noun repetition") {
+      const top = (state.repeatedNouns || [])[0];
+      const noun = top?.lemma;
+      if (noun) {
+        const re = new RegExp(`\\b${noun.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\w*`, "i");
+        const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
+        let node, found = false;
+        while ((node = walker.nextNode())) {
+          const m = node.textContent.match(re);
+          if (m) {
+            const idx = node.textContent.toLowerCase().indexOf(m[0].toLowerCase());
+            const range = document.createRange();
+            range.setStart(node, idx);
+            range.setEnd(node, idx + m[0].length);
+            const rect = range.getBoundingClientRect();
+            const containerRect = editorEl.getBoundingClientRect();
+            if (rect.top < containerRect.top || rect.bottom > containerRect.bottom) {
+              editorEl.scrollTo({
+                top: rect.top - containerRect.top + editorEl.scrollTop - 60,
+                behavior: "smooth",
+              });
+            }
+            const mark = document.createElement("mark");
+            mark.className = "write-issue-flash";
+            range.surroundContents(mark);
+            setTimeout(() => {
+              const parent = mark.parentNode;
+              if (parent) {
+                while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+                parent.removeChild(mark);
+              }
+            }, 1500);
+            found = true;
+            break;
+          }
+        }
+        if (found) return;
+      }
+    }
+
+    // Default: find an example sentence for this label
     const example = (state.examples || []).find(
       (ex) => ex.label === label && ex.sentence
     );
     if (!example) return;
-
-    // Find the sentence text in the editor DOM
-    const editorEl = editorWrapRef.current?.querySelector(".write-editor-area");
-    if (!editorEl) return;
-
-    const snippet = example.sentence.trim();
+    snippet = example.sentence.trim();
     // Walk text nodes to find a match
     const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
     let node;
@@ -328,7 +370,7 @@ export default function WriteApp() {
         }
       }
     }
-  }, [state.examples]);
+  }, [state.examples, state.repeatedNouns]);
 
   // Download handler
   const handleDownload = useCallback(async () => {
@@ -433,6 +475,7 @@ export default function WriteApp() {
               onIssueClick={handleIssueClick}
               onSkipStage={handleSkipStage}
               essayText={state.text}
+              repeatedNouns={state.repeatedNouns}
             />
           </aside>
         </div>

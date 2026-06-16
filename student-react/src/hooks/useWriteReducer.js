@@ -18,6 +18,7 @@ const initialState = {
   metrics: null,
   mciExpandedMetric: null,
   firstSentenceComponents: {},
+  repeatedNouns: [],
   hasChecked: false,
 };
 
@@ -50,6 +51,7 @@ function writeReducer(state, action) {
         wordCount: action.payload.word_count || 0,
         markEventId: action.payload.mark_event_id || null,
         firstSentenceComponents: action.payload.first_sentence_components || {},
+        repeatedNouns: action.payload.repeated_nouns || [],
         metrics: action.payload.scores || state.metrics,
       };
     case "CHECK_ERROR":

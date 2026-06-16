@@ -26,7 +26,10 @@ export default function WriteSidebar({
   onIssueClick,
   onSkipStage,
   essayText,
+  repeatedNouns,
 }) {
+  // Map noun-repetition issue → top repeated noun for display
+  const topRepeatedNoun = (repeatedNouns || [])[0]?.lemma || null;
   const hasResults = totalLabels > 0;
   // The writing guide now covers all 6 Foundation stages — always visible.
   const showGuide = true;
@@ -43,15 +46,15 @@ export default function WriteSidebar({
               <li
                 key={issue.label}
                 className={`write-issue-row${onIssueClick ? " write-issue-clickable" : ""}`}
-                onClick={() => onIssueClick?.(issue.label)}
+                onClick={() => onIssueClick?.(issue.label, issue)}
                 role={onIssueClick ? "button" : undefined}
                 tabIndex={onIssueClick ? 0 : undefined}
-                onKeyDown={onIssueClick ? (e) => { if (e.key === "Enter") onIssueClick(issue.label); } : undefined}
+                onKeyDown={onIssueClick ? (e) => { if (e.key === "Enter") onIssueClick(issue.label, issue); } : undefined}
               >
                 <span className="write-issue-label">{issue.label}</span>
                 <span className="write-issue-count">{issue.count}</span>
-                {issue.found_value && issue.label === "Noun repetition" && (
-                  <p className="write-issue-found">Repeated: <strong>{issue.found_value}</strong></p>
+                {issue.label === "Noun repetition" && topRepeatedNoun && (
+                  <p className="write-issue-found">Repeated: <strong>{topRepeatedNoun}</strong></p>
                 )}
                 {issue.short_explanation ? (
                   <p className="write-issue-hint">
