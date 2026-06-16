@@ -5,18 +5,23 @@
  * when the programmatic click is silently blocked by the browser.
  *
  * Chrome blocks "automatic" downloads (link.click() outside a user gesture)
- * after the first one per page.  We mitigate this by:
+ * after the first one per page. We mitigate this by:
  *   1. Wrapping the blob as application/octet-stream so Chrome treats it
  *      as a pure download rather than renderable content.
- *   2. Trying link.click() (works for the first download).
- *   3. Trying an iframe-based download as a secondary mechanism
- *      (not subject to the same gesture restrictions).
+ *   2. link.click() — works for the first download.
+ *   3. (Optional) iframe-based download — works around Chrome's
+ *      "automatic downloads blocked" warning for SUBSEQUENT downloads on
+ *      the same page. Opt-in via `enableIframeFallback: true`, because
+ *      iframe navigation ignores the link's `download` attribute and
+ *      produces a UUID-named duplicate file when the primary click
+ *      already succeeded. Only Mark/Revise flows that programmatically
+ *      chain multiple downloads should enable it.
  *   4. Always returning { url, revoke } for a visible fallback link.
  *
  * Call `revoke()` when the fallback is no longer needed (or let the 60 s
  * auto-revoke handle it).
  */
-export function downloadBlob(blob, filename) {
+export function downloadBlob(blob, filename, { enableIframeFallback = false } = {}) {
   // Wrap as octet-stream so the browser won't try to render/display the blob
   // inline — it will always treat it as a download.
   const downloadableBlob = new Blob([blob], { type: "application/octet-stream" });
@@ -54,7 +59,11 @@ export function downloadBlob(blob, filename) {
   // Chrome may silently block the link.click() above after the first
   // automatic download on a page.  An iframe navigating to the blob URL
   // is a separate download pathway and often succeeds where click() fails.
-  if (primaryClicked) {
+  // Opt-in only: iframe navigation ignores the link's download attribute
+  // and produces a UUID-named duplicate file when the primary click
+  // already succeeded — which is the common case for a single
+  // user-initiated download.
+  if (enableIframeFallback && primaryClicked) {
     setTimeout(() => {
       try {
         const iframe = document.createElement("iframe");
