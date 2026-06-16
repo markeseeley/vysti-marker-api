@@ -29,11 +29,11 @@
     <link rel="stylesheet" href="/assets/marker.css" />
     <link
       rel="stylesheet"
-      href="/assets/student-react/assets/main.css?v=1781617476100"
+      href="/assets/student-react/assets/main.css?v=1781620689883"
     />
     <link
       rel="stylesheet"
-      href="/assets/student-react/assets/isMobile.css?v=1781617476100"
+      href="/assets/student-react/assets/isMobile.css?v=1781620689883"
     />
     <style>
       /* ── Ambient animations ── */
@@ -65,7 +65,7 @@
       .vysti-modal-actions button:hover { opacity: .88; }
       .vysti-modal-ok { background: var(--maroon, #A90D22); color: #fff; }
     </style>
-    <meta name="app-build-id" content="1781617476100" />
+    <meta name="app-build-id" content="1781620689883" />
   </head>
   <body>
     <!-- Custom alert modal -->
@@ -101,45 +101,6 @@
       }
     </script>
 
-    <!-- Inline pre-React splash: shown immediately while the JS bundle
-         downloads and React mounts. Specifically intended for the
-         Write → Revise hand-off (vysti_write_to_revise in localStorage),
-         which lands here with an essay to mark. The inline script
-         injects the splash markup synchronously if the stash is present
-         so there's no blank-page window between navigation and React. -->
-    <style id="inlineWriteSplashStyle">
-      #inlineWriteSplash {
-        position: fixed; inset: 0; z-index: 9999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: #fff; padding: 24px; text-align: center;
-        font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-      #inlineWriteSplash .splash-spinner {
-        width: 48px; height: 48px; border-radius: 50%;
-        border: 4px solid #f1f3f5; border-top-color: #A90D22;
-        animation: inlineWriteSpin 0.9s linear infinite; margin-bottom: 24px;
-      }
-      @keyframes inlineWriteSpin { to { transform: rotate(360deg); } }
-      #inlineWriteSplash .splash-title { font-size: 18px; font-weight: 700; color: #2c3e50; margin: 0 0 8px; }
-      #inlineWriteSplash .splash-sub { font-size: 14px; color: #6c757d; margin: 0; max-width: 360px; }
-    </style>
-    <script>
-      (function () {
-        try {
-          if (localStorage.getItem("vysti_write_to_revise")) {
-            var s = document.createElement("div");
-            s.id = "inlineWriteSplash";
-            s.setAttribute("role", "status");
-            s.innerHTML =
-              '<div class="splash-spinner" aria-hidden="true"></div>' +
-              '<p class="splash-title">Opening your essay in Revise…</p>' +
-              '<p class="splash-sub">Running Vysti’s analysis. This can take a few seconds.</p>';
-            document.body.appendChild(s);
-          }
-        } catch (_) {}
-      })();
-    </script>
-
     <div id="root"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -147,7 +108,7 @@
     <script src="https://cdn.jsdelivr.net/npm/docx-preview/dist/docx-preview.min.js"></script>
     <script
       type="module"
-      src="/assets/student-react/main.js?v=1781617476100"
+      src="/assets/student-react/main.js?v=1781620689883"
     ></script>
     <script>
       /* ── Filled-dot glow — the breath of Brahma ── */

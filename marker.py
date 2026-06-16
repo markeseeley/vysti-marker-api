@@ -2466,6 +2466,12 @@ THESIS_TOPIC_ORDER = []
 # All device/strategy lemmas that appear anywhere in the thesis sentence
 THESIS_ALL_DEVICE_KEYS = set()
 
+# Noun lemmas from the thesis sentence — exempt from the Noun repetition
+# rule so a student's chosen key terms (e.g. "freedom" in a freedom thesis)
+# aren't punished for being central to the argument. Populated during intro
+# paragraph processing once the thesis sentence is identified.
+THESIS_NOUN_LEMMAS: set = set()
+
 # New: raw thesis paragraph text (lowercased) for simple substring checks
 THESIS_TEXT_LOWER: str = ""
 
@@ -4240,6 +4246,26 @@ def analyze_text(
     if paragraph_role == "intro":
         # Remember the full introduction paragraph text for on-thesis checks
         THESIS_TEXT_LOWER = flat_text.lower()
+
+        # Capture noun lemmas from the thesis sentence (heuristically the
+        # LAST sentence of the intro paragraph). These are exempted from
+        # the Noun repetition rule so a student's central thesis terms
+        # aren't punished for being central to the argument.
+        global THESIS_NOUN_LEMMAS
+        if sentences:
+            _thesis_start, _thesis_end = sentences[-1]
+            _t_lemmas = set()
+            for _tok in doc:
+                if _tok.idx < _thesis_start or _tok.idx >= _thesis_end:
+                    continue
+                if _tok.pos_ != "NOUN":
+                    continue
+                if _tok.text and _tok.text[0].isupper():
+                    continue  # proper nouns
+                _t_lemmas.add(_tok.lemma_.lower())
+            # Union so re-marking after edits accumulates rather than replaces
+            # (also harmless when called once).
+            THESIS_NOUN_LEMMAS |= _t_lemmas
 
         # ---------------------------------------------
         # First-sentence TITLE check (teacher-supplied text_title)
@@ -7168,7 +7194,21 @@ def analyze_text(
             if token.text and token.text[0].isupper():
                 continue
 
+            # Skip known thesis/rhetorical device terms (metaphor, imagery,
+            # symbol, irony, contrast, etc.) — these are expected to recur
+            # in analytical writing and shouldn't count as repetition.
+            if canonical_device_key(token) is not None:
+                continue
+
             lemma = token.lemma_.lower()
+
+            # Skip key terms from THIS student's thesis sentence — those
+            # are the argument's load-bearing nouns and should be allowed
+            # to repeat without penalty. THESIS_NOUN_LEMMAS is populated
+            # during intro paragraph processing above.
+            if THESIS_NOUN_LEMMAS and lemma in THESIS_NOUN_LEMMAS:
+                continue
+
             noun_occurrences[lemma].append((token.text, tok_start, tok_end))
 
         # Determine threshold based on DOCUMENT word count (not paragraph)
@@ -9501,7 +9541,7 @@ def run_marker(
     global THESIS_DEVICE_SEQUENCE, THESIS_TOPIC_ORDER, BODY_PARAGRAPH_COUNT, BRIDGE_PARAGRAPHS, BRIDGE_DEVICE_KEYS
     global BOOKMARK_ID_COUNTER, FOUNDATION1_LABEL_TARGET
     global APPROVED_LABELS
-    global THESIS_PARAGRAPH_INDEX, THESIS_ANCHOR_POS, THESIS_ALL_DEVICE_KEYS, THESIS_TEXT_LOWER, THESIS_TEXT
+    global THESIS_PARAGRAPH_INDEX, THESIS_ANCHOR_POS, THESIS_ALL_DEVICE_KEYS, THESIS_TEXT_LOWER, THESIS_TEXT, THESIS_NOUN_LEMMAS
     global DOC_EXAMPLES, DOC_EXAMPLE_COUNTS, DOC_EXAMPLE_SENT_HASHES
     global DOC_SENTENCE_TYPES
     global DOC_FIRST_SENTENCE_COMPONENTS
@@ -9511,6 +9551,7 @@ def run_marker(
     THESIS_DEVICE_SEQUENCE = []
     THESIS_TOPIC_ORDER = []
     THESIS_ALL_DEVICE_KEYS = set()
+    THESIS_NOUN_LEMMAS = set()
     THESIS_TEXT_LOWER = ""
     THESIS_TEXT = ""
     BODY_PARAGRAPH_COUNT = 0

@@ -172,7 +172,8 @@ export const METRIC_INFO = {
     tips: [
       "Be concise: cut filler phrases, avoid addressing the reader directly, eliminate banned connectors (therefore, thereby, hence, thus), use the author's name instead of 'the author,' replace which-clauses with tighter phrasing, and limit 'and' to twice per sentence.",
       "Be clear: replace vague abstractions (society, reality, life) with specific terms, clarify all pronoun references, avoid meta-textual references, and eliminate absolute language (always, never).",
-      "Follow conventions: format your essay title correctly, italicize major works, use quotation marks for minor works, write out numbers one through ten, and check grammar and spelling."
+      "Follow conventions: format your essay title correctly, italicize major works, use quotation marks for minor works, write out numbers one through ten, and check grammar and spelling.",
+      "If Noun repetition fires, click the Repetition button under Power to see exactly which nouns are over-used — thesis terms and rhetorical devices are exempt."
     ]
   }
 };
