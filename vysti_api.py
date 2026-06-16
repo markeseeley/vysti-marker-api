@@ -3652,6 +3652,38 @@ def build_doc_from_text(text: str) -> bytes:
     rewrite_pattern = r"\s*\*\s*Rewrite this paragraph for practice\s*\*\s*"
     text = re.sub(rewrite_pattern, "", text, flags=re.IGNORECASE)
 
+    # Italic boundary markers used by the Write editor to carry italic
+    # formatting through the plain-text API. Split each paragraph into
+    # runs at these markers so the marker engine sees real italic runs.
+    ITALIC_START = ""
+    ITALIC_END = ""
+
+    def _add_runs_with_italics(paragraph, para_text):
+        """Append runs to paragraph, toggling italic at ITALIC_START/END markers."""
+        if ITALIC_START not in para_text and ITALIC_END not in para_text:
+            paragraph.add_run(para_text)
+            return
+        italic = False
+        buf = []
+        for ch in para_text:
+            if ch == ITALIC_START:
+                if buf:
+                    run = paragraph.add_run("".join(buf))
+                    run.italic = italic
+                    buf = []
+                italic = True
+            elif ch == ITALIC_END:
+                if buf:
+                    run = paragraph.add_run("".join(buf))
+                    run.italic = italic
+                    buf = []
+                italic = False
+            else:
+                buf.append(ch)
+        if buf:
+            run = paragraph.add_run("".join(buf))
+            run.italic = italic
+
     # Split paragraphs on 2+ newlines
     para_chunks = re.split(r"\n{2,}", text)
 
@@ -3702,17 +3734,23 @@ def build_doc_from_text(text: str) -> bytes:
         if not para_text:  # Skip empty paragraphs
             continue
 
-        para = doc.add_paragraph(para_text)
+        # Compute the marker-stripped version for header/title/sentence
+        # detection so heuristics don't see the PUA characters.
+        clean_text_for_detection = para_text.replace(ITALIC_START, "").replace(ITALIC_END, "")
 
-        # Check if this is a header line
-        is_header = is_header_line(para_text)
-        is_sent = is_sentence(para_text)
+        para = doc.add_paragraph()
+        _add_runs_with_italics(para, para_text)
+
+        # Check if this is a header line (use marker-stripped text so
+        # PUA chars don't confuse the heuristics)
+        is_header = is_header_line(clean_text_for_detection)
+        is_sent = is_sentence(clean_text_for_detection)
 
         # Apply formatting based on paragraph type
         if is_header:
             # Header lines: no indentation, left-aligned
             para.paragraph_format.first_line_indent = Inches(0)
-        elif not title_found and not is_header and not is_sent and len(para_text.split()) <= 10:
+        elif not title_found and not is_header and not is_sent and len(clean_text_for_detection.split()) <= 10:
             # First non-header short non-sentence line: likely essay title - center it
             para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             para.paragraph_format.first_line_indent = Inches(0)

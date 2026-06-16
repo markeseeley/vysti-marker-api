@@ -176,10 +176,49 @@ export default function WriteEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
 
+  // Italic boundary markers (Unicode PUA, won't collide with normal text).
+  // The backend strips these and converts them to italic runs in the docx
+  // that the marker engine receives.
+  const ITALIC_START = "\uE000";
+  const ITALIC_END = "\uE001";
+
   const extractText = useCallback(() => {
     const el = editorRef.current;
     if (!el) return "";
-    return el.innerText || "";
+    // Walk the editor DOM and emit text with italic markers around
+    // <em>/<i> spans so italic info survives the round-trip to the backend.
+    // Mirror innerText semantics: block elements separated by \n\n, <br> is \n.
+    let out = "";
+    const isItalicEl = (node) => {
+      const tag = node.tagName;
+      if (tag === "EM" || tag === "I") return true;
+      const style = node.style?.fontStyle || "";
+      return style === "italic" || style === "oblique";
+    };
+    const BLOCK_TAGS = new Set(["P", "DIV", "LI", "BLOCKQUOTE", "PRE", "H1", "H2", "H3", "H4", "H5", "H6"]);
+    const walk = (node, italic) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        out += node.textContent || "";
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const tag = node.tagName;
+      if (tag === "BR") {
+        out += "\n";
+        return;
+      }
+      const isBlock = BLOCK_TAGS.has(tag);
+      const nowItalic = italic || isItalicEl(node);
+      const openMark = !italic && nowItalic;
+      if (isBlock && out.length > 0 && !out.endsWith("\n\n")) {
+        out += out.endsWith("\n") ? "\n" : "\n\n";
+      }
+      if (openMark) out += ITALIC_START;
+      for (const child of node.childNodes) walk(child, nowItalic);
+      if (openMark) out += ITALIC_END;
+    };
+    for (const child of el.childNodes) walk(child, false);
+    return out;
   }, []);
 
   const handleInput = useCallback(() => {
@@ -195,18 +234,39 @@ export default function WriteEditor({
     }
     const el = editorRef.current;
     if (!el) return;
-    const current = el.innerText || "";
+    const current = extractText();
     if (current !== text) {
       if (!text) {
         el.innerHTML = "";
       } else {
-        // Use safe DOM API to avoid HTML injection from user text
+        // Use safe DOM API to avoid HTML injection from user text.
+        // Convert ITALIC_START..ITALIC_END spans back into <em> elements
+        // so restored drafts visually preserve italic formatting.
         el.innerHTML = "";
         const fragment = document.createDocumentFragment();
         text.split("\n").forEach((line) => {
           const p = document.createElement("p");
           if (line) {
-            p.textContent = line;
+            let italic = false;
+            let buf = "";
+            const flush = () => {
+              if (!buf) return;
+              if (italic) {
+                const em = document.createElement("em");
+                em.textContent = buf;
+                p.appendChild(em);
+              } else {
+                p.appendChild(document.createTextNode(buf));
+              }
+              buf = "";
+            };
+            for (const ch of line) {
+              if (ch === ITALIC_START) { flush(); italic = true; }
+              else if (ch === ITALIC_END) { flush(); italic = false; }
+              else buf += ch;
+            }
+            flush();
+            if (!p.hasChildNodes()) p.appendChild(document.createElement("br"));
           } else {
             p.appendChild(document.createElement("br"));
           }
@@ -215,7 +275,7 @@ export default function WriteEditor({
         el.appendChild(fragment);
       }
     }
-  }, [text]);
+  }, [text, extractText]);
 
   const handleKeyDown = useCallback(
     (event) => {
