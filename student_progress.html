@@ -1553,6 +1553,43 @@
       line-height: 1.55; resize: vertical; box-sizing: border-box;
     }
     .semester-combined-textarea:focus { border-color: var(--maroon); outline: none; }
+    .semester-assignment-list {
+      max-height: 260px; overflow-y: auto;
+      border: 1px solid rgba(0,0,0,.10); border-radius: 10px;
+      background: #fafafa; padding: 4px;
+      margin-bottom: 18px;
+    }
+    .semester-assignment-empty {
+      font-size: 12.5px; color: rgba(0,0,0,.55);
+      padding: 12px 14px; border: 1px dashed rgba(0,0,0,.14);
+      border-radius: 10px; background: #fafafa;
+      margin-bottom: 18px;
+    }
+    .semester-assignment-card {
+      padding: 10px 12px; border-radius: 8px;
+      background: #fff; margin: 4px; border: 1px solid rgba(0,0,0,.06);
+    }
+    .semester-assignment-card + .semester-assignment-card { margin-top: 6px; }
+    .semester-assignment-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 8px; margin-bottom: 4px;
+    }
+    .semester-assignment-title {
+      font-size: 13px; font-weight: 700; color: #1a1a1a;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .semester-assignment-date {
+      font-size: 11.5px; color: rgba(0,0,0,.5); white-space: nowrap;
+    }
+    .semester-assignment-label {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--maroon, #A90D22);
+      margin: 6px 0 2px;
+    }
+    .semester-assignment-text {
+      font-size: 12.5px; color: rgba(0,0,0,.78); line-height: 1.45;
+      white-space: pre-wrap;
+    }
     .semester-actions {
       display: flex; align-items: center; justify-content: space-between;
       margin-top: 16px; gap: 8px;
@@ -3650,10 +3687,12 @@
         const tiers = { ...recommendedTiers };
         const courseName = "";
         const vars = scBuildVars(stats, courseName);
-        _scState = { stats, tiers, recommendedTiers, vars, studentName, courseName };
+        // Stash rows so the Final Comment renderer can show per-assignment
+        // Teacher Comments + Notes alongside the auto-gen tier pickers.
+        _scState = { stats, tiers, recommendedTiers, vars, studentName, courseName, rows };
         _scRenderModal(document.getElementById("scPanelFinal"), stats);
       } else {
-        _scState = { studentName, stats: null };
+        _scState = { studentName, stats: null, rows };
       }
 
       overlay.classList.add("visible");
@@ -3700,6 +3739,11 @@
         }
         html += '</div>';
       });
+
+      // Aggregated per-assignment Teacher Comments + Notes — gives the
+      // teacher their own past feedback at a glance so they can decide
+      // what to put in the Final Comment.
+      html += _scRenderAssignmentFeedback(st.rows || []);
 
       html += '<div class="semester-combined-label">COMBINED PREVIEW</div>';
       html += '<textarea class="semester-combined-textarea" id="semesterCombined">' + _scEsc(_scCombineTexts()) + '</textarea>';
@@ -3834,6 +3878,56 @@
         if (_scState.texts[key]) parts.push(_scState.texts[key]);
       });
       return parts.join(" ");
+    }
+
+    // Render the "ASSIGNMENT FEEDBACK" block shown in the Final Comment
+    // tab — surfaces what the teacher actually wrote into each
+    // assignment's Teacher Comment + Notes so they can reference their
+    // own past remarks while composing the semester-wide Final Comment.
+    function _scRenderAssignmentFeedback(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) return "";
+      const sorted = [...rows].sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
+      const items = sorted
+        .map((r) => {
+          const tc = (r.teacher_comment || "")
+            .replace(/^Score:\s*\d+%\s*\n+/, "")
+            .trim();
+          const note = (r.notes || "").trim();
+          if (!tc && !note) return null;
+          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString() : "";
+          const title = _scEsc(r.assignment_display || r.assignment_name || r.file_name || "Untitled");
+          const meta = dateStr
+            ? '<span class="semester-assignment-date">' + _scEsc(dateStr) + '</span>'
+            : "";
+          let body = "";
+          if (tc) {
+            body +=
+              '<div class="semester-assignment-label">Teacher Comment</div>' +
+              '<div class="semester-assignment-text">' + _scEsc(tc) + '</div>';
+          }
+          if (note) {
+            body +=
+              '<div class="semester-assignment-label">Notes</div>' +
+              '<div class="semester-assignment-text">' + _scEsc(note) + '</div>';
+          }
+          return (
+            '<div class="semester-assignment-card">' +
+              '<div class="semester-assignment-header">' +
+                '<span class="semester-assignment-title">' + title + '</span>' + meta +
+              '</div>' +
+              body +
+            '</div>'
+          );
+        })
+        .filter(Boolean);
+      if (items.length === 0) {
+        return '<div class="semester-combined-label">ASSIGNMENT FEEDBACK</div>' +
+          '<div class="semester-assignment-empty">No per-assignment teacher comments or notes recorded yet.</div>';
+      }
+      return '<div class="semester-combined-label">ASSIGNMENT FEEDBACK</div>' +
+        '<div class="semester-assignment-list">' + items.join("") + '</div>';
     }
 
     function _scEsc(text) {
@@ -7176,6 +7270,40 @@ ${savedHtml}
       return buildAutoFinalComment(studentName, rows);
     }
 
+    // Open the rich Roster Final Comment modal for one student and resolve
+    // when the teacher closes it (Save, X, backdrop click, or Esc). The
+    // resolved value is the final comment to use for that student's PDF —
+    // pulled from rosterStudents (which the modal's Save handler updates).
+    // Returns null if the action should be aborted (no Cancel button in the
+    // existing modal, so we treat plain-close as "use the current saved/
+    // auto value" — never aborts).
+    function openSemesterCommentModalAsync(studentName, rows) {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById("semesterOverlay");
+        if (!overlay) {
+          resolve(resolveFinalCommentFor(studentName, rows));
+          return;
+        }
+        let settled = false;
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          observer.disconnect();
+          // Pick up whatever the teacher saved into the roster, falling
+          // back to the auto-gen if they closed without saving and never
+          // had a saved comment.
+          resolve(resolveFinalCommentFor(studentName, rows));
+        };
+        // Detect the moment the modal closes — its visibility is toggled
+        // via the "visible" class on the overlay.
+        const observer = new MutationObserver(() => {
+          if (!overlay.classList.contains("visible")) settle();
+        });
+        observer.observe(overlay, { attributes: true, attributeFilter: ["class"] });
+        openSemesterCommentModal(studentName, "final");
+      });
+    }
+
     // Editable Final Comment popover, opened before Progress Report PDFs
     // are generated. Pre-fills the textarea with the saved Roster Final
     // Comment for the first selected student, falling back to an
@@ -7299,32 +7427,18 @@ ${savedHtml}
         rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       }
 
-      // Show the editable Final Comment popover.
-      const choice = await promptFinalCommentEditor(byStudent);
-      if (choice === null) return;  // Cancel
-      // choice = { text, skip }. If skip \u2192 empty string regardless.
-      // If the teacher edited the text, that custom text is used for every
-      // selected student. If they kept the default and there's only one
-      // student, this is just their personalized text. (For multi-student
-      // personalization, edit each student's saved Final Comment in the
-      // Roster first.)
-      const finalComment = choice.skip ? "" : (choice.text || "");
-
-      finalReportBtn.disabled = true;
-      finalReportBtn.textContent = "Generating\u2026";
-
       try {
         if (byStudent.size === 0) return;
-        // Generate one PDF per student
+        // For each selected student: open the rich Final Comment modal
+        // (Note / Breakdown / Final Comment tabs with auto-gen pills,
+        // tier selectors, per-assignment feedback, and Save). Wait for
+        // the teacher to close it, then use whatever they ended up with
+        // (or the auto-gen) for the PDF.
         for (const [name, rows] of byStudent) {
-          // If the teacher kept the default text and there are multiple
-          // students, use each student's own saved/auto text so each
-          // report stays personalized. Otherwise use the single text.
-          let perStudentComment = finalComment;
-          if (!choice.skip && byStudent.size > 1) {
-            perStudentComment = resolveFinalCommentFor(name, rows);
-          }
-          const doc = await generateFinalReport(name, rows, { finalComment: perStudentComment });
+          const finalComment = await openSemesterCommentModalAsync(name, rows);
+          finalReportBtn.disabled = true;
+          finalReportBtn.textContent = "Generating\u2026";
+          const doc = await generateFinalReport(name, rows, { finalComment });
           doc.save(`Progress_Report_${name.replace(/\s+/g, "_")}.pdf`);
         }
       } catch (err) {
