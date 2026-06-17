@@ -234,6 +234,26 @@
       font-size: 13px;
       color: var(--text);
     }
+    .storage-usage-banner {
+      padding: 10px 14px;
+      background: #fff8e1;
+      border: 1px solid #f0d97a;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #5a4400;
+      line-height: 1.45;
+    }
+    .storage-usage-banner.over {
+      background: #fdecea;
+      border-color: #f5b5af;
+      color: #5b1a16;
+    }
+    .storage-usage-banner strong { font-weight: 700; }
+    .storage-usage-banner .storage-usage-meta {
+      color: rgba(0,0,0,.5);
+      font-weight: 500;
+    }
 
     /* Download button styles */
     .download-btn {
@@ -1932,6 +1952,7 @@
       </div>
 
       <div id="statusMessage" class="status-message" style="display:none;"></div>
+      <div id="storageUsageBanner" class="storage-usage-banner" style="display:none;"></div>
 
       <!-- Lens Toggle (visible only for teachers) -->
       <div id="lensToggle" class="lens-toggle" style="display:none;">
@@ -2960,6 +2981,35 @@
     }
 
     // ===== Data loading =====
+    // Soft-limit advisory at 5,000 mark_events. No auto-delete; the
+    // banner shows when usage is high so the teacher can use the
+    // existing Delete-selected flow to trim old data at their pace.
+    const _MARK_EVENTS_SOFT_LIMIT = 5000;
+    const _STORAGE_WARN_AT = Math.floor(_MARK_EVENTS_SOFT_LIMIT * 0.8); // 4000
+
+    function renderStorageUsageBanner(count) {
+      const el = document.getElementById("storageUsageBanner");
+      if (!el) return;
+      if (count < _STORAGE_WARN_AT) {
+        el.style.display = "none";
+        el.innerHTML = "";
+        return;
+      }
+      const pct = Math.min(100, Math.round((count / _MARK_EVENTS_SOFT_LIMIT) * 100));
+      const overLimit = count >= _MARK_EVENTS_SOFT_LIMIT;
+      el.style.display = "block";
+      el.className = "storage-usage-banner" + (overLimit ? " over" : "");
+      el.innerHTML =
+        '<div class="storage-usage-text">' +
+        '<strong>' + count.toLocaleString() + '</strong> marked essays stored ' +
+        '<span class="storage-usage-meta">(' + pct + '% of advisory limit ' +
+        _MARK_EVENTS_SOFT_LIMIT.toLocaleString() + ').</span> ' +
+        (overLimit
+          ? 'You’ve passed the soft limit — consider deleting older essays so your gradebook stays quick.'
+          : 'Approaching the advisory limit. Nothing is auto-deleted; you can clean up older essays from Uploaded Work when ready.') +
+        '</div>';
+    }
+
     async function loadData() {
       _lastVisibleLoadTs = Date.now();
       statusMessage.style.display = "block";
@@ -2975,6 +3025,21 @@
       }
 
       const userId = sessionData.session.user.id;
+
+      // Storage usage banner — surfaces total mark_events count so the
+      // teacher can clean up at their own pace. Nothing is auto-deleted.
+      // Fired once per loadData; tolerates failure silently.
+      (async () => {
+        try {
+          const { count } = await supa
+            .from("mark_events")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", userId);
+          renderStorageUsageBanner(count || 0);
+        } catch (e) {
+          console.warn("[storage banner] count fetch failed:", e);
+        }
+      })();
       let data, error;
 
       if (currentLens === "classes") {

@@ -246,7 +246,7 @@ _DEBUG = os.getenv("VYSTI_DEBUG", "").strip() in ("1", "true", "yes")
 # ===== Application caps =====
 _HARD_WORD_LIMIT = 10_000       # Reject essays exceeding this word count
 _SOFT_WORD_LIMIT = 5_000        # Warn (in metadata) for essays above this
-_MAX_MARK_EVENTS_PER_USER = 200 # Rolling retention cap per user
+_MARK_EVENTS_SOFT_LIMIT = 5_000 # Surface a "consider cleaning up" notice when a user crosses this — purely advisory; no auto-deletion. The previous 200-row hard cap was silently pruning teachers' historical gradebook data; teachers do 100 students × 12 essays × 4 quarters ≈ 4,800/year, so even one academic year would have hit the old cap. Now: keep everything, let the teacher decide when to clean up.
 _active_marks: set[str] = set() # Concurrency guard: one mark at a time per user
 
 # ===== Lazy engine loader =====
@@ -1016,6 +1016,13 @@ async def get_profile(
     profile["mobile_marks_limit"] = _MOBILE_MARK_LIMIT
     if "subscription_tier" not in profile:
         profile["subscription_tier"] = "free"
+
+    # Total stored mark_events rows (advisory — frontend uses this to
+    # show a "consider cleaning up" hint when it exceeds the soft limit).
+    # count_user_marks() already does Prefer:count=exact under the hood,
+    # but it's filtered by the same path so we can reuse it directly.
+    profile["mark_events_total"] = marks_used
+    profile["mark_events_soft_limit"] = _MARK_EVENTS_SOFT_LIMIT
 
     return profile
 
@@ -2655,66 +2662,15 @@ async def mark_essay(
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
 
-    # Prune old mark_events beyond retention cap (best-effort)
-    try:
-        if SUPABASE_URL and SUPABASE_SERVICE_KEY and mark_event_id:
-            user_id = user.get("id") if isinstance(user, dict) else None
-            if user_id:
-                # Fetch the Nth oldest event ID to use as a cutoff
-                prune_url = (
-                    f"{SUPABASE_URL}/rest/v1/mark_events"
-                    f"?user_id=eq.{user_id}&select=id&order=created_at.desc"
-                    f"&offset={_MAX_MARK_EVENTS_PER_USER}&limit=1"
-                )
-                async with httpx.AsyncClient(timeout=5) as client:
-                    prune_resp = await client.get(
-                        prune_url,
-                        headers={
-                            "apikey": SUPABASE_SERVICE_KEY,
-                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        },
-                    )
-                    if prune_resp.status_code == 200:
-                        prune_data = prune_resp.json()
-                        if prune_data and len(prune_data) > 0:
-                            cutoff_id = prune_data[0]["id"]
-                            # Get IDs of all events older than the cutoff
-                            old_url = (
-                                f"{SUPABASE_URL}/rest/v1/mark_events"
-                                f"?user_id=eq.{user_id}&select=id&order=created_at.desc"
-                                f"&offset={_MAX_MARK_EVENTS_PER_USER}"
-                            )
-                            old_resp = await client.get(
-                                old_url,
-                                headers={
-                                    "apikey": SUPABASE_SERVICE_KEY,
-                                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                                },
-                            )
-                            if old_resp.status_code == 200:
-                                old_ids = [r["id"] for r in old_resp.json() if "id" in r]
-                                if old_ids:
-                                    # Delete old events and their examples
-                                    for old_id in old_ids:
-                                        await client.delete(
-                                            f"{SUPABASE_URL}/rest/v1/issue_examples?mark_event_id=eq.{old_id}",
-                                            headers={
-                                                "apikey": SUPABASE_SERVICE_KEY,
-                                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                                            },
-                                        )
-                                        await client.delete(
-                                            f"{SUPABASE_URL}/rest/v1/mark_events?id=eq.{old_id}",
-                                            headers={
-                                                "apikey": SUPABASE_SERVICE_KEY,
-                                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                                            },
-                                        )
-                                    if _DEBUG:
-                                        print(f"[DEBUG] Pruned {len(old_ids)} old mark_events for user {user_id}")
-    except Exception as e:
-        if _DEBUG:
-            print(f"[DEBUG] Mark event pruning failed: {repr(e)}")
+    # NOTE: an automatic-prune block used to live here, deleting every
+    # mark_events row past _MAX_MARK_EVENTS_PER_USER = 200 (along with the
+    # corresponding issue_examples). That was silently destroying months
+    # of a teacher's gradebook history — at 100 students × 12 essays per
+    # quarter, the cap was hit inside a single term. Auto-prune is now
+    # removed in favour of a soft advisory limit (_MARK_EVENTS_SOFT_LIMIT)
+    # surfaced through the /api/profile response; the UI shows a
+    # "consider cleaning up" hint and the teacher decides what (if
+    # anything) to delete via the existing Delete-selected flow.
 
     # Log examples to Supabase issue_examples (best-effort; do not break marking if this fails)
     try:
