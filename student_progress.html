@@ -6631,13 +6631,14 @@ ${savedHtml}
       const totalWords = rows.reduce((s, r) => s + (r.word_count || 0), 0);
       const totalIssues = rows.reduce((s, r) => s + (r.total_labels || 0), 0);
 
-      // Stat boxes
-      const statBoxW = FR_CONTENT_W / 3;
+      // Stat boxes. "Assignments Completed" used to be a third box but
+      // was removed — revisions, re-uploads, or rows that just weren't
+      // saved off can inflate the count, making it misleading.
       const stats = [
         { label: "Total Words Written", value: hasAnyWordCount ? totalWords.toLocaleString() : "N/A" },
-        { label: "Assignments Completed", value: String(rows.length) },
         { label: "Total Issues Flagged", value: totalIssues.toLocaleString() }
       ];
+      const statBoxW = FR_CONTENT_W / stats.length;
       stats.forEach((st, i) => {
         const bx = FR_ML + i * statBoxW;
         doc.setFillColor(248, 248, 250);
@@ -7143,11 +7144,50 @@ ${savedHtml}
       return doc;
     }
 
-    // Lightweight modal that asks the teacher for an optional Final
-    // Comment to include in the Progress Report PDF. Resolves with the
-    // string the teacher typed (empty string is allowed → no comment
-    // rendered), or null if they cancelled.
-    function promptFinalComment() {
+    // Build a personalized Final Comment for one student using the same
+    // auto-generation machinery as the Comment Notebook's "Final Comment"
+    // tab (computeSemesterStats → scAutoSelectTiers → scBuildVars →
+    // scGenerateSection). Returns "" if there's nothing to say (no scores).
+    function buildAutoFinalComment(studentName, rows) {
+      try {
+        const stats = computeSemesterStats(studentName, rows);
+        if (!stats) return "";
+        const tiers = scAutoSelectTiers(stats);
+        const vars = scBuildVars(stats, "");
+        const sections = ["greeting", "progress", "completion", "nextSteps"];
+        return sections
+          .map((key) => scGenerateSection(key, tiers[key], vars))
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+      } catch (err) {
+        console.warn("Auto Final Comment generation failed:", err);
+        return "";
+      }
+    }
+
+    // Resolve the Final Comment for a student: prefer the saved
+    // semester_comment from the Roster (teachers edit it via the
+    // Final Comment tab there), fall back to a freshly auto-generated
+    // one using the same machinery. Returns "" if no data to draw on.
+    function resolveFinalCommentFor(studentName, rows) {
+      const saved = rosterStudents.find(s => s.student_name === studentName)?.semester_comment;
+      if (saved && saved.trim()) return saved.trim();
+      return buildAutoFinalComment(studentName, rows);
+    }
+
+    // Editable Final Comment popover, opened before Progress Report PDFs
+    // are generated. Pre-fills the textarea with the saved Roster Final
+    // Comment for the first selected student, falling back to an
+    // auto-generated one. Teachers can edit freely or clear it.
+    // Resolves to { text, skip } — text is what the teacher kept, skip
+    // is true if they hit "Skip"; resolves null on Cancel/Esc.
+    function promptFinalCommentEditor(rowsByStudent) {
+      const studentNames = Array.from(rowsByStudent.keys());
+      const primaryName = studentNames[0];
+      const primaryRows = rowsByStudent.get(primaryName) || [];
+      const initialText = resolveFinalCommentFor(primaryName, primaryRows);
+
       return new Promise((resolve) => {
         const overlay = document.createElement("div");
         overlay.style.cssText =
@@ -7157,51 +7197,74 @@ ${savedHtml}
         const card = document.createElement("div");
         card.style.cssText =
           "background:#fff;border-radius:14px;padding:24px 24px 18px;" +
-          "max-width:520px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.18);" +
+          "max-width:600px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.18);" +
           "font-family:'DM Sans',sans-serif;";
         const title = document.createElement("h3");
-        title.textContent = "Add a final comment?";
+        title.textContent = "Final Comment for the Progress Report";
         title.style.cssText = "margin:0 0 6px;font-size:18px;font-weight:700;color:#1a1a1a;";
         const sub = document.createElement("p");
-        sub.textContent =
-          "Optional — will appear in the Progress Report PDF for each selected student. Leave blank to skip.";
-        sub.style.cssText = "margin:0 0 14px;font-size:13px;color:rgba(0,0,0,.6);line-height:1.4;";
+        const multi = studentNames.length > 1;
+        sub.textContent = multi
+          ? `Pre-filled from ${primaryName}'s Roster Final Comment (or auto-generated). The text below will appear in each of the ${studentNames.length} selected students' PDFs. To personalize per student, edit each student's Final Comment in the Roster first.`
+          : "Pulled from this student's saved Roster Final Comment when present, otherwise auto-generated from their semester data. Edit freely below or skip to omit the section.";
+        sub.style.cssText = "margin:0 0 14px;font-size:13px;color:rgba(0,0,0,.6);line-height:1.45;";
         const ta = document.createElement("textarea");
-        ta.placeholder = "e.g. A strong semester overall — keep building on…";
+        ta.value = initialText;
         ta.style.cssText =
-          "width:100%;min-height:120px;padding:10px 12px;border:1px solid rgba(0,0,0,.18);" +
+          "width:100%;min-height:170px;padding:10px 12px;border:1px solid rgba(0,0,0,.18);" +
           "border-radius:8px;font:14px/1.5 'DM Sans',sans-serif;color:#1a1a1a;" +
           "resize:vertical;box-sizing:border-box;";
         const actions = document.createElement("div");
-        actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:16px;";
-        const cancelBtn = document.createElement("button");
-        cancelBtn.textContent = "Cancel";
-        cancelBtn.style.cssText =
-          "padding:9px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.18);" +
-          "background:#fff;color:#1a1a1a;font-weight:600;font-size:14px;cursor:pointer;";
-        const generateBtn = document.createElement("button");
-        generateBtn.textContent = "Generate Report";
-        generateBtn.style.cssText =
-          "padding:9px 18px;border-radius:8px;border:none;background:var(--maroon,#A90D22);" +
-          "color:#fff;font-weight:600;font-size:14px;cursor:pointer;";
+        actions.style.cssText = "display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:14px;";
+        const leftBox = document.createElement("div");
+        const regenBtn = document.createElement("button");
+        regenBtn.textContent = "Regenerate";
+        regenBtn.title = "Re-run the auto-generator for the first selected student";
+        regenBtn.style.cssText =
+          "padding:9px 14px;border-radius:8px;border:1px solid rgba(0,0,0,.18);" +
+          "background:#fff;color:#1a1a1a;font-weight:600;font-size:13px;cursor:pointer;";
+        regenBtn.addEventListener("click", () => {
+          ta.value = buildAutoFinalComment(primaryName, primaryRows);
+          ta.focus();
+        });
+        leftBox.appendChild(regenBtn);
+        const rightBox = document.createElement("div");
+        rightBox.style.cssText = "display:flex;gap:10px;";
+        function mkBtn(label, primary) {
+          const b = document.createElement("button");
+          b.textContent = label;
+          b.style.cssText =
+            "padding:9px 16px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;" +
+            (primary
+              ? "border:none;background:var(--maroon,#A90D22);color:#fff;"
+              : "border:1px solid rgba(0,0,0,.18);background:#fff;color:#1a1a1a;");
+          return b;
+        }
+        const cancelBtn = mkBtn("Cancel", false);
+        const skipBtn = mkBtn("Skip", false);
+        const generateBtn = mkBtn("Generate Report", true);
         function close(value) {
           overlay.style.opacity = "0";
           setTimeout(() => { try { document.body.removeChild(overlay); } catch {} }, 150);
           resolve(value);
         }
         cancelBtn.addEventListener("click", () => close(null));
-        generateBtn.addEventListener("click", () => close(ta.value.trim()));
+        skipBtn.addEventListener("click", () => close({ text: "", skip: true }));
+        generateBtn.addEventListener("click", () => close({ text: ta.value.trim(), skip: false }));
         overlay.addEventListener("click", (e) => { if (e.target === overlay) close(null); });
         const onKey = (e) => {
           if (e.key === "Escape") { document.removeEventListener("keydown", onKey); close(null); }
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             document.removeEventListener("keydown", onKey);
-            close(ta.value.trim());
+            close({ text: ta.value.trim(), skip: false });
           }
         };
         document.addEventListener("keydown", onKey);
-        actions.appendChild(cancelBtn);
-        actions.appendChild(generateBtn);
+        rightBox.appendChild(cancelBtn);
+        rightBox.appendChild(skipBtn);
+        rightBox.appendChild(generateBtn);
+        actions.appendChild(leftBox);
+        actions.appendChild(rightBox);
         card.appendChild(title);
         card.appendChild(sub);
         card.appendChild(ta);
@@ -7224,31 +7287,44 @@ ${savedHtml}
         return;
       }
 
-      // Ask the teacher for an optional final comment to include in the PDF.
-      const finalComment = await promptFinalComment();
-      if (finalComment === null) return;  // teacher hit Cancel
+      // Pre-group rows by student so the modal can pre-fill with the
+      // first student's saved-or-auto-generated Final Comment.
+      const byStudent = new Map();
+      for (const row of selRows) {
+        const name = row.student_name || "\u2014";
+        if (!byStudent.has(name)) byStudent.set(name, []);
+        byStudent.get(name).push(row);
+      }
+      for (const rows of byStudent.values()) {
+        rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      }
+
+      // Show the editable Final Comment popover.
+      const choice = await promptFinalCommentEditor(byStudent);
+      if (choice === null) return;  // Cancel
+      // choice = { text, skip }. If skip \u2192 empty string regardless.
+      // If the teacher edited the text, that custom text is used for every
+      // selected student. If they kept the default and there's only one
+      // student, this is just their personalized text. (For multi-student
+      // personalization, edit each student's saved Final Comment in the
+      // Roster first.)
+      const finalComment = choice.skip ? "" : (choice.text || "");
 
       finalReportBtn.disabled = true;
       finalReportBtn.textContent = "Generating\u2026";
 
       try {
-        const selectedRows = filteredData.filter(r => selectedFileNames.has(rowKey(r)));
-        if (selectedRows.length === 0) return;
-
-        // Group by student
-        const byStudent = new Map();
-        for (const row of selectedRows) {
-          const name = row.student_name || "\u2014";
-          if (!byStudent.has(name)) byStudent.set(name, []);
-          byStudent.get(name).push(row);
-        }
-        for (const rows of byStudent.values()) {
-          rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        }
-
+        if (byStudent.size === 0) return;
         // Generate one PDF per student
         for (const [name, rows] of byStudent) {
-          const doc = await generateFinalReport(name, rows, { finalComment });
+          // If the teacher kept the default text and there are multiple
+          // students, use each student's own saved/auto text so each
+          // report stays personalized. Otherwise use the single text.
+          let perStudentComment = finalComment;
+          if (!choice.skip && byStudent.size > 1) {
+            perStudentComment = resolveFinalCommentFor(name, rows);
+          }
+          const doc = await generateFinalReport(name, rows, { finalComment: perStudentComment });
           doc.save(`Progress_Report_${name.replace(/\s+/g, "_")}.pdf`);
         }
       } catch (err) {
