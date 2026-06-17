@@ -1510,6 +1510,22 @@
       border: 1px solid rgba(0,0,0,.06);
       border-radius: 10px;
     }
+    .semester-section-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .semester-section-regen {
+      font-size: 11px; color: rgba(0,0,0,.55);
+      background: none; border: 1px solid rgba(0,0,0,.10);
+      cursor: pointer; padding: 3px 8px; border-radius: 6px;
+      font-family: inherit; font-weight: 600; letter-spacing: .02em;
+      transition: all .15s;
+    }
+    .semester-section-regen:hover {
+      background: rgba(169, 13, 34, .08);
+      color: var(--maroon, #A90D22);
+      border-color: rgba(169, 13, 34, .25);
+    }
     .semester-section-label {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .06em; color: rgba(0,0,0,.45); margin-bottom: 8px;
@@ -3763,7 +3779,12 @@
       sections.forEach(key => {
         const bank = SEMESTER_COMMENT_BANK[key];
         html += '<div class="semester-section" data-section="' + key + '">';
-        html += '<div class="semester-section-label">' + sectionLabels[key] + '</div>';
+        html += '<div class="semester-section-header">' +
+          '<div class="semester-section-label">' + sectionLabels[key] + '</div>' +
+          '<button class="semester-section-regen" data-section="' + key + '" title="Re-roll this section’s text">' +
+            '↻ Regenerate' +
+          '</button>' +
+        '</div>';
         html += '<div class="semester-pills">';
         bank.tiers.forEach(tier => {
           const isActive = st.tiers[key] === tier;
@@ -3801,6 +3822,22 @@
       if (roster?.semester_comment) {
         document.getElementById("semesterCombined").value = roster.semester_comment;
       }
+
+      // Bind per-section regenerate buttons — re-rolls just that
+      // section's text + the COMBINED PREVIEW, leaving the other
+      // sections (and any edits in the textarea outside that
+      // sentence) alone.
+      body.querySelectorAll(".semester-section-regen").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const section = btn.dataset.section;
+          if (!section || !st.tiers[section]) return;
+          st.vars = scBuildVars(st.stats, document.getElementById("semesterCourseInput")?.value || st.courseName);
+          st.texts[section] = scGenerateSection(section, st.tiers[section], st.vars);
+          const el = document.getElementById("scText_" + section);
+          if (el) el.textContent = st.texts[section];
+          document.getElementById("semesterCombined").value = _scCombineTexts();
+        });
+      });
 
       // Bind pill clicks
       body.querySelectorAll(".semester-pill").forEach(pill => {
