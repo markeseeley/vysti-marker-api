@@ -2600,65 +2600,114 @@ async def mark_essay(
     except Exception as e:
         if _DEBUG: print(f"[SCORE] Pre-insert _compute_scores failed: {repr(e)}")
 
-    # Log usage in Supabase mark_events (best-effort; do not break marking if this fails)
+    # Save mark to Supabase mark_events (best-effort; do not break marking if this fails).
+    #
+    # IMPORTANT — re-mark behaviour:
+    # When a teacher re-marks the same file (same user_id + file_name), we
+    # UPDATE the existing row instead of deleting it and inserting a new
+    # one. The previous code did DELETE+INSERT, which silently wiped every
+    # teacher-set column (student_name, assignment_name, class_id, score,
+    # ib_score, teacher_comment, notes, review_status, source_works,
+    # essay_title) — destroying real grading work whenever an essay was
+    # re-marked after annotation. We now only touch the marker-computed
+    # columns; teacher annotations survive.
     mark_event_id = None
+    _is_new_mark = False
     try:
         if SUPABASE_URL and SUPABASE_SERVICE_KEY:
             user_id = user.get("id") if isinstance(user, dict) else None
 
-            # Detect new-vs-remark BEFORE we delete the old row so the
-            # monotonic lifetime_marks counter stays correct.
-            _is_new_mark = await _is_new_filename_for_user(user_id, file.filename)
-
-            # Clear old mark_events for this user/file to ensure fresh start
-            encoded_filename = urllib.parse.quote(file.filename)
-            delete_url = f"{SUPABASE_URL}/rest/v1/mark_events"
+            # 1. Look up an existing row for this (user_id, file_name).
+            #    PostgREST: exactly one such row should exist if any, but
+            #    take the most recent defensively in case of legacy dupes.
+            encoded_filename = urllib.parse.quote(file.filename, safe="")
+            lookup_url = (
+                f"{SUPABASE_URL}/rest/v1/mark_events"
+                f"?user_id=eq.{user_id}&file_name=eq.{encoded_filename}"
+                f"&select=id&order=created_at.desc&limit=1"
+            )
+            existing_id = None
             async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.delete(
-                    f"{delete_url}?user_id=eq.{user_id}&file_name=eq.{encoded_filename}",
+                lookup_resp = await client.get(
+                    lookup_url,
                     headers={
                         "apikey": SUPABASE_SERVICE_KEY,
                         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                     },
                 )
-                if _DEBUG: print(f"[DEBUG] Deleted old mark_events: status={resp.status_code}, filename={file.filename}")
+                if lookup_resp.status_code == 200:
+                    rows = lookup_resp.json()
+                    if isinstance(rows, list) and rows:
+                        existing_id = rows[0].get("id")
+            _is_new_mark = existing_id is None
 
-            db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
-            payload = {
-                "user_id": user_id,
-                "file_name": file.filename,
-                "mode": mode,
-                "bytes": len(docx_bytes),
-                "student_name": student_name,
-                "assignment_name": assignment_name,
-                "class_id": class_id_validated,
-                "total_labels": total_labels,
-                "label_counts": dict(label_counter),
-                "issues": issues,
-                "review_status": "pending",
-                "word_count": _meta_word_count,
-                "scores": _sanitize_for_json(_meta_scores) if _meta_scores else None,
-            }
+            # 2a. Re-mark: PATCH only the marker-computed columns. Every
+            #     teacher-set field stays as it was (preserved).
+            if existing_id:
+                patch_body = {
+                    "mode": mode,
+                    "bytes": len(docx_bytes),
+                    "total_labels": total_labels,
+                    "label_counts": dict(label_counter),
+                    "issues": issues,
+                    "word_count": _meta_word_count,
+                    "scores": _sanitize_for_json(_meta_scores) if _meta_scores else None,
+                }
+                patch_url = f"{SUPABASE_URL}/rest/v1/mark_events?id=eq.{existing_id}"
+                async with httpx.AsyncClient(timeout=5) as client:
+                    patch_resp = await client.patch(
+                        patch_url,
+                        json=patch_body,
+                        headers={
+                            "apikey": SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            "Content-Type": "application/json",
+                            "Prefer": "return=representation",
+                        },
+                    )
+                    if 200 <= patch_resp.status_code < 300:
+                        mark_event_id = existing_id
+                        if _DEBUG: print(f"[DEBUG] Re-marked existing row id={existing_id}")
+                    else:
+                        if _DEBUG: print(f"[DEBUG] Re-mark PATCH failed: {patch_resp.status_code} {patch_resp.text[:200]}")
 
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.post(
-                    db_url,
-                    json=payload,
-                    headers={
-                        "apikey": SUPABASE_SERVICE_KEY,
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        "Content-Type": "application/json",
-                        "Prefer": "return=representation",
-                    },
-                )
-                # Capture mark_event_id from response
-                if resp.status_code >= 200 and resp.status_code < 300:
-                    resp_data = resp.json()
-                    if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
-                        mark_event_id = resp_data[0].get("id")
-                        # Bump monotonic lifetime mark counter — only on new marks
-                        if _is_new_mark and user_id:
-                            await _bump_lifetime_marks(user_id)
+            # 2b. First mark for this filename: INSERT with the parser-/
+            #     form-supplied student_name / assignment_name / class_id.
+            else:
+                payload = {
+                    "user_id": user_id,
+                    "file_name": file.filename,
+                    "mode": mode,
+                    "bytes": len(docx_bytes),
+                    "student_name": student_name,
+                    "assignment_name": assignment_name,
+                    "class_id": class_id_validated,
+                    "total_labels": total_labels,
+                    "label_counts": dict(label_counter),
+                    "issues": issues,
+                    "review_status": "pending",
+                    "word_count": _meta_word_count,
+                    "scores": _sanitize_for_json(_meta_scores) if _meta_scores else None,
+                }
+                db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
+                async with httpx.AsyncClient(timeout=5) as client:
+                    resp = await client.post(
+                        db_url,
+                        json=payload,
+                        headers={
+                            "apikey": SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            "Content-Type": "application/json",
+                            "Prefer": "return=representation",
+                        },
+                    )
+                    if 200 <= resp.status_code < 300:
+                        resp_data = resp.json()
+                        if isinstance(resp_data, list) and resp_data:
+                            mark_event_id = resp_data[0].get("id")
+                            # Bump monotonic lifetime mark counter — only on new marks
+                            if user_id:
+                                await _bump_lifetime_marks(user_id)
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
 
@@ -5008,58 +5057,92 @@ async def mark_text(
     
     total_labels = sum(label_counter.values())
     
-    # 5. Log to Supabase mark_events (best-effort) — skip for API key clients
+    # 5. Save to Supabase mark_events (best-effort) — skip for API key clients
+    # Same re-mark-preserves-context contract as /mark: on re-mark, UPDATE
+    # the existing row's marker-computed columns and leave every
+    # teacher-set column alone.
     mark_event_id = None
     try:
         if SUPABASE_URL and SUPABASE_SERVICE_KEY and not _is_api_client:
             user_id = user.get("id") if isinstance(user, dict) else None
-
-            # Detect new-vs-remark BEFORE delete so the monotonic counter stays correct
-            _is_new_mt = await _is_new_filename_for_user(user_id, body.file_name or "")
-
-            # Clear old mark_events for this user/file to ensure fresh start
-            delete_url = f"{SUPABASE_URL}/rest/v1/mark_events"
             encoded_fn = urllib.parse.quote(body.file_name or "", safe="")
+
+            # Look up an existing row for this (user_id, file_name).
+            lookup_url = (
+                f"{SUPABASE_URL}/rest/v1/mark_events"
+                f"?user_id=eq.{user_id}&file_name=eq.{encoded_fn}"
+                f"&select=id&order=created_at.desc&limit=1"
+            )
+            existing_id = None
             async with httpx.AsyncClient(timeout=5) as client:
-                await client.delete(
-                    f"{delete_url}?user_id=eq.{user_id}&file_name=eq.{encoded_fn}",
+                lookup_resp = await client.get(
+                    lookup_url,
                     headers={
                         "apikey": SUPABASE_SERVICE_KEY,
                         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                     },
                 )
+                if lookup_resp.status_code == 200:
+                    rows = lookup_resp.json()
+                    if isinstance(rows, list) and rows:
+                        existing_id = rows[0].get("id")
 
-            db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
-            payload = {
-                "user_id": user_id,
-                "file_name": body.file_name,
-                "mode": mode,
-                "bytes": len(docx_bytes),
-                "total_labels": total_labels,
-                "label_counts": dict(label_counter),
-                "issues": issues,
-                "review_status": "pending",
-                "source": body.source or "desktop",
-            }
-
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.post(
-                    db_url,
-                    json=payload,
-                    headers={
-                        "apikey": SUPABASE_SERVICE_KEY,
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        "Content-Type": "application/json",
-                        "Prefer": "return=representation",
-                    },
-                )
-                if resp.status_code >= 200 and resp.status_code < 300:
-                    resp_data = resp.json()
-                    if resp_data and isinstance(resp_data, list) and len(resp_data) > 0:
-                        mark_event_id = resp_data[0].get("id")
-                        # Bump monotonic lifetime mark counter — only on new marks
-                        if _is_new_mt and user_id:
-                            await _bump_lifetime_marks(user_id)
+            if existing_id:
+                # Re-mark: PATCH only marker-computed columns.
+                patch_body = {
+                    "mode": mode,
+                    "bytes": len(docx_bytes),
+                    "total_labels": total_labels,
+                    "label_counts": dict(label_counter),
+                    "issues": issues,
+                    "source": body.source or "desktop",
+                }
+                patch_url = f"{SUPABASE_URL}/rest/v1/mark_events?id=eq.{existing_id}"
+                async with httpx.AsyncClient(timeout=5) as client:
+                    patch_resp = await client.patch(
+                        patch_url,
+                        json=patch_body,
+                        headers={
+                            "apikey": SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            "Content-Type": "application/json",
+                            "Prefer": "return=representation",
+                        },
+                    )
+                    if 200 <= patch_resp.status_code < 300:
+                        mark_event_id = existing_id
+            else:
+                # First mark for this filename: INSERT a fresh row, then
+                # bump the monotonic lifetime counter.
+                payload = {
+                    "user_id": user_id,
+                    "file_name": body.file_name,
+                    "mode": mode,
+                    "bytes": len(docx_bytes),
+                    "total_labels": total_labels,
+                    "label_counts": dict(label_counter),
+                    "issues": issues,
+                    "review_status": "pending",
+                    "source": body.source or "desktop",
+                }
+                db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
+                async with httpx.AsyncClient(timeout=5) as client:
+                    resp = await client.post(
+                        db_url,
+                        json=payload,
+                        headers={
+                            "apikey": SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            "Content-Type": "application/json",
+                            "Prefer": "return=representation",
+                        },
+                    )
+                    if 200 <= resp.status_code < 300:
+                        resp_data = resp.json()
+                        if isinstance(resp_data, list) and resp_data:
+                            mark_event_id = resp_data[0].get("id")
+                            if user_id:
+                                await _bump_lifetime_marks(user_id)
     except Exception as e:
         print("Failed to log mark_event:", repr(e))
 
