@@ -2457,8 +2457,19 @@
     let ownedClasses = [];          // [{id, name}, ...]
     let initialClassIdFromUrl = null;
 
-    // Delete tracking
+    // Bulk-selection tracking. Stores ROW IDS (the mark_events.id UUID),
+    // not file_name — two students can legitimately submit the same
+    // filename, and re-uploads create a new mark_event row with the same
+    // filename, so file_name is not unique. rowKey() falls back to
+    // file_name when id is missing (legacy rows).
     const selectedFileNames = new Set();
+    const rowKey = (row) => row?.id || row?.file_name || row?.created_at || "";
+    const fileNamesFromSelection = () =>
+      Array.from(new Set(
+        allData.filter(r => selectedFileNames.has(rowKey(r)))
+               .map(r => r.file_name)
+               .filter(Boolean)
+      ));
 
     // ===== Helper: compute total_labels from label_counts =====
     function totalLabelsFromCounts(labelCounts) {
@@ -5216,11 +5227,15 @@
         const checkTd = document.createElement("td");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
+        // Track the unique mark_event id (falls back to file_name for
+        // legacy rows). Storing only file_name caused selection to spill
+        // over to other rows that happen to share a filename.
+        checkbox.dataset.rowKey = rowKey(row);
         checkbox.dataset.fileName = row.file_name || "";
         checkbox.addEventListener("click", (e) => e.stopPropagation());
         checkbox.addEventListener("change", () => {
-          if (checkbox.checked) selectedFileNames.add(checkbox.dataset.fileName);
-          else selectedFileNames.delete(checkbox.dataset.fileName);
+          if (checkbox.checked) selectedFileNames.add(checkbox.dataset.rowKey);
+          else selectedFileNames.delete(checkbox.dataset.rowKey);
           syncBulkUI();
         });
         checkTd.appendChild(checkbox);
@@ -5908,9 +5923,9 @@
       allCheckboxes.forEach(cb => {
         cb.checked = checkAllBox.checked;
         if (checkAllBox.checked) {
-          selectedFileNames.add(cb.dataset.fileName);
+          selectedFileNames.add(cb.dataset.rowKey);
         } else {
-          selectedFileNames.delete(cb.dataset.fileName);
+          selectedFileNames.delete(cb.dataset.rowKey);
         }
       });
       syncBulkUI();
@@ -5920,7 +5935,7 @@
       const allCheckboxes = dataTableBody.querySelectorAll("input[type='checkbox']");
       allCheckboxes.forEach(cb => {
         cb.checked = true;
-        selectedFileNames.add(cb.dataset.fileName);
+        selectedFileNames.add(cb.dataset.rowKey);
       });
       syncBulkUI();
     });
@@ -5961,7 +5976,7 @@
         alert(`Please select ${LIMITS.delete} or fewer items to delete at once.`);
         return;
       }
-      deleteDocumentsByFileNames(Array.from(selectedFileNames));
+      deleteDocumentsByFileNames(fileNamesFromSelection());
     });
 
     // ===== Compare functionality =====
@@ -5972,7 +5987,7 @@
         return;
       }
       compareMode = true;
-      comparedFileNames = new Set(selectedFileNames);
+      comparedFileNames = new Set(fileNamesFromSelection());
       // Build chartOrder from compared rows, sorted by assignment number
       const comparedNames = filteredData
         .filter(row => comparedFileNames.has(row.file_name))
@@ -6014,7 +6029,7 @@
       }
 
       // Gather selected rows
-      const selectedRows = filteredData.filter(r => selectedFileNames.has(r.file_name));
+      const selectedRows = filteredData.filter(r => selectedFileNames.has(rowKey(r)));
       if (selectedRows.length === 0) return;
 
       // Group by student name (fallback to "—" for writing-lens rows without student_name)
@@ -6565,10 +6580,11 @@ ${savedHtml}
       ];
     }
 
-    async function generateFinalReport(studentName, rows) {
+    async function generateFinalReport(studentName, rows, options = {}) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const logo = await loadFrLogo();
+      const finalComment = (options.finalComment || "").trim();
 
       let y = 16;
 
@@ -6587,6 +6603,28 @@ ${savedHtml}
         : new Date(rows[0].created_at).toLocaleDateString();
       doc.text(`${studentName}  \u00b7  ${rows.length} assignment${rows.length !== 1 ? "s" : ""}  \u00b7  ${dateRange}`, FR_PAGE_W / 2, y, { align: "center" });
       y += 12;
+
+      // Optional teacher-entered Final Comment, near the top so
+      // parents/students see the semester-summary remarks first.
+      if (finalComment) {
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text("Teacher's Final Comment", FR_ML, y);
+        y += 6;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...FR_BLACK);
+        const wrapped = doc.splitTextToSize(finalComment, FR_CONTENT_W - 6);
+        // Maroon left border (mirrors per-assignment Teacher Comments style).
+        doc.setFillColor(...FR_MAROON);
+        doc.rect(FR_ML, y - 1, 1, wrapped.length * 4 + 2, "F");
+        wrapped.forEach((line) => {
+          doc.text(line, FR_ML + 4, y + 3);
+          y += 4;
+        });
+        y += 8;
+      }
 
       // ── Summary stats ──
       const hasAnyWordCount = rows.some(r => r.word_count > 0);
@@ -7105,22 +7143,96 @@ ${savedHtml}
       return doc;
     }
 
+    // Lightweight modal that asks the teacher for an optional Final
+    // Comment to include in the Progress Report PDF. Resolves with the
+    // string the teacher typed (empty string is allowed → no comment
+    // rendered), or null if they cancelled.
+    function promptFinalComment() {
+      return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.style.cssText =
+          "position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.35);" +
+          "display:flex;align-items:center;justify-content:center;" +
+          "opacity:0;transition:opacity .15s;";
+        const card = document.createElement("div");
+        card.style.cssText =
+          "background:#fff;border-radius:14px;padding:24px 24px 18px;" +
+          "max-width:520px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.18);" +
+          "font-family:'DM Sans',sans-serif;";
+        const title = document.createElement("h3");
+        title.textContent = "Add a final comment?";
+        title.style.cssText = "margin:0 0 6px;font-size:18px;font-weight:700;color:#1a1a1a;";
+        const sub = document.createElement("p");
+        sub.textContent =
+          "Optional — will appear in the Progress Report PDF for each selected student. Leave blank to skip.";
+        sub.style.cssText = "margin:0 0 14px;font-size:13px;color:rgba(0,0,0,.6);line-height:1.4;";
+        const ta = document.createElement("textarea");
+        ta.placeholder = "e.g. A strong semester overall — keep building on…";
+        ta.style.cssText =
+          "width:100%;min-height:120px;padding:10px 12px;border:1px solid rgba(0,0,0,.18);" +
+          "border-radius:8px;font:14px/1.5 'DM Sans',sans-serif;color:#1a1a1a;" +
+          "resize:vertical;box-sizing:border-box;";
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end;margin-top:16px;";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.style.cssText =
+          "padding:9px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.18);" +
+          "background:#fff;color:#1a1a1a;font-weight:600;font-size:14px;cursor:pointer;";
+        const generateBtn = document.createElement("button");
+        generateBtn.textContent = "Generate Report";
+        generateBtn.style.cssText =
+          "padding:9px 18px;border-radius:8px;border:none;background:var(--maroon,#A90D22);" +
+          "color:#fff;font-weight:600;font-size:14px;cursor:pointer;";
+        function close(value) {
+          overlay.style.opacity = "0";
+          setTimeout(() => { try { document.body.removeChild(overlay); } catch {} }, 150);
+          resolve(value);
+        }
+        cancelBtn.addEventListener("click", () => close(null));
+        generateBtn.addEventListener("click", () => close(ta.value.trim()));
+        overlay.addEventListener("click", (e) => { if (e.target === overlay) close(null); });
+        const onKey = (e) => {
+          if (e.key === "Escape") { document.removeEventListener("keydown", onKey); close(null); }
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            document.removeEventListener("keydown", onKey);
+            close(ta.value.trim());
+          }
+        };
+        document.addEventListener("keydown", onKey);
+        actions.appendChild(cancelBtn);
+        actions.appendChild(generateBtn);
+        card.appendChild(title);
+        card.appendChild(sub);
+        card.appendChild(ta);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => { overlay.style.opacity = "1"; });
+        setTimeout(() => ta.focus(), 50);
+      });
+    }
+
     finalReportBtn.addEventListener("click", async () => {
       if (selectedFileNames.size === 0) return;
 
       // Count unique students in selection
-      const selRows = filteredData.filter(r => selectedFileNames.has(r.file_name));
+      const selRows = filteredData.filter(r => selectedFileNames.has(rowKey(r)));
       const uniqueStudents = new Set(selRows.map(r => r.student_name || "\u2014")).size;
       if (uniqueStudents > LIMITS.finalReport) {
         alert(`Please select ${LIMITS.finalReport} or fewer students for the final report (${uniqueStudents} currently selected).`);
         return;
       }
 
+      // Ask the teacher for an optional final comment to include in the PDF.
+      const finalComment = await promptFinalComment();
+      if (finalComment === null) return;  // teacher hit Cancel
+
       finalReportBtn.disabled = true;
       finalReportBtn.textContent = "Generating\u2026";
 
       try {
-        const selectedRows = filteredData.filter(r => selectedFileNames.has(r.file_name));
+        const selectedRows = filteredData.filter(r => selectedFileNames.has(rowKey(r)));
         if (selectedRows.length === 0) return;
 
         // Group by student
@@ -7136,7 +7248,7 @@ ${savedHtml}
 
         // Generate one PDF per student
         for (const [name, rows] of byStudent) {
-          const doc = await generateFinalReport(name, rows);
+          const doc = await generateFinalReport(name, rows, { finalComment });
           doc.save(`Progress_Report_${name.replace(/\s+/g, "_")}.pdf`);
         }
       } catch (err) {
