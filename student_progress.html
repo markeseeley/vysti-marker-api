@@ -5759,7 +5759,11 @@
       assignRow.appendChild(assignLabel);
       const assignEdit = document.createElement("input");
       assignEdit.className = "editable-cell";
-      assignEdit.style.width = "200px";
+      // Wider than the Student field — assignment names regularly hit
+      // ~40 chars ("StudentName Foundation B Homework 06.docx") and
+      // were being clipped at 200px.
+      assignEdit.style.width = "400px";
+      assignEdit.style.maxWidth = "100%";
       assignEdit.value = row.assignment_display || "";
       assignEdit.placeholder = "Assignment name";
       assignEdit.addEventListener("click", (e) => e.stopPropagation());
