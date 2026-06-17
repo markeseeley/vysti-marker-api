@@ -866,13 +866,46 @@ async def _is_new_filename_for_user(user_id: str, file_name: str) -> bool:
 
 
 async def _bump_lifetime_marks(user_id: str) -> None:
-    """Increment profiles.lifetime_marks by 1 (best-effort, fire-and-forget).
+    """Atomically increment profiles.lifetime_marks by 1 (best-effort).
 
-    Read-modify-write — race window is tiny and free-tier users
-    mark slowly enough that conflicts are negligible.
+    Prefers the SECURITY DEFINER Postgres function
+    increment_lifetime_marks(uuid) installed by
+    migrations/003_atomic_lifetime_marks.sql — a single round trip with
+    no read-modify-write race.
+
+    Falls back to the legacy GET-then-PATCH if the RPC is missing (e.g.
+    the migration hasn't been run yet) so a Python deploy never lands
+    in a state where the counter stops bumping. /mark also serializes
+    per-user via _active_marks, so the legacy path's tiny race window
+    is mostly theoretical there; /mark_text doesn't serialize, which
+    is the main reason the RPC matters.
     """
     if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+    rpc_url = f"{SUPABASE_URL}/rest/v1/rpc/increment_lifetime_marks"
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.post(rpc_url, json={"p_user_id": user_id}, headers=headers)
+            # 200/204 → atomic increment succeeded. 404 → function
+            # missing (migration not yet applied); fall back. Any other
+            # non-2xx is logged and we also fall back so we don't drop
+            # the bump entirely.
+            if 200 <= resp.status_code < 300:
+                return
+            if _DEBUG:
+                print(f"[lifetime_marks] RPC returned {resp.status_code}: {resp.text[:200]}; falling back")
+    except Exception as e:
+        if _DEBUG:
+            print(f"[lifetime_marks] RPC call failed: {e!r}; falling back to read-modify-write")
+
+    # Legacy read-modify-write fallback (kept for safety until the RPC
+    # is verified live in production; can be removed in a follow-up).
     try:
         get_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=lifetime_marks"
         patch_url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
