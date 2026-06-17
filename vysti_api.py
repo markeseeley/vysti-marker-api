@@ -177,7 +177,7 @@ def _strip_ip_from_examples(examples: list) -> list:
 
 
 app = FastAPI(
-    title="Vysti Marker API",
+    title="Vysti API",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,

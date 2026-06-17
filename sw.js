@@ -1,4 +1,4 @@
-// Vysti Marker — Service Worker (minimal, network-first)
+// Vysti — Service Worker (minimal, network-first)
 // Primary purpose: enable PWA installability.  Only caches the three
 // app-shell HTML pages as an offline fallback.  All other requests
 // (API calls, auth, CDN scripts, etc.) pass through untouched.

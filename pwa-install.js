@@ -1,4 +1,4 @@
-// Vysti Marker — PWA install + service-worker bootstrap
+// Vysti — PWA install + service-worker bootstrap
 // Loaded on the React shell pages.  Two jobs:
 //   1. Register /sw.js — required for installability in Chromium browsers
 //      (Chrome/Edge will not surface an install option without a SW).
