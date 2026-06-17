@@ -3391,6 +3391,36 @@
           ],
         },
       },
+      participation: {
+        // Ordered best → worst (matches the Progress and Completion
+        // sections). No data drives the recommendation — there's no
+        // class-engagement signal in mark_events — so the auto-selector
+        // defaults to "Engaged" (safe positive middle) and the teacher
+        // adjusts manually.
+        tiers: ["Exuberant", "Engaged", "Technical issues", "Uncertain"],
+        templates: {
+          Exuberant: [
+            "{name} brought genuine enthusiasm to every class — their willingness to contribute and engage with the material elevated the experience for everyone.",
+            "{name}’s presence in class was a real asset this semester. Their thoughtful participation set a positive tone and pushed the discussion forward.",
+            "It was a pleasure to teach {name} — they engaged actively, asked sharp questions, and made the class better by being in it.",
+          ],
+          Engaged: [
+            "{name} participated thoughtfully in class discussions, contributing readily when called on and maintaining a positive, attentive presence throughout the semester.",
+            "{name}’s engagement during class was solid — they contributed to discussions, used the chat productively, and brought a respectful, ready-to-learn demeanor.",
+            "I appreciated {name}’s engagement this semester — consistent participation, attention, and a willingness to share ideas when invited.",
+          ],
+          "Technical issues": [
+            "{name}’s participation was limited at times by recurring technical issues. For an online course, a reliable camera and microphone are essential — I’d encourage {name} to prioritise resolving these so they can engage more fully next term.",
+            "Camera and audio difficulties affected {name}’s ability to engage as fully as I know they wanted to. Getting these resolved before next semester would make a real difference to their experience.",
+            "I wish I’d been able to engage with {name} more in class, but technical issues with their setup made consistent participation difficult. Reliable equipment is a small investment with a big payoff in an online course.",
+          ],
+          Uncertain: [
+            "{name}’s participation was hard to gauge at times — their camera was often off, and they were not always visibly engaged with class discussion. More active presence next semester would help me support them better.",
+            "I would have liked to see more from {name} during class. With their camera off most sessions and limited contributions, it was difficult to know how well they were tracking with the material.",
+            "Greater active participation in class — camera on, voice in the discussion — would help {name} get more out of the course and give me a clearer sense of where they could be supported.",
+          ],
+        },
+      },
       nextSteps: {
         tiers: ["Continue", "Focus area", "Course rec"],
         templates: {
@@ -3452,6 +3482,10 @@
       // Completion — default based on score
       if (stats.bestScore >= 75) tiers.completion = "All + strong";
       else tiers.completion = "All + growth";
+
+      // Participation — no data signal available, so default to the
+      // safe positive middle. Teacher picks the correct tier manually.
+      tiers.participation = "Engaged";
 
       // Next steps
       if (stats.hasScores && stats.avgOverallScore >= 70) tiers.nextSteps = "Continue";
@@ -3700,8 +3734,14 @@
 
     function _scRenderModal(body, stats) {
       const st = _scState;
-      const sections = ["greeting", "progress", "completion", "nextSteps"];
-      const sectionLabels = { greeting: "GREETING", progress: "PROGRESS", completion: "COMPLETION", nextSteps: "NEXT STEPS" };
+      const sections = ["greeting", "progress", "completion", "participation", "nextSteps"];
+      const sectionLabels = {
+        greeting: "GREETING",
+        progress: "PROGRESS",
+        completion: "COMPLETION",
+        participation: "PARTICIPATION",
+        nextSteps: "NEXT STEPS",
+      };
 
       // Generate initial texts
       st.texts = {};
@@ -3810,7 +3850,7 @@
         regenBtn.addEventListener("click", () => {
           if (!st.stats) return;
           st.vars = scBuildVars(st.stats, document.getElementById("semesterCourseInput")?.value || st.courseName);
-          ["greeting", "progress", "completion", "nextSteps"].forEach(key => {
+          ["greeting", "progress", "completion", "participation", "nextSteps"].forEach(key => {
             st.texts[key] = scGenerateSection(key, st.tiers[key], st.vars);
             const el = document.getElementById("scText_" + key);
             if (el) el.textContent = st.texts[key];
@@ -3874,7 +3914,7 @@
     function _scCombineTexts() {
       if (!_scState?.texts) return "";
       const parts = [];
-      ["greeting", "progress", "completion", "nextSteps"].forEach(key => {
+      ["greeting", "progress", "completion", "participation", "nextSteps"].forEach(key => {
         if (_scState.texts[key]) parts.push(_scState.texts[key]);
       });
       return parts.join(" ");
@@ -7248,7 +7288,7 @@ ${savedHtml}
         if (!stats) return "";
         const tiers = scAutoSelectTiers(stats);
         const vars = scBuildVars(stats, "");
-        const sections = ["greeting", "progress", "completion", "nextSteps"];
+        const sections = ["greeting", "progress", "completion", "participation", "nextSteps"];
         return sections
           .map((key) => scGenerateSection(key, tiers[key], vars))
           .filter(Boolean)
