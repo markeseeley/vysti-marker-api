@@ -1554,9 +1554,23 @@
       background: var(--maroon, #A90D22); margin-left: 4px; vertical-align: middle;
     }
     .semester-pill.active .rec-dot { background: #fff; }
-    .semester-section-text {
-      font-size: 13px; color: #1a1a1a; line-height: 1.5;
-      min-height: 20px;
+    /* Now a <textarea> — editable inline, edits feed live into the
+       COMBINED PREVIEW. Styled to blend into the section card so it
+       still reads as the same prose block visually. */
+    textarea.semester-section-text {
+      width: 100%; box-sizing: border-box;
+      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      color: #1a1a1a; line-height: 1.5;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.10); border-radius: 8px;
+      resize: vertical; min-height: 48px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    textarea.semester-section-text:focus {
+      outline: none;
+      border-color: var(--maroon, #A90D22);
+      box-shadow: 0 0 0 2px rgba(169, 13, 34, .12);
     }
     .semester-combined-label {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
@@ -3793,7 +3807,10 @@
             + tier + (isRec ? '<span class="rec-dot"></span>' : '') + '</button>';
         });
         html += '</div>';
-        html += '<div class="semester-section-text" id="scText_' + key + '">' + _scEsc(st.texts[key]) + '</div>';
+        // Editable per-section textarea — keystrokes flow live into
+        // st.texts[key] and the COMBINED PREVIEW at the bottom, so
+        // teachers can polish in-place instead of scrolling down.
+        html += '<textarea class="semester-section-text" data-section="' + key + '" id="scText_' + key + '" rows="3">' + _scEsc(st.texts[key]) + '</textarea>';
         // Course name input for nextSteps Course rec tier
         if (key === "nextSteps") {
           html += '<input class="semester-course-input" id="semesterCourseInput" placeholder="Course name (optional)" style="display:' + (st.tiers.nextSteps === "Course rec" ? "block" : "none") + ';" />';
@@ -3834,7 +3851,19 @@
           st.vars = scBuildVars(st.stats, document.getElementById("semesterCourseInput")?.value || st.courseName);
           st.texts[section] = scGenerateSection(section, st.tiers[section], st.vars);
           const el = document.getElementById("scText_" + section);
-          if (el) el.textContent = st.texts[section];
+          if (el) el.value = st.texts[section];
+          document.getElementById("semesterCombined").value = _scCombineTexts();
+        });
+      });
+
+      // Bind live editing on each section's textarea — keystrokes
+      // update st.texts and the COMBINED PREVIEW immediately so the
+      // teacher doesn't have to scroll down to polish.
+      body.querySelectorAll("textarea.semester-section-text").forEach(ta => {
+        ta.addEventListener("input", () => {
+          const section = ta.dataset.section;
+          if (!section) return;
+          st.texts[section] = ta.value;
           document.getElementById("semesterCombined").value = _scCombineTexts();
         });
       });
@@ -3853,7 +3882,7 @@
           // Update vars with course name
           st.vars = scBuildVars(st.stats, document.getElementById("semesterCourseInput")?.value || st.courseName);
           st.texts[section] = scGenerateSection(section, tier, st.vars);
-          document.getElementById("scText_" + section).textContent = st.texts[section];
+          document.getElementById("scText_" + section).value = st.texts[section];
           document.getElementById("semesterCombined").value = _scCombineTexts();
           // Update active pills for this section
           body.querySelectorAll('.semester-pill[data-section="' + section + '"]').forEach(p => {
@@ -3870,7 +3899,7 @@
           st.vars = scBuildVars(st.stats, courseInput.value);
           if (st.tiers.nextSteps === "Course rec") {
             st.texts.nextSteps = scGenerateSection("nextSteps", "Course rec", st.vars);
-            document.getElementById("scText_nextSteps").textContent = st.texts.nextSteps;
+            document.getElementById("scText_nextSteps").value = st.texts.nextSteps;
             document.getElementById("semesterCombined").value = _scCombineTexts();
           }
         });
@@ -3890,7 +3919,7 @@
           ["greeting", "progress", "completion", "participation", "nextSteps"].forEach(key => {
             st.texts[key] = scGenerateSection(key, st.tiers[key], st.vars);
             const el = document.getElementById("scText_" + key);
-            if (el) el.textContent = st.texts[key];
+            if (el) el.value = st.texts[key];
           });
           document.getElementById("semesterCombined").value = _scCombineTexts();
         });
