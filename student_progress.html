@@ -255,6 +255,62 @@
       font-weight: 500;
     }
 
+    /* Save-error toast — small dismissable card in the bottom-center
+       that fires whenever a PATCH /update_mark_event fails. Reused
+       across all inline edits in the Uploaded Work table so a teacher
+       can never silently lose a change. */
+    .vysti-save-error-toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0; pointer-events: none;
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 18px;
+      background: #fff;
+      color: #5b1a16;
+      border: 1px solid #f5b5af;
+      border-left: 4px solid #c83a2a;
+      border-radius: 12px;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 13px; line-height: 1.4;
+      box-shadow: 0 14px 45px rgba(0,0,0,.12);
+      z-index: 99999;
+      transition: opacity .35s, transform .35s;
+      max-width: 440px;
+    }
+    .vysti-save-error-toast--visible {
+      opacity: 1; transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+    }
+    .vysti-save-error-toast-body { flex: 1; }
+    .vysti-save-error-toast-title {
+      font-weight: 700; font-size: 14px; color: #5b1a16; margin-bottom: 2px;
+    }
+    .vysti-save-error-toast-text {
+      font-size: 12.5px; color: rgba(0,0,0,.65);
+    }
+    .vysti-save-error-toast-detail {
+      margin-top: 4px;
+      font-size: 11.5px; color: rgba(0,0,0,.5);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      word-break: break-word;
+    }
+    .vysti-save-error-toast-dismiss {
+      appearance: none; border: none; background: none;
+      color: rgba(0,0,0,.4); font-size: 22px; cursor: pointer;
+      padding: 0 4px; line-height: 1; flex-shrink: 0;
+    }
+    .vysti-save-error-toast-dismiss:hover { color: #5b1a16; }
+    @media (max-width: 480px) {
+      .vysti-save-error-toast {
+        left: 12px; right: 12px;
+        transform: translateX(0) translateY(20px);
+        max-width: none;
+      }
+      .vysti-save-error-toast--visible {
+        transform: translateX(0) translateY(0);
+      }
+    }
+
     /* Download button styles */
     .download-btn {
       padding: 4px 8px;
@@ -4771,14 +4827,74 @@
     // string (legacy — kept for any older callers). The UUID path avoids
     // file_name encoding/whitespace mismatches that can cause silent
     // "updated: 0" results from PostgREST.
+    // Friendly names for the fields a teacher actively edits in the
+    // Uploaded Work table — shown in the save-failed toast so the
+    // teacher knows exactly which field didn't persist.
+    const _PATCH_FIELD_LABEL = {
+      score: "score",
+      ib_score: "IB score",
+      student_name: "student name",
+      assignment_name: "assignment name",
+      teacher_comment: "teacher comment",
+      notes: "notes",
+      class_id: "class assignment",
+      source_works: "source works",
+      review_status: "review status",
+      created_at: "date",
+    };
+    function _patchFieldsLabel(updates) {
+      const keys = Object.keys(updates || {});
+      if (keys.length === 0) return "edit";
+      if (keys.length === 1) return _PATCH_FIELD_LABEL[keys[0]] || keys[0];
+      return "edits";
+    }
+    function showSaveErrorToast(fieldLabel, detail) {
+      // Reuses the same toast styling as the update-available banner
+      // (defined further down in this file) — a small, dismissable card
+      // in the bottom-center of the viewport. We always show it on a
+      // failed save so the teacher doesn't think their change persisted.
+      let el = document.getElementById("vystiSaveErrorToast");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "vystiSaveErrorToast";
+        el.className = "vysti-save-error-toast";
+        document.body.appendChild(el);
+      }
+      const safeDetail = detail
+        ? '<div class="vysti-save-error-toast-detail">' +
+          String(detail).replace(/[<>]/g, "") +
+          "</div>"
+        : "";
+      el.innerHTML =
+        '<div class="vysti-save-error-toast-body">' +
+          '<div class="vysti-save-error-toast-title">Couldn’t save ' + fieldLabel + '</div>' +
+          '<div class="vysti-save-error-toast-text">Your change didn’t persist — please retry. ' +
+            'If this keeps happening, refresh the page.</div>' +
+          safeDetail +
+        '</div>' +
+        '<button type="button" class="vysti-save-error-toast-dismiss" aria-label="Dismiss">&times;</button>';
+      const dismiss = el.querySelector(".vysti-save-error-toast-dismiss");
+      const hide = () => { el.classList.remove("vysti-save-error-toast--visible"); };
+      if (dismiss) dismiss.onclick = hide;
+      // Force reflow before adding the visible class so the transition fires.
+      void el.offsetWidth;
+      el.classList.add("vysti-save-error-toast--visible");
+      clearTimeout(showSaveErrorToast._t);
+      showSaveErrorToast._t = setTimeout(hide, 6000);
+    }
+
     async function patchMarkEvent(rowOrFileName, updates) {
       const { data: sessionData } = await supa.auth.getSession();
-      if (!sessionData || !sessionData.session) return false;
+      if (!sessionData || !sessionData.session) {
+        showSaveErrorToast(_patchFieldsLabel(updates), "You’ve been signed out. Reload to sign back in.");
+        return false;
+      }
       const isRow = rowOrFileName && typeof rowOrFileName === "object";
       const fileName = isRow ? (rowOrFileName.file_name || "") : rowOrFileName;
       const markEventId = isRow ? (rowOrFileName.id || null) : null;
       const body = { file_name: fileName, ...updates };
       if (markEventId) body.mark_event_id = markEventId;
+      const fieldLabel = _patchFieldsLabel(updates);
       try {
         const resp = await fetch("/update_mark_event", {
           method: "PATCH",
@@ -4788,9 +4904,28 @@
           },
           body: JSON.stringify(body)
         });
-        return resp.ok;
+        if (resp.ok) return true;
+        // Non-2xx — try to surface the server's reason
+        let detail = "";
+        try {
+          const j = await resp.json();
+          detail = j.detail || j.error || "";
+        } catch (_) {
+          try { detail = await resp.text(); } catch (_) {}
+        }
+        if (resp.status === 404) {
+          detail = "This essay no longer exists in your account.";
+        } else if (resp.status === 401 || resp.status === 403) {
+          detail = "Authorization expired — reload to sign back in.";
+        } else if (!detail) {
+          detail = "HTTP " + resp.status;
+        }
+        console.error("PATCH failed:", resp.status, detail);
+        showSaveErrorToast(fieldLabel, detail);
+        return false;
       } catch (err) {
         console.error("PATCH failed:", err);
+        showSaveErrorToast(fieldLabel, "Network error — check your connection and retry.");
         return false;
       }
     }
