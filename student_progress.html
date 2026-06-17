@@ -1696,6 +1696,16 @@
     .roster-chip-breakdown:hover:not(:disabled) { color: var(--maroon, #A90D22); }
     .roster-section:not(.editing) .roster-chip-breakdown { display: block; }
 
+    /* ── Roster chip Progress Report (download) icon ── */
+    .roster-chip-report {
+      display: none; background: none; border: none; cursor: pointer;
+      color: rgba(0,0,0,.25); padding: 0 2px;
+      flex-shrink: 0; transition: color .15s;
+    }
+    .roster-chip-report:hover:not(:disabled) { color: var(--maroon, #A90D22); }
+    .roster-chip-report:disabled { opacity: .35; cursor: progress; }
+    .roster-section:not(.editing) .roster-chip-report { display: block; }
+
     /* ── Rule Breakdown panel ── */
     .breakdown-summary {
       font-size: 13px;
@@ -3232,9 +3242,28 @@
           openSemesterCommentModal(name, "breakdown");
         });
 
+        // Progress Report icon — opens the Final Comment modal and
+        // generates a per-student PDF on close. Works for students
+        // with no essays too (produces a slim header+comment PDF).
+        const reportBtn = document.createElement("button");
+        reportBtn.type = "button";
+        reportBtn.className = "roster-chip-report";
+        reportBtn.title = "Generate Progress Report";
+        reportBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>`;
+        reportBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          reportBtn.disabled = true;
+          try {
+            await runProgressReportForStudent(name, hasData ? rows : []);
+          } finally {
+            reportBtn.disabled = false;
+          }
+        });
+
         chip.appendChild(avatar);
         chip.appendChild(info);
         chip.appendChild(breakdownBtn);
+        chip.appendChild(reportBtn);
         chip.appendChild(commentBtn);
         chip.appendChild(removeBtn);
 
@@ -3665,8 +3694,10 @@
         '<button class="semester-tab' + (startTab === "breakdown" ? " active" : "") + (hasData ? '' : ' disabled') + '"' +
         (hasData ? '' : ' disabled title="Mark at least one essay to see a rule breakdown"') +
         ' data-tab="breakdown">Breakdown</button>' +
-        '<button class="semester-tab' + (startTab === "final" ? " active" : "") + (hasData ? '' : ' disabled') + '"' +
-        (hasData ? '' : ' disabled title="Mark at least one essay to generate a final comment"') +
+        // Final Comment tab stays enabled even without data — for
+        // no-essay students the teacher still needs to be able to write
+        // a comment and produce a slim Progress Report PDF.
+        '<button class="semester-tab' + (startTab === "final" ? " active" : "") + '"' +
         ' data-tab="final">Final Comment</button></div>';
 
       // ── Note tab ──
@@ -3749,7 +3780,7 @@
         }
       });
 
-      // ── Final Comment tab content (only if marking data exists) ──
+      // ── Final Comment tab content ──
       if (hasData) {
         const stats = computeSemesterStats(studentName, rows);
         const recommendedTiers = scAutoSelectTiers(stats);
@@ -3761,10 +3792,37 @@
         _scState = { stats, tiers, recommendedTiers, vars, studentName, courseName, rows };
         _scRenderModal(document.getElementById("scPanelFinal"), stats);
       } else {
+        // No-essays case — render a plain manual editor. There's no
+        // semester data to auto-generate from, but the teacher may
+        // still want to enter a comment and produce a slim Progress
+        // Report PDF for, e.g., a student who attended but submitted
+        // nothing.
         _scState = { studentName, stats: null, rows };
+        _scRenderManualFinalPanel(document.getElementById("scPanelFinal"), studentName, roster);
       }
 
       overlay.classList.add("visible");
+    }
+
+    // Manual-only Final Comment editor for students with no mark_events.
+    function _scRenderManualFinalPanel(body, studentName, roster) {
+      const saved = (roster?.semester_comment || "").trim();
+      body.innerHTML =
+        '<div class="semester-section-stats">No essays submitted this semester — manual final comment only.</div>' +
+        '<div class="semester-combined-label">FINAL COMMENT</div>' +
+        '<textarea class="semester-combined-textarea" id="semesterCombined" placeholder="Enter the final comment for this student…"></textarea>' +
+        '<div class="semester-actions">' +
+          '<div></div>' +
+          '<div class="semester-actions-right">' +
+            '<button class="semester-btn" id="semesterCopy">Copy</button>' +
+            '<button class="semester-btn semester-btn-primary" id="semesterSave">Save</button>' +
+          '</div>' +
+        '</div>';
+      if (saved) document.getElementById("semesterCombined").value = saved;
+      // Save / Copy bindings — reuse the same handlers via _scBindActions,
+      // which already knows how to read #semesterCombined and update the
+      // roster's semester_comment column.
+      _scBindActions();
     }
 
     function _scRenderModal(body, stats) {
@@ -7347,6 +7405,78 @@ ${savedHtml}
 
       frAddFooters(doc, logo);
       return doc;
+    }
+
+    // Slim Progress Report PDF for a student with NO mark_events
+    // (attended but submitted nothing). Header + Teacher's Final
+    // Comment block + footer. No stats, no chart, no per-essay table.
+    async function generateSlimReport(studentName, finalComment) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const logo = await loadFrLogo();
+      let y = 16;
+
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...FR_BLACK);
+      doc.text("Progress Report", FR_PAGE_W / 2, y, { align: "center" });
+      y += 10;
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...FR_MUTED);
+      doc.text(studentName, FR_PAGE_W / 2, y, { align: "center" });
+      y += 16;
+
+      const trimmed = (finalComment || "").trim();
+      if (trimmed) {
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text("Teacher’s Final Comment", FR_ML, y);
+        y += 6;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...FR_BLACK);
+        const wrapped = doc.splitTextToSize(trimmed, FR_CONTENT_W - 6);
+        doc.setFillColor(...FR_MAROON);
+        doc.rect(FR_ML, y - 1, 1, wrapped.length * 4 + 2, "F");
+        wrapped.forEach((line) => {
+          doc.text(line, FR_ML + 4, y + 3);
+          y += 4;
+        });
+      } else {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(...FR_MUTED);
+        doc.text("No final comment provided.", FR_ML, y);
+      }
+
+      frAddFooters(doc, logo);
+      return doc;
+    }
+
+    // Single-student runner — opens the Final Comment modal (per
+    // student) and then generates the right PDF: the full report when
+    // there are essays, the slim header+comment report when there
+    // aren't. Used by the per-roster-chip "Progress Report" button.
+    async function runProgressReportForStudent(studentName, rows) {
+      const finalComment = await openSemesterCommentModalAsync(studentName, rows || []);
+      try {
+        let doc;
+        if (rows && rows.length > 0) {
+          const sorted = [...rows].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+          );
+          doc = await generateFinalReport(studentName, sorted, { finalComment });
+        } else {
+          doc = await generateSlimReport(studentName, finalComment);
+        }
+        doc.save(`Progress_Report_${studentName.replace(/\s+/g, "_")}.pdf`);
+      } catch (err) {
+        console.error("Per-student Progress Report failed:", err);
+        alert("Failed to generate report: " + (err.message || "Unknown error"));
+      }
     }
 
     // Build a personalized Final Comment for one student using the same
