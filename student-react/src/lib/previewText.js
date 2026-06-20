@@ -408,6 +408,56 @@ export function extractTextWithTeacherAnnotations(containerEl) {
   // ── 4b. Convert ENGINE visual marks (from marked .docx, rendered by docx-preview) ──
   // Engine highlights use standard Word colors (solid, no opacity) and do NOT have
   // data-vysti-teacher-highlight. docx-preview renders them as inline background-color.
+  //
+  // Nesting note: section 3a may have already wrapped a child <b> as
+  // {b:...} INSIDE one of these highlight spans (the engine emits compound
+  // replacement suggestions like a green-bg span containing a <b>insertion</b>).
+  // If we blindly wrap the span's textContent with {gr:...}, we get
+  // {gr:cause{b:s behind}} — which the backend's _BOLD_RE / _HL_GREEN_RE
+  // can't parse because their capture group ([^}]+) stops at the first '}',
+  // breaking the macro boundaries. Result in the marked .docx: literal
+  // `{b:s behind}` text leaking through to the reader.
+  //
+  // Fix: when the captured text already contains an inner macro, emit
+  // ADJACENT highlight wraps around the non-macro slices instead of one
+  // engulfing wrap. E.g. "cause{b:s behind}" with prefix "gr" becomes
+  // "{gr:cause}{b:s behind}" — both macros parseable.
+  const _INNER_MACRO_RE =
+    /\{[a-z~]+:[^}]*\}|\{~[^~]+~\}|\{\^\}|\{sp\}|\{wc\}|\{arrow\}|\{\?{3}\}/g;
+  function wrapAvoidingNested(text, prefix) {
+    _INNER_MACRO_RE.lastIndex = 0;
+    if (!_INNER_MACRO_RE.test(text)) {
+      return `{${prefix}:${text.trim()}}`;
+    }
+    _INNER_MACRO_RE.lastIndex = 0;
+    let out = "";
+    let last = 0;
+    let m;
+    while ((m = _INNER_MACRO_RE.exec(text)) !== null) {
+      const before = text.slice(last, m.index);
+      const beforeTrimmed = before.trim();
+      if (beforeTrimmed) {
+        const lead = before.match(/^\s*/)[0];
+        const tail = before.match(/\s*$/)[0];
+        out += `${lead}{${prefix}:${beforeTrimmed}}${tail}`;
+      } else {
+        out += before;
+      }
+      out += m[0];
+      last = m.index + m[0].length;
+    }
+    const rest = text.slice(last);
+    const restTrimmed = rest.trim();
+    if (restTrimmed) {
+      const lead = rest.match(/^\s*/)[0];
+      const tail = rest.match(/\s*$/)[0];
+      out += `${lead}{${prefix}:${restTrimmed}}${tail}`;
+    } else {
+      out += rest;
+    }
+    return out;
+  }
+
   const processed = new Set();
   for (const span of clone.querySelectorAll("span[data-vysti-teacher-highlight='1']")) {
     processed.add(span);
@@ -430,19 +480,19 @@ export function extractTextWithTeacherAnnotations(containerEl) {
 
     // Engine red strikethrough: red highlight + line-through
     if (td.includes("line-through") && (bg === "red" || bg === "#ff0000" || bg.startsWith("rgb(255, 0, 0"))) {
-      span.textContent = `{x:${span.textContent.trim()}}`;
+      span.textContent = wrapAvoidingNested(span.textContent, "x");
     }
     // Engine aqua/turquoise highlight (WD_COLOR_INDEX.TURQUOISE → #00FFFF)
     else if (bg === "cyan" || bg === "#00ffff" || bg.startsWith("rgb(0, 255, 255")) {
-      span.textContent = `{hl:${span.textContent.trim()}}`;
+      span.textContent = wrapAvoidingNested(span.textContent, "hl");
     }
     // Engine gray highlight (WD_COLOR_INDEX.GRAY_25 → #C0C0C0)
     else if (bg === "silver" || bg === "#c0c0c0" || bg.startsWith("rgb(192, 192, 192") || bg === "lightgray" || bg === "#d3d3d3" || bg.startsWith("rgb(211, 211, 211")) {
-      span.textContent = `{g:${span.textContent.trim()}}`;
+      span.textContent = wrapAvoidingNested(span.textContent, "g");
     }
     // Engine green highlight (WD_COLOR_INDEX.BRIGHT_GREEN → #00FF00)
     else if (bg === "lime" || bg === "#00ff00" || bg.startsWith("rgb(0, 255, 0") || bg.startsWith("rgb(0, 128, 0") || bg === "green") {
-      span.textContent = `{gr:${span.textContent.trim()}}`;
+      span.textContent = wrapAvoidingNested(span.textContent, "gr");
     }
   }
 
