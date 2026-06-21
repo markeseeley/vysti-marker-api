@@ -172,6 +172,13 @@ _SPELLING_ALLOWLIST = {
     "historiographies",
     "positionality", "reflexivity",
     "hypermasculine", "hypermasculinity",
+    "autochthony", "autochthonous", "autochthonously",
+    "autochthon", "autochthons",
+    "deixis", "deictic", "deictically",
+    # German loanwords (lowercased per allowlist convention; ASCII
+    # fallback included for students typing without the umlaut)
+    "einfühlung", "einfuhlung",
+    "dasein",
 
     # ── Rhetorical / literary devices (cross-ref thesis_devices.txt) ──
     "hypophora", "anaphora", "anaphoric",
