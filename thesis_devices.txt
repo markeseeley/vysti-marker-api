@@ -689,3 +689,249 @@ colour scheme,color palette
 nondiegetic,diegetic
 non-diegetic sound,diegetic
 diegetic sound,diegetic
+
+# ─────────────────────────────────────────────────────────────
+# Devices imported from assignment-lexis.csv (2026-06-21)
+# 129 lexis-only devices reviewed; 24 skipped:
+#   - 12 too-broad concepts (theme, voice, evidence, conflict,
+#     dialogue, exposition, perspective, antagonist, protagonist,
+#     ethos, pathos, logos — last three are already forbidden words)
+#   - 11 over-fire risks (form, structure, framework, tension,
+#     moral, lines, tense, hypothesis, index, topical order,
+#     spatial order)
+#   - 1 over-broad (poetic language)
+# ─────────────────────────────────────────────────────────────
+
+# Poetry forms & meter
+ballad,ballad
+ballads,ballad
+blank verse,blank verse
+canto,canto
+cantos,canto
+cinquain,cinquain
+cinquains,cinquain
+concrete poetry,concrete poetry
+couplet,couplet
+couplets,couplet
+euphony,euphony
+euphonious,euphony
+free verse,free verse
+haiku,haiku
+haikus,haiku
+heroic couplet,heroic couplet
+heroic couplets,heroic couplet
+occasional poem,occasional poem
+occasional poems,occasional poem
+octave,octave
+octaves,octave
+ode,ode
+odes,ode
+pantoum,pantoum
+pantoums,pantoum
+pentameter,pentameter
+iambic pentameter,pentameter
+quatrain,quatrain
+quatrains,quatrain
+refrain,refrain
+refrains,refrain
+rhyme scheme,rhyme scheme
+rhyme schemes,rhyme scheme
+slant rhyme,slant rhyme
+slant rhymes,slant rhyme
+half rhyme,slant rhyme
+stanzas,stanza
+terza rima,terza rima
+tetrameter,tetrameter
+trimeter,trimeter
+
+# Characters & types
+anti-hero,anti-hero
+antihero,anti-hero
+anti-heroes,anti-hero
+antiheroes,anti-hero
+archetype,archetype
+archetypes,archetype
+archetypal,archetype
+recurring character,recurring character
+recurring characters,recurring character
+round character,round character
+round characters,round character
+static character,static character
+static characters,static character
+stock character,stock character
+stock characters,stock character
+unreliable narrator,unreliable narrator
+unreliable narrators,unreliable narrator
+# Encoding fix: lexis CSV has "dopplegängers" (misspelling).
+# Correct German is "doppelgänger". Accept both forms + ASCII fallback.
+doppelgänger,doppelgänger
+doppelgängers,doppelgänger
+doppelganger,doppelgänger
+doppelgangers,doppelgänger
+
+# Narrative discourse & structure
+aside,aside
+asides,aside
+chorus,chorus
+choruses,chorus
+direct discourse,direct discourse
+direct speech,direct discourse
+indirect discourse,indirect discourse
+reported speech,indirect discourse
+epilogue,epilogue
+epilogues,epilogue
+episode,episode
+episodes,episode
+episodic,episode
+epistolary novel,epistolary novel
+epistolary novels,epistolary novel
+epistolary,epistolary novel
+limited omniscient narrator,focalization
+non-linear narrative,organization
+persona,persona
+personas,persona
+personae,persona
+philosophical dialogue,philosophical dialogue
+soliloquy,soliloquy
+soliloquies,soliloquy
+subplot,subplot
+subplots,subplot
+zero focalization,focalization
+authorial voice,authorial voice
+deus ex machina,deus ex machina
+flashforward,prolepsis
+
+# Comic / satirical modes
+black comedy,black comedy
+burlesque,burlesque
+burlesques,burlesque
+dark comedy,dark comedy
+dry humor,dry humor
+dry wit,dry humor
+farce,farce
+farces,farce
+farcical,farce
+jeremiad,jeremiad
+jeremiads,jeremiad
+lampoonery,lampoonery
+lampoon,lampoonery
+lampoons,lampoonery
+Menippean satire,Menippean satire
+Menippean,Menippean satire
+panegyric,panegyric
+panegyrics,panegyric
+panegyrical,panegyric
+parody,parody
+parodies,parody
+parodic,parody
+parodied,parody
+picaresque fiction,picaresque fiction
+picaresque,picaresque fiction
+post-realism,post-realism
+postrealism,post-realism
+slapstick,slapstick
+tall tale,tall tale
+tall tales,tall tale
+invective,invective
+invectives,invective
+
+# Genres & forms of writing
+adage,adage
+adages,adage
+aphorism,aphorism
+aphorisms,aphorism
+aphoristic,aphorism
+apophasis,apophasis
+apophastic,apophasis
+eulogy,eulogy
+eulogies,eulogy
+eulogistic,eulogy
+memoir,memoir
+memoirs,memoir
+motto,motto
+mottos,motto
+mottoes,motto
+parable,parable
+parables,parable
+proverb,proverb
+proverbs,proverb
+proverbial,proverb
+Räuberroman,Räuberroman
+Raüberroman,Räuberroman
+Rauberroman,Räuberroman
+robber novel,Räuberroman
+roman à clef,roman à clef
+roman a clef,roman à clef
+Schlüsselroman,Schlüsselroman
+Schlusselroman,Schlüsselroman
+key novel,Schlüsselroman
+
+# Logic / argument / rhetorical moves
+ad hominem,ad hominem
+begging the question,begging the question
+beg the question,begging the question
+cherry picking,cherry picking
+cherry-picking,cherry picking
+deduction,deduction
+deductive,deduction
+deduces,deduction
+equivocation,equivocation
+equivocate,equivocation
+equivocating,equivocation
+implicature,implicature
+implicatures,implicature
+paraphrase,paraphrase
+paraphrases,paraphrase
+paraphrased,paraphrase
+paraphrasing,paraphrase
+paraprosdokian,paraprosdokian
+paraprosdokians,paraprosdokian
+procatalepsis,procatalepsis
+Socratic method,Socratic method
+Socratic dialogue,Socratic method
+Socratic,Socratic method
+straw man,strawman
+syllogism,syllogism
+syllogisms,syllogism
+syllogistic,syllogism
+tautology,tautology
+tautologies,tautology
+tautological,tautology
+
+# Wordplay / lexical (additions)
+archaic diction,archaic diction
+archaisms,archaic diction
+archaic language,archaic diction
+dysphemism,dysphemism
+dysphemisms,dysphemism
+dysphemistic,dysphemism
+exaggeration,hyperbole
+neologism,neologism
+neologisms,neologism
+neologistic,neologism
+overstatement,hyperbole
+overstatements,hyperbole
+paronomasia,paranomasia
+synonymy,synonymy
+
+# Semiotic
+icon,icon
+icons,icon
+trope,trope
+tropes,trope
+
+# Narrative techniques & misc
+inversion,inversion
+local color,local color
+reversal,reversal
+reversals,reversal
+alliosis,alliosis
+aptronym,aptronym
+aptronyms,aptronym
+
+# Theatrical props
+costume,costume
+costumes,costume
+costuming,costume
+prop,prop
+props,prop
