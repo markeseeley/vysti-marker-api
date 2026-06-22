@@ -3103,7 +3103,7 @@
         // ── My Classes lens: include student_name and class_id ──
         let query = supa
           .from("mark_events")
-          .select("id, created_at, student_name, assignment_name, file_name, mode, label_counts, issues, essay_title, class_id, total_labels, review_status, word_count, scores, teacher_comment, score, ib_score")
+          .select("id, created_at, student_name, assignment_name, file_name, mode, label_counts, issues, essay_title, class_id, total_labels, review_status, word_count, scores, teacher_comment, score, ib_score, positive_events")
           .eq("user_id", userId);
 
         const selectedClass = classFilter ? classFilter.value : "";
@@ -3120,7 +3120,7 @@
         // ── My Writing lens: original personal query ──
         const result = await supa
           .from("mark_events")
-          .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id, teacher_comment, score, ib_score")
+          .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id, teacher_comment, score, ib_score, positive_events")
           .eq("user_id", userId)
           .order("created_at", { ascending: false });
         data = result.data;
@@ -7074,11 +7074,219 @@ ${savedHtml}
       ];
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Phase 3 — positive_events aggregation for the Progress Report.
+    // Loaded lazily on first PDF generation; cached for the session.
+    // ─────────────────────────────────────────────────────────────
+    let _verbCategoryMap = null;
+    async function _getVerbCategoryMap() {
+      if (_verbCategoryMap) return _verbCategoryMap;
+      try {
+        const resp = await fetch("/power_verbs_2025.json");
+        const entries = await resp.json();
+        const map = {};
+        for (const e of (entries || [])) {
+          if (e?.lemma && e?.category) map[e.lemma] = e.category;
+        }
+        _verbCategoryMap = map;
+      } catch (err) {
+        console.warn("[strengths] verb-category fetch failed:", err);
+        _verbCategoryMap = {};
+      }
+      return _verbCategoryMap;
+    }
+
+    // Trend filter: an item "trends" if it appears in ≥ max(3, 30%) of
+    // the selected essays. Per-student call from user (2026-06-22):
+    // three is the absolute floor — a one- or two-essay item doesn't
+    // reveal a habit.
+    function _trendThreshold(totalEssays) {
+      return Math.max(3, Math.ceil(0.3 * totalEssays));
+    }
+
+    // Aggregate positive_events for the selected rows into per-signal
+    // {byCategory, allItems} shapes. Used by the renderer below.
+    function _aggregatePositiveEvents(rows, categoryMap) {
+      // power_verbs — grouped by their 6-bucket category from the JSON
+      const verbStats = new Map();  // lemma → {essaysUsed, totalCount}
+      // devices — flat (no sub-grouping in v1, may add later)
+      const deviceStats = new Map();
+      // lexis — split by focus_type
+      const lexisStats = { concept: new Map(), event: new Map(), person: new Map() };
+
+      function bump(map, key, count) {
+        if (!map.has(key)) map.set(key, { essaysUsed: 0, totalCount: 0 });
+        const s = map.get(key);
+        s.essaysUsed += 1;
+        s.totalCount += (Number(count) || 1);
+      }
+
+      for (const r of (rows || [])) {
+        const pe = r?.positive_events || {};
+        for (const [lemma, c] of Object.entries(pe.power_verbs || {})) bump(verbStats, lemma, c);
+        for (const [dev, c] of Object.entries(pe.devices || {})) bump(deviceStats, dev, c);
+        const lex = pe.lexis || {};
+        for (const ft of ["concept", "event", "person"]) {
+          for (const [term, c] of Object.entries(lex[ft] || {})) bump(lexisStats[ft], term, c);
+        }
+      }
+
+      // Group verbs by category
+      const verbByCategory = {};
+      for (const [lemma, s] of verbStats) {
+        const cat = categoryMap[lemma] || "other";
+        if (!verbByCategory[cat]) verbByCategory[cat] = [];
+        verbByCategory[cat].push({ key: lemma, ...s });
+      }
+
+      const toList = (m) => Array.from(m, ([key, s]) => ({ key, ...s }));
+      return {
+        verbByCategory,
+        devices: toList(deviceStats),
+        lexis: {
+          concept: toList(lexisStats.concept),
+          event: toList(lexisStats.event),
+          person: toList(lexisStats.person),
+        },
+      };
+    }
+
+    // Pick the items to display in a sub-block. Returns { items, tier }
+    // where tier is "trend" (≥30%/≥3-essay rule met) or "explored" (the
+    // "no student left empty" fallback: top items by raw occurrence).
+    function _selectStrengthItems(items, totalEssays, capN) {
+      if (!items || items.length === 0) return { items: [], tier: "empty" };
+      const threshold = _trendThreshold(totalEssays);
+      const trend = items.filter(i => i.essaysUsed >= threshold);
+      if (trend.length > 0) {
+        trend.sort((a, b) => b.essaysUsed - a.essaysUsed || b.totalCount - a.totalCount);
+        return { items: trend.slice(0, capN || 3), tier: "trend" };
+      }
+      const sorted = items.slice().sort((a, b) => b.totalCount - a.totalCount || b.essaysUsed - a.essaysUsed);
+      return { items: sorted.slice(0, capN || 3), tier: "explored" };
+    }
+
+    // Render the "Strengths Across the Term" PDF section. Adapts header
+    // tone per sub-block: trend items show with (N-essays) counts;
+    // explored items show as a plain comma list. Returns the new y.
+    function _renderStrengthsBlock(doc, y, logo, rows, categoryMap) {
+      const totalEssays = (rows || []).length;
+      if (totalEssays === 0) return y;
+
+      const agg = _aggregatePositiveEvents(rows, categoryMap);
+
+      const CAT_ORDER = ["analytical", "demonstrative", "evaluative", "rhetorical", "transformative", "declarative"];
+      const CAT_LABEL = {
+        analytical: "Analytical", demonstrative: "Demonstrative",
+        evaluative: "Evaluative", rhetorical: "Rhetorical",
+        transformative: "Transformative", declarative: "Declarative",
+      };
+
+      // Build the verb sub-lines (one per category that has any items).
+      const verbLines = [];
+      for (const cat of CAT_ORDER) {
+        const sel = _selectStrengthItems(agg.verbByCategory[cat] || [], totalEssays, 3);
+        if (sel.items.length === 0) continue;
+        const text = sel.items.map(i =>
+          sel.tier === "trend" ? `${i.key} (${i.essaysUsed})` : i.key
+        ).join(", ");
+        verbLines.push({ label: CAT_LABEL[cat], text });
+      }
+
+      // Devices — single flat line (no sub-grouping in v1).
+      const deviceSel = _selectStrengthItems(agg.devices, totalEssays, 6);
+      const deviceText = deviceSel.items.length
+        ? deviceSel.items.map(i =>
+            deviceSel.tier === "trend" ? `${i.key} (${i.essaysUsed})` : i.key
+          ).join(", ")
+        : "";
+
+      // Lexis — one line per focus_type that has any items.
+      const lexisLines = [];
+      const LEXIS_LABEL = { concept: "Concepts", person: "Thinkers cited", event: "References" };
+      for (const ft of ["concept", "person", "event"]) {
+        const sel = _selectStrengthItems(agg.lexis[ft] || [], totalEssays, 3);
+        if (sel.items.length === 0) continue;
+        const text = sel.items.map(i =>
+          sel.tier === "trend" ? `${i.key} (${i.essaysUsed})` : i.key
+        ).join(", ");
+        lexisLines.push({ label: LEXIS_LABEL[ft], text });
+      }
+
+      // If absolutely nothing to render, skip the whole section.
+      if (verbLines.length === 0 && !deviceText && lexisLines.length === 0) return y;
+
+      // Estimate required vertical space and page-break if needed.
+      const needed = 10
+        + (verbLines.length ? 6 + verbLines.length * 5 + 3 : 0)
+        + (deviceText ? 6 + 10 + 3 : 0)
+        + (lexisLines.length ? 6 + lexisLines.length * 5 + 3 : 0);
+      y = frEnsureSpace(doc, y, needed, logo);
+
+      // Section header
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...FR_BLACK);
+      doc.text("Strengths Across the Term", FR_ML, y);
+      y += 6;
+
+      function renderLines(headerText, lines) {
+        if (!lines.length) return;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text(headerText, FR_ML, y);
+        y += 4.5;
+        doc.setFontSize(9);
+        for (const ln of lines) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...FR_MAROON);
+          const lbl = ln.label + ": ";
+          doc.text(lbl, FR_ML + 4, y);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...FR_BLACK);
+          const lblW = doc.getTextWidth(lbl);
+          const wrapped = doc.splitTextToSize(ln.text, FR_CONTENT_W - 4 - lblW);
+          wrapped.forEach((w, idx) => {
+            doc.text(w, FR_ML + 4 + (idx === 0 ? lblW : 0), y);
+            y += 4.5;
+          });
+        }
+        y += 2;
+      }
+
+      // ── Verbs ──
+      renderLines("Verb repertoire:", verbLines);
+
+      // ── Devices (flat line, no sub-categories) ──
+      if (deviceText) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...FR_BLACK);
+        doc.text("Rhetorical techniques:", FR_ML, y);
+        y += 4.5;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...FR_BLACK);
+        const wrapped = doc.splitTextToSize(deviceText, FR_CONTENT_W - 8);
+        wrapped.forEach(w => { doc.text(w, FR_ML + 4, y); y += 4.5; });
+        y += 2;
+      }
+
+      // ── Lexis ──
+      renderLines("Higher-order thinking:", lexisLines);
+
+      return y + 2;
+    }
+
     async function generateFinalReport(studentName, rows, options = {}) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const logo = await loadFrLogo();
       const finalComment = (options.finalComment || "").trim();
+      // Pre-fetch the verb category map once per report (cached for the
+      // session by _getVerbCategoryMap's own memoization).
+      const verbCategoryMap = await _getVerbCategoryMap();
 
       let y = 16;
 
@@ -7324,6 +7532,9 @@ ${savedHtml}
         doc.text(`${best.finalScore}%`, FR_ML + FR_CONTENT_W - 4, y + 10, { align: "right" });
         y += 20;
       }
+
+      // ── Strengths Across the Term (Phase 3 — positive_events aggregation) ──
+      y = _renderStrengthsBlock(doc, y, logo, rows, verbCategoryMap);
 
       // ── Meter Trend Chart — Power/Analysis/Cohesion/Precision over time ──
       // Builds an offscreen Chart.js line chart and embeds as a PNG.
