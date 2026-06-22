@@ -2539,6 +2539,7 @@
 
     // ── Inline roster state ──
     let rosterStudents = [];   // [{student_name, notes}] from class_students
+    let rosterClassId = "";    // class_id for the currently-loaded rosterStudents — fallback when classFilter.value drifts to "" after the per-chip flow opens the modal
     let rosterEditMode = false;
     let rosterDirty = false;
     const AVATAR_COLORS = [
@@ -3194,6 +3195,7 @@
       if (!classId || classId === "__unassigned__" || classId === "") {
         if (rosterSection) rosterSection.style.display = "none";
         rosterStudents = [];
+        rosterClassId = "";
         return;
       }
 
@@ -3209,6 +3211,10 @@
           notes: s.notes || "",
           semester_comment: s.semester_comment || ""
         }));
+        // Stash class_id so the Final Comment / Note Save handlers can
+        // fall back to it if classFilter.value drifts to "" (e.g.,
+        // teacher opens the modal then switches the dropdown to All).
+        rosterClassId = classId;
       } catch (err) {
         console.warn("Failed to load roster:", err);
         rosterStudents = [];
@@ -3872,24 +3878,30 @@
         const btn = document.getElementById("semesterNoteSave");
         btn.disabled = true; btn.textContent = "Saving\u2026";
         try {
-          const selectedClass = classFilter ? classFilter.value : "";
-          if (!selectedClass || selectedClass === "__unassigned__") throw new Error("No class selected");
+          let selectedClass = classFilter ? classFilter.value : "";
+          if (!selectedClass || selectedClass === "__unassigned__") {
+            selectedClass = rosterClassId || "";
+          }
+          if (!selectedClass) {
+            throw new Error("No class is selected. Pick a class from the dropdown at the top and try again.");
+          }
           if (roster) {
-            await supa.from("class_students")
+            const { error: updErr } = await supa.from("class_students")
               .update({ notes: text })
               .eq("class_id", selectedClass)
               .eq("student_name", studentName);
+            if (updErr) throw new Error(updErr.message || "Database update failed");
             roster.notes = text;
           } else {
             const { data: sessionData } = await supa.auth.getSession();
             const userId = sessionData?.session?.user?.id;
-            if (userId) {
-              await supa.from("class_students").insert({
-                user_id: userId, class_id: selectedClass,
-                student_name: studentName, notes: text,
-              });
-              rosterStudents.push({ student_name: studentName, notes: text, semester_comment: "" });
-            }
+            if (!userId) throw new Error("Not signed in. Reload and sign back in.");
+            const { error: insErr } = await supa.from("class_students").insert({
+              user_id: userId, class_id: selectedClass,
+              student_name: studentName, notes: text,
+            });
+            if (insErr) throw new Error(insErr.message || "Database insert failed");
+            rosterStudents.push({ student_name: studentName, notes: text, semester_comment: "" });
           }
           btn.textContent = "Saved!";
           setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1200);
@@ -3898,6 +3910,9 @@
           console.error("Save failed:", e);
           btn.textContent = "Error";
           setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1500);
+          if (typeof showSaveErrorToast === "function") {
+            showSaveErrorToast("note", e.message || String(e));
+          }
         }
       });
 
@@ -4127,27 +4142,37 @@
         const btn = document.getElementById("semesterSave");
         btn.disabled = true; btn.textContent = "Saving\u2026";
         try {
-          const selectedClass = classFilter ? classFilter.value : "";
-          if (!selectedClass || selectedClass === "__unassigned__") throw new Error("No class selected");
+          // Prefer the active classFilter value; fall back to the
+          // class_id we stashed when the roster loaded (handles the
+          // case where the teacher opened the modal via a roster chip
+          // and the page-level filter has since drifted to "All").
+          let selectedClass = classFilter ? classFilter.value : "";
+          if (!selectedClass || selectedClass === "__unassigned__") {
+            selectedClass = rosterClassId || "";
+          }
+          if (!selectedClass) {
+            throw new Error("No class is selected. Pick a class from the dropdown at the top and try again.");
+          }
 
           // Check if student exists in roster; if not, create
           const roster = rosterStudents.find(s => s.student_name === st.studentName);
           if (roster) {
-            await supa.from("class_students")
+            const { error: updErr } = await supa.from("class_students")
               .update({ semester_comment: text })
               .eq("class_id", selectedClass)
               .eq("student_name", st.studentName);
+            if (updErr) throw new Error(updErr.message || "Database update failed");
             roster.semester_comment = text;
           } else {
             const { data: sessionData } = await supa.auth.getSession();
             const userId = sessionData?.session?.user?.id;
-            if (userId) {
-              await supa.from("class_students").insert({
-                user_id: userId, class_id: selectedClass,
-                student_name: st.studentName, semester_comment: text,
-              });
-              rosterStudents.push({ student_name: st.studentName, notes: "", semester_comment: text });
-            }
+            if (!userId) throw new Error("Not signed in. Reload and sign back in.");
+            const { error: insErr } = await supa.from("class_students").insert({
+              user_id: userId, class_id: selectedClass,
+              student_name: st.studentName, semester_comment: text,
+            });
+            if (insErr) throw new Error(insErr.message || "Database insert failed");
+            rosterStudents.push({ student_name: st.studentName, notes: "", semester_comment: text });
           }
           btn.textContent = "Saved!";
           setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1200);
@@ -4157,6 +4182,12 @@
           console.error("Save failed:", e);
           btn.textContent = "Error";
           setTimeout(() => { btn.disabled = false; btn.textContent = "Save"; }, 1500);
+          // Surface the real reason via the same toast helper used by
+          // the inline edits in Uploaded Work, so the teacher knows
+          // what to do (sign in, pick a class, etc.).
+          if (typeof showSaveErrorToast === "function") {
+            showSaveErrorToast("final comment", e.message || String(e));
+          }
         }
       });
     }
