@@ -60,12 +60,6 @@
     "lemma": "attack"
   },
   {
-    "verb": "attempts",
-    "definition": "make an effort to achieve or complete",
-    "category": "rhetorical",
-    "lemma": "attempt"
-  },
-  {
     "verb": "bastardizes",
     "definition": "change (something) in such a way as to lower its quality or value, typically by adding new elements",
     "category": "transformative",
@@ -446,7 +440,7 @@
   {
     "verb": "frames",
     "definition": "presents within a particular perspective or interpretation",
-    "category": "transformative",
+    "category": "declarative",
     "lemma": "frame"
   },
   {
@@ -770,7 +764,7 @@
   {
     "verb": "punctuates",
     "definition": "interrupt or intersperse (an activity) with",
-    "category": "transformative",
+    "category": "demonstrative",
     "lemma": "punctuate"
   },
   {
