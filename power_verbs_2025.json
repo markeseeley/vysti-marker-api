@@ -1,702 +1,1052 @@
 [
   {
     "verb": "actualizes",
-    "definition": "brings into reality; makes actual"
+    "definition": "brings into reality; makes actual",
+    "category": "transformative",
+    "lemma": "actualize"
   },
   {
     "verb": "admits",
-    "definition": "confess to be true or to be the case, typically with reluctance"
+    "definition": "confess to be true or to be the case, typically with reluctance",
+    "category": "declarative",
+    "lemma": "admit"
   },
   {
     "verb": "advises",
-    "definition": "offer suggestions about the best course of action to someone"
+    "definition": "offer suggestions about the best course of action to someone",
+    "category": "rhetorical",
+    "lemma": "advise"
   },
   {
     "verb": "aestheticizes",
-    "definition": "treats as primarily aesthetic; emphasizes beauty over other concerns"
+    "definition": "treats as primarily aesthetic; emphasizes beauty over other concerns",
+    "category": "transformative",
+    "lemma": "aestheticize"
   },
   {
     "verb": "amplifies",
-    "definition": "increases or enlarges upon"
+    "definition": "increases or enlarges upon",
+    "category": "transformative",
+    "lemma": "amplifie"
   },
   {
     "verb": "answers",
-    "definition": "a thing said, written, or done to deal with or as a reaction to a question, statement, or situation"
+    "definition": "a thing said, written, or done to deal with or as a reaction to a question, statement, or situation",
+    "category": "declarative",
+    "lemma": "answer"
   },
   {
     "verb": "anticipates",
-    "definition": "regard as probable; expect or predict"
+    "definition": "regard as probable; expect or predict",
+    "category": "declarative",
+    "lemma": "anticipate"
   },
   {
     "verb": "articulates",
-    "definition": "express (an idea or feeling) fluently and coherently"
+    "definition": "express (an idea or feeling) fluently and coherently",
+    "category": "declarative",
+    "lemma": "articulate"
   },
   {
     "verb": "asserts",
-    "definition": "states a claim with force"
+    "definition": "states a claim with force",
+    "category": "declarative",
+    "lemma": "assert"
   },
   {
     "verb": "attacks",
-    "definition": "criticize or oppose fiercely and publicly"
+    "definition": "criticize or oppose fiercely and publicly",
+    "category": "evaluative",
+    "lemma": "attack"
   },
   {
     "verb": "attempts",
-    "definition": "make an effort to achieve or complete"
+    "definition": "make an effort to achieve or complete",
+    "category": "rhetorical",
+    "lemma": "attempt"
   },
   {
     "verb": "bastardizes",
-    "definition": "change (something) in such a way as to lower its quality or value, typically by adding new elements"
+    "definition": "change (something) in such a way as to lower its quality or value, typically by adding new elements",
+    "category": "transformative",
+    "lemma": "bastardize"
   },
   {
     "verb": "bowdlerizes",
-    "definition": "remove material that is considered improper or offensive from (a text or account), especially with the result that the text becomes weaker or less effective"
+    "definition": "remove material that is considered improper or offensive from (a text or account), especially with the result that the text becomes weaker or less effective",
+    "category": "transformative",
+    "lemma": "bowdlerize"
   },
   {
     "verb": "buffets",
-    "definition": "to strike sharply as in an attack"
+    "definition": "to strike sharply as in an attack",
+    "category": "rhetorical",
+    "lemma": "buffet"
   },
   {
     "verb": "caricatures",
-    "definition": "portrays with exaggerated features for comic or critical effect"
+    "definition": "portrays with exaggerated features for comic or critical effect",
+    "category": "demonstrative",
+    "lemma": "caricature"
   },
   {
     "verb": "casts",
-    "definition": "throw (something) forcefully in a specified direction"
+    "definition": "throw (something) forcefully in a specified direction",
+    "category": "transformative",
+    "lemma": "cast"
   },
   {
     "verb": "catalyzes",
-    "definition": "cause or accelerate (a reaction) by acting as a catalyst"
+    "definition": "cause or accelerate (a reaction) by acting as a catalyst",
+    "category": "transformative",
+    "lemma": "catalyze"
   },
   {
     "verb": "champions",
-    "definition": "support the cause of; defend"
+    "definition": "support the cause of; defend",
+    "category": "rhetorical",
+    "lemma": "champion"
   },
   {
     "verb": "clarifies",
-    "definition": "resolves ambiguity"
+    "definition": "resolves ambiguity",
+    "category": "demonstrative",
+    "lemma": "clarifie"
   },
   {
     "verb": "classifies",
-    "definition": "arrange in classes or categories according to shared qualities or characteristics"
+    "definition": "arrange in classes or categories according to shared qualities or characteristics",
+    "category": "analytical",
+    "lemma": "classifie"
   },
   {
     "verb": "commits",
-    "definition": "pledge or bind (a person or an organization) to a certain course or policy; or carry out or perpetrate (a mistake, crime, or immoral act)"
+    "definition": "pledge or bind (a person or an organization) to a certain course or policy; or carry out or perpetrate (a mistake, crime, or immoral act)",
+    "category": "declarative",
+    "lemma": "commit"
   },
   {
     "verb": "commodifies",
-    "definition": "turns into a product or commodity; makes marketable"
+    "definition": "turns into a product or commodity; makes marketable",
+    "category": "transformative",
+    "lemma": "commodifie"
   },
   {
     "verb": "compares",
-    "definition": "estimate, measure, or note the similarity or dissimilarity between"
+    "definition": "estimate, measure, or note the similarity or dissimilarity between",
+    "category": "analytical",
+    "lemma": "compare"
   },
   {
     "verb": "complicates",
-    "definition": "make (something) more difficult or confusing by causing it to be more complex"
+    "definition": "make (something) more difficult or confusing by causing it to be more complex",
+    "category": "transformative",
+    "lemma": "complicate"
   },
   {
     "verb": "concedes",
-    "definition": "admit that something is true or valid after first denying or resisting it"
+    "definition": "admit that something is true or valid after first denying or resisting it",
+    "category": "declarative",
+    "lemma": "concede"
   },
   {
     "verb": "contends",
-    "definition": "advances a debatable claim"
+    "definition": "advances a debatable claim",
+    "category": "rhetorical",
+    "lemma": "contend"
   },
   {
     "verb": "contextualizes",
-    "definition": "places an idea within cultural/historical forces"
+    "definition": "places an idea within cultural/historical forces",
+    "category": "analytical",
+    "lemma": "contextualize"
   },
   {
     "verb": "contrasts",
-    "definition": "compare in such a way as to emphasize differences"
+    "definition": "compare in such a way as to emphasize differences",
+    "category": "analytical",
+    "lemma": "contrast"
   },
   {
     "verb": "critiques",
-    "definition": "evaluates critically by identifying strengths, limits, or flaws"
+    "definition": "evaluates critically by identifying strengths, limits, or flaws",
+    "category": "evaluative",
+    "lemma": "critique"
   },
   {
     "verb": "decenters",
-    "definition": "removes from primary importance; shifts focus elsewhere"
+    "definition": "removes from primary importance; shifts focus elsewhere",
+    "category": "transformative",
+    "lemma": "decenter"
   },
   {
     "verb": "decodes",
-    "definition": "breaks down hidden cues or subtext"
+    "definition": "breaks down hidden cues or subtext",
+    "category": "analytical",
+    "lemma": "decode"
   },
   {
     "verb": "deconstructs",
-    "definition": "breaks down assumptions to reveal contradictions or hidden logic"
+    "definition": "breaks down assumptions to reveal contradictions or hidden logic",
+    "category": "analytical",
+    "lemma": "deconstruct"
   },
   {
     "verb": "decreases",
-    "definition": "make or become smaller or fewer in size, amount, intensity, or degree"
+    "definition": "make or become smaller or fewer in size, amount, intensity, or degree",
+    "category": "transformative",
+    "lemma": "decrease"
   },
   {
     "verb": "defines",
-    "definition": "state or describe exactly the nature, scope, or meaning of"
+    "definition": "state or describe exactly the nature, scope, or meaning of",
+    "category": "declarative",
+    "lemma": "define"
   },
   {
     "verb": "delegitimizes",
-    "definition": "undermines credibility, authority, or justification"
+    "definition": "undermines credibility, authority, or justification",
+    "category": "evaluative",
+    "lemma": "delegitimize"
   },
   {
     "verb": "delineates",
-    "definition": "describe or portray (something) precisely"
+    "definition": "describe or portray (something) precisely",
+    "category": "demonstrative",
+    "lemma": "delineate"
   },
   {
     "verb": "demonizes",
-    "definition": "portrays as evil or threatening"
+    "definition": "portrays as evil or threatening",
+    "category": "evaluative",
+    "lemma": "demonize"
   },
   {
     "verb": "demystifies",
-    "definition": "makes something less mysterious by revealing how it works"
+    "definition": "makes something less mysterious by revealing how it works",
+    "category": "demonstrative",
+    "lemma": "demystifie"
   },
   {
     "verb": "demythologizes",
-    "definition": "strips away mythic aura; treats as ordinary or constructed"
+    "definition": "strips away mythic aura; treats as ordinary or constructed",
+    "category": "transformative",
+    "lemma": "demythologize"
   },
   {
     "verb": "denaturalizes",
-    "definition": "shows something as constructed rather than natural or inevitable"
+    "definition": "shows something as constructed rather than natural or inevitable",
+    "category": "transformative",
+    "lemma": "denaturalize"
   },
   {
     "verb": "deploys",
-    "definition": "uses strategically (a technique, idea, or resource)"
+    "definition": "uses strategically (a technique, idea, or resource)",
+    "category": "rhetorical",
+    "lemma": "deploy"
   },
   {
     "verb": "depoliticizes",
-    "definition": "removes political dimension; frames as neutral or private"
+    "definition": "removes political dimension; frames as neutral or private",
+    "category": "transformative",
+    "lemma": "depoliticize"
   },
   {
     "verb": "deromanticizes",
-    "definition": "strips away idealized framing; portrays more realistically or critically"
+    "definition": "strips away idealized framing; portrays more realistically or critically",
+    "category": "transformative",
+    "lemma": "deromanticize"
   },
   {
     "verb": "describes",
-    "definition": "gie an account in words of (someone or something), including all the relevant characteristics, qualities, or events"
+    "definition": "gie an account in words of (someone or something), including all the relevant characteristics, qualities, or events",
+    "category": "demonstrative",
+    "lemma": "describe"
   },
   {
     "verb": "destabilizes",
-    "definition": "undermines what seems stable, natural, or obvious"
+    "definition": "undermines what seems stable, natural, or obvious",
+    "category": "transformative",
+    "lemma": "destabilize"
   },
   {
     "verb": "devalues",
-    "definition": "reduce or underestimate the worth or importance of"
+    "definition": "reduce or underestimate the worth or importance of",
+    "category": "evaluative",
+    "lemma": "devalue"
   },
   {
     "verb": "diminishes",
-    "definition": "reduces importance"
+    "definition": "reduces importance",
+    "category": "evaluative",
+    "lemma": "diminish"
   },
   {
     "verb": "discusses",
-    "definition": "talk about (something) with another person or group of people"
+    "definition": "talk about (something) with another person or group of people",
+    "category": "declarative",
+    "lemma": "discuss"
   },
   {
     "verb": "disentangles",
-    "definition": "free (something or someone) from an entanglement; extricate"
+    "definition": "free (something or someone) from an entanglement; extricate",
+    "category": "analytical",
+    "lemma": "disentangle"
   },
   {
     "verb": "disrupts",
-    "definition": "breaks expected patterns"
+    "definition": "breaks expected patterns",
+    "category": "transformative",
+    "lemma": "disrupt"
   },
   {
     "verb": "draws a picture of",
-    "definition": "another way to say 'describes'"
+    "definition": "another way to say 'describes'",
+    "category": "demonstrative",
+    "lemma": "draw"
   },
   {
     "verb": "draws attention to",
-    "definition": "highlights; calls attention to"
+    "definition": "highlights; calls attention to",
+    "category": "demonstrative",
+    "lemma": "draw"
   },
   {
     "verb": "embeds",
-    "definition": "fix (an object) firmly and deeply in a surrounding mass"
+    "definition": "fix (an object) firmly and deeply in a surrounding mass",
+    "category": "transformative",
+    "lemma": "embed"
   },
   {
     "verb": "embraces",
-    "definition": "accept or support (a belief, theory, or change) willingly and enthusiastically"
+    "definition": "accept or support (a belief, theory, or change) willingly and enthusiastically",
+    "category": "declarative",
+    "lemma": "embrace"
   },
   {
     "verb": "entangles",
-    "definition": "cause to become twisted together with or caught in"
+    "definition": "cause to become twisted together with or caught in",
+    "category": "transformative",
+    "lemma": "entangle"
   },
   {
     "verb": "enumerates",
-    "definition": "lists items one by one"
+    "definition": "lists items one by one",
+    "category": "analytical",
+    "lemma": "enumerate"
   },
   {
     "verb": "envision",
-    "definition": "imagine as a future possibility; visualize"
+    "definition": "imagine as a future possibility; visualize",
+    "category": "demonstrative",
+    "lemma": "envision"
   },
   {
     "verb": "envisions",
-    "definition": "imagine as a future possibility; visualize"
+    "definition": "imagine as a future possibility; visualize",
+    "category": "demonstrative",
+    "lemma": "envision"
   },
   {
     "verb": "eradicates",
-    "definition": "destroy completely; put an end to"
+    "definition": "destroy completely; put an end to",
+    "category": "transformative",
+    "lemma": "eradicate"
   },
   {
     "verb": "erases",
-    "definition": "removes from the record; makes invisible"
+    "definition": "removes from the record; makes invisible",
+    "category": "transformative",
+    "lemma": "erase"
   },
   {
     "verb": "eroticizes",
-    "definition": "give (something or someone) erotic qualities"
+    "definition": "give (something or someone) erotic qualities",
+    "category": "transformative",
+    "lemma": "eroticize"
   },
   {
     "verb": "essentializes",
-    "definition": "reduces complex ideas or identities to one ‘essential’ trait"
+    "definition": "reduces complex ideas or identities to one ‘essential’ trait",
+    "category": "analytical",
+    "lemma": "essentialize"
   },
   {
     "verb": "evaluates",
-    "definition": "form an idea of the amount, number, or value of; assess"
+    "definition": "form an idea of the amount, number, or value of; assess",
+    "category": "evaluative",
+    "lemma": "evaluate"
   },
   {
     "verb": "eviscerates",
-    "definition": "deprive (something) of its essential content"
+    "definition": "deprive (something) of its essential content",
+    "category": "transformative",
+    "lemma": "eviscerate"
   },
   {
     "verb": "evokes",
-    "definition": "bring or recall to the conscious mind"
+    "definition": "bring or recall to the conscious mind",
+    "category": "demonstrative",
+    "lemma": "evoke"
   },
   {
     "verb": "exemplifies",
-    "definition": "give an example of; illustrate by giving an example"
+    "definition": "give an example of; illustrate by giving an example",
+    "category": "demonstrative",
+    "lemma": "exemplify"
   },
   {
     "verb": "exoticizes",
-    "definition": "presents as strange or alluringly foreign"
+    "definition": "presents as strange or alluringly foreign",
+    "category": "transformative",
+    "lemma": "exoticize"
   },
   {
     "verb": "explains",
-    "definition": "make (an idea, situation, or problem) clear to someone by describing it in more detail or revealing relevant facts or ideas"
+    "definition": "make (an idea, situation, or problem) clear to someone by describing it in more detail or revealing relevant facts or ideas",
+    "category": "demonstrative",
+    "lemma": "explain"
   },
   {
     "verb": "expresses",
-    "definition": "convey (a thought or feeling) in words or by gestures and conduct"
+    "definition": "convey (a thought or feeling) in words or by gestures and conduct",
+    "category": "declarative",
+    "lemma": "express"
   },
   {
     "verb": "extrapolates upon",
-    "definition": "extend the application of (a method or conclusion, especially one based on statistics) to an unknown situation by assuming that existing trends will continue or similar methods will be applicable"
+    "definition": "extend the application of (a method or conclusion, especially one based on statistics) to an unknown situation by assuming that existing trends will continue or similar methods will be applicable",
+    "category": "analytical",
+    "lemma": "extrapolate"
   },
   {
     "verb": "extricate",
-    "definition": "another way to say 'disentangles'"
+    "definition": "another way to say 'disentangles'",
+    "category": "analytical",
+    "lemma": "extricate"
   },
   {
     "verb": "extricates",
-    "definition": "free from an entanglement; disentangle"
+    "definition": "free from an entanglement; disentangle",
+    "category": "analytical",
+    "lemma": "extricate"
   },
   {
     "verb": "fetishizes",
-    "definition": "fixates on one aspect and exaggerates its importance"
+    "definition": "fixates on one aspect and exaggerates its importance",
+    "category": "transformative",
+    "lemma": "fetishizes"
   },
   {
     "verb": "foregrounds",
-    "definition": "brings into prominence; makes most noticeable or important"
+    "definition": "brings into prominence; makes most noticeable or important",
+    "category": "demonstrative",
+    "lemma": "foreground"
   },
   {
     "verb": "frames",
-    "definition": "presents within a particular perspective or interpretation"
+    "definition": "presents within a particular perspective or interpretation",
+    "category": "transformative",
+    "lemma": "frame"
   },
   {
     "verb": "genderizes",
-    "definition": "represents or interprets through gender as an organizing category"
+    "definition": "represents or interprets through gender as an organizing category",
+    "category": "transformative",
+    "lemma": "genderize"
   },
   {
     "verb": "gives",
-    "definition": "communicate or impart (a message) to"
+    "definition": "communicate or impart (a message) to",
+    "category": "declarative",
+    "lemma": "give"
   },
   {
     "verb": "grants",
-    "definition": "agree or admit to (someone) that (something) is true"
+    "definition": "agree or admit to (someone) that (something) is true",
+    "category": "declarative",
+    "lemma": "grant"
   },
   {
     "verb": "gushes",
-    "definition": "speak or write with effusiveness or exaggerated enthusiasm"
+    "definition": "speak or write with effusiveness or exaggerated enthusiasm",
+    "category": "declarative",
+    "lemma": "gush"
   },
   {
     "verb": "hashes out",
-    "definition": "come to agreement on something after lengthy and vigorous discussion"
+    "definition": "come to agreement on something after lengthy and vigorous discussion",
+    "category": "rhetorical",
+    "lemma": "hash"
   },
   {
     "verb": "highlights",
-    "definition": "pick out and emphasize"
+    "definition": "pick out and emphasize",
+    "category": "demonstrative",
+    "lemma": "highlight"
   },
   {
     "verb": "hints at",
-    "definition": "a slight or indirect indication or suggestion"
+    "definition": "a slight or indirect indication or suggestion",
+    "category": "declarative",
+    "lemma": "hint"
   },
   {
     "verb": "historicizes",
-    "definition": "treat or represent as historical"
+    "definition": "treat or represent as historical",
+    "category": "analytical",
+    "lemma": "historicize"
   },
   {
     "verb": "humanizes",
-    "definition": "presents with empathy or complexity; makes feel fully human"
+    "definition": "presents with empathy or complexity; makes feel fully human",
+    "category": "transformative",
+    "lemma": "humanize"
   },
   {
     "verb": "illustrates",
-    "definition": "explain or make (something) clear by using examples, charts, pictures, etc."
+    "definition": "explain or make (something) clear by using examples, charts, pictures, etc.",
+    "category": "demonstrative",
+    "lemma": "illustrate"
   },
   {
     "verb": "imagines",
-    "definition": "form a mental image or concept of"
+    "definition": "form a mental image or concept of",
+    "category": "demonstrative",
+    "lemma": "imago"
   },
   {
     "verb": "implies",
-    "definition": "strongly suggest the truth or existence of (something not expressly stated)"
+    "definition": "strongly suggest the truth or existence of (something not expressly stated)",
+    "category": "declarative",
+    "lemma": "imply"
   },
   {
     "verb": "increases",
-    "definition": "become or make greater in size, amount, intensity, or degree"
+    "definition": "become or make greater in size, amount, intensity, or degree",
+    "category": "transformative",
+    "lemma": "increase"
   },
   {
     "verb": "indicates",
-    "definition": "point out; show"
+    "definition": "point out; show",
+    "category": "demonstrative",
+    "lemma": "indicate"
   },
   {
     "verb": "infantilizes",
-    "definition": "treats a person or group as childlike; denies agency"
+    "definition": "treats a person or group as childlike; denies agency",
+    "category": "transformative",
+    "lemma": "infantilize"
   },
   {
     "verb": "insinuates",
-    "definition": "suggest or hint (something bad or reprehensible) in an indirect and unpleasant way"
+    "definition": "suggest or hint (something bad or reprehensible) in an indirect and unpleasant way",
+    "category": "declarative",
+    "lemma": "insinuate"
   },
   {
     "verb": "intensifies",
-    "definition": "become or make more intense"
+    "definition": "become or make more intense",
+    "category": "transformative",
+    "lemma": "intensifie"
   },
   {
     "verb": "intermingles",
-    "definition": "mix or mingle together"
+    "definition": "mix or mingle together",
+    "category": "transformative",
+    "lemma": "intermingle"
   },
   {
     "verb": "intermixes",
-    "definition": "mix or blend together; combine"
+    "definition": "mix or blend together; combine",
+    "category": "transformative",
+    "lemma": "intermixe"
   },
   {
     "verb": "interrogates",
-    "definition": "ask questions of someone or about a topic; question closely"
+    "definition": "ask questions of someone or about a topic; question closely",
+    "category": "analytical",
+    "lemma": "interrogate"
   },
   {
     "verb": "jettisons",
-    "definition": "abandon or discard (something no longer wanted)"
+    "definition": "abandon or discard (something no longer wanted)",
+    "category": "transformative",
+    "lemma": "jettison"
   },
   {
     "verb": "justifies",
-    "definition": "show or prove to be right or reasonable"
+    "definition": "show or prove to be right or reasonable",
+    "category": "rhetorical",
+    "lemma": "justifie"
   },
   {
     "verb": "juxtaposes",
-    "definition": "place close together for contrasting effect"
+    "definition": "place close together for contrasting effect",
+    "category": "analytical",
+    "lemma": "juxtapose"
   },
   {
     "verb": "lampoons",
-    "definition": "ridicule with sharp humor"
+    "definition": "ridicule with sharp humor",
+    "category": "evaluative",
+    "lemma": "lampoon"
   },
   {
     "verb": "legitimizes",
-    "definition": "makes seem acceptable, authoritative, or justified"
+    "definition": "makes seem acceptable, authoritative, or justified",
+    "category": "rhetorical",
+    "lemma": "legitimize"
   },
   {
     "verb": "lessens",
-    "definition": "make or become less; diminish"
+    "definition": "make or become less; diminish",
+    "category": "transformative",
+    "lemma": "lessen"
   },
   {
     "verb": "lists",
-    "definition": "make a list of"
+    "definition": "make a list of",
+    "category": "analytical",
+    "lemma": "list"
   },
   {
     "verb": "manipulates",
-    "definition": "handle or control (a tool or mechanism), typically skillfully"
+    "definition": "handle or control (a tool or mechanism), typically skillfully",
+    "category": "rhetorical",
+    "lemma": "manipulate"
   },
   {
     "verb": "marginalizes",
-    "definition": "pushes to the edge; treats as less important or less visible"
+    "definition": "pushes to the edge; treats as less important or less visible",
+    "category": "transformative",
+    "lemma": "marginalize"
   },
   {
     "verb": "mobilizes",
-    "definition": "activates ideas/emotions/people for an effect"
+    "definition": "activates ideas/emotions/people for an effect",
+    "category": "rhetorical",
+    "lemma": "mobilize"
   },
   {
     "verb": "modifies",
-    "definition": "make partial or minor changes to improve or make less extreme"
+    "definition": "make partial or minor changes to improve or make less extreme",
+    "category": "transformative",
+    "lemma": "modifie"
   },
   {
     "verb": "mythologizes",
-    "definition": "turns into a mythic or heroic story; amplifies legend"
+    "definition": "turns into a mythic or heroic story; amplifies legend",
+    "category": "transformative",
+    "lemma": "mythologize"
   },
   {
     "verb": "naturalizes",
-    "definition": "treats something constructed as if it is natural or inevitable"
+    "definition": "treats something constructed as if it is natural or inevitable",
+    "category": "transformative",
+    "lemma": "naturalize"
   },
   {
     "verb": "negotiates",
-    "definition": "find a way over, through, or around an obstacle; navigate"
+    "definition": "find a way over, through, or around an obstacle; navigate",
+    "category": "rhetorical",
+    "lemma": "negotiate"
   },
   {
     "verb": "normalizes",
-    "definition": "makes seem normal or inevitable through repetition or framing"
+    "definition": "makes seem normal or inevitable through repetition or framing",
+    "category": "transformative",
+    "lemma": "normalize"
   },
   {
     "verb": "observes",
-    "definition": "notice or perceive and register as significant"
+    "definition": "notice or perceive and register as significant",
+    "category": "declarative",
+    "lemma": "observe"
   },
   {
     "verb": "obviates",
-    "definition": "remove a need or difficulty"
+    "definition": "remove a need or difficulty",
+    "category": "transformative",
+    "lemma": "obviate"
   },
   {
     "verb": "opines",
-    "definition": "state or express an opinion"
+    "definition": "state or express an opinion",
+    "category": "declarative",
+    "lemma": "opine"
   },
   {
     "verb": "orientalizes",
-    "definition": "portrays the ‘East’ through stereotypes that serve Western power"
+    "definition": "portrays the ‘East’ through stereotypes that serve Western power",
+    "category": "transformative",
+    "lemma": "orientalize"
   },
   {
     "verb": "otherizes",
-    "definition": "casts a group as outsider to create distance or hierarchy"
+    "definition": "casts a group as outsider to create distance or hierarchy",
+    "category": "transformative",
+    "lemma": "otherize"
   },
   {
     "verb": "outlines",
-    "definition": "give a general description or plan showing essential features without detail"
+    "definition": "give a general description or plan showing essential features without detail",
+    "category": "analytical",
+    "lemma": "outline"
   },
   {
     "verb": "overturns",
-    "definition": "abolish, invalidate, or reverse a previous decision, situation, or system"
+    "definition": "abolish, invalidate, or reverse a previous decision, situation, or system",
+    "category": "transformative",
+    "lemma": "overturn"
   },
   {
     "verb": "paints a picture of",
-    "definition": "portrays vividly; describes in words"
+    "definition": "portrays vividly; describes in words",
+    "category": "demonstrative",
+    "lemma": "paint"
   },
   {
     "verb": "particularizes",
-    "definition": "makes specific; ties an idea to a particular context"
+    "definition": "makes specific; ties an idea to a particular context",
+    "category": "analytical",
+    "lemma": "particularize"
   },
   {
     "verb": "pathologizes",
-    "definition": "frames as abnormal or diseased; treats as a problem needing correction"
+    "definition": "frames as abnormal or diseased; treats as a problem needing correction",
+    "category": "transformative",
+    "lemma": "pathologize"
   },
   {
     "verb": "penetrates",
-    "definition": "succeed in understanding or gaining insight into (something complex or mysterious)"
+    "definition": "succeed in understanding or gaining insight into (something complex or mysterious)",
+    "category": "analytical",
+    "lemma": "penetrate"
   },
   {
     "verb": "points out",
-    "definition": "indicates; draws attention to"
+    "definition": "indicates; draws attention to",
+    "category": "demonstrative",
+    "lemma": "point"
   },
   {
     "verb": "politicizes",
-    "definition": "treats as political; connects to power, policy, or ideology"
+    "definition": "treats as political; connects to power, policy, or ideology",
+    "category": "transformative",
+    "lemma": "politicize"
   },
   {
     "verb": "posits",
-    "definition": "puts forward a theory or claim confidently"
+    "definition": "puts forward a theory or claim confidently",
+    "category": "declarative",
+    "lemma": "posit"
   },
   {
     "verb": "prepares",
-    "definition": "make (something) ready for use or consideration"
+    "definition": "make (something) ready for use or consideration",
+    "category": "rhetorical",
+    "lemma": "prepare"
   },
   {
     "verb": "presents",
-    "definition": "represent (someone or something) to others in a particular way"
+    "definition": "represent (someone or something) to others in a particular way",
+    "category": "declarative",
+    "lemma": "present"
   },
   {
     "verb": "problematizes",
-    "definition": "make into or regard as a problem requiring a solution"
+    "definition": "make into or regard as a problem requiring a solution",
+    "category": "analytical",
+    "lemma": "problematize"
   },
   {
     "verb": "provokes",
-    "definition": "stimulate or give rise to (a reaction or emotion, typically a strong or unwelcome one) in someone"
+    "definition": "stimulate or give rise to (a reaction or emotion, typically a strong or unwelcome one) in someone",
+    "category": "rhetorical",
+    "lemma": "provoke"
   },
   {
     "verb": "punctuates",
-    "definition": "interrupt or intersperse (an activity) with"
+    "definition": "interrupt or intersperse (an activity) with",
+    "category": "transformative",
+    "lemma": "punctuate"
   },
   {
     "verb": "punishes",
-    "definition": "inflict a penalty or sanction on (someone) as retribution for an offense, especially a transgression of a legal or moral code"
+    "definition": "inflict a penalty or sanction on (someone) as retribution for an offense, especially a transgression of a legal or moral code",
+    "category": "evaluative",
+    "lemma": "punish"
   },
   {
     "verb": "pushes",
-    "definition": "promote the use, sale, or acceptance of"
+    "definition": "promote the use, sale, or acceptance of",
+    "category": "rhetorical",
+    "lemma": "push"
   },
   {
     "verb": "questions",
-    "definition": "a sentence worded or expressed so as to elicit information"
+    "definition": "a sentence worded or expressed so as to elicit information",
+    "category": "analytical",
+    "lemma": "question"
   },
   {
     "verb": "racializes",
-    "definition": "represents or interprets through race as an organizing category"
+    "definition": "represents or interprets through race as an organizing category",
+    "category": "transformative",
+    "lemma": "racialize"
   },
   {
     "verb": "reacts to",
-    "definition": "respond or behave in a particular way in response to something"
+    "definition": "respond or behave in a particular way in response to something",
+    "category": "declarative",
+    "lemma": "react"
   },
   {
     "verb": "recalls",
-    "definition": "bring (a fact, event, or situation) back into one's mind; remember"
+    "definition": "bring (a fact, event, or situation) back into one's mind; remember",
+    "category": "demonstrative",
+    "lemma": "recall"
   },
   {
     "verb": "recounts",
-    "definition": "another way of saying \"gives an account of\""
+    "definition": "another way of saying \"gives an account of\"",
+    "category": "demonstrative",
+    "lemma": "recount"
   },
   {
     "verb": "reevaluates",
-    "definition": "evaluate again or differently"
+    "definition": "evaluate again or differently",
+    "category": "evaluative",
+    "lemma": "reevaluate"
   },
   {
     "verb": "reframes",
-    "definition": "presents again from a new angle to change interpretation"
+    "definition": "presents again from a new angle to change interpretation",
+    "category": "transformative",
+    "lemma": "reframe"
   },
   {
     "verb": "reifies",
-    "definition": "treats an abstract idea as if it were a concrete thing"
+    "definition": "treats an abstract idea as if it were a concrete thing",
+    "category": "transformative",
+    "lemma": "reifie"
   },
   {
     "verb": "reimagines",
-    "definition": "reinterpret (an event, work of art, etc.) imaginatively; rethink"
+    "definition": "reinterpret (an event, work of art, etc.) imaginatively; rethink",
+    "category": "transformative",
+    "lemma": "reimagine"
   },
   {
     "verb": "reinvigorates",
-    "definition": "give new energy or strength to"
+    "definition": "give new energy or strength to",
+    "category": "transformative",
+    "lemma": "reinvigorate"
   },
   {
     "verb": "reiterates",
-    "definition": "repeats; restates"
+    "definition": "repeats; restates",
+    "category": "declarative",
+    "lemma": "reiterate"
   },
   {
     "verb": "relegates",
-    "definition": "consign or dismiss to an inferior rank or position"
+    "definition": "consign or dismiss to an inferior rank or position",
+    "category": "evaluative",
+    "lemma": "relegate"
   },
   {
     "verb": "reminisces upon",
-    "definition": "indulge in enjoyable recollection of past events"
+    "definition": "indulge in enjoyable recollection of past events",
+    "category": "declarative",
+    "lemma": "reminisce"
   },
   {
     "verb": "repeats",
-    "definition": "say again something one has already said"
+    "definition": "say again something one has already said",
+    "category": "declarative",
+    "lemma": "repeat"
   },
   {
     "verb": "resolves",
-    "definition": "settle or find a solution to (a problem, dispute, or contentious matter); or decide firmly on a course of action"
+    "definition": "settle or find a solution to (a problem, dispute, or contentious matter); or decide firmly on a course of action",
+    "category": "transformative",
+    "lemma": "resolve"
   },
   {
     "verb": "responds to",
-    "definition": "say something in reply"
+    "definition": "say something in reply",
+    "category": "declarative",
+    "lemma": "respond"
   },
   {
     "verb": "reveals",
-    "definition": "make (previously unknown or secret information) known to others"
+    "definition": "make (previously unknown or secret information) known to others",
+    "category": "demonstrative",
+    "lemma": "reveal"
   },
   {
     "verb": "revolutionizes",
-    "definition": "change (something) radically or fundamentally"
+    "definition": "change (something) radically or fundamentally",
+    "category": "transformative",
+    "lemma": "revolutionize"
   },
   {
     "verb": "romanticizes",
-    "definition": "idealizes unrealistically"
+    "definition": "idealizes unrealistically",
+    "category": "transformative",
+    "lemma": "romanticize"
   },
   {
     "verb": "runs the gamut of",
-    "definition": "covers the complete range or scope of something"
+    "definition": "covers the complete range or scope of something",
+    "category": "analytical",
+    "lemma": "run"
   },
   {
     "verb": "sanctifies",
-    "definition": "treats as sacred or beyond criticism"
+    "definition": "treats as sacred or beyond criticism",
+    "category": "evaluative",
+    "lemma": "sanctifie"
   },
   {
     "verb": "satirizes",
-    "definition": "uses satire to expose"
+    "definition": "uses satire to expose",
+    "category": "evaluative",
+    "lemma": "satirize"
   },
   {
     "verb": "satisfies",
-    "definition": "meet the expectations, needs, or desires of (someone)"
+    "definition": "meet the expectations, needs, or desires of (someone)",
+    "category": "evaluative",
+    "lemma": "satisfie"
   },
   {
     "verb": "scrutinizes",
-    "definition": "examines closely; inspects critically"
+    "definition": "examines closely; inspects critically",
+    "category": "analytical",
+    "lemma": "scrutinize"
   },
   {
     "verb": "sexualizes",
-    "definition": "portrays or describes in sexual terms; gives sexual qualities"
+    "definition": "portrays or describes in sexual terms; gives sexual qualities",
+    "category": "transformative",
+    "lemma": "sexualize"
   },
   {
     "verb": "sidesteps",
-    "definition": "avoid dealing with or discussing (something problematic or disagreeable)"
+    "definition": "avoid dealing with or discussing (something problematic or disagreeable)",
+    "category": "rhetorical",
+    "lemma": "sidestep"
   },
   {
     "verb": "silences",
-    "definition": "suppresses or prevents from being heard or represented"
+    "definition": "suppresses or prevents from being heard or represented",
+    "category": "transformative",
+    "lemma": "silence"
   },
   {
     "verb": "situates",
-    "definition": "put in context; describe the circumstances surrounding (something)"
+    "definition": "put in context; describe the circumstances surrounding (something)",
+    "category": "analytical",
+    "lemma": "situate"
   },
   {
     "verb": "spotlights",
-    "definition": "direct attention to (a particular problem or situation)"
+    "definition": "direct attention to (a particular problem or situation)",
+    "category": "demonstrative",
+    "lemma": "spotlight"
   },
   {
     "verb": "stratifies",
-    "definition": "arranges into layers or ranks; classifies into strata"
+    "definition": "arranges into layers or ranks; classifies into strata",
+    "category": "analytical",
+    "lemma": "stratifie"
   },
   {
     "verb": "strengthens",
-    "definition": "make or become stronger"
+    "definition": "make or become stronger",
+    "category": "transformative",
+    "lemma": "strengthen"
   },
   {
     "verb": "subverts",
-    "definition": "undermines from within; reverses expected meaning or hierarchy"
+    "definition": "undermines from within; reverses expected meaning or hierarchy",
+    "category": "transformative",
+    "lemma": "subvert"
   },
   {
     "verb": "suggests",
-    "definition": "state or express indirectly"
+    "definition": "state or express indirectly",
+    "category": "declarative",
+    "lemma": "suggest"
   },
   {
     "verb": "theorizes",
-    "definition": "frames something through a conceptual lens"
+    "definition": "frames something through a conceptual lens",
+    "category": "analytical",
+    "lemma": "theorize"
   },
   {
     "verb": "undermines",
-    "definition": "lessen the effectiveness, power, or ability of, especially gradually or insidiously"
+    "definition": "lessen the effectiveness, power, or ability of, especially gradually or insidiously",
+    "category": "evaluative",
+    "lemma": "undermine"
   },
   {
     "verb": "underscores",
-    "definition": "emphasizes; highlights"
+    "definition": "emphasizes; highlights",
+    "category": "demonstrative",
+    "lemma": "underscore"
   },
   {
     "verb": "universalizes",
-    "definition": "treats a specific experience as if it applies to everyone"
+    "definition": "treats a specific experience as if it applies to everyone",
+    "category": "transformative",
+    "lemma": "universalize"
   },
   {
     "verb": "unpacks",
-    "definition": "pulls apart layers of meaning"
+    "definition": "pulls apart layers of meaning",
+    "category": "analytical",
+    "lemma": "unpack"
   },
   {
     "verb": "upends",
-    "definition": "overturns; disrupts or reverses"
+    "definition": "overturns; disrupts or reverses",
+    "category": "transformative",
+    "lemma": "upend"
   },
   {
     "verb": "upsets",
-    "definition": "cause disorder in (something); disrupt"
+    "definition": "cause disorder in (something); disrupt",
+    "category": "transformative",
+    "lemma": "upset"
   },
   {
     "verb": "values",
-    "definition": "the regard that something is held to deserve; the importance, worth, or usefulness of something"
+    "definition": "the regard that something is held to deserve; the importance, worth, or usefulness of something",
+    "category": "evaluative",
+    "lemma": "value"
   },
   {
     "verb": "vilifies",
-    "definition": "describes in an extremely negative way; attacks character"
+    "definition": "describes in an extremely negative way; attacks character",
+    "category": "evaluative",
+    "lemma": "vilifie"
   },
   {
     "verb": "wallows in",
-    "definition": "(of a person) indulge in an unrestrained way in (something that creates a pleasurable sensation)"
+    "definition": "(of a person) indulge in an unrestrained way in (something that creates a pleasurable sensation)",
+    "category": "evaluative",
+    "lemma": "wallow"
   },
   {
     "verb": "whitewashes",
-    "definition": "deliberately attempt to conceal unpleasant or incriminating facts about (someone or something)"
+    "definition": "deliberately attempt to conceal unpleasant or incriminating facts about (someone or something)",
+    "category": "transformative",
+    "lemma": "whitewash"
   }
 ]

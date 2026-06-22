@@ -1879,6 +1879,17 @@ load_thesis_devices()
 _POWER_VERB_LEMMAS = None
 
 def _load_power_verb_lemmas():
+    """Lazy-load {lemma: lemma} dict for power verb token matching.
+
+    The JSON now also carries `lemma` and `category` fields per entry
+    (added 2026-06-21 for Phase 2 of the positive_events project). We
+    prefer the explicit `lemma` field; if absent (older builds), fall
+    back to nlp()ing the verb form. Multi-word phrases (e.g. "draws a
+    picture of") are SKIPPED — their head-verb lemma ("draw") would
+    falsely match generic single-token usage in student essays.
+    Phrase-level detection for those entries is left for a future
+    pass similar to iter_device_spans's multiword handling.
+    """
     global _POWER_VERB_LEMMAS
     if _POWER_VERB_LEMMAS is not None:
         return _POWER_VERB_LEMMAS
@@ -1897,15 +1908,21 @@ def _load_power_verb_lemmas():
             verb_form = (entry.get("verb") or "").strip()
             if not verb_form:
                 continue
-            try:
-                doc = nlp(verb_form)
-            except Exception:
+            # Skip multi-word phrases — head-verb lemma matching is too
+            # permissive (would catch any "draw"/"point"/"hash" token).
+            if " " in verb_form:
                 continue
-            if doc and len(doc) > 0:
-                lemma = (doc[0].lemma_ or "").lower().strip()
-                if lemma:
-                    # Lemma as both key (for matching) and value (for display).
-                    out[lemma] = lemma
+            # Prefer the explicit lemma field if present; fall back to nlp().
+            lemma = (entry.get("lemma") or "").strip().lower()
+            if not lemma:
+                try:
+                    doc = nlp(verb_form)
+                except Exception:
+                    continue
+                if doc and len(doc) > 0:
+                    lemma = (doc[0].lemma_ or "").lower().strip()
+            if lemma:
+                out[lemma] = lemma
     except Exception as e:
         print(f"[positive_events] failed to load power verbs: {e!r}")
     _POWER_VERB_LEMMAS = out
