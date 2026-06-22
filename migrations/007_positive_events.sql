@@ -1,0 +1,41 @@
+-- 007_positive_events.sql
+--
+-- Adds a JSONB column to mark_events that captures POSITIVE marker
+-- output — power verbs used, thesis devices employed, and lexis terms
+-- recognized — alongside the existing negative-signal columns
+-- (label_counts, issues, scores). Enables the Progress Report's new
+-- "verb repertoire", "techniques mastered", and "higher-order concepts
+-- engaged" sections to aggregate across a semester.
+--
+-- Shape:
+--   {
+--     "power_verbs": { "interrogates": 4, "illustrates": 2 },
+--     "devices":     { "anaphora": 3, "polysyndeton": 1 },
+--     "lexis": {
+--       "concept": { "feminism": 4, "intersectionality": 2 },
+--       "event":   { "enlightenment": 2 },
+--       "person":  { "foucault": 3, "butler": 2 }
+--     }
+--   }
+--
+-- Keys are normalized (lowercase, ASCII where possible — matches the
+-- term_norm convention used in assignment-lexis.csv and the
+-- canonical_device_key emitted by marker.py).
+--
+-- Values are per-essay occurrence counts. Aggregation across rows
+-- happens in the Progress Report PDF generator.
+--
+-- Safe to run any time:
+--   - Default of '{}' means existing rows behave identically.
+--   - Marker-computed; refreshed on every re-mark via the UPSERT
+--     pattern from migrations/-/fix #1.
+--   - No FK dependencies, no RLS changes.
+
+ALTER TABLE public.mark_events
+  ADD COLUMN IF NOT EXISTS positive_events jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+-- Optional: a small GIN index if we ever want fast "which students
+-- used X verb?" queries. Skipping for now — Progress Report does its
+-- aggregation row-by-row, not via index lookup.
+-- CREATE INDEX IF NOT EXISTS mark_events_positive_events_gin
+--   ON public.mark_events USING gin (positive_events);
