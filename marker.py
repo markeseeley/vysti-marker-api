@@ -1868,6 +1868,126 @@ load_thesis_devices()
 # LEXIS DATABASE — LOADING AND DETECTION
 # ============================================================
 
+# ─────────────────────────────────────────────────────────────────────
+# Power-verb lemma loader — lazy. Used by _compute_positive_events().
+# Each entry in power_verbs_2025.json is a single dictionary form
+# (e.g. "interrogates"); we lemmatize once at load time so the
+# downstream scan can do lemma-equality matching against student tokens
+# regardless of inflection ("interrogated" / "interrogating" / etc. all
+# count toward "interrogate").
+# ─────────────────────────────────────────────────────────────────────
+_POWER_VERB_LEMMAS = None
+
+def _load_power_verb_lemmas():
+    global _POWER_VERB_LEMMAS
+    if _POWER_VERB_LEMMAS is not None:
+        return _POWER_VERB_LEMMAS
+    out: dict[str, str] = {}
+    try:
+        file_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(file_dir, "power_verbs_2025.json")
+        if not os.path.exists(file_path):
+            _POWER_VERB_LEMMAS = out
+            return out
+        with open(file_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        for entry in entries or []:
+            if not isinstance(entry, dict):
+                continue
+            verb_form = (entry.get("verb") or "").strip()
+            if not verb_form:
+                continue
+            try:
+                doc = nlp(verb_form)
+            except Exception:
+                continue
+            if doc and len(doc) > 0:
+                lemma = (doc[0].lemma_ or "").lower().strip()
+                if lemma:
+                    # Lemma as both key (for matching) and value (for display).
+                    out[lemma] = lemma
+    except Exception as e:
+        print(f"[positive_events] failed to load power verbs: {e!r}")
+    _POWER_VERB_LEMMAS = out
+    return out
+
+
+def _compute_positive_events(full_text: str, detected_lexis_list):
+    """Build the positive_events dict that gets stored on mark_events.
+
+    Captures three independent positive signals from a single essay:
+      - power_verbs: lemma-keyed counts of any power verb appearance
+      - devices:     canonical_device_key-keyed counts (from existing
+                     iter_device_spans pass over the original text)
+      - lexis:       per focus_type (concept / event / person) counts
+                     of lexis terms detected by detect_lexis_in_text.
+                     device focus_type is intentionally skipped to
+                     avoid double-counting with thesis_devices output.
+
+    Pure function over its inputs; never raises (any failure produces
+    a partial result rather than aborting marking).
+    """
+    out = {
+        "power_verbs": {},
+        "devices": {},
+        "lexis": {"concept": {}, "event": {}, "person": {}},
+    }
+
+    # 1. Reshape detected_lexis into nested {focus_type → {term_norm → count}}.
+    #    detected_lexis is a list of dicts produced by detect_lexis_in_text.
+    for entry in detected_lexis_list or []:
+        if not isinstance(entry, dict):
+            continue
+        focus = (entry.get("focus_type") or "").strip().lower()
+        if focus not in ("concept", "event", "person"):
+            continue
+        term_norm = (entry.get("term_norm") or entry.get("term") or "").strip().lower()
+        if not term_norm:
+            continue
+        try:
+            count = int(entry.get("count") or 1)
+        except Exception:
+            count = 1
+        if count <= 0:
+            count = 1
+        out["lexis"][focus][term_norm] = out["lexis"][focus].get(term_norm, 0) + count
+
+    # 2. Power verbs + devices — both need a spaCy parse of the original
+    #    document text. (We re-parse here; the marking pass parsed already
+    #    but its doc isn't easily reachable from this scope. Cost is one
+    #    extra parse per mark, ~100-300 ms on typical essays.)
+    if full_text:
+        try:
+            doc = nlp(full_text)
+
+            # Power verb scan — lemma equality against the loaded set.
+            lemma_map = _load_power_verb_lemmas()
+            if lemma_map:
+                for tok in doc:
+                    if not tok.is_alpha:
+                        continue
+                    lemma = (tok.lemma_ or "").lower()
+                    if lemma in lemma_map:
+                        display = lemma_map[lemma]
+                        out["power_verbs"][display] = out["power_verbs"].get(display, 0) + 1
+
+            # Device scan — reuse the same iterator that drives the
+            # in-essay green highlighting. canonical_device_key is the
+            # stable key (already lowercase).
+            try:
+                for device_key, _s, _e in iter_device_spans(doc):
+                    key = (device_key or "").lower().strip()
+                    if not key:
+                        continue
+                    out["devices"][key] = out["devices"].get(key, 0) + 1
+            except Exception as e:
+                print(f"[positive_events] device scan failed: {e!r}")
+        except Exception as e:
+            print(f"[positive_events] parse/scan failed: {e!r}")
+
+    return out
+
+
 def load_lexis_database(path: str = "assignment-lexis.csv"):
     """
     Load the assignment-lexis CSV into a pandas DataFrame.
@@ -9501,6 +9621,10 @@ def mark_docx_bytes(
             # Detect lexis terms (filters to concept, device, event, person by default)
             detected_lexis = detect_lexis_in_text(full_text)
             metadata["detected_lexis"] = detected_lexis
+            # Positive-signal aggregation for the Progress Report:
+            # power verbs, devices, and lexis terms used in the essay.
+            # Stored on mark_events.positive_events JSONB column.
+            metadata["positive_events"] = _compute_positive_events(full_text, detected_lexis)
             # Guess author and title from the first body paragraph
             try:
                 guesses = guess_author_and_title(full_text)
@@ -9515,6 +9639,7 @@ def mark_docx_bytes(
             # If lexis detection fails, don't break the whole marking process
             print(f"Warning: Lexis detection failed: {e}")
             metadata["detected_lexis"] = []
+            metadata["positive_events"] = {"power_verbs": {}, "devices": {}, "lexis": {"concept": {}, "event": {}, "person": {}}}
             metadata["guessed_author"] = ""
             metadata["guessed_title"] = ""
             metadata["guessed_is_minor"] = True

@@ -2599,6 +2599,14 @@ async def mark_essay(
 
     # ----- Count yellow labels from metadata -----
     issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
+    # Positive marker output (power verbs, devices, lexis) — saved to
+    # mark_events.positive_events JSONB for the Progress Report's
+    # cross-essay aggregation. Always a dict; missing → {} (no-op).
+    _meta_positive_events = (
+        metadata.get("positive_events", {}) if isinstance(metadata, dict) else {}
+    )
+    if not isinstance(_meta_positive_events, dict):
+        _meta_positive_events = {}
 
     label_counter = Counter()
     for issue in issues:
@@ -2685,6 +2693,7 @@ async def mark_essay(
                     "issues": issues,
                     "word_count": _meta_word_count,
                     "scores": _sanitize_for_json(_meta_scores) if _meta_scores else None,
+                    "positive_events": _sanitize_for_json(_meta_positive_events),
                 }
                 patch_url = f"{SUPABASE_URL}/rest/v1/mark_events?id=eq.{existing_id}"
                 async with httpx.AsyncClient(timeout=5) as client:
@@ -2721,6 +2730,7 @@ async def mark_essay(
                     "review_status": "pending",
                     "word_count": _meta_word_count,
                     "scores": _sanitize_for_json(_meta_scores) if _meta_scores else None,
+                    "positive_events": _sanitize_for_json(_meta_positive_events),
                 }
                 db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
                 async with httpx.AsyncClient(timeout=5) as client:
@@ -5072,7 +5082,13 @@ async def mark_text(
     # 4. Extract examples and issues from metadata
     examples = metadata.get("examples", []) if isinstance(metadata, dict) else []
     issues = metadata.get("issues", []) if isinstance(metadata, dict) else []
-    
+    # Positive marker output for Progress Report aggregation.
+    _meta_positive_events = (
+        metadata.get("positive_events", {}) if isinstance(metadata, dict) else {}
+    )
+    if not isinstance(_meta_positive_events, dict):
+        _meta_positive_events = {}
+
     # 4. Count labels
     label_counter = Counter()
     for issue in issues:
@@ -5129,6 +5145,7 @@ async def mark_text(
                     "label_counts": dict(label_counter),
                     "issues": issues,
                     "source": body.source or "desktop",
+                    "positive_events": _sanitize_for_json(_meta_positive_events),
                 }
                 patch_url = f"{SUPABASE_URL}/rest/v1/mark_events?id=eq.{existing_id}"
                 async with httpx.AsyncClient(timeout=5) as client:
@@ -5157,6 +5174,7 @@ async def mark_text(
                     "issues": issues,
                     "review_status": "pending",
                     "source": body.source or "desktop",
+                    "positive_events": _sanitize_for_json(_meta_positive_events),
                 }
                 db_url = f"{SUPABASE_URL}/rest/v1/mark_events?select=id"
                 async with httpx.AsyncClient(timeout=5) as client:
