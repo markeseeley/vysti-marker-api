@@ -7213,14 +7213,39 @@ ${savedHtml}
         lexisLines.push({ label: LEXIS_LABEL[ft], text });
       }
 
+      // Writing progress — body-paragraph craft stats pulled from each
+      // row's persisted scores. Replaces the standalone "Strengths" block
+      // that used to sit at the very end of the report (deleted 2026-06-22).
+      let totalTechniqueOk = 0, totalEvidenceOk = 0, totalStructureOk = 0, bodyParaCount = 0;
+      for (const r of rows) {
+        const v = r?.scores?.variety?.details || {};
+        if (typeof v.techniqueOkCount  === "number") totalTechniqueOk  += v.techniqueOkCount;
+        if (typeof v.evidenceDevOkCount === "number") totalEvidenceOk   += v.evidenceDevOkCount;
+        if (typeof v.structureOkCount  === "number") totalStructureOk  += v.structureOkCount;
+        if (typeof v.bodyParagraphCount === "number") bodyParaCount    += v.bodyParagraphCount;
+      }
+      const writingProgressLines = [];
+      if (bodyParaCount > 0) {
+        if (totalTechniqueOk > 0) {
+          writingProgressLines.push({ label: "Strong technique analysis", text: `${totalTechniqueOk} of ${bodyParaCount} body paragraphs` });
+        }
+        if (totalEvidenceOk > 0) {
+          writingProgressLines.push({ label: "Well-developed evidence", text: `${totalEvidenceOk} of ${bodyParaCount} body paragraphs` });
+        }
+        if (totalStructureOk > 0) {
+          writingProgressLines.push({ label: "Strong structure", text: `${totalStructureOk} of ${bodyParaCount} body paragraphs` });
+        }
+      }
+
       // If absolutely nothing to render, skip the whole section.
-      if (verbLines.length === 0 && !deviceText && lexisLines.length === 0) return y;
+      if (verbLines.length === 0 && !deviceText && lexisLines.length === 0 && writingProgressLines.length === 0) return y;
 
       // Estimate required vertical space and page-break if needed.
       const needed = 10
         + (verbLines.length ? 6 + verbLines.length * 5 + 3 : 0)
         + (deviceText ? 6 + 10 + 3 : 0)
-        + (lexisLines.length ? 6 + lexisLines.length * 5 + 3 : 0);
+        + (lexisLines.length ? 6 + lexisLines.length * 5 + 3 : 0)
+        + (writingProgressLines.length ? 6 + writingProgressLines.length * 5 + 3 : 0);
       y = frEnsureSpace(doc, y, needed, logo);
 
       // Section header
@@ -7239,16 +7264,22 @@ ${savedHtml}
         y += 4.5;
         doc.setFontSize(9);
         for (const ln of lines) {
+          // Measure WHILE the font is bold (jsPDF's getTextWidth uses the
+          // current font; the previous version measured after switching
+          // to normal, so the wider bold label crashed into the body).
           doc.setFont("helvetica", "bold");
           doc.setTextColor(...FR_MAROON);
-          const lbl = ln.label + ": ";
+          const lbl = ln.label + ":";
+          const lblW = doc.getTextWidth(lbl);
           doc.text(lbl, FR_ML + 4, y);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(...FR_BLACK);
-          const lblW = doc.getTextWidth(lbl);
-          const wrapped = doc.splitTextToSize(ln.text, FR_CONTENT_W - 4 - lblW);
+          // Add a 2mm gap after the label so the value never visually
+          // fuses with it, even at edge-case widths.
+          const valueX = FR_ML + 4 + lblW + 2;
+          const wrapped = doc.splitTextToSize(ln.text, FR_CONTENT_W - (valueX - FR_ML));
           wrapped.forEach((w, idx) => {
-            doc.text(w, FR_ML + 4 + (idx === 0 ? lblW : 0), y);
+            doc.text(w, idx === 0 ? valueX : FR_ML + 4, y);
             y += 4.5;
           });
         }
@@ -7275,6 +7306,9 @@ ${savedHtml}
 
       // ── Lexis ──
       renderLines("Higher-order thinking:", lexisLines);
+
+      // ── Writing progress ──
+      renderLines("Writing progress:", writingProgressLines);
 
       return y + 2;
     }
@@ -7492,53 +7526,14 @@ ${savedHtml}
         y += 4;
       }
 
-      // ── Best Assignment callout ──
-      // Picks the row with the highest score (teacher score preferred,
-      // falls back to Vysti overall %), with a 1-line caption.
-      const scoredRows = rows
-        .map(r => {
-          const teacherScore = (typeof r.score === "number" && r.score >= 0) ? r.score : null;
-          const vysti = computeFrOverall(r.scores, r.mode);
-          const finalScore = teacherScore != null ? teacherScore : vysti;
-          return { row: r, finalScore, source: teacherScore != null ? "teacher" : "vysti" };
-        })
-        .filter(x => x.finalScore != null);
-
-      if (scoredRows.length > 0) {
-        scoredRows.sort((a, b) => b.finalScore - a.finalScore);
-        const best = scoredRows[0];
-        y = frEnsureSpace(doc, y, 22, logo);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...FR_BLACK);
-        doc.text("Best Assignment", FR_ML, y);
-        y += 6;
-        doc.setFillColor(248, 248, 250);
-        frRoundedRect(doc, FR_ML, y, FR_CONTENT_W, 14, 3);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...FR_BLACK);
-        const title = best.row.assignment_display || "Untitled";
-        doc.text(title, FR_ML + 4, y + 6);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(...FR_MUTED);
-        const dateStr = new Date(best.row.created_at).toLocaleDateString();
-        const sourceLabel = best.source === "teacher" ? "teacher score" : "Vysti score";
-        doc.text(`${dateStr}  ·  ${sourceLabel}`, FR_ML + 4, y + 11);
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...FR_MAROON);
-        doc.text(`${best.finalScore}%`, FR_ML + FR_CONTENT_W - 4, y + 10, { align: "right" });
-        y += 20;
-      }
-
-      // ── Strengths Across the Term (Phase 3 — positive_events aggregation) ──
-      y = _renderStrengthsBlock(doc, y, logo, rows, verbCategoryMap);
-
       // ── Meter Trend Chart — Power/Analysis/Cohesion/Precision over time ──
+      // Moved up directly under the meter explainers (per teacher request
+      // 2026-06-22) so the visual is on page 1; parents respond to the
+      // chart more than to a single best-score callout. The previous
+      // "Best Assignment" block was removed in the same change — its
+      // information now lives in the Assignment Summary table (where the
+      // top score is visible alongside its neighbours).
       // Builds an offscreen Chart.js line chart and embeds as a PNG.
-      // Visualizes the student's journey across each assignment.
       const trendRowsWithScores = rows.filter(r => r.scores);
       if (trendRowsWithScores.length >= 2) {
         try {
@@ -7601,6 +7596,10 @@ ${savedHtml}
           console.warn("[report] trend chart failed:", err);
         }
       }
+
+      // ── Strengths Across the Term (Phase 3 — positive_events aggregation) ──
+      // Sits below the chart and above the assignment-by-assignment table.
+      y = _renderStrengthsBlock(doc, y, logo, rows, verbCategoryMap);
 
       // ── Assignment Summary Table ──
       y = frEnsureSpace(doc, y, 40, logo);
@@ -7717,75 +7716,12 @@ ${savedHtml}
         y = doc.lastAutoTable.finalY + 10;
       }
 
-      // ── Strengths block — concrete evidence of what the student is doing well ──
-      // Pulls from each row's scores object (persisted in mark_events.scores).
-      let totalPowerVerbs = 0;
-      let totalTechniqueOk = 0;
-      let totalEvidenceOk = 0;
-      let totalStructureOk = 0;
-      let bodyParaCount = 0;
-      rows.forEach(r => {
-        const s = r.scores || {};
-        const pv = s.power?.details?.powerCount;
-        const to = s.variety?.details?.techniqueOkCount;
-        const eo = s.variety?.details?.evidenceDevOkCount;
-        const so = s.variety?.details?.structureOkCount;
-        const bp = s.variety?.details?.bodyParagraphCount;
-        if (typeof pv === "number") totalPowerVerbs += pv;
-        if (typeof to === "number") totalTechniqueOk += to;
-        if (typeof eo === "number") totalEvidenceOk += eo;
-        if (typeof so === "number") totalStructureOk += so;
-        if (typeof bp === "number") bodyParaCount += bp;
-      });
-
-      const hasStrength = totalPowerVerbs > 0 || totalTechniqueOk > 0 || totalEvidenceOk > 0 || totalStructureOk > 0;
-      if (hasStrength) {
-        y = frEnsureSpace(doc, y, 28, logo);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...FR_BLACK);
-        doc.text("Strengths", FR_ML, y);
-        y += 7;
-
-        const strengthLines = [];
-        if (totalPowerVerbs > 0) {
-          strengthLines.push([
-            "Power verbs deployed:",
-            `${totalPowerVerbs} across ${rows.length} assignment${rows.length !== 1 ? "s" : ""}`,
-          ]);
-        }
-        if (totalTechniqueOk > 0 && bodyParaCount > 0) {
-          strengthLines.push([
-            "Body paragraphs with strong technique analysis:",
-            `${totalTechniqueOk} of ${bodyParaCount}`,
-          ]);
-        }
-        if (totalEvidenceOk > 0 && bodyParaCount > 0) {
-          strengthLines.push([
-            "Body paragraphs with well-developed evidence:",
-            `${totalEvidenceOk} of ${bodyParaCount}`,
-          ]);
-        }
-        if (totalStructureOk > 0 && bodyParaCount > 0) {
-          strengthLines.push([
-            "Body paragraphs with strong structure:",
-            `${totalStructureOk} of ${bodyParaCount}`,
-          ]);
-        }
-
-        strengthLines.forEach(([label, value]) => {
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...FR_BLACK);
-          doc.text(label, FR_ML, y);
-          const lw = doc.getTextWidth(label);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(...FR_MUTED);
-          doc.text(value, FR_ML + lw + 2, y);
-          y += 5;
-        });
-        y += 4;
-      }
+      // (The trailing "Strengths" block that used to sit here was
+      // removed 2026-06-22 — its body-paragraph data now appears as a
+      // "Writing progress" sub-block inside Strengths Across the Term
+      // on page 2. The "Power verbs deployed: 40 across N assignments"
+      // line was dropped as redundant with the new per-category Verb
+      // repertoire breakdown.)
 
       // ── Teacher Comments per assignment ──
       // Pulls the actual instructor feedback the teacher entered for each

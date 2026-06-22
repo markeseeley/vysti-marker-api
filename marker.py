@@ -1951,24 +1951,36 @@ def _compute_positive_events(full_text: str, detected_lexis_list):
         "lexis": {"concept": {}, "event": {}, "person": {}},
     }
 
-    # 1. Reshape detected_lexis into nested {focus_type → {term_norm → count}}.
+    # 1. Reshape detected_lexis into nested {focus_type → {term → count}}.
     #    detected_lexis is a list of dicts produced by detect_lexis_in_text.
+    #    Use the case-preserved `term` field (not the lowercased term_norm)
+    #    so the PDF can render thinkers like "Foucault" with proper
+    #    capitalization. For the `person` bucket, filter out common-noun
+    #    mis-tags in the lexis CSV — entries like "narrator", "clergy",
+    #    "director", "missionary", "pioneer" are labelled focus_type=person
+    #    but are roles, not actual people. Proper-noun heuristic (first
+    #    char uppercase) cleanly separates them.
     for entry in detected_lexis_list or []:
         if not isinstance(entry, dict):
             continue
         focus = (entry.get("focus_type") or "").strip().lower()
         if focus not in ("concept", "event", "person"):
             continue
-        term_norm = (entry.get("term_norm") or entry.get("term") or "").strip().lower()
-        if not term_norm:
+        term = (entry.get("term") or entry.get("term_norm") or "").strip()
+        if not term:
             continue
+        if focus == "person":
+            # Proper-noun gate — drops the 12 common-noun mis-tags in
+            # the lexis CSV without needing a hand-maintained denylist.
+            if not term[0].isupper():
+                continue
         try:
             count = int(entry.get("count") or 1)
         except Exception:
             count = 1
         if count <= 0:
             count = 1
-        out["lexis"][focus][term_norm] = out["lexis"][focus].get(term_norm, 0) + count
+        out["lexis"][focus][term] = out["lexis"][focus].get(term, 0) + count
 
     # 2. Power verbs + devices — both need a spaCy parse of the original
     #    document text. (We re-parse here; the marking pass parsed already
