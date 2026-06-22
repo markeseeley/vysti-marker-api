@@ -3113,7 +3113,14 @@
           query = query.eq("class_id", selectedClass);
         }
 
-        const result = await query.order("created_at", { ascending: false });
+        // Explicit range — Supabase JS defaults to 1000 rows. With the
+        // auto-prune removed, an active teacher can accumulate more.
+        // 4999 = the server-side max-rows ceiling on a default Supabase
+        // project; if a user crosses it the storage banner already
+        // nudges them to delete old work.
+        const result = await query
+          .order("created_at", { ascending: false })
+          .range(0, 4999);
         data = result.data;
         error = result.error;
       } else {
@@ -3122,7 +3129,8 @@
           .from("mark_events")
           .select("id, created_at, assignment_name, file_name, mode, label_counts, issues, essay_title, source_works, notes, word_count, scores, class_id, teacher_comment, score, ib_score, positive_events")
           .eq("user_id", userId)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .range(0, 4999);
         data = result.data;
         error = result.error;
       }
@@ -6462,7 +6470,12 @@
     });
 
     // ── Selection limits ──
-    const LIMITS = { compare: 10, overview: 50, finalReport: 20, delete: 50 };
+    // Per-action UI guards. `delete` is high enough for end-of-semester
+    // cleanups (hundreds of essays) — the backend chunks at 20 per
+    // Supabase call internally so a single 1000-essay POST is fine.
+    // The vystiConfirm dialog still shows the exact count before
+    // deletion, so the cap is a backstop, not the primary safety.
+    const LIMITS = { compare: 10, overview: 50, finalReport: 20, delete: 1000 };
 
     deleteSelectedBtn.addEventListener("click", () => {
       if (selectedFileNames.size === 0) return;
