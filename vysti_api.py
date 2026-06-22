@@ -101,6 +101,52 @@ def _sanitize_filename(name: str) -> str:
     return name or "document.docx"
 
 
+def _guess_student_name_from_filename(filename: str) -> str:
+    """Take the first whitespace/underscore/hyphen-separated token of the
+    filename (sans extension) as a student-first-name guess.
+
+    Designed for the teacher convention of putting the student's first
+    name at the very start of every upload — e.g.:
+      "Abby Foundation B HW04.docx"         → "Abby"
+      "Wendi_Advanced-B_Homework_10.docx"   → "Wendi"
+      "Beenya HW11.docx"                    → "Beenya"
+
+    Returns "" if the first token looks like a generic placeholder
+    ("Test", "Sample", "Essay", "Homework", "Draft", "Untitled", "HW",
+    "Assignment", "Write"), is all-digit, or is a single character.
+    Better to leave student_name empty than to seed the gradebook with
+    "Test" or "Homework" as a fake student.
+
+    Caller is responsible for ONLY applying this fallback when the
+    form-supplied student_name is empty — never to override an
+    explicit teacher entry.
+    """
+    import re as _re
+    if not filename:
+        return ""
+    stem = filename.rsplit(".", 1)[0].strip()
+    if not stem:
+        return ""
+    parts = _re.split(r"[\s_\-]+", stem)
+    if not parts:
+        return ""
+    first = parts[0].strip()
+    if not first or len(first) < 2:
+        return ""
+    GENERIC = {
+        "test", "sample", "essay", "homework", "hw", "draft",
+        "assignment", "write", "untitled", "document", "doc",
+        "scan", "scanned", "marked", "final", "rough",
+    }
+    if first.lower() in GENERIC:
+        return ""
+    if first.isdigit():
+        return ""
+    # Title-case so "abby" → "Abby". Keeps internal capitalization
+    # intact for names like "McKenzie" if the teacher types that way.
+    return first if first[0].isupper() else first.title()
+
+
 def _sanitize_for_json(obj):
     """Replace NaN/Infinity floats with None so json.dumps won't choke."""
     if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
@@ -2329,6 +2375,17 @@ async def mark_essay(
     # 0. Product-level access check based on calling context
     await _enforce_product_for_mode(user, bool(student_mode))
 
+    # 0a. If the teacher didn't supply a student_name, guess from the
+    # filename's first token (matches the convention of putting the
+    # student's first name at the start of every upload). Without this,
+    # gradebook rows land with student_name = NULL, which then can't
+    # be aggregated by name in the Roster / Progress Report and the
+    # Final Comment feature has nothing to attach to.
+    if not (student_name or "").strip() and file.filename:
+        guessed = _guess_student_name_from_filename(file.filename)
+        if guessed:
+            student_name = guessed
+
     # 1. Basic validation
     _fname_lower = file.filename.lower() if file.filename else ""
     _is_pdf = _fname_lower.endswith(".pdf")
@@ -3628,6 +3685,12 @@ async def ingest_marked_essay(
             status_code=400,
             content={"error": "Please upload a .docx file"},
         )
+
+    # Filename-based student_name fallback (same convention as /mark).
+    if not (student_name or "").strip() and file.filename:
+        guessed = _guess_student_name_from_filename(file.filename)
+        if guessed:
+            student_name = guessed
 
     # 2. Read file bytes
     docx_bytes = await file.read()
