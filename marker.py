@@ -3,6 +3,7 @@
 #   VYSTI MARKER — CLEAN ENGINE
 # ============================================================
 
+import json
 import os
 import sys
 import re
