@@ -3,6 +3,35 @@ import { TEACHER_MODE_RULE_DEFAULTS } from "@student/config";
 import { DEFAULT_ENABLED } from "@student/lib/teacherToolkit";
 import { canonicalLabel } from "@student/lib/dismissIssues";
 
+// Take the first whitespace/underscore/hyphen-separated token of an
+// uploaded filename (sans extension) as a student-first-name guess.
+// Mirrors vysti_api._guess_student_name_from_filename so the UI's
+// auto-fill matches what the backend would have inferred anyway.
+//
+// Examples:
+//   "Abby Foundation B HW04.docx"        → "Abby"
+//   "Wendi_Advanced-B_Homework_10.docx"  → "Wendi"
+//
+// Returns "" for obvious generic placeholders so we don't seed the
+// gradebook with "Test", "Homework", "Sample", etc.
+const _STUDENT_NAME_GENERIC = new Set([
+  "test", "sample", "essay", "homework", "hw", "draft",
+  "assignment", "write", "untitled", "document", "doc",
+  "scan", "scanned", "marked", "final", "rough",
+]);
+function guessStudentNameFromFilename(filename) {
+  if (!filename) return "";
+  const stem = filename.replace(/\.[^.]+$/, "").trim();
+  if (!stem) return "";
+  const first = stem.split(/[\s_\-]+/).filter(Boolean)[0] || "";
+  if (!first || first.length < 2) return "";
+  if (_STUDENT_NAME_GENERIC.has(first.toLowerCase())) return "";
+  if (/^\d+$/.test(first)) return "";
+  return first[0] === first[0].toUpperCase()
+    ? first
+    : first[0].toUpperCase() + first.slice(1);
+}
+
 function getRuleDefaults(mode) {
   const d = TEACHER_MODE_RULE_DEFAULTS[mode] || TEACHER_MODE_RULE_DEFAULTS.textual_analysis;
   return {
@@ -119,7 +148,12 @@ function teacherReducer(state, action) {
           id: crypto.randomUUID(),
           file: f.file,
           fileName: f.file.name,
-          studentName: f.studentName || "",
+          // Per-row student_name: caller-provided value wins (e.g.,
+          // ClassOverview reuses a roster-picked name); otherwise
+          // auto-fill from the filename's first token (teacher
+          // convention of "Name [rest].docx"). The teacher can still
+          // edit the field in the row before marking.
+          studentName: f.studentName || guessStudentNameFromFilename(f.file.name),
           assignmentName: f.assignmentName || "",
           classId: state.classId,
           status: "queued",
