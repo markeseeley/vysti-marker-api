@@ -304,11 +304,20 @@ export default function MobileApp() {
     <div className="mob-app">
       {/* ── Header ── */}
       <header className="mob-header">
-        <img
-          src="/assets/logo.svg"
-          alt="Vysti"
-          className="mob-header-logo"
-        />
+        <a
+          href="https://www.vysti.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open vysti.org in a new tab"
+          aria-label="Open vysti.org in a new tab"
+          className="mob-header-logo-link"
+        >
+          <img
+            src="/assets/logo.svg"
+            alt="Vysti"
+            className="mob-header-logo"
+          />
+        </a>
 
         {/* Hamburger menu */}
         <div className="mob-menu-wrap" ref={menuRef}>

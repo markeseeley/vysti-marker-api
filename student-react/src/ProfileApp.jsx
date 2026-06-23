@@ -166,9 +166,16 @@ export default function ProfileApp() {
   return (
     <div className="student-react-shell">
       <header className="topbar">
-        <div className="brand">
+        <a
+          className="brand brand-link"
+          href="https://www.vysti.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open vysti.org in a new tab"
+          aria-label="Open vysti.org in a new tab"
+        >
           <img src="/assets/logo.svg" alt="Vysti" />
-        </div>
+        </a>
         <nav>
           {products?.has_mark
             ? <a href="/mark" title="Upload and grade student essays">Mark</a>

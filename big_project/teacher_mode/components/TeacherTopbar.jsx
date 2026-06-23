@@ -4,9 +4,16 @@ export default function TeacherTopbar({ onRepeatTutorial, onSignOut, entitlement
   const isFree = entitlement?.subscription_tier === "free";
   return (
     <header className="topbar">
-      <div className="brand">
+      <a
+        className="brand brand-link"
+        href="https://www.vysti.org"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open vysti.org in a new tab"
+        aria-label="Open vysti.org in a new tab"
+      >
         <img src="/assets/logo.svg" alt="Vysti" />
-      </div>
+      </a>
 
       <nav>
         <a href="/teacher_react.html" className="active" title="Upload and grade student essays">Mark</a>

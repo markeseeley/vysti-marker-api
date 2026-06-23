@@ -65,6 +65,24 @@ button, input, select, textarea {
   gap:12px;
   min-width: 135px;
 }
+/* When the brand element is an anchor (links to vysti.org), strip the
+   default underline + inherit color so it visually matches the prior
+   <div>-only render, and add a subtle hover affordance so it reads as
+   clickable. Cursor:pointer comes free from the <a> tag. */
+.topbar a.brand.brand-link{
+  text-decoration: none;
+  color: inherit;
+  transition: opacity .15s;
+}
+.topbar a.brand.brand-link:hover img,
+.topbar a.brand.brand-link:focus-visible img{
+  opacity: .82;
+}
+.topbar a.brand.brand-link:focus-visible{
+  outline: 2px solid var(--maroon, #A90D22);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
 .topbar .brand img{
   height:28px;
   width:auto;
