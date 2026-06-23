@@ -72,13 +72,28 @@ button, input, select, textarea {
    adds a subtle brand-coloured glow + warmth that feels marketing,
    not button. Same effect on keyboard focus so the visual is
    identical for mouse and keyboard users. */
+/* IMPORTANT: the generic `.topbar a` rule below (~line 102) adds a
+   pill border, padding, and border-radius to every anchor in the
+   topbar — that's what gives the nav links (Mark / Revise / Write /
+   Progress) their button look. We have to explicitly null those for
+   the brand link so the logo doesn't sit inside a matching pill.
+   That selector wins over `.topbar a` because it has higher
+   specificity (matches `.brand.brand-link` AND `a`). */
 .topbar a.brand.brand-link{
   text-decoration: none;
   color: inherit;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: none;
 }
+.topbar a.brand.brand-link:hover,
 .topbar a.brand.brand-link:focus,
 .topbar a.brand.brand-link:focus-visible{
   outline: none;
+  background: none;
+  border: none;
+  color: inherit;
 }
 .topbar .brand img{
   height:28px;
