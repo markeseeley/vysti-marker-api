@@ -65,28 +65,33 @@ button, input, select, textarea {
   gap:12px;
   min-width: 135px;
 }
-/* When the brand element is an anchor (links to vysti.org), strip the
-   default underline + inherit color so it visually matches the prior
-   <div>-only render, and add a subtle hover affordance so it reads as
-   clickable. Cursor:pointer comes free from the <a> tag. */
+/* When the brand element is an anchor (vysti.org marketing link),
+   strip the default underline + inherit color so it visually matches
+   the prior <div>-only render. No button-style outline anywhere — the
+   only affordance is the native cursor:pointer on the <a>. Hover
+   adds a subtle brand-coloured glow + warmth that feels marketing,
+   not button. Same effect on keyboard focus so the visual is
+   identical for mouse and keyboard users. */
 .topbar a.brand.brand-link{
   text-decoration: none;
   color: inherit;
-  transition: opacity .15s;
 }
-.topbar a.brand.brand-link:hover img,
-.topbar a.brand.brand-link:focus-visible img{
-  opacity: .82;
-}
+.topbar a.brand.brand-link:focus,
 .topbar a.brand.brand-link:focus-visible{
-  outline: 2px solid var(--maroon, #A90D22);
-  outline-offset: 4px;
-  border-radius: 4px;
+  outline: none;
 }
 .topbar .brand img{
   height:28px;
   width:auto;
   filter: drop-shadow(0 6px 14px rgba(0,0,0,.18));
+  transition: filter .28s ease;
+}
+.topbar a.brand.brand-link:hover img,
+.topbar a.brand.brand-link:focus-visible img{
+  filter:
+    drop-shadow(0 6px 14px rgba(169, 13, 34, .38))
+    brightness(1.06)
+    saturate(1.12);
 }
 .topbar nav{
   display:flex;
