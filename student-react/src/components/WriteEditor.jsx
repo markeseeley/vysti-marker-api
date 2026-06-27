@@ -5,6 +5,7 @@ import LexisModal from "./LexisModal";
 import { applyRepetitionHighlights, clearRepetitionHighlights } from "../lib/repetitionHighlight";
 import { highlightThesisDevicesInBlock } from "../lib/previewNavigator";
 import { loadThesisDevicesLexicon } from "../lib/studentMetrics";
+import { WRITE_MODE_GROUPS, WRITE_MODE_CONFIG, getWriteModeConfig } from "../lib/writeModeConfig";
 
 function getAnchorParagraph(container) {
   const sel = window.getSelection?.();
@@ -60,6 +61,8 @@ export default function WriteEditor({
   textTitle,
   onTextTitleChange,
   metrics,
+  writeMode,
+  onWriteModeChange,
 }) {
   const editorRef = useRef(null);
   const isInternalChange = useRef(false);
@@ -313,6 +316,28 @@ export default function WriteEditor({
     <div className="write-editor-wrap">
       <div className="write-context-header">
         <p className="write-context-prompt">What are we writing about today?</p>
+        {writeMode && onWriteModeChange && (
+          <div className="write-mode-picker">
+            <label className="write-context-label" htmlFor="writeMode">Assignment type</label>
+            <select
+              id="writeMode"
+              className="write-context-input write-mode-select"
+              value={writeMode}
+              onChange={(e) => onWriteModeChange(e.target.value)}
+            >
+              {WRITE_MODE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((value) => (
+                    <option key={value} value={value}>
+                      {WRITE_MODE_CONFIG[value]?.label || value}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <p className="write-mode-summary">{getWriteModeConfig(writeMode).summary}</p>
+          </div>
+        )}
         <div className="write-context-fields">
           <div className="write-context-field">
             <label className="write-context-label" htmlFor="writeAuthor">Author</label>

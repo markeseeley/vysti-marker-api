@@ -15,6 +15,7 @@ import WriteEditor from "./components/WriteEditor";
 import WriteSidebar from "./components/WriteSidebar";
 import WriteTour from "./components/WriteTour";
 import Footer from "./components/Footer";
+import { WRITE_MODE_CONFIG, WRITE_MODE_DEFAULT, getWriteModeConfig } from "./lib/writeModeConfig";
 
 const WRITE_DRAFT_KEY = "vysti:write-draft";
 function writeDraftKey(uid) { return `${WRITE_DRAFT_KEY}:${uid || "anon"}`; }
@@ -54,6 +55,24 @@ export function peekWriteDraft(uid) {
   } catch { return null; }
 }
 
+/**
+ * Resolve the initial Write mode in priority order:
+ *   1. URL ?mode=... (so teachers can deep-link assignments)
+ *   2. localStorage "vysti_write_mode" (last-used persistence)
+ *   3. textual_analysis (default — analytic essay)
+ * Invalid values fall through to the default.
+ */
+function resolveInitialWriteMode() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("mode");
+    if (fromUrl && WRITE_MODE_CONFIG[fromUrl]) return fromUrl;
+    const fromStorage = localStorage.getItem("vysti_write_mode");
+    if (fromStorage && WRITE_MODE_CONFIG[fromStorage]) return fromStorage;
+  } catch {}
+  return WRITE_MODE_DEFAULT;
+}
+
 // Stable anonymous identifier for draft-scoping and analytics. Generated on
 // first Write visit and persisted in localStorage so the same browser keeps
 // the same "anon-" prefix across sessions until the user signs in.
@@ -79,6 +98,22 @@ export default function WriteApp() {
   const [authReady, setAuthReady] = useState(false);
   const [deviceCount, setDeviceCount] = useState(0);
   const [stageOverride, setStageOverride] = useState(null);
+  const [writeMode, setWriteMode] = useState(resolveInitialWriteMode);
+
+  // Persist mode changes; clear ?mode= from the URL once we've read it
+  // so a later student switch isn't fighting an out-of-date deep link.
+  useEffect(() => {
+    try { localStorage.setItem("vysti_write_mode", writeMode); } catch {}
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("mode")) {
+        url.searchParams.delete("mode");
+        window.history.replaceState({}, "", url.toString());
+      }
+    } catch {}
+  }, [writeMode]);
+
+  const writeModeConfig = getWriteModeConfig(writeMode);
   const [userId, setUserId] = useState(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
@@ -640,12 +675,16 @@ export default function WriteApp() {
                 textTitle={state.textTitle}
                 onTextTitleChange={(v) => dispatch({ type: "SET_TEXT_TITLE", payload: v })}
                 metrics={state.metrics}
+                writeMode={writeMode}
+                onWriteModeChange={setWriteMode}
               />
             </div>
           </section>
 
           <aside className="write-right">
             <WriteSidebar
+              writeMode={writeMode}
+              writeModeConfig={writeModeConfig}
               issues={filtered.issues}
               labelCounts={filtered.labelCounts}
               totalLabels={filtered.totalLabels}

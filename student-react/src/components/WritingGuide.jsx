@@ -52,7 +52,7 @@ function textContainsGenre(text) {
   return GENRE_PATTERNS.some((re) => re.test(text));
 }
 
-function buildSteps(authorName, textTitle, textIsMinor) {
+function buildSteps(authorName, textTitle, textIsMinor, writeModeConfig) {
   const hasAuthor = Boolean(authorName?.trim());
   const hasTitle = Boolean(textTitle?.trim());
   const author = hasAuthor ? authorName.trim() : null;
@@ -74,11 +74,18 @@ function buildSteps(authorName, textTitle, textIsMinor) {
     ? `End your introduction with a closed thesis that names the literary devices or strategies your essay will analyze. Tell the reader exactly what ${lastName} does and how you will prove it.`
     : "End your introduction with a closed thesis that names the literary devices or strategies your essay will analyze. A closed thesis tells the reader exactly what to expect in the body.";
 
-  return [
+  // Per-mode overrides (Frame, Reader response, Research paper, etc.).
+  // The default Analytic essay has no overrides; other modes can swap any
+  // stage description without forking the whole step shape.
+  const overrides = (writeModeConfig && writeModeConfig.stageOverrides) || {};
+  const desc = (id, fallback) => overrides[id] || fallback;
+  const maxStage = writeModeConfig?.maxStage || 6;
+
+  const steps = [
     {
       id: "first-sentence",
       title: "First Sentence",
-      description: firstSentenceDesc,
+      description: desc("first-sentence", firstSentenceDesc),
       example: (
         <>
           Toni Morrison's novel <em>Beloved</em> depicts Sethe's struggle with
@@ -91,7 +98,7 @@ function buildSteps(authorName, textTitle, textIsMinor) {
     {
       id: "closed-thesis",
       title: "Closed Thesis",
-      description: thesisDesc,
+      description: desc("closed-thesis", thesisDesc),
       example: (
         <>
           Through <strong>a symbol of trees</strong>, <strong>an image of water</strong>, and{" "}
@@ -104,38 +111,52 @@ function buildSteps(authorName, textTitle, textIsMinor) {
     {
       id: "intro-summary",
       title: "Intro Summary",
-      description:
-        "Now go back between your first sentence and your thesis. For each device in your thesis, write a sentence that situates the reader in the moment of the text where that technique appears. Introduce the text through its techniques\u2014don\u2019t name the devices directly. Your introduction should flow: first sentence \u2192 summary sentences \u2192 thesis.",
+      description: desc(
+        "intro-summary",
+        "Now go back between your first sentence and your thesis. For each device in your thesis, write a sentence that situates the reader in the moment of the text where that technique appears. Introduce the text through its techniques\u2014don\u2019t name the devices directly. Your introduction should flow: first sentence \u2192 summary sentences \u2192 thesis."
+      ),
       example: null,
       doneAfter: STAGE_INTRO_SUMMARY,
     },
     {
       id: "topic-sentence",
       title: "Topic Sentences",
-      description:
-        "After your introduction, write a boundary statement to transition into the body. A boundary statement repeats a key word from the end of your previous paragraph in the opening of your next. Begin each body paragraph with a topic sentence that names the device and connects it to the thesis.",
+      description: desc(
+        "topic-sentence",
+        "After your introduction, write a boundary statement to transition into the body. A boundary statement repeats a key word from the end of your previous paragraph in the opening of your next. Begin each body paragraph with a topic sentence that names the device and connects it to the thesis."
+      ),
       example: null,
       doneAfter: STAGE_TOPIC_SENTENCE,
     },
     {
       id: "body-evidence",
       title: "Body Evidence",
-      description: hasTitle
-        ? `Support each topic sentence with evidence from ${textIsMinor ? `\u201C${title}\u201D` : title}: provide context, integrate a quotation (shorten, modify, or insert), explain its significance, and relate it back to your thesis.`
-        : "Support each topic sentence with evidence: provide context, integrate a quotation (shorten, modify, or insert), explain its significance, and relate it back to your thesis.",
+      description: desc(
+        "body-evidence",
+        hasTitle
+          ? `Support each topic sentence with evidence from ${textIsMinor ? `\u201C${title}\u201D` : title}: provide context, integrate a quotation (shorten, modify, or insert), explain its significance, and relate it back to your thesis.`
+          : "Support each topic sentence with evidence: provide context, integrate a quotation (shorten, modify, or insert), explain its significance, and relate it back to your thesis."
+      ),
       example: null,
       doneAfter: STAGE_BODY_EVIDENCE,
     },
     {
       id: "conclusion",
       title: "Conclusion & Title",
-      description: hasTitle
-        ? `Write a conclusion that summarizes your analysis of ${textIsMinor ? `\u201C${title}\u201D` : title} without introducing new evidence. Then add a properly formatted title using the pattern: \u201CQuotation\u201D: Topic in Title.`
-        : "Write a conclusion that summarizes your analysis without introducing new evidence. Then add a properly formatted title using the pattern: \u201CQuotation\u201D: Topic in Title.",
+      description: desc(
+        "conclusion",
+        hasTitle
+          ? `Write a conclusion that summarizes your analysis of ${textIsMinor ? `\u201C${title}\u201D` : title} without introducing new evidence. Then add a properly formatted title using the pattern: \u201CQuotation\u201D: Topic in Title.`
+          : "Write a conclusion that summarizes your analysis without introducing new evidence. Then add a properly formatted title using the pattern: \u201CQuotation\u201D: Topic in Title."
+      ),
       example: null,
       doneAfter: STAGE_CONCLUSION,
     },
   ];
+
+  // Foundation modes cap the visible stages \u2014 e.g. foundation_2 stops
+  // after Closed Thesis, foundation_5 stops after Body Evidence.
+  return steps.slice(0, Math.max(1, Math.min(6, maxStage)));
 }
 
 const COMPONENT_NAMES = {
@@ -264,9 +285,12 @@ function getStepStatus(step, stage) {
   return "upcoming";
 }
 
-export default function WritingGuide({ stage, missingComponents, authorName, textTitle, textIsMinor, onTextIsMinorChange, sentenceCount, onDeviceCountChange, bodyParaStats, thesisSentence, onSkipStage, essayText, onOpenInRevise }) {
+export default function WritingGuide({ stage, missingComponents, authorName, textTitle, textIsMinor, onTextIsMinorChange, sentenceCount, onDeviceCountChange, bodyParaStats, thesisSentence, onSkipStage, essayText, onOpenInRevise, writeMode, writeModeConfig }) {
   const [thesisDevices, setThesisDevices] = useState([""]);
-  const STEPS = buildSteps(authorName, textTitle, textIsMinor);
+  const STEPS = buildSteps(authorName, textTitle, textIsMinor, writeModeConfig);
+  // Suppress the "Open in Revise" completion card for Foundation modes —
+  // those are single-stage scaffolds, not full essays ready for Revise.
+  const isFoundation = (writeMode || "").startsWith("foundation_");
 
   // Extract the first sentence from the essay text
   const firstSentence = useMemo(() => {
@@ -516,7 +540,7 @@ export default function WritingGuide({ stage, missingComponents, authorName, tex
         })}
       </div>
 
-      {stage === STAGE_COMPLETE && (
+      {stage === STAGE_COMPLETE && !isFoundation && (
         <div className="writing-guide-complete">
           <div className="complete-icon">&#x2714;</div>
           <p className="complete-heading">Essay complete</p>
