@@ -28,8 +28,19 @@ Keep entries terse and factual. Link paths relative to the repo root
   `~/Desktop/` (`vysti_data/`, `Supplements/`). Goal: a single documented data root with
   no silent duplicates. (The ~11k-file PDF library may stay external — decide in cleanup.)
 - **One copy of each dataset**, read by both apps (no drift-prone duplicates).
+  ✅ **Lexicon done** (2026-06-28): single root `./assignment-lexis.csv`, Builder repointed,
+  duplicate deleted. Other `big_project/*.csv` are Builder-only (no live duplicate).
 - **One consistent event-key convention** across every CSV.
+  ✅ **Done** (2026-06-28): all content CSVs normalized to `<course><num>_e<n>` + `_e7`
+  (overview/performances/lexis already canonical). App runtime bridging is now dead code.
 - **Dead/orphaned files removed**; every served file unambiguous.
+  ✅ Orphan `planner.html` deleted (2026-06-28). Remaining: dated `.bak*`/`.backup` files in
+  `big_project/` kept as provenance (gitignored).
+
+**Remaining for "clean":** the 3 LIVE-touching items in `CLEANUP_LIVE_DIFFS.md` (article-strip
+fix, `mise-en-scène` dedupe, term_norm convention) await user approval; off-machine private
+backup of the Builder; and the productionization items (Builder tracking/build pipeline,
+deployment text store) deferred until Build ships.
 
 ## 2. Repo / data map (current reality)
 - **Live marking app** (Render, app.vysti.org): `vysti_api.py` + `marker.py` + `student-react/`.
@@ -44,41 +55,70 @@ Keep entries terse and factual. Link paths relative to the repo root
 ## 3. Cleanup Backlog (the Cleanup Agent's worklist)
 Ordered roughly by value/risk. Check off as done.
 
-- [ ] **Consolidate the two lexicon copies → one.** `./assignment-lexis.csv` (live app)
-  and `big_project/assignment-lexis.csv` (Builder) are kept in sync **by hand** — drift
-  risk. Pick one canonical file and point the other app at it (e.g. Builder `DATA_DIR`
-  lexis → root file, or vice-versa). Both are currently identical at **1514 rows**.
-- [ ] **`term_norm` convention.** Canonical = underscore-joined, non-alphanumerics → `_`,
-  e.g. `free_indirect_discourse`. Any new lexis row must follow this (raw spaces/accents
-  break the live `/api/lexis/{term_norm}` lookup). Verified clean as of 2026-06-28.
-- [ ] **Event-key normalization.** Overview keys American/European as `asal1_e1`/`asel1_e1`
-  (WITH the "1"); content CSVs (primary/further/kq/ext) use `asal_e1`/`asel_e1` (NO "1");
-  lexis uses the "1" form. App bridges both at runtime. **Canonical going forward =
-  `<course><num>_e<n>`** (`asal1_e1`). Normalize the content CSV `event` columns.
-- [ ] **`_e7`/`_e8` legacy keys.** Content CSVs store aswl2's & asal's 7th event under
-  `_e8`; overview calls it `_e7`. App bridges (`build_event` adds the `_e8` variant).
-  Normalize content to `_e7`. (Performances already use canonical `_e7`.)
-- [ ] **`quote_source_major` = "Phaedo" placeholder** for most events aswl2 onward
-  (data-entry error) in `assignment-event-overview.csv` — the event-header byline shows a
-  wrong source title until fixed.
-- [ ] **Duplicate lexicon term** `mise-en-scène` (pre-existing, appears twice) — dedupe.
-- [ ] **Orphaned planner file.** `vysti-builder/static/planner.html` is the OLD planner;
-  the live one is `planner-cards.html` (the `/event` route points there). Delete the
-  orphan once confirmed unused.
-- [ ] **(Optional) Endpoint article-strip edge.** `vysti_api.py` `get_lexis_term`
-  `_normalize()` strips leading "the/a/an " from raw queries, so a linked-term chip
-  passing a raw "the X" term (~9 terms, e.g. "the Real") can mis-resolve. The A-Z browse
-  path (passes `term_norm`) is unaffected. Fix = check exact match *before* article-strip.
+- [x] **Consolidate the two lexicon copies → one.** **DONE 2026-06-28 (cleanup agent).**
+  Canonical = root `./assignment-lexis.csv` (live app's file). Builder repointed via new
+  `LEXIS_PATH` env (default `vysti-builder/../assignment-lexis.csv`) in `vysti-builder/app.py`;
+  the duplicate `big_project/assignment-lexis.csv` was **deleted**. Before merging, a single
+  drift cell was reconciled (`big_project` had `feminity`→ corrected to root's `femininity`).
+  Both apps now read ONE file; Builder re-smoke-tested (1514 rows, `build_event` OK).
+  (Dated `big_project/assignment-lexis.csv.backup`/`.pre_cleanup_backup` left as provenance.)
+- [~] **`term_norm` convention — REOPENED 2026-06-28 (cleanup agent).** The earlier "verified
+  clean" was inaccurate: **16 live rows do NOT follow the strict formula** because the formula
+  `re.sub(r"[^a-z0-9]+","_",…)` produces *garbage* for accented terms (`Aufklärung`→`aufkl_rung`,
+  `mise-en-scène`→`mise_en_sc_ne`). Those rows sensibly **transliterate** instead
+  (`aufklarung`, `mise-en-scene`). None of the 16 are cross-referenced by other rows'
+  `linked_lexis` (rename-safe internally). **DECISION NEEDED** (live lookup key): adopt a refined
+  canonical = *transliterate accents → lower → non-alnum→`_` → strip*, then one-pass re-normalize.
+  Full analysis + table in **`CLEANUP_LIVE_DIFFS.md` §C**. Not applied (live).
+- [x] **Event-key normalization. DONE 2026-06-28 (cleanup agent).** Normalized the `event`
+  column of all 4 content CSVs (`primary-focus`, `further-exploration`, `key-questions`,
+  `extensions` in `big_project/`) to canonical `<course><num>_e<n>` (`asal_`→`asal1_`,
+  `asel_`→`asel1_`). 613 cells changed; verified collision-free; **replayed `event_keys()`:
+  all 26 events resolve to identical row counts (1383→1383), 0 orphans.** Backups `*.bak_keynorm`.
+  NOTE: `app.py` `content_key()`/`event_keys()` bridging is now harmless **dead code** (it
+  matched a superset) — safe to simplify to `{event_id}` later, but left in place (low priority).
+- [x] **`_e7`/`_e8` legacy keys. DONE 2026-06-28 (cleanup agent).** Same pass: `key-questions`
+  + `primary-focus` stored the 7th events as `asal_e8`/`aswl2_e8` → normalized to `_e7`
+  (`extensions`/`further` already used `_e7`). No real 8th event exists; collision-checked.
+- [x] **`quote_source_major` = "Phaedo" placeholder. DONE 2026-06-28 (cleanup agent).** 19
+  events (aswl2_e1→asel1_e5) had the Plato/Phaedo citation copy-pasted into `quote_source` +
+  `quote_source_major` though each `quote_author` differs. Ran a 38-agent research→adversarial-
+  verify Workflow on the actual quotes. **14 corrected** with web-verified source works
+  (conf 0.78–0.98: e.g. Madison→*Federalist No. 51*, Wordsworth→*Preface to Lyrical Ballads*,
+  Orwell→*The Art of Donald McGill*, Sapir→*The Function of an International Auxiliary Language*).
+  **5 BLANKED + flagged** (wrong "Phaedo" removed, no reliable source): `aswl2_e3` Molly Ivins
+  (author OK, work unpinned), `aswl2_e4` C.S. Lewis (**misattributed — not Lewis**), `aswl2_e7`
+  Elizabeth Wilson (unverifiable), `asal1_e1` John Smith (concept in *Generall Historie* but not
+  verbatim), `asal1_e2` Jefferson ("Every generation needs a new revolution" **refuted as exact
+  phrase**). Backup `.bak_phaedo`. **The 5 flagged need a human pedagogical call** on whether to
+  keep/replace the displayed quote+author (out of scope for a data-cleanup pass).
+- [~] **Duplicate lexicon term** `mise-en-scène` — **diff prepared, NOT applied (live).** Two
+  rows: `lex_mise_en_sc_ne_general_1` (new, ugly `term_norm`) vs `lex_adv_mise-en-scene` (older).
+  Content-merge decision needed — see `CLEANUP_LIVE_DIFFS.md` §B. (Now only ONE file to edit
+  since the lexicon is consolidated.)
+- [x] **Orphaned planner file. DONE 2026-06-28 (cleanup agent).** Confirmed zero references
+  (`/event` → `planner-cards.html`, app.py:532); deleted `vysti-builder/static/planner.html`.
+- [~] **Endpoint article-strip edge — diff prepared, NOT applied (live).** Quantified: **13**
+  article terms; **4 actively mis-resolve to the WRONG entry** (`the Real`→`real`, `the Symbolic`,
+  `the Imaginary`, `the grotesque`) when a chip passes raw "the X" text. Validated fix (13/13
+  correct, 0 regressions) in `CLEANUP_LIVE_DIFFS.md` §A — apply on approval.
 - [ ] **Decide the PDF library's home** (`~/Desktop/Supplements` + `~/Desktop/vysti_data`):
   keep external but documented, or bring under one data root.
-- [ ] **`vysti-builder/seed/lexis_additions.csv`** is a tracking record of the 196 new
-  lexis entries (already merged into both lexicon files). Keep as provenance or remove.
-- [ ] **Builder is untracked + data CSVs gitignored → not version-controlled / not shippable.**
-  `vysti-builder/` has **0 git-tracked files**; `.gitignore` has a blanket `*.csv` (only
-  `!assignment-lexis.csv`), so all Builder data (`big_project/assignment-*.csv`,
-  `vysti-builder/seed/*.csv`) is ignored. A real deploy can't ship the Builder or its data.
-  Decide a tracking/build strategy (force-add the Builder code + seed/big_project CSVs, or a
-  data pipeline) when Build is productionized.
+- [x] **`vysti-builder/seed/lexis_additions.csv`** — **KEEP as provenance** (decided
+  2026-06-28). It's the only record of the 196 additions now that the lexicon is a single
+  consolidated file; cheap to retain. No action.
+- [~] **Builder is untracked + data CSVs gitignored → DATA-LOSS RISK (partially addressed
+  2026-06-28, cleanup agent).** `vysti-builder/` still has **0 files tracked on `main`**;
+  `.gitignore` blanket-ignores `big_project/` + `*.csv`, so the Builder + all its data live
+  ONLY on local disk. **Interim durability taken:** (a) tarball snapshot in scratchpad; (b) a
+  **local orphan git branch `build-sandbox-backup`** (65 files: Builder code + data +
+  `docker-compose.yml`, backups/caches excluded) — recoverable from `.git` now.
+  **STILL NEEDED (off-machine):** push `build-sandbox-backup` to a **PRIVATE** remote. The repo
+  `origin` is **PUBLIC** and `vysti-builder/seed/fr_excerpts.csv` contains **copyrighted third-
+  party excerpts** → MUST NOT push to origin. The stored PAT can push but **cannot create** repos
+  (and `gh` is not installed), so the user must create an empty private repo (`vysti-build-data`),
+  then `git remote add` + `git push build-sandbox-backup`. **A non-`main` branch push does NOT
+  trigger the Render live deploy.** Longer term: decide a real tracking/build pipeline for Build.
 - [ ] **Deployment text store.** Downloads are now served ONLY from `OWN_DIRS`
   (`vysti-builder/texts_own/` + the four `~/Desktop/vysti_data/<COURSE> Materials/` folders;
   set in `docker-compose.yml`). ~166 curated FE public-domain PDFs are served from those
@@ -281,6 +321,52 @@ ladder Profile/Sign-out placeholders. (octet-stream + index.html items annotated
 **Next agent MUST know:** user wants **ONE app-wide FAQ** (not the Build-only page) and the shared
 **in-app Report modal** — both deferred (§3). All Build work is local/untracked; the Key Words +
 citation + performances/extension fixes live in gitignored `big_project/` + `vysti-builder/seed/`.
+
+### 2026-06-28 — Cleanup Agent pass over §3 (Claude)
+Worked §3 top-to-bottom. **Live Vysti Marker app NOT touched** (`vysti_api.py`, `marker.py`,
+`student-react/` unchanged; root `./assignment-lexis.csv` **content** unchanged). Per the user's
+"prepare diffs, don't apply" rule, all LIVE-touching changes are documented, not applied.
+
+**DONE & verified (sandbox — applied locally, all in gitignored/untracked files):**
+- **Event-key + `_e7`/`_e8` normalization** (§3 items 3+4): 4 content CSVs → canonical
+  `<course><num>_e<n>`/`_e7`. Replayed `event_keys()`: all 26 events resolve identically
+  (1383→1383 rows, 0 orphans). Backups `*.bak_keynorm`.
+- **Lexicon consolidated to ONE file** (item 1): canonical = root `./assignment-lexis.csv`.
+  `vysti-builder/app.py` repointed via new `LEXIS_PATH` env; deleted duplicate
+  `big_project/assignment-lexis.csv` (reconciled a `feminity`→`femininity` drift first).
+  Builder re-smoke-tested OK (1514 rows from root, `build_event` works, `docker-compose` mounts
+  `.:/app` so the container sees root).
+- **Orphan `planner.html` deleted** (item 7).
+- **"Phaedo" placeholder fixed** (item 5) via a 38-agent research→adversarial-verify **Workflow**:
+  14 events corrected with web-verified source works; 5 blanked + flagged (incl. 2 outright
+  misattributions: the C.S. Lewis and the Jefferson quotes). Backup `.bak_phaedo`. Edited
+  `big_project/assignment-event-overview.csv` (Builder-only data; live app doesn't read it).
+
+**PREPARED but NOT applied (LIVE — need your approval; see new `CLEANUP_LIVE_DIFFS.md`):**
+- **Article-strip fix** (item 8): validated diff for `vysti_api.py get_lexis_term` (4 terms
+  currently mis-resolve to the wrong entry; fix = 13/13 correct, 0 regressions).
+- **`mise-en-scène` dedupe** (item 6): pick which of 2 entries/definitions wins.
+- **term_norm convention** (REOPENED): 16 rows use transliteration, not the strict formula
+  (which mangles accents). Needs a convention decision, then a one-pass re-normalize.
+
+**DATA-SAFETY (user's escalated priority — partial):** the Builder + data were local-disk-only.
+Took: tarball snapshot + **local orphan branch `build-sandbox-backup`** (65 files). **Still needs
+the user:** create an empty **PRIVATE** repo and push that branch — `origin` is PUBLIC and the
+data includes copyrighted excerpts (`fr_excerpts.csv`), so it must NOT go to origin. The PAT can
+push but can't create repos; `gh` not installed. A non-`main` branch push does NOT deploy the live app.
+
+**Config:** added blanket `WebFetch` to `.claude/settings.local.json` (per user request) so web-
+research agents stop prompting per-domain.
+
+**Files touched (sandbox/untracked/gitignored):** `vysti-builder/app.py`,
+`big_project/assignment-{extensions,further-exploration,key-questions,primary-focus,event-overview}.csv`
+(+ `.bak_keynorm`/`.bak_phaedo`/`.bak_drift`), deleted `vysti-builder/static/planner.html` +
+`big_project/assignment-lexis.csv`. **Tracked + committed on `main` (local only, NOT pushed):**
+`HANDOFF_AND_CLEANUP.md`, `CLEANUP_LIVE_DIFFS.md`.
+**Next agent MUST know:** (1) the 3 LIVE diffs in `CLEANUP_LIVE_DIFFS.md` are ready for approval;
+(2) push `build-sandbox-backup` to a private remote to get the Builder off local disk; (3) the
+5 flagged Phaedo events need a human pedagogical decision on the displayed quote/author; (4) the
+`app.py` event-key bridging is now dead code (safe to simplify).
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
