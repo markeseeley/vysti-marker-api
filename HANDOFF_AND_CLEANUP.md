@@ -165,6 +165,19 @@ Ordered roughly by value/risk. Check off as done.
 - [ ] **Build ladder-menu Profile / Sign-out are placeholders** (no session in the prototype):
   Profile → `/profile` link; Sign out → `confirm()` + redirect to `/`. Wire to the real
   auth / `UserMenu` behavior on integration.
+- [ ] **Add "Build" to the live app nav — DEFERRED 2026-06-28 (user request, scoped but not done).**
+  User wants Build accessible from the live app. Two reasons it was deferred rather than bolted on:
+  (1) the Mark/Revise/Write nav is **duplicated across 7 files** (`components/{Topbar,TeacherTopbar,
+  WriteTopbar}.jsx`, `ProfileApp.jsx`, `PracticeApp.jsx`, `components/{PracticeSummary,ProfilePage}.jsx`)
+  — a gated pill would have to be copy-pasted into all 7 (and `TeacherTopbar.jsx` has live WIP);
+  (2) the Builder isn't hosted (local Docker `:8200` only). **Product intent:** Build is a **paid
+  subscription** like Mark/Revise (Write is universally free). **Do it right when productionizing:**
+  (a) consolidate the 7 navs into ONE shared `<Nav>` component; (b) add a real **`has_build`**
+  entitlement/product (backend `/api/profile` `products` + Stripe price) — NOT a hardcoded owner
+  email; (c) point the pill at the **hosted** Builder (deploy `vysti-builder/` from the PRIVATE
+  `vysti-build-data` repo as its own Render service). For now the user tests Build on local Docker.
+  (Email IS available for gating if ever needed: `/api/profile` returns `email`; `supa.auth` exposes
+  `user.email`.)
 
 ## 4. Handoff Log (append-only; newest at bottom)
 
@@ -385,9 +398,13 @@ and committed LOCALLY; NOT pushed/deployed.**
 - **Quotes:** all 26 events' quote columns blanked (`big_project/assignment-event-overview.csv`).
 - Verified: `vysti_api.py` compiles; Builder loads 1513 lexis rows + builds events; 0 collisions /
   0 dangling refs; raw accented + article lookups resolve.
-**⚠️ DEPLOY GATE:** `vysti_api.py` + root `./assignment-lexis.csv` are LIVE files. They are
-committed on local `main` but **NOT pushed**. Pushing `main` → Render **deploys to live users** —
-do that only on the user's explicit go. Suggest a quick manual check of `/api/lexis/{term}` after deploy.
+**✅ DEPLOYED + VERIFIED 2026-06-28.** User approved; `main` pushed to origin (`6c8badc`) → Render
+rebuilt. Confirmed live on app.vysti.org: `/api/lexis` now serves **1513** terms (merge live),
+`ecriture_feminine` replaced `criture_f_minine`, and spot-checks pass — `the_real`→"the Real" (no
+longer "real"), raw "différance"→"différance", `mise_en_scene`→"mise-en-scène" w/ clean definition,
+`metaphor` regression OK. No downtime (old build served until swap). (This corrective ledger note
+was committed locally AFTER the deploy and intentionally NOT pushed alone, to avoid a redundant
+rebuild — it will ride along with the next functional deploy.)
 **Still open:** push `build-sandbox-backup` to the private remote (token needs access granted to
 `vysti-build-data`).
 
