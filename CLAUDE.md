@@ -2,6 +2,17 @@
 
 Educational writing analysis platform with Python backend and React frontend.
 
+> ## ⚠️ AGENTS — READ FIRST
+> **Vysti Marker is a LIVE production SaaS application.** Mark, Revise, and all non-Build
+> modes run at **app.vysti.org**, deployed from `main` → Render, used by real teachers and
+> students. Its code, data, and the live lexicon (`./assignment-lexis.csv`) **MUST NOT be
+> modified, committed to `main`, or deployed without the user's EXPLICIT approval.** Treat
+> the live app as production at all times; when in doubt, ask first.
+> The **Vysti Builder** prototype (`vysti-builder/`, Docker port 8200) is the active dev
+> sandbox and is safe to iterate on locally.
+> **Before any work, read [HANDOFF_AND_CLEANUP.md](HANDOFF_AND_CLEANUP.md)** — the shared
+> ledger of current state + deferred clean-up — and append your handoff entry before finishing.
+
 ## Project Structure
 
 - **Backend**: FastAPI server ([vysti_api.py](vysti_api.py)) + marker engine ([marker.py](marker.py))
