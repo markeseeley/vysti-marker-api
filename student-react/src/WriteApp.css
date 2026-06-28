@@ -411,6 +411,24 @@ mark.write-issue-flash {
   font-weight: 600;
 }
 
+/* Mini-essay "you got it" state — green, warmer than .step-missing */
+.step-good {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #157347;
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+
+/* Mini-essay header encouragement line */
+.mini-essay-encouragement {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #6c757d;
+  margin: -6px 0 12px;
+  line-height: 1.4;
+}
+
 .step-example {
   font-size: 12px;
   line-height: 1.5;

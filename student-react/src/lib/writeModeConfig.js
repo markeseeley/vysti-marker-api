@@ -22,6 +22,8 @@ export const WRITE_MODE_TEXTUAL_ANALYSIS = "textual_analysis";
 export const WRITE_MODE_ANALYTIC_FRAME = "analytic_frame";
 export const WRITE_MODE_READER_RESPONSE = "reader_response";
 export const WRITE_MODE_RESEARCH_PAPER = "research_paper";
+export const WRITE_MODE_MINI_ANALYSIS = "mini_essay_analysis";
+export const WRITE_MODE_MINI_ARGUMENT = "mini_essay_argument";
 export const WRITE_MODE_FOUNDATION_1 = "foundation_1";
 export const WRITE_MODE_FOUNDATION_2 = "foundation_2";
 export const WRITE_MODE_FOUNDATION_3 = "foundation_3";
@@ -39,6 +41,13 @@ export const WRITE_MODE_GROUPS = [
       WRITE_MODE_ANALYTIC_FRAME,
       WRITE_MODE_READER_RESPONSE,
       WRITE_MODE_RESEARCH_PAPER,
+    ],
+  },
+  {
+    label: "Mini-essays (single paragraph)",
+    options: [
+      WRITE_MODE_MINI_ANALYSIS,
+      WRITE_MODE_MINI_ARGUMENT,
     ],
   },
   {
@@ -92,6 +101,20 @@ export const WRITE_MODE_CONFIG = {
       "body-evidence":
         "Support each topic sentence with evidence: provide context, integrate a quotation or paraphrase, explain its significance, and relate it back to your thesis. Use MLA parenthetical citations for each source.",
     },
+  },
+  [WRITE_MODE_MINI_ANALYSIS]: {
+    label: "Mini-essay: Analysis",
+    summary: "A single focused paragraph analyzing one technique in a text.",
+    maxStage: 5,
+    customGuide: "mini",
+    subMode: "analysis",
+  },
+  [WRITE_MODE_MINI_ARGUMENT]: {
+    label: "Mini-essay: Argument",
+    summary: "A single focused paragraph defending one claim with reasoning and evidence.",
+    maxStage: 5,
+    customGuide: "mini",
+    subMode: "argument",
   },
   [WRITE_MODE_FOUNDATION_1]: {
     label: "Step One — First sentence only",

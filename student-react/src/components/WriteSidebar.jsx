@@ -1,5 +1,6 @@
 import MostCommonIssuesChart from "./MostCommonIssuesChart";
 import WritingGuide from "./WritingGuide";
+import MiniEssayGuide from "./MiniEssayGuide";
 
 export default function WriteSidebar({
   issues,
@@ -39,7 +40,10 @@ export default function WriteSidebar({
 
   return (
     <div className="write-sidebar">
-      {showGuide && <WritingGuide stage={stage} missingComponents={firstSentenceComponents} authorName={authorName} textTitle={textTitle} textIsMinor={textIsMinor} onTextIsMinorChange={onTextIsMinorChange} sentenceCount={sentenceCount} onDeviceCountChange={onDeviceCountChange} bodyParaStats={bodyParaStats} thesisSentence={thesisSentence} onSkipStage={onSkipStage} essayText={essayText} onOpenInRevise={onOpenInRevise} writeMode={writeMode} writeModeConfig={writeModeConfig} />}
+      {showGuide && (writeModeConfig?.customGuide === "mini"
+        ? <MiniEssayGuide essayText={essayText} writeModeConfig={writeModeConfig} />
+        : <WritingGuide stage={stage} missingComponents={firstSentenceComponents} authorName={authorName} textTitle={textTitle} textIsMinor={textIsMinor} onTextIsMinorChange={onTextIsMinorChange} sentenceCount={sentenceCount} onDeviceCountChange={onDeviceCountChange} bodyParaStats={bodyParaStats} thesisSentence={thesisSentence} onSkipStage={onSkipStage} essayText={essayText} onOpenInRevise={onOpenInRevise} writeMode={writeMode} writeModeConfig={writeModeConfig} />
+      )}
 
       {issues.length > 0 && (
         <div className="write-issues-list">
