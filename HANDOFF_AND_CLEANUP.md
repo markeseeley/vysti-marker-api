@@ -73,6 +73,24 @@ Ordered roughly by value/risk. Check off as done.
   keep external but documented, or bring under one data root.
 - [ ] **`vysti-builder/seed/lexis_additions.csv`** is a tracking record of the 196 new
   lexis entries (already merged into both lexicon files). Keep as provenance or remove.
+- [ ] **Builder is untracked + data CSVs gitignored → not version-controlled / not shippable.**
+  `vysti-builder/` has **0 git-tracked files**; `.gitignore` has a blanket `*.csv` (only
+  `!assignment-lexis.csv`), so all Builder data (`big_project/assignment-*.csv`,
+  `vysti-builder/seed/*.csv`) is ignored. A real deploy can't ship the Builder or its data.
+  Decide a tracking/build strategy (force-add the Builder code + seed/big_project CSVs, or a
+  data pipeline) when Build is productionized.
+- [ ] **Deployment text store.** Downloads are now served ONLY from `OWN_DIRS`
+  (`vysti-builder/texts_own/` + the four `~/Desktop/vysti_data/<COURSE> Materials/` folders;
+  set in `docker-compose.yml`). ~166 curated FE public-domain PDFs are served from those
+  Materials folders. For production, bundle those served files (+ `texts_own/`) into an owned
+  store and host via object storage / a disk; point `OWN_DIRS` at it. Primary Focus is never
+  served (publisher editions only). `~/Desktop/Supplements/` is NO LONGER mounted by the app.
+- [ ] **3 Further-Exploration rows removed** (no curated PD file existed), 2026-06-28, from
+  `big_project/assignment-further-exploration.csv` (backup `.bak_prefe_remove`): *The Necklace*
+  (Maupassant, aswl1_e4); *Holy Sonnet IX…* (Donne, aswl2_e2); *The neglected Lover…* (Wyatt,
+  aswl2_e4). Re-add if curated PDFs are later created.
+- [ ] **Minor:** `/file/{idx}` serves FE downloads as `application/octet-stream` (downloads
+  fine; could set `media_type` from the extension for inline-PDF behavior).
 
 ## 4. Handoff Log (append-only; newest at bottom)
 
@@ -96,4 +114,52 @@ Ordered roughly by value/risk. Check off as done.
 **Next:** finish Build, then run the Cleanup Agent over §3. Builder changes are local/
 untracked (Builder is WIP); only the two lexicon commits are on `main`.
 
+### 2026-06-28 — Build: Key-Question answers, copyright DISTRIBUTION rework, PD text additions (Claude)
+All work below is in the **Builder sandbox + `big_project/` data only** — the live app
+(`vysti_api.py`, `marker.py`, `student-react/`, root `./assignment-lexis.csv`) was **NOT touched**.
+Builder remains untracked/local (per precedent); these changes are committed **locally only**
+(ledger + `.gitignore`); the Builder files themselves stay untracked.
+
+**Done in the Builder (local):**
+- **Key-Question answers:** authored canonical answers for all 270 KQs →
+  `vysti-builder/seed/kq_answers.csv` (generator `scripts/gen_kq_answers.py`); app shows them in
+  the drawer on click. Voice = plain definition + highest-level theory (named theorists),
+  calibrated to the Lexicon's depth.
+- **Copyright DISTRIBUTION model rework — "own the apparatus, point to the texts":** realized the
+  held PDFs are modern **publisher editions** (copyrighted apparatus even for PD works), so we
+  no longer serve them. (1) **Primary Focus is never downloadable** (`download=None`, both build
+  paths) — shows descriptor + copyright badge + **"Find online"** (plain Google search of
+  title+author; no stored links → no rot) + Buy. (2) **Downloads served ONLY from `OWN_DIRS`**
+  (env): `texts_own/` + the four `vysti_data/<COURSE> Materials/` folders (our curated FE docs).
+  `docker-compose.yml` updated (dropped `/supplements` mount; `OWN_DIRS` set). Needs
+  `docker compose up -d` (recreate) not just restart.
+- **FE curated downloads:** the curated per-poem PDFs (poem + exploratory questions) live in
+  `vysti_data/<COURSE> Materials/`; filenames concat title+author w/ no spaces and start with a
+  year. Rewrote `app.py match_file` to a substring matcher (+ Shakespeare-sonnet rule via the
+  title's leading number, "from "-prefix strip, and a fuzzy fallback pass for typos like
+  "Pysche"/missing-author files). Result: **166/166 FE public-domain readings now download**.
+  Fixed a latent bug: keyword-cross-ref build path used `status = copyright_status(...)` (tuple)
+  → now unpacked.
+- **PD texts ADDED:** 33 public-domain works from the library survey →
+  `big_project/assignment-primary-focus.csv` (`scripts/gen_additions.py`); pub-years/translation
+  in `scripts/gen_pub_years.py` (212 rows); `author_dates.csv` expanded to 116 (survey classified
+  ~89 candidate authors). Survey + suggested-Event map: `vysti-builder/CANDIDATE_PD_TEXTS.md`.
+- **Removed** 3 FE rows with no curated PD file (see §3).
+- **Docs created:** `vysti-builder/COPYRIGHT_AND_TEXTS.md` (full model + how-to-add-a-text),
+  `CANDIDATE_PD_TEXTS.md`, `FAQ_SPEC.md` (brief for a future agent to build a `/faq`; no FAQ exists yet).
+- **Criticism note:** the `/Supplements` academic-journal PDFs are copyrighted → engine input
+  (read to write our apparatus), not distributable.
+
+**Files touched (all sandbox/data; untracked or gitignored):** `vysti-builder/app.py`,
+`static/planner-cards.html`, `docker-compose.yml`, `texts_own/README.md`, `seed/{kq_answers,
+pub_years,author_dates}.csv`, `scripts/gen_*.py`, `COPYRIGHT_AND_TEXTS.md`, `CANDIDATE_PD_TEXTS.md`,
+`FAQ_SPEC.md`; `big_project/assignment-{primary-focus,further-exploration}.csv` (+ `.bak_*`).
+**Tracked + committed locally:** `HANDOFF_AND_CLEANUP.md`, `.gitignore`.
+**Debt added:** §3 — Builder/data not version-controlled; deployment text store; 3 removed FE rows; octet-stream.
+**Next agent MUST know:** distribution model is now **no Primary downloads; FE PD downloads only,
+served from `OWN_DIRS`**. Before any deploy, resolve §3 "Builder is untracked + data CSVs gitignored"
+and "Deployment text store" — the Builder and its data currently live only on local disk.
+
 <!-- Next agent: add your dated entry below. -->
+<!-- markdownlint-disable-file -->
+

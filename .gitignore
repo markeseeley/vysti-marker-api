@@ -70,3 +70,6 @@ working html core files.zip
 vysti_eye.png
 *.csv
 !assignment-lexis.csv
+library_pd/
+big_project/*.bak_*
+vysti-builder/scripts/_served.json
