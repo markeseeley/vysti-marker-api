@@ -2239,19 +2239,30 @@ async def get_lexis_term(request: Request, term_norm: str):
 
     import re
 
-    def _normalize(s: str) -> str:
-        # Strip stray brackets, quotes, leading articles ("the/a/an"),
-        # collapse non-alphanumerics to underscore, lower-case.
-        s = re.sub(r"['\"\[\]]+", "", s or "").strip().lower()
-        s = re.sub(r"^(the|a|an)\s+", "", s)
+    import unicodedata
+
+    def _normalize(s: str, strip_article: bool = False) -> str:
+        # Transliterate accents (é→e, è→e, ä→a, …) so accented queries match the
+        # transliterated term_norm convention; strip stray brackets/quotes; collapse
+        # non-alphanumerics (incl. hyphens) to underscore; lower-case. Only strip a
+        # leading article ("the/a/an ") when asked — terms like "the Real"/"the
+        # Symbolic" legitimately keep it in their term_norm.
+        s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode("ascii")
+        s = re.sub(r"['\"\[\]]+", "", s).strip().lower()
+        if strip_article:
+            s = re.sub(r"^(the|a|an)\s+", "", s)
         return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
 
-    query = _normalize(term_norm)
-    if not query:
+    query_full = _normalize(term_norm)                       # keeps "the Real" -> the_real
+    query = _normalize(term_norm, strip_article=True)        # article-stripped fallback
+    if not query_full and not query:
         return JSONResponse({"error": "Term not found"}, status_code=404)
 
-    # Exact match first
-    matches = lexis_df[lexis_df["term_norm"].str.lower() == query]
+    # Exact match on the FULL form first (so "the Real" doesn't collapse to "real"),
+    # then fall back to the article-stripped form.
+    matches = lexis_df[lexis_df["term_norm"].str.lower() == query_full]
+    if matches.empty and query != query_full:
+        matches = lexis_df[lexis_df["term_norm"].str.lower() == query]
 
     # Plural/singular and prefix containment fallback
     if matches.empty:

@@ -62,14 +62,20 @@ Ordered roughly by value/risk. Check off as done.
   drift cell was reconciled (`big_project` had `feminity`→ corrected to root's `femininity`).
   Both apps now read ONE file; Builder re-smoke-tested (1514 rows, `build_event` OK).
   (Dated `big_project/assignment-lexis.csv.backup`/`.pre_cleanup_backup` left as provenance.)
-- [~] **`term_norm` convention — REOPENED 2026-06-28 (cleanup agent).** The earlier "verified
-  clean" was inaccurate: **16 live rows do NOT follow the strict formula** because the formula
-  `re.sub(r"[^a-z0-9]+","_",…)` produces *garbage* for accented terms (`Aufklärung`→`aufkl_rung`,
-  `mise-en-scène`→`mise_en_sc_ne`). Those rows sensibly **transliterate** instead
-  (`aufklarung`, `mise-en-scene`). None of the 16 are cross-referenced by other rows'
-  `linked_lexis` (rename-safe internally). **DECISION NEEDED** (live lookup key): adopt a refined
-  canonical = *transliterate accents → lower → non-alnum→`_` → strip*, then one-pass re-normalize.
-  Full analysis + table in **`CLEANUP_LIVE_DIFFS.md` §C**. Not applied (live).
+- [x] **`term_norm` convention — RESOLVED (user-approved), applied locally 2026-06-28, pending
+  deploy.** New canonical = **transliterate accents (NFKD→ASCII) → lower → non-alphanumerics
+  (incl. hyphens) → `_` → strip**. Applied BOTH sides: (1) data — recomputed `term_norm` on **17
+  rows** in root lexicon (fixed accent-mangled norms the old formula broke, e.g. `criture_f_minine`
+  → `ecriture_feminine`, `diff_rance`→`differance`, and hyphen-collapse `amour-propre`→`amour_propre`);
+  (2) code — `vysti_api.py` `_normalize()` now transliterates so raw accented chips match (e.g.
+  `Aufklärung`→`aufklarung`). Verified: 0 collisions, 0 dangling refs, all sampled raw lookups
+  resolve. Backup `assignment-lexis.csv.bak_termnorm`. **Update the project directive's term_norm
+  formula to this transliterating version.**
+- [x] **Epigraph quotes removed from ALL events — DONE (user-approved) 2026-06-28.** Per user:
+  blanked `quote`/`quote_author`/`quote_source`/`quote_source_major`/`quote_source_minor` on all
+  26 rows of `big_project/assignment-event-overview.csv` (removes the unreliable/misattributed
+  epigraph feature; simplifies teacher-authored events). Supersedes the "Phaedo" fix above.
+  Backup `.bak_quotes`. Sandbox/Builder-only data.
 - [x] **Event-key normalization. DONE 2026-06-28 (cleanup agent).** Normalized the `event`
   column of all 4 content CSVs (`primary-focus`, `further-exploration`, `key-questions`,
   `extensions` in `big_project/`) to canonical `<course><num>_e<n>` (`asal_`→`asal1_`,
@@ -92,16 +98,17 @@ Ordered roughly by value/risk. Check off as done.
   verbatim), `asal1_e2` Jefferson ("Every generation needs a new revolution" **refuted as exact
   phrase**). Backup `.bak_phaedo`. **The 5 flagged need a human pedagogical call** on whether to
   keep/replace the displayed quote+author (out of scope for a data-cleanup pass).
-- [~] **Duplicate lexicon term** `mise-en-scène` — **diff prepared, NOT applied (live).** Two
-  rows: `lex_mise_en_sc_ne_general_1` (new, ugly `term_norm`) vs `lex_adv_mise-en-scene` (older).
-  Content-merge decision needed — see `CLEANUP_LIVE_DIFFS.md` §B. (Now only ONE file to edit
-  since the lexicon is consolidated.)
+- [x] **Duplicate lexicon term** `mise-en-scène` — **DONE (user-approved), applied locally
+  2026-06-28, pending deploy.** Merged the two rows into one: kept `lex_mise_en_sc_ne_general_1`
+  (has application/exploration/related_events) but took the clean `definition` + `roots`
+  ("French") from `lex_adv_mise-en-scene`, which was deleted. term_norm now `mise_en_scene`.
+  Root lexicon 1514→1513 rows. Backup `assignment-lexis.csv.bak_termnorm`.
 - [x] **Orphaned planner file. DONE 2026-06-28 (cleanup agent).** Confirmed zero references
   (`/event` → `planner-cards.html`, app.py:532); deleted `vysti-builder/static/planner.html`.
-- [~] **Endpoint article-strip edge — diff prepared, NOT applied (live).** Quantified: **13**
-  article terms; **4 actively mis-resolve to the WRONG entry** (`the Real`→`real`, `the Symbolic`,
-  `the Imaginary`, `the grotesque`) when a chip passes raw "the X" text. Validated fix (13/13
-  correct, 0 regressions) in `CLEANUP_LIVE_DIFFS.md` §A — apply on approval.
+- [x] **Endpoint article-strip edge — DONE (user-approved), applied locally 2026-06-28,
+  pending deploy.** Rewrote `vysti_api.py` `get_lexis_term._normalize()`: exact-match the
+  un-article-stripped form first (so `the Real`→`the_real`, not `real`). Validated 13/13 + 0
+  regressions. (Combined with the term_norm convention change below in the same function.)
 - [ ] **Decide the PDF library's home** (`~/Desktop/Supplements` + `~/Desktop/vysti_data`):
   keep external but documented, or bring under one data root.
 - [x] **`vysti-builder/seed/lexis_additions.csv`** — **KEEP as provenance** (decided
@@ -367,6 +374,22 @@ research agents stop prompting per-domain.
 (2) push `build-sandbox-backup` to a private remote to get the Builder off local disk; (3) the
 5 flagged Phaedo events need a human pedagogical decision on the displayed quote/author; (4) the
 `app.py` event-key bridging is now dead code (safe to simplify).
+
+### 2026-06-28 — Cleanup follow-up: user approved the 3 LIVE diffs + quote removal (Claude)
+User approved A/B/C and chose to delete all epigraph quotes. **All applied to the working tree
+and committed LOCALLY; NOT pushed/deployed.**
+- **A — article-strip** + **C — term_norm transliteration:** both in `vysti_api.py`
+  `get_lexis_term._normalize()` (now transliterates accents + exact-matches the un-stripped form).
+- **C — data:** root `./assignment-lexis.csv` term_norm recomputed on 17 rows.
+- **B — `mise-en-scène`:** two rows merged into one (1514→1513). 
+- **Quotes:** all 26 events' quote columns blanked (`big_project/assignment-event-overview.csv`).
+- Verified: `vysti_api.py` compiles; Builder loads 1513 lexis rows + builds events; 0 collisions /
+  0 dangling refs; raw accented + article lookups resolve.
+**⚠️ DEPLOY GATE:** `vysti_api.py` + root `./assignment-lexis.csv` are LIVE files. They are
+committed on local `main` but **NOT pushed**. Pushing `main` → Render **deploys to live users** —
+do that only on the user's explicit go. Suggest a quick manual check of `/api/lexis/{term}` after deploy.
+**Still open:** push `build-sandbox-backup` to the private remote (token needs access granted to
+`vysti-build-data`).
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
