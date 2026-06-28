@@ -89,16 +89,35 @@ Ordered roughly by value/risk. Check off as done.
   `big_project/assignment-further-exploration.csv` (backup `.bak_prefe_remove`): *The Necklace*
   (Maupassant, aswl1_e4); *Holy Sonnet IX…* (Donne, aswl2_e2); *The neglected Lover…* (Wyatt,
   aswl2_e4). Re-add if curated PDFs are later created.
-- [ ] **Minor:** `/file/{idx}` serves FE downloads as `application/octet-stream` (downloads
-  fine; could set `media_type` from the extension for inline-PDF behavior).
-- [ ] **Builder home catalog not restyled.** `vysti-builder/static/index.html` (the `/`
-  event catalog) predates the card redesign and doesn't share the planner's card styling/
-  components — landing and planner look like two apps. Restyle `index.html` to match
-  `planner-cards.html` (same card/chip/token system). Design-only, no data risk.
+- [ ] **Minor:** `/file/{idx}` serves FE downloads as `application/octet-stream`.
+  **(2026-06-28: now DELIBERATE** — `media_type=application/octet-stream` + `X-Content-Type-Options:
+  nosniff` set on purpose to fix a Chrome "gibberish" download. Do NOT revert to inline `application/pdf`
+  — it reintroduces the mangled-download issue in some Chrome / Safe-Browsing configs.)
+- [ ] **Builder home catalog not fully restyled.** `vysti-builder/static/index.html` (the `/`
+  event catalog) predates the card redesign. **(2026-06-28: banner, typography (DM Sans + Source
+  Serif 4), and the #A90D22 / #f5f6f8 / #111 palette are now unified across index.html +
+  planner-cards.html + faq.html.)** Still pending: the landing uses its own simpler card grid, not
+  the planner's card/chip/token components — full component parity remains. Design-only, no data risk.
 - [ ] **Performance `x`-blanks are untyped.** In `planner-cards.html` the Performance builder
   renders each `x` in a feat as a free-text input with only an *empty-field* reminder on
   commit; there is no per-blank type (count vs. word-count vs. name). Type-aware hints +
   validation would require annotating each `x` in the `feats` data (`seed/performances.csv`).
+- [ ] **Unify the FAQ across ALL modes (one FAQ for Mark/Revise/Write/Build) — user request.**
+  A **Build-only** FAQ now exists: `vysti-builder/static/faq.html` (route `/faq` in
+  `vysti-builder/app.py`), an accordion built from `vysti-builder/FAQ_SPEC.md` (texts/copyright
+  model), linked from the ladder menu on `planner-cards.html` + `index.html` + `faq.html`. The
+  product goal is **ONE shared, app-wide FAQ** surfaced from every mode's menu — NOT a Build-only
+  page. On integration: fold this content into a single FAQ (broaden it beyond texts/copyright to
+  cover Mark/Revise/Write), surface it from every mode's `UserMenu`, and retire the Build-only
+  page. Don't ship a divergent second FAQ.
+- [ ] **Build "Report an issue" uses `mailto:` — user request to unify.** Ladder menu in
+  `vysti-builder/static/{planner-cards,index,faq}.html` opens `mailto:contact@vysti.org`. The live
+  app's `student-react/src/components/UserMenu.jsx` uses an in-page modal posting via
+  `lib/reportIssue.js submitErrorReport`. On integration, replace the Build mailto with that shared
+  in-app Report modal (needs a backend endpoint the prototype lacks).
+- [ ] **Build ladder-menu Profile / Sign-out are placeholders** (no session in the prototype):
+  Profile → `/profile` link; Sign out → `confirm()` + redirect to `/`. Wire to the real
+  auth / `UserMenu` behavior on integration.
 
 ## 4. Handoff Log (append-only; newest at bottom)
 
@@ -206,6 +225,62 @@ prototype's maroon/cream identity; the planner needed to become a **card system*
 agents today** — pull/diff before large edits. The card interaction contract is **body = reveal
 (drawer), checkbox = add**; preserve that split when adding sections. Builder remains untracked/
 local; nothing here is deployed.
+
+### 2026-06-28 — Build: keyword/citation/perf/extension data fixes + design unification + FAQ (Claude)
+All work is in the **Builder sandbox + `big_project/` data only** — the live app (`vysti_api.py`,
+`marker.py`, `student-react/`, root `./assignment-lexis.csv`) was **NOT touched**. Builder stays
+untracked/local per precedent; only this ledger is committed (locally). NOTE: git shows
+`student-react/src/components/TeacherTopbar.jsx` modified — that is **pre-existing live WIP, not mine**;
+left unstaged.
+
+**Done in the Builder / `big_project/` (local):**
+- **Key Words job COMPLETE** (DATA_GUIDE §4): AI-generated `keywords` for every empty row of
+  `big_project/assignment-primary-focus.csv` (167/167) and `assignment-further-exploration.csv`
+  (567/567) — 632 readings via per-event subagents, reusing exact Lexis terms (~24–35%) for the
+  vocab auto-select. `.bak` backups beside each.
+- **Synopsis citations reformatted** in `assignment-primary-focus.csv` (164/167; 3 have none):
+  body → blank line → `Citations`/`Citation` header → one ref per line; OCR space-before-punct
+  tidied. Renderer parses it: `synHtml()` + `.cith/.cite/.syn-b` CSS in `planner-cards.html`
+  (popover + drawer). Backup `assignment-primary-focus.csv.cite.bak`.
+- **Performances bracket corruption fixed:** one feat in aswl1_e1 ("No Lords…") had a Python
+  `['followers','profits','power']` list that comma-split into 3 broken fragments → merged into one
+  clean feat; "Aa parable" typo → "A parable" (only 1 of 154; scanned all). Hardened `app.py`
+  `_parse_feats()` (a bad feats cell can no longer crash startup) and added guardrail tool
+  `vysti-builder/ingest_performances.py` (`validate` / `add`; serializes feats via `json.dumps`,
+  rejects unbalanced-bracket fragments). Backup `seed/performances.csv.bak`.
+- **Extensions fix:** one malformed row in `assignment-extensions.csv` (asal_e7,
+  `ext_asal_e7_5f4d5d6e_1`) had verb+topic jammed in `assignment_command_type` → split to command
+  `compare and contrast` / action `capitalism, socialism, and communism.` (only 1 of 349). Backup `.bak`.
+- **Export plan = real Class Plan:** the "Export plan" button (`planner-cards.html`) now opens a
+  printable, Vysti-styled Class Plan (resolves selections to actual content; citations; chosen
+  Performance feats with blanks filled — fixed an "[object Object]" bug via `featFilled()`), not a
+  raw JSON dump. Opens in a new tab → Cmd-P to PDF.
+- **PDF download "gibberish" fixed:** `app.py /file/{idx}` now serves `application/octet-stream` +
+  `X-Content-Type-Options: nosniff` so the browser always downloads (matches `shared/download.js` /
+  Write). File verified byte-identical & valid. (§3 octet-stream note now marks this deliberate.)
+- **Design unified to the live app** across `planner-cards.html` + `index.html` (+ new `faq.html`):
+  added the **standard Vysti banner** (logo + Mark/Revise/Write/**Build**(active)/Progress pills with
+  the app's `1.5px` strokes, + `?` help + ladder **menu** = Profile/FAQ/Report/Sign out, matched to
+  live computed styles); switched fonts to **DM Sans (body) + Source Serif 4 @800 (headings)** and
+  palette to **#A90D22 / #f5f6f8 / #111** (from the prototype's Gill Sans/Century Gothic + cream).
+  Event picker moved OUT of the banner into an in-page "Event" switcher. Logo → `static/logo.svg`.
+- **FAQ created (Build-only):** `vysti-builder/static/faq.html` + `/faq` route, accordion from
+  `FAQ_SPEC.md` (texts/copyright model), linked from the ladder menu. (User wants this unified
+  app-wide later — see §3.)
+- *(Also this session, OUTSIDE the repo on `~/Desktop/vysti_data/`: stripped the "Ideal" header/footer
+  logo from the ASWL `.docx` materials and exported clean PDFs via LibreOffice headless; added a
+  "safe Performances ingest" note to `VYSTI_BUILDER_DATA_GUIDE.md`. External — not in this repo.)*
+
+**Files touched (all sandbox/data; untracked or gitignored):** `vysti-builder/app.py`,
+`vysti-builder/static/{planner-cards.html,index.html,faq.html,logo.svg}`,
+`vysti-builder/ingest_performances.py`, `vysti-builder/seed/performances.csv` (+`.bak`),
+`big_project/assignment-{primary-focus,further-exploration,extensions}.csv` (+`.bak`s).
+**Tracked + committed locally:** `HANDOFF_AND_CLEANUP.md`.
+**Debt added:** §3 — unify FAQ across all modes; Build "Report an issue" mailto→in-app modal;
+ladder Profile/Sign-out placeholders. (octet-stream + index.html items annotated.)
+**Next agent MUST know:** user wants **ONE app-wide FAQ** (not the Build-only page) and the shared
+**in-app Report modal** — both deferred (§3). All Build work is local/untracked; the Key Words +
+citation + performances/extension fixes live in gitignored `big_project/` + `vysti-builder/seed/`.
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
