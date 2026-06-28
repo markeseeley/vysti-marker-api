@@ -91,6 +91,14 @@ Ordered roughly by value/risk. Check off as done.
   aswl2_e4). Re-add if curated PDFs are later created.
 - [ ] **Minor:** `/file/{idx}` serves FE downloads as `application/octet-stream` (downloads
   fine; could set `media_type` from the extension for inline-PDF behavior).
+- [ ] **Builder home catalog not restyled.** `vysti-builder/static/index.html` (the `/`
+  event catalog) predates the card redesign and doesn't share the planner's card styling/
+  components — landing and planner look like two apps. Restyle `index.html` to match
+  `planner-cards.html` (same card/chip/token system). Design-only, no data risk.
+- [ ] **Performance `x`-blanks are untyped.** In `planner-cards.html` the Performance builder
+  renders each `x` in a feat as a free-text input with only an *empty-field* reminder on
+  commit; there is no per-blank type (count vs. word-count vs. name). Type-aware hints +
+  validation would require annotating each `x` in the `feats` data (`seed/performances.csv`).
 
 ## 4. Handoff Log (append-only; newest at bottom)
 
@@ -159,6 +167,45 @@ pub_years,author_dates}.csv`, `scripts/gen_*.py`, `COPYRIGHT_AND_TEXTS.md`, `CAN
 **Next agent MUST know:** distribution model is now **no Primary downloads; FE PD downloads only,
 served from `OWN_DIRS`**. Before any deploy, resolve §3 "Builder is untracked + data CSVs gitignored"
 and "Deployment text store" — the Builder and its data currently live only on local disk.
+
+### 2026-06-28 — Build: card-redesign of the Builder event planner (Claude)
+All work is in the **Builder sandbox only** — the live app (`vysti_api.py`, `marker.py`,
+`student-react/`, root `./assignment-lexis.csv`) was **NOT touched**. Builder stays
+untracked/local per precedent; only this ledger is committed (locally).
+
+**Context:** session began as a design pass — compared the old designer's app
+(`~/Desktop/PublicLearningApp-master`, a 2021 Vue/Quasar build: useful IA/step-flow, but
+generic visuals + "Ideal" branding, not Vysti's) against the prototype. Conclusion: keep the
+prototype's maroon/cream identity; the planner needed to become a **card system**.
+
+**Done in the Builder (local):**
+- **Created the card-based event planner** `vysti-builder/static/planner-cards.html` — the
+  origin of the current card UI (other agents have since layered copyright/KQ/lexis-search
+  features onto the same file; it is now co-edited).
+- **Two-zone interaction model** (the core design): clicking a **card body** opens a shared
+  right-hand **detail drawer** (full synopsis / FE excerpt / lexis entry / extension linked-
+  lexis / goal sub-goals); a separate **checkbox** is the *only* add-to-plan control. Lexis
+  keeps the pill model (term opens entry · `+` adds) — that split is now applied everywhere.
+- **Performance builder:** clicking a Performance opens a builder — each feat is a checkbox
+  row, and `x` placeholders render as **inline fill-in inputs**; "Add to plan" gives a gentle
+  reminder (highlights rows) if a chosen feat has an empty blank; stores chosen feats + values.
+- **Sticky Class Plan rail:** per-section counts, section nav w/ completion dots, Export JSON, Clear.
+- **`/event` route → `planner-cards.html`** in `app.py` (redesign is the live Builder planner
+  via normal navigation from the `/` catalog). Old `planner.html` left as the §3 orphan.
+- **Review fixes:** removed the dead "Source" (Squarespace) button; FE/poetry excerpts now keep
+  line breaks (`white-space:pre-wrap` + indent tidy); PDF links carry a real `download` attr
+  (avoids inline-render "gibberish"); `esc()` coerces non-strings (a bad field no longer blanks
+  the page); added a `?open=<itemKey>` deep-link for any card's detail.
+
+**Files touched (all sandbox; untracked):** `vysti-builder/static/planner-cards.html` (created),
+`vysti-builder/app.py` (`/event` route line only — file is concurrently edited by other agents).
+**Tracked + committed locally:** `HANDOFF_AND_CLEANUP.md`.
+**Debt added:** §3 — Builder home catalog (`index.html`) not restyled to match; Performance
+`x`-blanks are untyped.
+**Next agent MUST know:** `planner-cards.html` and `app.py` are being **co-edited by multiple
+agents today** — pull/diff before large edits. The card interaction contract is **body = reveal
+(drawer), checkbox = add**; preserve that split when adding sections. Builder remains untracked/
+local; nothing here is deployed.
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
