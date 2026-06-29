@@ -568,6 +568,44 @@ Followed the Space Race `application_default` flag (prev entry) — turned out t
   `application_default`(1) changed; **0 list-repr cells remain** (whole row, precise); 1508 rows/23 cols
   intact. Backup `assignment-lexis.csv.bak_listrepr` (gitignored).
 
+### 2026-06-29 — Build: library search for Primary Focus + export/data polish (Claude)
+Five user-requested Build improvements. **All Builder-sandbox only** (`vysti-builder/` +
+gitignored `big_project/` FE data) — live app/lexicon NOT touched, nothing deployed. Builder
+stays untracked/local per precedent; only this ledger is committed.
+
+1. **Primary Focus library search.** New `GET /api/library/search?q=` (`vysti-builder/app.py`)
+   searches the whole Primary-Focus canon by **title OR author** (substring, deduped, startswith-
+   ranked). New `＋ Add a Primary Focus from the library` button on the Primary section opens a
+   drawer search (`openLibrarySearch`/`runLibrarySearch`/`drawLib`/`toggleLib` in
+   `static/planner-cards.html`); results import via the existing `imp` mechanism (sec="primary"),
+   render as native cards, and trigger the keyword→Lexis auto-select. Texts already native to the
+   open Event show "in this Event" instead of a dup. (User note: canon curation/recommendation is
+   a later agent's job.)
+2. **Gold-Bug FE header fix (data).** 3 FE rows had title+author jammed into BOTH `title_minor`
+   and `author_name` (`big_project/assignment-further-exploration.csv`): "The Gold Bug Edgar Allan
+   Poe", "The Globalization of America's Colleges Laura McKenna", "A Bawdy Milton Poem… Philip
+   Reeves". Split into proper title/author; re-keyed their `seed/fr_excerpts.csv` rows + stripped the
+   duplicated title/author prefix from each excerpt. (The other 5 title∋author rows are legit —
+   e.g. "Tecumseh's Speech…"/"Tecumseh" — left alone.)
+3. **Export filename = guide name.** Export `<title>` now `"<Event> — Student Guide"` (was "Class
+   Plan"); a tiny script flips it to "… — Teacher Guide" when the Student/Teacher toggle changes, so
+   the saved PDF is named for the chosen guide. (Print CONTENT still depends only on the CSS toggle.)
+4. **No browser print header/footer in production.** The printed export showed the browser's auto
+   header (date/time) + footer (the `/plan/<token>` URL). Fixed with `@page{margin:0}` (browsers omit
+   their auto chrome at margin 0) + the sheet supplies its own `15mm 16mm` print padding. This is the
+   page-side mitigation; it removes them regardless of the user's print-dialog setting.
+5. **Export drops FE excerpts.** Further-Exploration entries in the exported plan now show title +
+   author (+ keywords on the Teacher guide) only — the excerpt paragraph was removed.
+
+**Gotcha logged for next agent:** when emitting a nested `<script>` inside a JS template literal
+(the export's title-updater), the literal `</script>` closes the OUTER page script in the HTML
+parser → "Unexpected end of input". Escape it as `<\/script>` (and I split the opener as `<${""}script>`).
+
+**Files (all untracked/sandbox):** `vysti-builder/app.py`, `vysti-builder/static/planner-cards.html`,
+`big_project/assignment-further-exploration.csv`, `vysti-builder/seed/fr_excerpts.csv`. Verified in
+the local Docker Builder (search by title+author, add-to-plan, Gold-Bug header, export title/toggle/
+no-excerpt, `@page` margin).
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
