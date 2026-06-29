@@ -161,11 +161,13 @@ Ordered roughly by value/risk. Check off as done.
   **(2026-06-28: now DELIBERATE** — `media_type=application/octet-stream` + `X-Content-Type-Options:
   nosniff` set on purpose to fix a Chrome "gibberish" download. Do NOT revert to inline `application/pdf`
   — it reintroduces the mangled-download issue in some Chrome / Safe-Browsing configs.)
-- [ ] **Builder home catalog not fully restyled.** `vysti-builder/static/index.html` (the `/`
-  event catalog) predates the card redesign. **(2026-06-28: banner, typography (DM Sans + Source
-  Serif 4), and the #A90D22 / #f5f6f8 / #111 palette are now unified across index.html +
-  planner-cards.html + faq.html.)** Still pending: the landing uses its own simpler card grid, not
-  the planner's card/chip/token components — full component parity remains. Design-only, no data risk.
+- [x] **Builder home catalog restyled — DONE 2026-06-29.** `vysti-builder/static/index.html`.
+  (2026-06-28: banner/typography/palette unified.) **2026-06-29:** card polish for parity with the
+  planner — equal-height cards, 3-line clamped descriptors, hover **Open ›** affordance, per-
+  collection **count pills**; plus a **client-side live filter** (title/descriptor/course; "create
+  your own" hidden while filtering; no-match message). Pure static `index.html` — no `app.py`, no
+  live-app touch. (The planner's chip/token components are reading-level and don't apply to an Event
+  list, so the catalog is now considered at parity.)
 - [ ] **Performance `x`-blanks are untyped.** In `planner-cards.html` the Performance builder
   renders each `x` in a feat as a free-text input with only an *empty-field* reminder on
   commit; there is no per-blank type (count vs. word-count vs. name). Type-aware hints +
@@ -626,6 +628,80 @@ parser → "Unexpected end of input". Escape it as `<\/script>` (and I split the
 `big_project/assignment-further-exploration.csv`, `vysti-builder/seed/fr_excerpts.csv`. Verified in
 the local Docker Builder (search by title+author, add-to-plan, Gold-Bug header, export title/toggle/
 no-excerpt, `@page` margin).
+
+### 2026-06-29 — Build: "Other recommendations" canon for Primary Focus (Claude)
+All work is **Builder-sandbox / `big_project/` only** — the live app (`vysti_api.py`, `marker.py`,
+`student-react/`, root `./assignment-lexis.csv`) was **NOT touched**; nothing deployed. New data lives
+in a **separate file**, deliberately kept apart from the user's 200 hand-curated, PhD-authored entries.
+
+**Goal (user):** now that Vysti is online (no finite physical library), recommend canonical texts a
+teacher *could* teach per Event — sourced from authoritative canons — organized by (1) PD vs copyrighted,
+(2) Event, (3) keyword. **Hard constraint:** the user does **NOT** trust AI to write the academic
+descriptors (the existing synopses were written by a human PhD). So recommendations carry **NO synopsis** —
+only verifiable factual metadata — and surface under an **"Other recommendations"** header, never mixed
+into the curated 200.
+
+**Done:**
+- **New file `big_project/assignment-primary-focus-recommended.csv`** — **284 texts across all 26 Events**
+  (~11/Event; the two previously-empty Events `aswl1_e7` + `asal1_e2` now have 11 each). Columns:
+  `primary_focus_id,event,title,author_full_name,author_last_name,reading_category,level_ability(=['advanced']),
+  keywords,pub_year,author_death_year,copyright_status,source_canon,fit_note,active`. **No synopsis field.**
+  `keywords` were constrained to each Event's **existing Lexis vocabulary** (closed set → cannot hallucinate
+  new terms; feeds the planner's keyword→Lexis auto-select). `fit_note` is a short INTERNAL curation note,
+  NOT a student-facing descriptor.
+- **Method — 52-agent Workflow** (`scratchpad/pf_recommendations.workflow.js`): per-Event **discover**
+  (8–12 advanced canonical picks, web-researched, from the AP-Lit Q3 bank + Pulitzer/Nobel + NCTE/Common-Core
+  exemplars + college-prep lists) → per-Event **adversarial verify** (independent skeptic re-checks each text's
+  existence/attribution, pub-year, author death-year, **PD-vs-copyright** under the 2026 US rule pub≤1930,
+  and Event-fit/level). 289 proposed → 284 accepted, **5 rejected** (good catches: *The Sound and the Fury*
+  = American author in the European course; a Thoreau/Paine *Civil Disobedience*/*Common Sense* title
+  conflation; *Heart of Darkness*/*Tom Sawyer*/*Self-Reliance* weak Event-fit). Confidence median 0.96.
+- **Copyright split:** 215 public-domain / 65 in-copyright / **4 uncertain**. The 4 uncertain + 6 discover↔verify
+  disagreements are all **translation/edition nuance** (e.g. *Siddhartha*, *The Birth of Tragedy*, *Hyperion*,
+  *Gilgamesh*: ancient/foreign original is PD but the standard **English translation** is in-copyright) — stored
+  with the verifier's **conservative** status. (Low stakes anyway: Primary Focus is never downloadable — status
+  only drives the badge + "Find online"/Buy.) Full list in the review doc.
+- **Dedup-checked:** 0 collisions with the curated 200; the lone internal "dup" (*Essays*) is Montaigne vs Bacon
+  (distinct), not a real duplicate.
+- **Docs/provenance:** `vysti-builder/RECOMMENDED_TEXTS_REVIEW.md` (per-Event counts, the 10 flags, the 5
+  rejects) + raw workflow output `big_project/recommended_texts_workflow_result.json`.
+
+**NOT done (deferred — next step):** the Builder planner does **not yet render** this separate file. It needs an
+**"Other recommendations"** section in `vysti-builder/static/planner-cards.html` + an `app.py` read of the new
+CSV, kept visually distinct from the curated cards and showing **no synopsis** (descriptor badge + copyright
+badge + "Find online"/Buy only). Awaiting user review of the texts before wiring.
+
+**Files touched (all sandbox/untracked/gitignored):** `big_project/assignment-primary-focus-recommended.csv`
+(new), `big_project/recommended_texts_workflow_result.json` (new), `vysti-builder/RECOMMENDED_TEXTS_REVIEW.md`
+(new). **Tracked + committed locally:** this ledger.
+**Next agent MUST know:** recommendations are a **separate, no-synopsis** layer by design — do NOT backfill
+AI synopses or merge them into `assignment-primary-focus.csv`. Wiring the "Other recommendations" UI is the
+open task.
+
+### 2026-06-29 — Cleanup-Agent ledger pass + Builder catalog polish (Claude)
+A backlog-clearing pass while the Primary Focus agent held `app.py`/`planner-cards.html`/
+`assignment-primary-focus.csv` — so I deliberately stayed in **isolated files only**. LIVE app
+(`vysti_api.py`/`marker.py`/`student-react/`/root lexicon) NOT touched.
+
+**Audited all non-lexicon Builder data → confirmed CLEAN** (`big_project/*` + `seed/*`): the
+`performances.feats` list-reprs are the intended JSON; `fr_excerpts` "dup sentences" are poetic
+refrains; `etymology-review.csv` is an unused orphan; the 54 `extensions.explanation` "unbalanced
+quotes" are in a field `build_event` never surfaces. Logged the one genuine blemish (truncated
+`extensions.action`, asel1_e2 Locke) to §3.
+
+**Ledger accuracy pass** (committed+pushed `42c777c`, docs-only): corrected stale §1 ("3 LIVE diffs
+await approval" → they're DEPLOYED) + added the "clean lexicon data" milestone; corrected the §3
+DATA-LOSS item (the private `build-backup`→`vysti-build-data` remote EXISTS and the branch is pushed;
+remaining = refresh the 6/28 snapshot once Build settles).
+
+**Builder catalog polish (`vysti-builder/static/index.html`, §3 item → DONE):** equal-height cards,
+clamped descriptors, hover **Open ›**, per-collection **count pills**, and a **client-side live
+filter** (title/descriptor/course). Pure static file — verified in local Docker (26 events, counts
+7/7/7/5, filter "myth"→1, no-match message, clear→26). Untracked/sandbox; nothing deployed.
+
+**Files (sandbox/untracked):** `vysti-builder/static/index.html`. **Tracked+committed:** this ledger.
+**Next agent:** the off-machine Builder backup is still the 6/28 state — refresh `build-sandbox-backup`
++ `git push build-backup` once this Build session settles (confirm the remote is private first).
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
