@@ -549,6 +549,25 @@ whole lexicon — widespread (like the run-on issue). **LIVE deploy (user-approv
   (singular/plural term dedup + Apollonian/Dionysian) — NOT data loss; my fixes validated cleanly on
   top of it. `assignment-lexis.csv` is being edited by 2+ agents today — always diff vs origin first.
 
+### 2026-06-29 — Lexicon: fix leaked list-repr corruption (140 cells) (Claude)
+Followed the Space Race `application_default` flag (prev entry) — turned out to be a whole class.
+**LIVE deploy (user-approved), pushed as `0aa5e2f`.**
+- **9 PROSE cells:** `Space Race` application/_options/_default (pure Python `"['…']"` repr; _default
+  truncated mid-list); `figuration`/`hero`/`hipsters`/`hybris` **application_options** and
+  `figuration`/`Homestead Act` **exploration_options** (list-repr; the app_options ones had the clean
+  text DUPLICATED after `]. ` — kept that suffix). Parsed/joined to plain prose.
+- **131 `assign_lexis` cells:** stored as `"['a','b',…]"` → broke the live **Related-terms chips**
+  (`assign_lexis.split(',')` yielded `['a'`, `'b'`, …). Normalized to `a, b, …` (matches the 1077
+  already-plain rows). Some had a trailing suffix (`…]; blank verse`) — preserved.
+- **FALSE POSITIVES correctly left untouched:** `action`/`antecedent` **quote** fields begin `"[W]here…`
+  / `"[I]t is…` — those are **editorial-bracket scholarly quotations**, not list-reprs. A naive
+  `startswith('"[')` scan flags them; the precise detector (`[` + quote + …+ `,`) does not.
+- **Validation:** content-preserving — prose parsed alphanumeric-equal (or clean-suffix-equal);
+  assign_lexis validated as a subset of original terms (only structural `[] '' ,` removed). Diffed vs
+  origin: ONLY `assign_lexis`(131)/`application_options`(5)/`exploration_options`(2)/`application`(1)/
+  `application_default`(1) changed; **0 list-repr cells remain** (whole row, precise); 1508 rows/23 cols
+  intact. Backup `assignment-lexis.csv.bak_listrepr` (gitignored).
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
