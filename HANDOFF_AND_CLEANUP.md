@@ -512,6 +512,22 @@ Follow-up to the prior `exploration`/`exploration_options` de-dup — same corru
 - **Process note:** unlike the run-on fix (which got swept into another agent's commit), this one
   was applied→committed→pushed in one controlled motion (staged `assignment-lexis.csv` only).
 
+### 2026-06-29 — Lexicon: dedupe singular/plural terms + Apollonian/Dionysian article (Claude)
+User flagged `stanza`/`stanzas` (and on review, more) as redundant, and inconsistent articles on
+the Nietzschean pair. Edited LIVE root `./assignment-lexis.csv` (user-approved, deployed).
+- **Deleted 5 duplicate rows** (1513→1508): `stanzas`→`stanza`, `stock characters`→`stock character`,
+  `unions`→`union` (merged events `aswl1_e5,asal1_e5` + took its richer linked_lexis), `aporias`→`aporia`,
+  `maieutic`→`maieutics` (kept the noun/event entry; user call). **Kept `value` vs `values` distinct**
+  (different concepts — worth vs moral principles).
+- **Article consistency:** renamed `Dionysian`→**the Dionysian** (term + term_norm `the_dionysian`) to
+  match existing **the Apollonian** (user chose "both the …").
+- **linked_lexis remapped** in 14 surviving rows so deleted terms + bare `Apollonian`/`Dionysian`
+  point to the canonical forms (no dangling chips). Did NOT touch the ~253 pre-existing self-references
+  (out of scope).
+- **Verified:** only `term`/`term_norm`/`related_events`/`linked_lexis` changed; 0 dangling linked_lexis
+  tokens; value/values both present; 1508 rows/23 cols; Builder reloads 1508. Backup
+  `assignment-lexis.csv.bak_dedup_terms` (gitignored). Committed + pushed → Render.
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
