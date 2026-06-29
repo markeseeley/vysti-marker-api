@@ -442,6 +442,76 @@ root `./assignment-lexis.csv` (tracked, LIVE, deployed); this ledger.
 the remaining piece of the user's "multi-stage / skippable" plan-builder vision is the guided **stepper**
 (Readings→Lexis→…→Export, each skippable). Builder still local/untracked (§3 data-loss risk unchanged).
 
+### 2026-06-29 — Build: Lexis bullet rendering + keyword→Lexis auto-select + Docker lexicon fix (Claude)
+Two user-requested Build improvements + one infra bug found along the way.
+
+**LIVE deploy (user-approved):**
+- **12 run-on `application` bullets split** in root `./assignment-lexis.csv`. Some entries (e.g. **myth**)
+  had multiple learning objectives glued without a separating period, so the bullet splitter (both the
+  Builder drawer AND the live `LexisModal` — identical regex) merged them into one bullet. Found 187
+  candidate rows; a **12-agent Workflow** re-segmented them; each fix **strictly validated in Python**
+  (`normalize(old)==normalize(new)` keeping only a-z0-9 → only periods/case/space changed, words
+  byte-identical) and required an increased bullet count. 12 accepted, 19 rejected (those were
+  capitalization-only, already handled by the renderer). Terms fixed: agrarianism, alienation,
+  Catholicism, end stop, enhanced interrogation techniques, katabasis, myth, Neoclassicism, Noah and
+  the Ark, Sacagawea, sphere of influence, Triangle Shirtwaist Factory Fire. Backup
+  `assignment-lexis.csv.bak_runon` (gitignored); reviewed diff `LEXICON_RUNON_DIFF.md` (untracked).
+  **⚠ Committed+pushed by a CONCURRENT agent's commit `0d93b6d`** (we shared the working tree; their
+  `git add assignment-lexis.csv` swept in my `application`-column edits alongside their `exploration`
+  de-dup). **Verified live on app.vysti.org** (`/api/lexis/myth` now has `etc. Understand…`). All 12
+  confirmed exact in HEAD==origin; `application_options` untouched.
+- **Note (NOT fixed, out of scope):** agrarianism + alienation have **pre-existing duplicated sentences**
+  in their `application` (the dup was in the source; the period-fix just made it visible as repeated
+  bullets). A future data-quality pass could de-dup `application` like the exploration de-dup did.
+
+**Builder sandbox (local/untracked — coexist with the concurrent agent's same-file edits):**
+- **Capitalization fix** (`static/planner-cards.html`): Lexis Application/Exploration bullets now
+  normalize to leading-capital + no trailing period (`cap()`), matching the live `LexisModal`. (Fixes
+  the user's "Understand capitalized but others lowercase" report; the concurrent agent's Lexis-builder
+  rework + my `cap` now both live in the file — verified the merged result renders correctly.)
+- **Keyword → Lexis auto-select** (Task 2): selecting a Primary Focus / Further Exploration reading
+  auto-ticks any of the Event's Lexis terms matching that reading's `keywords` (e.g. *Tales from Ovid* /
+  *Ulysses* → keyword "myth" → Lexis "myth" auto-selected), with a confirmation `toast()`. **Additive
+  only** (de-selecting a reading never un-ticks Lexis). Stores a bare-string value via the existing
+  `toggle()` path — compatible with the concurrent agent's object-valued Lexis builder (their render/
+  export defensively treat a bare string as "term added, no curated lines yet", same as a quick `+` add).
+- **Docker bug FIXED (was breaking ALL Build-in-Docker):** the lexicon consolidation repointed
+  `LEXIS_PATH` to the repo root, but `docker-compose.yml` never mounted that root file into the
+  container → lexicon loaded **0 rows** in Docker (myth card, all Lexis, and auto-select all dead).
+  Added `../assignment-lexis.csv:/app/assignment-lexis.csv:ro` mount + `LEXIS_PATH=/app/assignment-lexis.csv`.
+  Now loads 1513 terms. (Cleanup agent likely smoke-tested via native Python where `../` resolves, not Docker.)
+  **Needs `docker compose up -d` (recreate), done.**
+
+**Files touched:** root `./assignment-lexis.csv` (LIVE, deployed via `0d93b6d`); `vysti-builder/static/
+planner-cards.html` + `vysti-builder/docker-compose.yml` (sandbox, untracked); this ledger;
+`LEXICON_RUNON_DIFF.md` (untracked record).
+**Next agent MUST know:** (1) `planner-cards.html`/`app.py`/root lexicon were **co-edited by 2+ agents
+on 2026-06-29** — diff before large edits; my Builder edits are uncommitted in the shared tree;
+(2) the Docker lexicon-mount fix is real — if Build shows no Lexis, check the `LEXIS_PATH` mount.
+
+### 2026-06-29 — Lexicon: intra-field sentence de-duplication (Claude)
+Follow-up to the prior `exploration`/`exploration_options` de-dup — same corruption, the
+`application` side. **LIVE deploy (user-approved), committed+pushed by me as `3ee35a8`.**
+- **Removed sentences repeated verbatim within a field** in root `./assignment-lexis.csv`:
+  `application` **9 rows** (displayed in live Revise/Write + Builder — e.g. agrarianism,
+  alienation, anagnorisis, Aesthetes, aphorism, aside, canon, hegemony, Weltanschauung),
+  `etymology` **1** ("surplus labor" had a `||`-separated full duplicate), and
+  `application_options` **178** (NOT read by any code — cleaned for parity/cleanliness only).
+  `exploration*` already clean (commit `0d93b6d`). No row-level/term duplicates exist
+  (mise-en-scène already merged).
+- **Method (deterministic, no LLM):** abbreviation-aware sentence split (mirrors
+  `LexisModal`) → among normalized-equal copies keep the **best-spaced** variant, *cleaned of
+  leading `||`/junk*, at its first position → terminal periods restored on rejoin. Two edge
+  cases found+fixed during dev: naive "keep-first" kept an OCR-mangled `acharacteris` over the
+  clean copy; naive "keep-longest" kept a `|| Labor…` junk variant. Final rule (best-spaced +
+  junk-strip) handles both.
+- **Verified:** identical set of unique sentences before/after (**0 lost, 0 fabricated**, per-cell
+  set-equality), sentence count strictly decreases, only those 3 columns changed, 1513 rows/23
+  cols intact, **0 duplicates remain**. Backup `assignment-lexis.csv.bak_appdedup` (gitignored);
+  reviewed diff `LEXICON_DEDUP_DIFF.md` (untracked). Local Builder restarted to load the clean CSV.
+- **Process note:** unlike the run-on fix (which got swept into another agent's commit), this one
+  was applied→committed→pushed in one controlled motion (staged `assignment-lexis.csv` only).
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
