@@ -408,6 +408,40 @@ rebuild — it will ride along with the next functional deploy.)
 **Still open:** push `build-sandbox-backup` to the private remote (token needs access granted to
 `vysti-build-data`).
 
+### 2026-06-29 — Build: Export Student/Teacher guides, Lexis app/expl selection, lexicon exploration de-dup (Claude)
+**Builder sandbox work (local/untracked; live app NOT touched):**
+- **Flavor quotes — finished the removal.** Prior agent had blanked the quote columns but the running
+  container served stale data; removed quote rendering from `static/planner-cards.html` (hero + printable
+  plan) and dropped the dead `quote` (and obsolete `segue`) fields from `app.py`'s event payload. Quotes
+  are gone in data AND code now.
+- **Export plan → two guides.** `buildPlanHtml()` now emits ONE preview with a `[Student | Teacher]`
+  toggle; Print outputs whichever is shown. Split (user-decided): KQ **answers**, reading **keywords**,
+  and Lexis **Exploration** are **teacher-only**; Performances/Extensions/Continual-Goals (now with
+  sub-goal **explainers**) + Lexis **Application** are shared. Segues deleted (legacy chronological cruft).
+- **Lexis Application/Exploration per-term selection.** The Lexis drawer is now a builder (like the
+  Performance builder): each Application line / Exploration prompt is a tickable row, plus per-group
+  "Show on Student guide" toggles (Application default ON, Exploration default OFF). Selection stored as
+  `{term,app,exp,appStu,expStu}` (chosen bullet **texts**, drift-proof, works for imported terms too).
+  The quick `+` chip still fast-adds with section defaults. Removed dead `lexImpBtn`/`toggleLexis`.
+- **Graphical fix:** picker showed empty checkboxes — root cause was corrupt lexicon data (below).
+  Hardened `splitApp`/`splitExp` to drop punctuation-only tokens and de-dup.
+
+**LIVE deploy (user-approved fix & deploy):**
+- **Lexicon `exploration` corruption fixed.** 181 rows of root `./assignment-lexis.csv` had duplicated
+  Socratic prompts (questions repeated with stray `". "`/`", "` prefixes; also curly-vs-straight apostrophe
+  variants) in `exploration` (112) + `exploration_options` (181). Also showed up in LIVE Revise/Write
+  Exploration (double-listed prompts). Cleaned via **abbreviation-aware** sentence splitting (mirrors
+  `student-react/src/components/LexisModal.jsx splitExploration`, so "Plessy v. Ferguson?" stays intact —
+  naive dedup would have destroyed its 5 distinct questions) + key-dedup. **Verified: 0 unique prompts lost,
+  0 distinct questions merged, only those 2 columns changed, 1513 rows/23 cols intact, 0 duplicates remain.**
+  Backup `assignment-lexis.csv.bak_expdedup` (gitignored). Committed + pushed to `main` → Render.
+
+**Files touched:** `vysti-builder/static/planner-cards.html`, `vysti-builder/app.py` (sandbox, untracked);
+root `./assignment-lexis.csv` (tracked, LIVE, deployed); this ledger.
+**Next agent MUST know:** the bigger Lexis idea (per-particular selection) is now built for the Lexis step;
+the remaining piece of the user's "multi-stage / skippable" plan-builder vision is the guided **stepper**
+(Readings→Lexis→…→Export, each skippable). Builder still local/untracked (§3 data-loss risk unchanged).
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
