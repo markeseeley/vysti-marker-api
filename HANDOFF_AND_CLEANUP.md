@@ -528,6 +528,27 @@ the Nietzschean pair. Edited LIVE root `./assignment-lexis.csv` (user-approved, 
   tokens; value/values both present; 1508 rows/23 cols; Builder reloads 1508. Backup
   `assignment-lexis.csv.bak_dedup_terms` (gitignored). Committed + pushed → Render.
 
+### 2026-06-29 — Lexicon: balance unclosed/mismatched double-quotes (Claude)
+User reported myth's Application "…as “a type of speech" had no closing quote. Scanned the
+whole lexicon — widespread (like the run-on issue). **LIVE deploy (user-approved), pushed as
+`a807de9`** (myth's own fix rode in the concurrent agent's `b58cd6e` earlier).
+- **48 fields balanced** across `application`/`application_options`/`application_default`,
+  `definition`, `etymology`, `exploration`/`_options`, `quote`, `source_major`. Defect types:
+  dangling open (myth, ACLU, Schlüsselroman, Ludlow, moralism, anadiplosis, kakistocracy…),
+  stray close (Yahoo `disgust"`), and mismatched curly/straight pairs (`“hero"`, `“in medias res"`,
+  tu quoque). Fixed via a **4-agent Workflow** (quote chars only) + 9 hand-fixed cells the agents
+  skipped (batch-index drift).
+- **Strict validation:** ONLY the double-quote chars (`"` `“` `”`) added/removed/swapped — proven by
+  `strip_doublequotes(origin)==strip_doublequotes(working)` byte-identical across **all 48 fields**
+  (0 non-quote diffs), and each result quote-balanced. 1508 rows/23 cols intact.
+  Backup `assignment-lexis.csv.bak_quotefix` (gitignored).
+- **⚠ FLAGGED (NOT fixed — separate corruption, out of scope):** `Space Race` **application_default**
+  holds a leaked **Python list-repr** (`"['situate…','…failures` — truncated, escaped quotes). Needs
+  reconstruction into a plain string, not a quote fix. Only remaining quote-"defect" in the lexicon.
+- **Concurrency this turn:** the lexicon went 1513→1508 mid-turn via another agent's `b58cd6e`
+  (singular/plural term dedup + Apollonian/Dionysian) — NOT data loss; my fixes validated cleanly on
+  top of it. `assignment-lexis.csv` is being edited by 2+ agents today — always diff vs origin first.
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
