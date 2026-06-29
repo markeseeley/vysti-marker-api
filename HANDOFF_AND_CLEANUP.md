@@ -36,11 +36,22 @@ Keep entries terse and factual. Link paths relative to the repo root
 - **Dead/orphaned files removed**; every served file unambiguous.
   ✅ Orphan `planner.html` deleted (2026-06-28). Remaining: dated `.bak*`/`.backup` files in
   `big_project/` kept as provenance (gitignored).
+- **Clean lexicon data** (no corruption in displayed fields).
+  ✅ **Done & DEPLOYED (2026-06-29):** the 3 LIVE diffs from `CLEANUP_LIVE_DIFFS.md` (article-strip,
+  `mise-en-scène` dedupe, transliterating term_norm) were user-approved and shipped (`6c8badc`). A
+  further data-quality sweep of `./assignment-lexis.csv` then found+fixed+deployed: run-on
+  `application` bullets (`a807de9`/earlier), intra-field duplicated sentences in
+  `application`/`application_options`/`etymology` (`3ee35a8`), unbalanced/mismatched double-quotes
+  across 48 fields (`a807de9`), and leaked Python list-repr in 9 prose cells + 131 `assign_lexis`
+  cells (`0aa5e2f`). **Non-lexicon Builder CSVs audited 2026-06-29 and confirmed clean** (the
+  performances `feats` list-reprs are the intended JSON format; `fr_excerpts` "dup sentences" are
+  poetic refrains; `etymology-review.csv` is an unused orphan). One known blemish left: a single
+  truncated `extensions.action` (asel1_e2, Locke) cut mid-word with an unclosed quote — needs the
+  source text, not a quote fix (see §3).
 
-**Remaining for "clean":** the 3 LIVE-touching items in `CLEANUP_LIVE_DIFFS.md` (article-strip
-fix, `mise-en-scène` dedupe, term_norm convention) await user approval; off-machine private
-backup of the Builder; and the productionization items (Builder tracking/build pipeline,
-deployment text store) deferred until Build ships.
+**Remaining for "clean":** off-machine private backup of the Builder (needs the user — see §3
+DATA-LOSS item); and the productionization items (Builder tracking/build pipeline, deployment text
+store) deferred until Build ships.
 
 ## 2. Repo / data map (current reality)
 - **Live marking app** (Render, app.vysti.org): `vysti_api.py` + `marker.py` + `student-react/`.
@@ -120,12 +131,17 @@ Ordered roughly by value/risk. Check off as done.
   ONLY on local disk. **Interim durability taken:** (a) tarball snapshot in scratchpad; (b) a
   **local orphan git branch `build-sandbox-backup`** (65 files: Builder code + data +
   `docker-compose.yml`, backups/caches excluded) — recoverable from `.git` now.
-  **STILL NEEDED (off-machine):** push `build-sandbox-backup` to a **PRIVATE** remote. The repo
-  `origin` is **PUBLIC** and `vysti-builder/seed/fr_excerpts.csv` contains **copyrighted third-
-  party excerpts** → MUST NOT push to origin. The stored PAT can push but **cannot create** repos
-  (and `gh` is not installed), so the user must create an empty private repo (`vysti-build-data`),
-  then `git remote add` + `git push build-sandbox-backup`. **A non-`main` branch push does NOT
-  trigger the Render live deploy.** Longer term: decide a real tracking/build pipeline for Build.
+  **Off-machine backup NOW EXISTS (updated 2026-06-29):** the user created the private repo and it's
+  wired as the `build-backup` remote → `github.com/markeseeley/vysti-build-data.git`; the
+  `build-sandbox-backup` branch is pushed there (`remotes/build-backup/build-sandbox-backup`). The
+  copyrighted `fr_excerpts.csv` lives ONLY on that private remote, never `origin` (public). **A
+  non-`main` branch push does NOT trigger the Render live deploy.**
+  **REMAINING:** the off-machine snapshot is the **2026-06-28** state — it does NOT yet include the
+  6/29 Builder work (library search, export polish, Gold-Bug fix, + the concurrent agent's Primary
+  Focus work). **Refresh once the current Build session settles** (don't snapshot mid-edit): re-add
+  the Builder + data into `build-sandbox-backup` (force-add past `.gitignore`) and
+  `git push build-backup build-sandbox-backup`. Confirm the remote is still PRIVATE before pushing
+  (copyrighted excerpts). Longer term: decide a real tracking/build pipeline for Build.
 - [ ] **Deployment text store.** Downloads are now served ONLY from `OWN_DIRS`
   (`vysti-builder/texts_own/` + the four `~/Desktop/vysti_data/<COURSE> Materials/` folders;
   set in `docker-compose.yml`). ~166 curated FE public-domain PDFs are served from those
@@ -136,6 +152,11 @@ Ordered roughly by value/risk. Check off as done.
   `big_project/assignment-further-exploration.csv` (backup `.bak_prefe_remove`): *The Necklace*
   (Maupassant, aswl1_e4); *Holy Sonnet IX…* (Donne, aswl2_e2); *The neglected Lover…* (Wyatt,
   aswl2_e4). Re-add if curated PDFs are later created.
+- [ ] **Truncated extension action (1 row).** `big_project/assignment-extensions.csv` row
+  `ext_asel_e2_40b1424f_1` (asel1_e2): `action` is cut off mid-word — *"…John Locke "gives his
+  positive account of how we acquire the materials of k…"* — with an unclosed quote. It's surfaced
+  in the Extensions section. Needs the original source text restored (not a quote-balance fix), so
+  left for a human/data pass. The rest of the Builder data was audited 2026-06-29 and is clean.
 - [ ] **Minor:** `/file/{idx}` serves FE downloads as `application/octet-stream`.
   **(2026-06-28: now DELIBERATE** — `media_type=application/octet-stream` + `X-Content-Type-Options:
   nosniff` set on purpose to fix a Chrome "gibberish" download. Do NOT revert to inline `application/pdf`
