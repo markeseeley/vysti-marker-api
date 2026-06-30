@@ -73,3 +73,6 @@ vysti_eye.png
 library_pd/
 big_project/*.bak_*
 vysti-builder/scripts/_served.json
+
+# Contains user PII (coupon redeemer emails) — never commit to the PUBLIC origin
+REVISE_SPRING_EMAIL.md
