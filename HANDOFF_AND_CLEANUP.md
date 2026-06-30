@@ -931,6 +931,45 @@ Sandbox only (`vysti-builder/static/`), localStorage, no `app.py`, no live touch
   snapshot (button reads "Update plan") → delete from home removes it; "Your Events" unaffected.
 **Both files are co-edited — diff before large edits.**
 
+### 2026-06-30 — Build: Further-Exploration ESSAY recommendations + quality review (Claude)
+Extended the FE "Other recommendations" layer to **essays/non-fiction** (after the poetry pass). Same
+separate, no-synopsis, Find-online model. **Sandbox only; live app untouched.**
+- **+30 essays appended** to `big_project/assignment-further-exploration-recommended.csv` (now **64 rows**:
+  34 Poetry + 30 non-fiction = Essay 17 / Treatise 8 / Speech 3 / Manifesto 1 / Non-Fiction 1; 60 PD / 4 in-copyright).
+- **Scope:** the 5 World-Lit-I Events with <4 FE essays (essays were concentrated in aswl1_e7 Rhetoric): aswl1_e2
+  (Drama), e3 (Reformation), e4 (19thC Prose), e5 (Modernism), e6 (Harlem Renaissance) — +6 each. 10-agent
+  discover→verify Workflow (`scratchpad/fe_essays.workflow.js`). 0 rejected, 0 flagged, 2 skipped as already curated.
+- **Picks are the canonical scholarly set:** Aristotle *Poetics* / Dryden / Johnson *Preface to Shakespeare* /
+  Sidney / Bradley / Miller *Tragedy and the Common Man* (the only in-copyright one, correctly flagged) for Drama;
+  Luther *95 Theses* / Milton *Areopagitica* / Tyndale / Edwards for the Reformation; Eliot *Tradition and the
+  Individual Talent* / Woolf / Marinetti *Futurist Manifesto* / Keynes / Veblen for Modernism; Du Bois / Hughes /
+  Hurston / Locke / Booker T. Washington for the Harlem Renaissance.
+- No code changes — the Builder already renders `recommended_further` (poems + essays share one "Other
+  recommendations" sub-section under Further Exploration). Verified live in Docker (`aswl1_e6` shows the 6 essays).
+  Provenance `big_project/fe_essays_workflow_result.json`.
+
+**QUALITY REVIEW (asked by user, 2026-06-30):** verdict = quality is high. Per-Event balance is now strong
+(every PF Event offers 9–33 works curated+recommended; previously-starved Events filled); recommendations are
+adversarially verified (real errors were caught). **One substantive gap flagged for a future pass:**
+**contemporary & global/diverse voices** — a bellwether scan finds *Neruda, Adichie, Coetzee, Ishiguro,
+Murakami, Kincaid, Lorde* absent from the ENTIRE library (PF+FE, curated+recommended). They're in-copyright
+(why the finite physical library skipped them) and ideal for the point-don't-host model. Most relevant Events:
+aswl2_e6 (Voices of the World), aswl2_e7 (Postmodernism), asal1_e7 (WWII→today). Also worth: extend the
+apparatus-gap mining from poems to **prose** references (Performances also cite e.g. Hemingway's *Men Without
+Women*, Ovid's *Metamorphoses*). Neither blocks anything; recommended as the next recommendation pass.
+
+**Files (sandbox/untracked/gitignored):** `big_project/assignment-further-exploration-recommended.csv` (now incl.
+essays), `big_project/fe_essays_workflow_result.json` (new). **Tracked + committed locally:** this ledger.
+
+### 2026-06-30 — Build: "Your Plans" restored to the planner rail (now in BOTH places) (Claude)
+Per user, re-added the **"Your Plans"** collapsible panel to the planner left rail (under *Find by
+Lexis*) — it had been moved home-only in the prior entry. Now saved plans show in **both** the rail
+(quick switching while building) and the Build home page. Just re-added the panel HTML + toggle wiring
+in `vysti-builder/static/planner-cards.html`; `renderPlans()`/`deletePlan()` and the `.planrow` CSS
+were still present, so they're live again (no longer the "dead code" the prior entry flagged). Both
+surfaces read the same `localStorage["vbc_plans"]`. Verified in local Docker (rail panel renders saved
+plans + collapses; home page unchanged). Sandbox/untracked, no live touch.
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
