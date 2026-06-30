@@ -702,6 +702,28 @@ into the curated 200.
 AI synopses or merge them into `assignment-primary-focus.csv`. Remaining product step is the **Amazon affiliate
 purchase links** (§3).
 
+### 2026-06-30 — Build: cross-library dedup of the recommendations canon (Claude)
+Follow-up to the entry above (user spotted *Medea* recommended under aswl1_e1 while it's curated under
+aswl1_e2). **Sandbox/`big_project/` only**; live app untouched.
+- **Removed 77 recommendations that duplicate a CURATED Primary Focus text** (in ANY Event): a first pass
+  on exact (normalized title + author-lastname) caught **70**; a second pass on **title-variants** (same
+  author, significant-token containment) caught **7** more the exact match missed (*Hamlet* = curated "The
+  Tragedy of Hamlet…"; *The Tragical History of Doctor Faustus* = "Doctor Faustus"; *Frankenstein; or, The
+  Modern Prometheus* ×2 = "Frankenstein"; *Moby-Dick; or, The Whale* = "Moby-Dick"; *Narrative of the Life of
+  Frederick Douglass…* ×2). The rule a future agent should keep: **a recommendation must never duplicate a
+  text already in the hand-curated `assignment-primary-focus.csv` (any Event)** — the curated card (with its
+  PhD synopsis) is the canonical one.
+- **Backfilled the 9 Events** that fell below 8 after the first removal — a 2nd 18-agent Workflow
+  (`scratchpad/pf_backfill.workflow.js`) where each discover agent excluded the **whole 200-title curated
+  library + the surviving recs**, verifier flagged near-dupes; merge re-applied the dedup as a safety net
+  (caught 18 more proposed dupes). Net **+35**.
+- **Final: 242 recommendations across all 26 Events, range 7–11** (only aswl2_e4 at 7), **0 residual
+  duplicates** vs the curated library (exact or title-variant), 0 within-Event dupes. Verified live in the
+  local Docker Build. Backup `big_project/assignment-primary-focus-recommended.csv.bak_xdedup`.
+- **FYI (left as-is, not a defect):** 30 texts are recommended in MORE THAN ONE Event (a text can fit several
+  units, e.g. *The Souls of Black Folk* fits 4). That's cross-Event *recommendation* overlap, NOT curated-
+  library duplication. Flagged to the user; only act if they want each text to recommend in a single Event.
+
 ### 2026-06-29 — Cleanup-Agent ledger pass + Builder catalog polish (Claude)
 A backlog-clearing pass while the Primary Focus agent held `app.py`/`planner-cards.html`/
 `assignment-primary-focus.csv` — so I deliberately stayed in **isolated files only**. LIVE app
@@ -782,6 +804,59 @@ different storage key (`vbc_plans` vs `VBMyEvents`), different place. I did **no
 `boot()`; `CURRENTPLAN` by the sel model; `?plan` load in `boot()`). Diff before large edits.
 **Productionization:** plans are per-browser localStorage — real cross-device save/share needs the
 account/auth work (same dependency as the authored-events drafts).
+
+### 2026-06-30 — Build: Author-your-own-Event Step 2 — the authoring canvas (Claude)
+Build sandbox (untracked); live Marker app NOT touched. Container restarted (app.py changed).
+- **New canvas** `static/myevent.html` (route `/myevent?id=`): reads the localStorage draft (`VBMyEvents`),
+  renders hero (name/descriptor + "Edit" → `/create?id=`) + all **7 section panels** + sticky summary/Export bar +
+  a right **drawer** for forms/pickers. DEDICATED page (planner-cards.html untouched), reuses the Vysti palette.
+- **Two section patterns fully wired + persisted:** (1) **Key Questions** = *author-your-own* — `+ Add` → drawer form
+  (question + optional model answer) → card w/ Edit/Delete; (2) **Continual Goals** = *select-from-curated-pool* —
+  drawer picker over the catalogue via new `GET /api/continual-goals` (`CG_CATALOG`), tick to add/remove → chips.
+  Other 5 sections show their panel with a "coming next" `+ Add`. Export button stubbed until sections are wired.
+- **Flow repointed:** `/create` now lands on `/myevent?id=` after save; catalog "Your Events" cards → `/myevent?id=`.
+  Routes `/create` + `/myevent` + `/api/continual-goals` added in `app.py`.
+- **Verified e2e (Chromium):** create→canvas, 7 panels, author a question (count updates), select goals (chips),
+  summary, and **persistence across reload**.
+- **NEXT — Step 3+:** wire remaining sections via the two patterns: **author** = Primary/Further readings
+  (title·author·dates·category·synopsis·keywords; copyright auto), Performances (title·overview·task·`x`-feats),
+  Extensions (command·action·linked-lexis); **select/import** = Lexis (reuse lexicon search + Request-addition) and
+  "Import from another Event" per section. Then wire **Export** (adapt the planner's `buildPlanHtml` to read the draft).
+
+### 2026-06-30 — Build: Lexis-driven DISCOVERY ("Build from a concept") + canvas renders all section types (Claude)
+Build sandbox (untracked); live Marker app NOT touched. Container restarted (app.py changed). User insight: Lexis is
+the index into the canon — most teachers author something we already have material for, so authoring starts from a concept.
+- **New endpoint `GET /api/discover/{term}`** (app.py): given a concept, returns everything connected to it across the
+  canon — related **lexis** (term + linked_lexis family), **key questions** (text match), **extensions** (linked_lexis
+  tag OR text), **readings** (keyword tag, primary+further, deduped), **performances** (text). **Matching is EXACT-term
+  only** (concept-expansion via linked_lexis was too broad — feminism pulled in Enlightenment/philosophy → noise); the
+  `linked_lexis` family is returned as one-click **pivot chips** + related-lexis to add. Each hit carries `via` + source
+  event. (`EVENT_TITLE` map added.)
+- **Canvas `myevent.html`:** added a prominent **"Build from a concept"** search (lexicon autocomplete via `/api/lexicon`)
+  → drawer shows grouped results (Key Questions / Readings / Extensions / Performances / Related Lexis) each with **+ Add**
+  (dedup → "✓ Added"), plus related-concept pivot chips. Import maps each type into the draft's section shape; **all 7
+  sections now RENDER their items** (readings/extensions/performances as cards, lexis/goals as chips, questions as before),
+  with Remove. Per-section "+Add": questions=form, goals=picker, lexis=focus the concept search, others=note ("manual form
+  next"). Manual authoring forms for readings/performances/extensions still pending.
+- **Verified e2e (Chromium):** feminism → KQ 1 / Readings 16 (A Doll's House, A Vindication…, A Room of One's Own) /
+  Extensions 1 / Lexis 9 + family chips; +Add imports into the right section, persists across reload, re-search shows
+  "✓ Added". tragedy → 20 readings / 5 KQ / 6 ext (feature shines where the canon is tagged).
+- **DATA REALITY (drives the tagging pass — approved, parallel):** readings are richly keyword-tagged so discovery is
+  strong; **key-questions have NO lexis link** and extensions' linked_lexis is sparse → thin for some concepts until the
+  in-house pass tags KQs/Extensions/Performances to lexis (AI-assisted draft → human review, internal only). That pass is
+  the foundation that makes discovery comprehensive.
+- **NEXT:** (a) run/scope the tagging pass; (b) manual authoring forms for readings/performances/extensions; (c) wire
+  **Export** for authored events (adapt the planner's Student/Teacher `buildPlanHtml` to read the draft).
+
+### 2026-06-30 — Build: Continual Goals show full category names in Export (Claude)
+Small branding fix (user request): the exported plan's Continual Goals listed goals by acronym only
+(CT 1, IK 1…). Now grouped under their **full category name** header so the codes are self-explanatory
+— e.g. a **Critical Thinking** header (with a small `CT` pill) over the CT-coded goals, then
+**Interdisciplinary Knowledge** (IK), **Reading and Writing** (RW), **Speech and Citizenship** (SC).
+Built client-side in `buildPlanHtml`/`planSections` (`vysti-builder/static/planner-cards.html`) by
+mapping each selected goal's `id` → its category `{code,label}` from `DATA.continual_goals`; preserves
+category order, keeps per-goal codes + subgoals. New `.goalcat`/`.goalcode` styles. No `app.py`, no
+live touch; sandbox/untracked. Verified in local Docker (CT + IK headers render in the export).
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
