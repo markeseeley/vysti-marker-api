@@ -148,6 +148,17 @@ Ordered roughly by value/risk. Check off as done.
   Materials folders. For production, bundle those served files (+ `texts_own/`) into an owned
   store and host via object storage / a disk; point `OWN_DIRS` at it. Primary Focus is never
   served (publisher editions only). `~/Desktop/Supplements/` is NO LONGER mounted by the app.
+- [ ] **Amazon affiliate links for Primary Focus (PRODUCT INTENT — user, 2026-06-29).** The user
+  wants Primary Focus readings (both the curated canon AND the new "Other recommendations") to carry
+  **Amazon affiliate purchase links** as the monetized "Buy" path. NOTE the user's framing: PD-vs-copyright
+  status is **not legally important for Primary Focus** because we never serve the PDF — we only *point*
+  to the text — so the affiliate "Buy" link is the real call-to-action, not the copyright badge. To wire:
+  populate `purchase_link` (curated `assignment-primary-focus.csv`) and add an affiliate link for the
+  recommended canon (`assignment-primary-focus-recommended.csv` currently has `purchase=None`; see the
+  `TODO(affiliate)` in `vysti-builder/app.py build_event`). The card/drawer already render a **Buy** pill
+  whenever `purchase` is set (`readingCard`/`openDetail` in `planner-cards.html`) — just supply the URLs
+  (with the affiliate tag). Consider a single helper that builds the tagged Amazon search/product URL from
+  title+author so links don't rot.
 - [ ] **3 Further-Exploration rows removed** (no curated PD file existed), 2026-06-28, from
   `big_project/assignment-further-exploration.csv` (backup `.bak_prefe_remove`): *The Necklace*
   (Maupassant, aswl1_e4); *Holy Sonnet IX…* (Donne, aswl2_e2); *The neglected Lover…* (Wyatt,
@@ -666,17 +677,30 @@ into the curated 200.
 - **Docs/provenance:** `vysti-builder/RECOMMENDED_TEXTS_REVIEW.md` (per-Event counts, the 10 flags, the 5
   rejects) + raw workflow output `big_project/recommended_texts_workflow_result.json`.
 
-**NOT done (deferred — next step):** the Builder planner does **not yet render** this separate file. It needs an
-**"Other recommendations"** section in `vysti-builder/static/planner-cards.html` + an `app.py` read of the new
-CSV, kept visually distinct from the curated cards and showing **no synopsis** (descriptor badge + copyright
-badge + "Find online"/Buy only). Awaiting user review of the texts before wiring.
+**UI WIRED + LIVE ON LOCAL BUILD (same session, user-requested):** the planner now renders the recommendations.
+- `vysti-builder/app.py`: loads `assignment-primary-focus-recommended.csv` into `DB["primary-focus-recommended"]`;
+  `build_event` emits `recommended_readings` (factual fields only, `synopsis:""`, `download:None`, `purchase:None`,
+  `recommended:True`, `source_canon`); statuses mapped to the frontend convention (`_REC_CR_MAP`: public-domain→
+  public_domain, in-copyright→in_copyright, uncertain→unknown).
+- `vysti-builder/static/planner-cards.html`: a new **"Other recommendations"** sub-section renders INSIDE the
+  Primary Focus section (so selections count toward Primary Focus + reuse keyword→Lexis auto-select). Cards get a
+  dashed-border `rec` treatment + **"Suggested"** tag + **"Listed on: <canons>"** line; the detail drawer shows a
+  *"Vysti hasn't authored an academic descriptor for this suggestion"* note INSTEAD of a synopsis. `cflag()` gains a
+  neutral **"Check edition"** badge for the 4 `unknown`/uncertain rows. CSS: `.card.rec`, `.rectag`, `.recsrc`, `.subnote`.
+- **Verified live** (Docker `vysti-builder:8200`, restarted to load the new CSV — `--reload` missed it, a known
+  macOS bind-mount mtime quirk): `/api/event/<ev>` returns 11±1 recs/Event (284 total, 0 carry a synopsis); the
+  two formerly-empty Events now show 11 each; add-to-plan on a rec adds it + auto-selects matching Lexis (0→6).
+  Screenshot `scratchpad/recommended-section.png`.
+- **Buy/affiliate:** cards/drawer already render a **Buy** pill when `purchase` is set; recommendations leave it
+  null for now (Find-online only) pending the **Amazon affiliate** work — see §3 "Amazon affiliate links" + the
+  `TODO(affiliate)` in `app.py`.
 
 **Files touched (all sandbox/untracked/gitignored):** `big_project/assignment-primary-focus-recommended.csv`
 (new), `big_project/recommended_texts_workflow_result.json` (new), `vysti-builder/RECOMMENDED_TEXTS_REVIEW.md`
-(new). **Tracked + committed locally:** this ledger.
+(new), `vysti-builder/app.py`, `vysti-builder/static/planner-cards.html`. **Tracked + committed locally:** this ledger.
 **Next agent MUST know:** recommendations are a **separate, no-synopsis** layer by design — do NOT backfill
-AI synopses or merge them into `assignment-primary-focus.csv`. Wiring the "Other recommendations" UI is the
-open task.
+AI synopses or merge them into `assignment-primary-focus.csv`. Remaining product step is the **Amazon affiliate
+purchase links** (§3).
 
 ### 2026-06-29 — Cleanup-Agent ledger pass + Builder catalog polish (Claude)
 A backlog-clearing pass while the Primary Focus agent held `app.py`/`planner-cards.html`/
@@ -702,6 +726,62 @@ filter** (title/descriptor/course). Pure static file — verified in local Docke
 **Files (sandbox/untracked):** `vysti-builder/static/index.html`. **Tracked+committed:** this ledger.
 **Next agent:** the off-machine Builder backup is still the 6/28 state — refresh `build-sandbox-backup`
 + `git push build-backup` once this Build session settles (confirm the remote is private first).
+
+### 2026-06-29 — Build: Safari export fix, branding→Vysti Build, Request-addition, "Create your own Event" Step 1 (Claude)
+All Build sandbox (untracked/local); live Marker app NOT touched. Container restarted after each app.py change.
+
+- **Export PDF blank — root-caused + fixed.** Was `window.open("")`+`document.write`/blob (Chrome printed blank;
+  Safari worse). Now: planner POSTs the built HTML to `POST /api/plan/{token}`, opens it SYNCHRONOUSLY (Safari
+  severs popups navigated after `await`) at a real URL `GET /plan/{token}` (server-waits ~6s for the POST, single
+  clean load, no meta-refresh). Print page is **system-font (no web fonts — Safari prints web-font text invisible),
+  pure-CSS Student/Teacher toggle (no JS), no `hidden` attr**. Verified in Chromium + WebKit (Playwright; WebKit
+  can't `page.pdf()`, so Safari's actual PDF is unverifiable in tooling — **user: Chrome works; Safari still blanked**,
+  likely a Safari-print quirk we can't repro; server-side PDF is the guaranteed cross-browser fallback if needed).
+- **Branding: "Vysti Builder" → "Vysti Build"** everywhere user-facing (index/faq/planner titles+footer, app.py
+  title, docs). Infra names (dir `vysti-builder/`, docker service/container) left as-is.
+- **Lexis pill checkmark** corner-gap fixed (rounded the toggle's right edge + `align-items:stretch`).
+- **"Request addition" for missing Lexis terms** (optional note): drawer button on the not-in-lexicon view →
+  `POST /api/request-term` → appends `seed/term_requests.csv` (term·note·event·date) + bumps the missing tracker;
+  `GET /api/term-requests` is the review queue. Model: teachers REQUEST, Vysti fulfils with curated in-house entries.
+- **AUTHOR-YOUR-OWN-EVENT — design agreed + Step 1 built.** Model: an authored Event = the SAME skeleton as a
+  pre-made one. Teachers **author** readings/KQ/performances/extensions (+ "Import from another Event" to remix) and
+  **select** Lexis + Continual Goals from the curated pools (+ Request-addition for gaps). **No AI in the product**
+  (Vysti = deterministic Mark/Revise + curated Build); AI only INTERNAL to author the canon, human-reviewed before
+  ship (user-confirmed). **Step 1 DONE:** `/create` (`static/create.html`) = name + descriptor (guidance + example +
+  validation); drafts persisted to `localStorage` via `static/myevents.js` (`VBMyEvents`, key `vb_my_events`; shape
+  mirrors the event payload). Catalog (`index.html`) lists drafts under "Your Events" + real create card; cards →
+  `/create?id=` (edit). Routes `/create` added in `app.py`. Verified end-to-end (create/validate/list/edit, no dup).
+  **NEXT: Step 2/3 — the authoring canvas** (empty section editor: +Add forms, Import-from-Event, Lexis/Goals select,
+  export), then decide reuse `planner-cards.html` (same skeleton) vs a dedicated canvas. Drafts are localStorage-only
+  → real save/share needs accounts (productionization).
+
+### 2026-06-30 — Build: save/reopen Event Plans ("Your Plans") (Claude)
+User request: let teachers **save the selections** they made on a pre-made Event, return later, then
+export/modify. Built entirely in `vysti-builder/static/planner-cards.html` (sandbox, untracked, NOT
+deployed; LIVE app untouched). No backend → **localStorage only** (right for the prototype, which has
+no auth); also avoided `app.py`.
+
+- **Model:** `localStorage["vbc_plans"] = { [id]: {id,name,event,eventTitle,collection,savedAt,sel,imp} }`
+  — a named snapshot of the existing per-event `sel`+`imp` working state.
+- **UI:** a **"Save plan" / "Update plan"** button in the Class-Plan rail actions, and a collapsible
+  **"Your Plans"** panel in the left rail under *Find by Lexis* — lists every saved plan (name · event ·
+  item count), newest first, current one marked "· editing", each with an open link + × delete.
+- **Reopen:** plan rows link to `/event?id=<event>&plan=<id>`; `boot()` loads that plan's snapshot into
+  the event's working keys, so the planner shows it and **Export plan** works as usual. Editing + **Update
+  plan** overwrites that plan; **Save plan** with no `?plan` prompts for a name and creates a new one.
+- Verified in local Docker: save→list→reopen restores the saved snapshot (not a dirtied draft),
+  update-in-place (no dup), delete, collapse, multi-plan + cross-event list. Syntax-checked.
+
+**⚠ Disambiguation for other agents:** this is **distinct** from the catalog's **"Your Events"**
+(another agent's feature — teacher-*authored* NEW events via `VBMyEvents`/`/create`/`/myevent`). Mine
+saves **selection-plans on pre-made Events** ("Your Plans", in the planner rail). Different concept,
+different storage key (`vbc_plans` vs `VBMyEvents`), different place. I did **not** touch `index.html`
+(now co-owned by the authored-events work) or `app.py`.
+**Coordination:** `planner-cards.html` is co-edited — my additions are localized (rail CSS near
+`.lexsearch`; the actions + new panel in the `<aside class="rail">`; a `saved plans` JS block before
+`boot()`; `CURRENTPLAN` by the sel model; `?plan` load in `boot()`). Diff before large edits.
+**Productionization:** plans are per-browser localStorage — real cross-device save/share needs the
+account/auth work (same dependency as the authored-events drafts).
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
