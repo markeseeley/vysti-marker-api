@@ -858,6 +858,79 @@ mapping each selected goal's `id` → its category `{code,label}` from `DATA.con
 category order, keeps per-goal codes + subgoals. New `.goalcat`/`.goalcode` styles. No `app.py`, no
 live touch; sandbox/untracked. Verified in local Docker (CT + IK headers render in the export).
 
+### 2026-06-30 — Build: Further-Exploration POETRY recommendations (Claude)
+Extended the "Other recommendations" model from Primary Focus to **Further Exploration**, poetry first
+(user request; the *Bleeding* gap). **Sandbox/`big_project/` + `vysti-builder/` only; live app untouched.**
+- **New file `big_project/assignment-further-exploration-recommended.csv`** — **34 recommended poems**.
+  Same separate, **no-synopsis** model: factual fields + `keywords` from each Event's Lexis vocab, statuses
+  precomputed; pointers only (Find-online, never hosted). Columns: `minor_reading_id,event,title,
+  author_full_name,author_last_name,reading_category(=Poetry),keywords,pub_year,author_death_year,
+  copyright_status,source,fit_note,active`.
+- **Two tracks, one 14-agent discover→verify Workflow** (`scratchpad/fe_poetry.workflow.js`):
+  (A) **Thin-Event top-up** — FE was already poetry-rich (564 FE rows, 334 poems); only Events with **<5 FE
+  poems** were topped up (~5 each): `aswl1_e7, aswl2_e6, aswl2_e3, asal1_e2, asal1_e4, asel1_e2`. Picks are
+  strongly period-matched (Wheatley/Freneau→Revolution; Pope/Dryden/Byron→satire; Li Bai/Tagore/Soyinka/
+  Walcott→World Voices; Owen/Lazarus/Kipling→rhetoric).
+  (B) **Apparatus-gap track** — poems our **Performances reference but we don't stock**. All 8 such refs are in
+  `aswl1_e1`'s dialectical-comparison Performance (Swenson *Bleeding*, Blake *Ah! Sun-flower/The Lamb/The Tyger*,
+  Ginsberg *Sunflower Sutra*, Tennyson *Ulysses*, Glück *Vespers/Celestial Music*). Global-curated dedup left
+  only the **2 genuine gaps**: *Bleeding* (Swenson, in-copyright) + *Ah! Sun-flower* (Blake, PD). The other 6 are
+  already in the library (e.g. Tennyson's *Ulysses* is curated FE in aswl1_e1 — correctly matched by lastname,
+  NOT confused with Joyce's *Ulysses* novel).
+- **Verify/merge:** 0 rejected, 0 flagged (all high-confidence); **13 skipped because already curated**
+  (global FE+PF dedup, per the confirmed rule — a recommendation never duplicates a curated text). Cross-Event
+  *recommendation* overlap left intact (user: overlap is fine; e.g. Dunbar *We Wear the Mask* in asal1_e4 +
+  aswl1_e7). Per-event: aswl1_e1=2, aswl1_e7=4, aswl2_e3=4, asal1_e2=6, asal1_e4=6, asel1_e2=6, aswl2_e6=6.
+- **Builder WIRED + verified live** (Docker `:8200`, restarted to load CSV): `app.py` loads
+  `DB["further-recommended"]` and `build_event` emits `recommended_further`; `planner-cards.html` renders an
+  **"Other recommendations"** sub-section UNDER Further Exploration (sec="further", same `rec` card treatment,
+  no excerpt, Find-online). Confirmed *Bleeding* card + drawer ("© In Copyright", no descriptor).
+  Screenshot `scratchpad/fe-recommendations.png`.
+- **NEXT for FE recs (deferred):** only **poetry** done this pass (user: "start with poetry"). Other FE genres
+  (essays/speeches/short stories) for thin Events could follow the same process later. Same Amazon-affiliate
+  note applies if/when FE recs get a Buy path (§3).
+
+**Files (all sandbox/untracked/gitignored):** `big_project/assignment-further-exploration-recommended.csv`
+(new), `big_project/fe_poetry_workflow_result.json` (new), `vysti-builder/app.py`,
+`vysti-builder/static/planner-cards.html`. **Tracked + committed locally:** this ledger.
+
+### 2026-06-30 — Build: in-house concept-tagging pass (KQ/Extensions/Performances → Lexis) + wired into discovery (Claude)
+Build sandbox (untracked); live Marker app NOT touched. The foundation that makes lexis-driven discovery comprehensive.
+- **Tagged all 773 items** (270 key-questions, 349 extensions, 154 performances) with terms from the curated Lexicon
+  used as a CONTROLLED VOCABULARY (1508 terms). Ran a 27-agent **Workflow** (`lexis-tagging-pass`, model=sonnet,
+  ~822k subagent tokens, ~4.5 min): each agent read the vocab + a 30-item batch, assigned 1–5 conceptual tags, wrote a
+  JSON batch file. Pilot-validated first. **Every tag deterministically validated against the lexicon** (merge.py drops
+  any non-term) → only **4 invalid of ~3,064** dropped; 100% of items got ≥1 valid tag.
+- **Tag seeds (gitignored, Build-local):** `vysti-builder/seed/tags_key_questions.csv`, `tags_extensions.csv`,
+  `tags_performances.csv` — each `id,terms` (terms = `;`-joined term_norms). Loaded at startup (`TAGS_KQ/EXT/PERF`).
+- **Discovery now conceptual:** `/api/discover` matches an item if its tag set contains the searched concept's
+  term_norm (UNION with the existing keyword/linked_lexis/text match). Big lift for well-covered concepts:
+  KQ modernism 6→21, identity 2→13, mimesis 1→14, colonialism 3→10. feminism KQs stay 1 (the curriculum's KQs are
+  genuinely not feminism-focused — that teaching is in readings), but feminism now also yields ext 1→6, perf 0→2.
+- **Honest caveat / remaining "review":** tags are an AI-drafted layer, deterministically valid (real lexicon terms)
+  and pilot-checked, but NOT exhaustively human-reviewed for relevance — they live in editable seed CSVs; a human
+  spot-review/curation pass is the final step per the agreed model. Re-run: scratchpad `tagpass/` (batches, vocab,
+  merge.py); workflow script saved under the session's workflows/scripts.
+- **NEXT:** (a) optional human spot-review of tags; (b) manual authoring forms for readings/performances/extensions;
+  (c) wire **Export** for authored events.
+
+### 2026-06-30 — Build: move "Your Plans" to the Build home page (Claude)
+User: surface saved selection-plans on the main page (next to "Your Events") to save clicks.
+Sandbox only (`vysti-builder/static/`), localStorage, no `app.py`, no live touch.
+- **`index.html` (catalog):** new **"Your Plans"** section (reads `localStorage["vbc_plans"]`, the same key
+  the planner writes) rendered above "Your Events" when not filtering — one card per saved plan (name ·
+  event · item count, "SAVED PLAN" kicker) linking to `/event?id=<event>&plan=<id>`, with a hover **×**
+  delete (`delPlan`). Section is omitted when there are no saved plans. Added `.cardx` styles.
+  **Kept distinct from the other agent's "Your Events"** (authored events / `VBMyEvents`) — separate
+  function (`yourPlansHtml`), separate storage key, only touched their `render()` injection line.
+- **`planner-cards.html`:** **removed** the "Your Plans" rail panel (+ its toggle wiring) — the list
+  now lives on the home page. **Kept** the **Save plan / Update plan** button and the save/restore logic
+  (`savePlan`, `?plan=` load in `boot()`). `renderPlans()` remains a guarded no-op (harmless; could be
+  pruned later along with the now-unused `.planrow` CSS).
+- Verified in local Docker: save in planner → card appears on home → click reopens & restores the
+  snapshot (button reads "Update plan") → delete from home removes it; "Your Events" unaffected.
+**Both files are co-edited — diff before large edits.**
+
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
 
