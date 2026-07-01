@@ -158,13 +158,48 @@ function applyHighlight(container, color, onEdit) {
   onEdit?.();
 }
 
-function applyRedStrikethrough(container, onEdit) {
-  if (!container) return;
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-  const range = sel.getRangeAt(0);
-  if (!container.contains(range.commonAncestorContainer)) return;
+/**
+ * Wrap the selected text in one inline span per intersected text node, using
+ * `makeSpan()` to build each wrapper. Wrapping per text-node (rather than
+ * `range.extractContents()` into a single span) keeps every wrapped run inside
+ * its original block element, so a selection that spans multiple paragraphs
+ * never collapses those <p> blocks into one inline span — which would either
+ * merge the paragraphs or, when the selection starts at a paragraph boundary,
+ * leave the content in a container-level <span> that the .docx serializer
+ * (previewText.js collects only p/li/leaf-div text) drops entirely.
+ */
+function wrapRangeInlineSpans(range, makeSpan) {
+  const root =
+    range.commonAncestorContainer.nodeType === 3
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+  if (!root) return;
+  const doc = root.ownerDocument || document;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const nodes = [];
+  let n;
+  while ((n = walker.nextNode())) {
+    if (range.intersectsNode(n)) nodes.push(n);
+  }
+  for (const textNode of nodes) {
+    const start = textNode === range.startContainer ? range.startOffset : 0;
+    const end = textNode === range.endContainer ? range.endOffset : textNode.data.length;
+    if (start >= end) continue;
+    const sub = doc.createRange();
+    sub.setStart(textNode, start);
+    sub.setEnd(textNode, end);
+    const span = makeSpan();
+    try {
+      sub.surroundContents(span);
+    } catch {
+      const fragment = sub.extractContents();
+      span.appendChild(fragment);
+      sub.insertNode(span);
+    }
+  }
+}
 
+function makeStrikethroughSpan() {
   const span = document.createElement("span");
   span.style.backgroundColor = "rgba(239, 68, 68, 0.25)";
   span.style.textDecoration = "line-through";
@@ -172,14 +207,17 @@ function applyRedStrikethrough(container, onEdit) {
   span.style.fontSize = "inherit";
   span.style.fontFamily = "inherit";
   span.setAttribute("data-vysti-teacher-highlight", "1");
+  return span;
+}
 
-  try {
-    range.surroundContents(span);
-  } catch {
-    const fragment = range.extractContents();
-    span.appendChild(fragment);
-    range.insertNode(span);
-  }
+function applyRedStrikethrough(container, onEdit) {
+  if (!container) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (!container.contains(range.commonAncestorContainer)) return;
+
+  wrapRangeInlineSpans(range, makeStrikethroughSpan);
 
   sel.removeAllRanges();
   onEdit?.();
