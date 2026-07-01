@@ -159,6 +159,18 @@ Ordered roughly by value/risk. Check off as done.
   whenever `purchase` is set (`readingCard`/`openDetail` in `planner-cards.html`) — just supply the URLs
   (with the affiliate tag). Consider a single helper that builds the tagged Amazon search/product URL from
   title+author so links don't rot.
+- [ ] **"Other recommendations" canon — open follow-ups (2026-06-30).** The separate, no-synopsis recommendation
+  layer is now substantial (**PF-recommended 253 rows; FE-recommended 164 rows** — see the 2026-06-30 Handoff
+  entries). Remaining, by priority: **(a)** finish the contemporary/global gap — 4 named authors still absent
+  (**Ishiguro, Murakami → aswl2_e7; Kincaid → aswl2_e6; Lorde → aswl1_e6/asal1_e7**); a tiny targeted top-up
+  closes it (28/32 bellwethers present now). **(b)** Mine more **world-voice PROSE** from the IB Paper 1 folder
+  (Forna, Vassanji, Nuruddin Farah, Anuradha Roy, Meron Hadero, Charles Yu…) — only ~11 added so far. **(c)**
+  FE **short-story / drama** recommendation passes (poetry + essays done; the IB folder also has drama: David
+  Hare, Nilo Cruz, J.A. Ferguson). **(d)** Extend the **apparatus-gap** mining from poems to PROSE references in
+  Performances (e.g. Hemingway *Men Without Women*, Ovid *Metamorphoses*). All follow the SAME contract: separate
+  file, NO AI synopsis, keywords from Lexis, Find-online, global-curated dedup. Recommendation-CSV **provenance +
+  workflow JSON** are in `big_project/*_workflow_result.json`; the reusable workflow scripts are in the session
+  scratchpad (`pf_recommendations`, `fe_poetry`, `fe_essays`, `ib_poetry`, `broader_poetry`, `world_prose`).
 - [ ] **3 Further-Exploration rows removed** (no curated PD file existed), 2026-06-28, from
   `big_project/assignment-further-exploration.csv` (backup `.bak_prefe_remove`): *The Necklace*
   (Maupassant, aswl1_e4); *Holy Sonnet IX…* (Donne, aswl2_e2); *The neglected Lover…* (Wyatt,
@@ -969,6 +981,194 @@ in `vysti-builder/static/planner-cards.html`; `renderPlans()`/`deletePlan()` and
 were still present, so they're live again (no longer the "dead code" the prior entry flagged). Both
 surfaces read the same `localStorage["vbc_plans"]`. Verified in local Docker (rail panel renders saved
 plans + collapses; home page unchanged). Sandbox/untracked, no live touch.
+
+### 2026-06-30 — Build: Performance Feat Generator (deterministic assignment builder) in the canvas (Claude)
+Build sandbox (untracked); live Marker app NOT touched. Container restarted (app.py changed). Uses the purpose-built
+`big_project/assignment-{category,type,audience}.csv` data + the "Performance Feat Generator Diagram.png" flow.
+(NOTE: `big_project/teacher_mode/` is the LIVE Marker app's teacher React code — unrelated to this generator.)
+- **Backend `GET /api/assignment-options`** (app.py): serves the curated dropdowns — 9 categories (each w/ default_verb
+  + 127 types grouped under them, each type carrying its teaching `description` + `requires_topic`/`allows_audience`
+  flags) + 20 audiences. Loaded from the 3 CSVs at startup.
+- **Canvas (`myevent.html`):** Performances "+ Add a performance" → `openFeatGen()` — a single-panel, live-preview,
+  **deterministic, no-AI** builder: Category (sets verb) → Type (+ description helper) → Topic → Audience. Topic modes:
+  free text, single term, or the diagram's relationship templates ("the relationship between A and B", "the importance
+  of A for B", "the use of A in B", "the influence of A on B") where **A/B dropdowns are populated from the event's own
+  added Lexis + readings** (the payoff of discovery/tagging). Conditional fields honor the flags (audience hidden when
+  not allowed; topic hidden when not required). Live-assembled sentence; Add stores a performance item
+  `{title:sentence, feats:[sentence], gen:{category,type,topic,audience}}`.
+- **Verified e2e (Chromium):** built "Compose a comparison and contrast essay on the relationship between tragedy and
+  Romeo and Juliet for an audience of your peers" from curated dropdowns + event content; live preview, conditional
+  audience row, Add, and persistence across reload all work.
+- **NEXT:** (a) use case #2 done (canvas); **use case #1** = surface the SAME generator in the curated planner's
+  performance builder (add a feat to a pre-made Performance); (b) v2 enrichments per diagram steps 4–6 — Lesson-Goal
+  ties (to a Lexis term / Key Question), Continual-Goal ties, and Review (due date + notes); (c) wire Export.
+
+### 2026-06-30 — Build: contemporary/world POETRY pass (IB Paper 1 corpus) (Claude)
+User asked to extend poetry beyond the classical canon toward **world & contemporary voices** (IB/AP common
+choices), pointing to `~/Desktop/Further Exploration Possibilities/Paper 1/`. **Sandbox only; live app untouched.**
+- **Folder reality:** 60 individual poem PDFs (`Poetry <Title>.pdf`) + ~19 full IB past-exam papers labeled by
+  literary MODE (`romanticism.pdf`, `postmodern.pdf`, `realism.pdf`, …) + Norton/Oxford anthologies. The user's
+  "organized by topic" = those movement filenames (the per-file Finder tags decode EMPTY / no color labels, so
+  the grouping isn't on the filesystem). **Scans have no text layer — `pdftotext` is empty — but the Read tool
+  OCRs them cleanly** (title, poet, year, full text + attribution line). That unblocked ingestion.
+- **+55 IB poems appended** to `assignment-further-exploration-recommended.csv` (now **119 rows**: 89 Poetry +
+  30 non-fiction; 60 PD / 58 in-copyright / 1 uncertain — the in-copyright share rose ON PURPOSE: contemporary
+  voices, Find-online/never-hosted). 34-agent Workflow (`scratchpad/ib_poetry.workflow.js`): batch agents OCR-read
+  the 60 PDFs, identify poet/year, map each to the best-fit of 10 modern/global Events, then adversarial verify.
+  **4 rejected** (good catches: *Aubade for the Patient…*/Paré + *Call* — couldn't confirm the poem EXISTS;
+  *The Bat*/Pitter + *Watching for Dolphins*/Constantine — year/fit). Year corrections applied (Hayden *Astronauts*
+  1985→1978 +death 1980; Berry *A Music*→1994; Grennan→1989). 1 dedup-skip.
+- **Distribution:** aswl2_e6 (Voices of the World) +21 → 27 total, aswl2_e7 (Postmodernism) +16, asal1_e6 +11,
+  asel1_e5 +4, aswl1_e5 +2, aswl2_e5 +1. The aswl2_e6 concentration is **theme-justified** (genuinely world poets:
+  Dharker/Pakistan, Morris/Jamaica, Baxter+Kemp/NZ, Chua/Singapore, Szirtes/Hungary, Hope/Australia, Nye/
+  Palestinian-American, Montague/Ireland, Dewdney/Canada), not a catch-all dump. Verified live in Docker.
+- **DEFERRED (session limit hit mid-run — resets):** the **broader named-canon phase** (Neruda, Walcott,
+  Szymborska, Darwish, Heaney, Tracy K. Smith, Ocean Vuong, Komunyakaa, Rita Dove…) — 6/10 Event-agents returned
+  but that phase had **no verify stage**, and 4 failed on the limit, so NONE were merged. To finish: re-run the
+  `BroaderCanon` phase + a verify pass, then merge (`scratchpad/merge_ib.py` already accepts a
+  `wf_ib_broader_verdicts.json`). Backup `assignment-further-exploration-recommended.csv.bak_preib`.
+- **Also available in that folder (not yet used):** the exam-paper PROSE passages are strong world-voice FICTION
+  (Gurnah [Nobel], Forna, Viet Thanh Nguyen, Vassanji, Hamid, Tan Twan Eng, Ruth Ozeki) — candidate FE prose /
+  Primary-Focus recommendations in a later pass.
+
+**Files (sandbox/untracked/gitignored):** `big_project/assignment-further-exploration-recommended.csv` (now incl.
+IB poems), `big_project/ib_poetry_workflow_result.json` (new). **Tracked + committed locally:** this ledger.
+
+### 2026-06-30 — Build: Feat-generator refinements (4 testing-driven tweaks) (Claude)
+Build sandbox; live Marker app NOT touched. Container restarted (data + app.py loads).
+- **#1 Expandable descriptor** (`myevent.html`): reading cards clamp the synopsis to 2 lines with a "Read more ▾ / Show
+  less ▴" toggle (`toggleSyn`, `.rsyn.open`) when long.
+- **#2 Word count in the Feat generator** (optional field): inserts "<count> word" after the type's article, and
+  **deterministically corrects a/an** to agree with the count's leading number (`_firstNumWord`/`_articleFor`): e.g.
+  "an analytic essay" + 800 → "Compose **an 800** word analytic essay…"; + 750 → "**a 750** word…". Verified across
+  750-1000/500/800/8000/18/11/80/1000.
+- **#3 Branding = "Feat"** (generator titled "Build a Feat", "Add Feat"; section add button "Build a Feat"; copy notes
+  Performance = the assignment, Feats = its accomplishments) + **broader Topic sources**: A/B dropdowns now offer
+  optgroups for the event's added **Lexis / Readings / Key Questions / Extensions** (`topicOptions()`), not just lexis+reading.
+- **#4 New "academic" audience** added to `big_project/assignment-audience.csv` (curated data). NOTE: original file had no
+  trailing newline → first append merged the row; repaired (21 clean rows; extraterrestrial notes restored). `/api/assignment-options` serves it.
+- Verified e2e (Chromium): all four.
+- **STILL OPEN (structural, per user's language):** a Performance should CONTAIN Feats; currently each generated Feat is a
+  flat item under the Performances section. Next: group Feats under named Performances. Plus earlier-noted: use-case #1
+  (generator in the curated planner), v2 lesson-goal/continual-goal ties + due date/notes, and Export.
+
+### 2026-06-30 — Build: Performance → contains → Feats structure in the canvas (Claude)
+Build sandbox; live app untouched. Honors the branding model: a Performance is the assignment; its Feats are the
+accomplishments. (`myevent.html` only — static.)
+- **Data model:** `DRAFT.performances = [{id, title, overview, feats:[{id, text, gen{category,type,topic,audience,wc}}], from?}]`.
+  `normalizePerfs()` migrates older/imported shapes (string feats → `{id,text}`) on load.
+- **UX:** Performances section "+ Add a Performance" → title + optional framing form (`openPerfForm`/`savePerf`). Each
+  Performance card renders its title, framing, and its **Feats** (tinted rows, per-feat ×), with **+ Build a Feat** (opens
+  the generator targeting that performance via `CURRENT_PERF`), **Edit**, **Remove performance**. `featAdd` pushes into the
+  current performance's `feats`; `delFeat`/`delPerf` added.
+- **Discovery import** of a curated performance now nests its feats as `{id,text}` under one Performance.
+- **Verified e2e (Chromium):** add Performance → build 2–3 Feats inside it (verbs Compose/Create/Craft render right) →
+  1 performance / N feats, persists across reload, per-feat + per-performance delete work.
+- **NEXT:** use-case #1 (generator in the curated planner), v2 lesson-goal/continual-goal ties + due date/notes per the
+  diagram, and **Export** for authored events (Student/Teacher guides from the draft, incl. these Performances/Feats).
+
+### 2026-06-30 — Build: broader-canon poetry + world-voice prose (closing the contemporary/global gap) (Claude)
+Two follow-ups to the IB-poetry pass; both **sandbox only, live app untouched.**
+- **#1 Broader named-canon POETRY → FE-recommended (+45).** Per the 10 modern/global Events, 5 named
+  contemporary/world poems each, discover→**adversarial verify** (the IB-ingest's broader phase had skipped verify
+  + partially failed). Workflow `scratchpad/broader_poetry.workflow.js`; hit transient SERVER rate-limiting on 7/10
+  Events, recovered via **`resumeFromRunId`** (cached the 3 done, re-ran 7). Added: Neruda, Darwish, Szymborska,
+  Tranströmer, Rilke, Lorca, Akhmatova, Tsvetaeva, Miłosz, Soyinka, Heaney, Brecht, Senghor, Césaire, Tracy K.
+  Smith, Rita Dove, Komunyakaa, Trethewey, Claudia Rankine, Forché, Espada, Levine, Ginsberg, Sandburg, McKay,
+  Hughes — **translators cited**. 2 conservative rejects (Polish Szymborska misfiled to an American Event; a Neruda
+  ode that didn't fit Romanticism). **FE-recommended now 164 rows / 19 Events** (134 Poetry + 30 non-fiction;
+  66 PD / 97 in-copyright / 1 uncertain — the in-copyright majority is the point: contemporary/world reach).
+- **#2 World-voice PROSE → Primary-Focus-recommended (+11).** 4 Events (Voices of the World, Postmodernism, WWII→
+  today, Age of Anxiety), seeded from the IB Paper 1 prose corpus (`~/Desktop/Further Exploration Possibilities/
+  Paper 1/`, 49 authors) + a named gap-list + web. Workflow `scratchpad/world_prose.workflow.js`; discover→verify,
+  0 rejected, 13 skipped (cross-Event dups kept once + already-curated *Things Fall Apart* / *One Hundred Years of
+  Solitude*). Added: Adichie (*Half of a Yellow Sun*, *Americanah*), Gurnah (*By the Sea*), Tan Twan Eng, Coetzee
+  (*Waiting for the Barbarians*), Rushdie (*Midnight's Children*), Ozeki, Barnes, Hamid, Lahiri (*The Namesake*),
+  Morrison (*Home*). **PF-recommended now 253 rows** (188 PD / 62 in-copyright / 3 uncertain).
+- **Gap status:** the contemporary/global hole I flagged is largely closed — **28/32 bellwether authors now present**
+  library-wide. **STILL MISSING (agents didn't pick within the per-Event cap): Kazuo Ishiguro, Haruki Murakami,
+  Jamaica Kincaid, Audre Lorde.** A quick targeted top-up would finish it (Ishiguro/Murakami→aswl2_e7; Kincaid→
+  aswl2_e6; Lorde→aswl1_e6/asal1_e7).
+- Both verified live in Docker; deduped (incl. the title-variant fuzzy match). Backups
+  `assignment-{further-exploration,primary-focus}-recommended.csv.bak_pre{ib,prose}`.
+
+**Files (sandbox/untracked/gitignored):** `big_project/assignment-{further-exploration,primary-focus}-recommended.csv`,
+`big_project/{broader_poetry,world_prose}_workflow_result.json` (new). **Tracked + committed locally:** this ledger.
+
+### 2026-06-30 — SESSION CLOSE: "Other recommendations" library — state + comments (Claude)
+Consolidated summary of this session's recommendation build-out (all the 2026-06-29/30 entries above), plus
+forward comments. **Everything is Builder-sandbox / `big_project/` only — the LIVE Marker app (`vysti_api.py`,
+`marker.py`, `student-react/`, root `./assignment-lexis.csv`) was NOT touched and NOTHING was deployed.**
+
+**What now exists (two new separate, NO-synopsis canons; rendered under "Other recommendations" in the Build):**
+- **Primary Focus — `big_project/assignment-primary-focus-recommended.csv` = 253 rows** (188 PD / 62 in-copyright /
+  3 uncertain). ~9–11 canonical text recommendations per Event for all 26 Events (AP-Lit Q3 + Pulitzer/Nobel +
+  NCTE/Common-Core + college-prep), **+11 contemporary/world novels** (Adichie, Gurnah, Coetzee, Rushdie, Tan Twan
+  Eng, Hamid, Ozeki, Lahiri, Morrison). 0 duplicates of the curated 200 (exact + title-variant fuzzy dedup).
+- **Further Exploration — `big_project/assignment-further-exploration-recommended.csv` = 164 rows** (134 Poetry +
+  17 Essay + 8 Treatise + 3 Speech + 1 Manifesto + 1 Non-Fiction; 66 PD / 97 in-copyright / 1 uncertain). Poetry
+  for thin Events + the apparatus-gap poems (Swenson *Bleeding* etc.) + 55 IB Paper 1 poems + 45 broader world/
+  contemporary named-canon poems; essays for the 5 essay-thin World-Lit-I Events.
+
+**Design contract (KEEP — do not violate):** recommendations are a SEPARATE layer with **NO AI-written academic
+descriptor** (the curated synopses are human-PhD-authored; the user does not trust AI to write them). Factual
+metadata only + `keywords` constrained to the Event's existing **Lexis** vocab + a short INTERNAL `fit_note`.
+Pointers only — **Find-online** (rot-proof Google search; no stored URLs), never hosted; copyright status is
+informational (Primary Focus is never downloadable; FE recs aren't either). **Global-curated dedup**: a
+recommendation must never duplicate a curated text anywhere; cross-Event *recommendation* overlap is fine.
+
+**Build wiring (all in `vysti-builder/`, untracked):** `app.py` loads `primary-focus-recommended` +
+`further-recommended`, `build_event` emits `recommended_readings` + `recommended_further`; `planner-cards.html`
+renders an **"Other recommendations"** sub-section inside Primary Focus AND inside Further Exploration (dashed
+`rec` card + "Suggested" tag + "Listed on:" source + Find-online; the detail drawer shows a "no descriptor"
+note instead of a synopsis). Verified live in local Docker (`:8200`). **Gotcha:** after editing a recommendation
+CSV, `--reload` misses it (macOS bind-mount mtime) → `docker restart vysti-builder` to reload.
+
+**Method (reusable):** every pass was a discover→**adversarial-verify** Workflow (scripts in session scratchpad:
+`pf_recommendations`, `fe_poetry`, `fe_essays`, `ib_poetry`, `broader_poetry`, `world_prose`; raw outputs saved to
+`big_project/*_workflow_result.json`). Verification earned its keep — it caught a Faulkner-in-a-European-course,
+a Thoreau/Paine title conflation, translation-copyright traps, two poems that don't verifiably exist, and several
+wrong publication years. Transient server rate-limiting was handled with `resumeFromRunId` (cached the done agents).
+
+**My comments / assessment:** the curation+recommendation system is in good shape and I'm satisfied with quality:
+per-Event balance is strong, picks are well-fit and verified, and the architecture protects the PhD core. The
+classical→contemporary/global reach the user asked for is largely achieved (**28/32 bellwether authors present**).
+The cleanest next moves are the four §3 follow-ups (finish the 4 missing names; more world-voice prose; FE short-
+story/drama; prose apparatus-gap) and then the **Amazon-affiliate Buy links** (the real monetization step — see the
+§3 item). None of it is blocking; the Build is in a coherent, demoable state.
+
+**Files this session (sandbox/untracked/gitignored):** the two recommendation CSVs (+ `.bak_*`),
+`big_project/*_workflow_result.json`, `vysti-builder/{app.py,static/planner-cards.html}`,
+`vysti-builder/RECOMMENDED_TEXTS_REVIEW.md`. **Tracked + committed locally:** this ledger (`HANDOFF_AND_CLEANUP.md`).
+**Nothing pushed; nothing deployed.**
+
+### 2026-07-01 — Build: clickable/curatable Lexis in the canvas (parity with pre-made Events) (Claude)
+Build sandbox; live app untouched. `myevent.html` only (static).
+- Lexis pills in Create-your-own are now **clickable** (term → `openLexDetail(id)`): opens a drawer that **re-fetches
+  `/api/lexis/{term}`** and shows definition · etymology · roots + **tickable Application** rows + **tickable Exploration**
+  rows + per-group **"Show on Student guide"** toggles — mirroring the pre-made planner's lexis builder
+  (`splitApp`/`splitExp`/`_dedup`/`lcap` ported). Nothing auto-ticked; Application→student default ON, Exploration→
+  teacher-only default OFF.
+- Selection stored on the draft lexis item: `{app:[texts], exp:[texts], appStu, expStu}`. Pill shows a maroon **count
+  badge** + tinted `.curated` state when curated. Feeds the eventual Student/Teacher **Export** (same convention as the
+  planner). Verified e2e: 8 app / 6 exp rows for "tragedy", tick+save → badge 3, reopen reflects selections, persists.
+- **NEXT (unchanged):** curated-planner Feat generator (use-case #1); v2 Feat lesson-goal/continual-goal ties + due/notes;
+  and **Export** for authored events (readings, curated lexis app/exp, KQ, performances+feats, goals → Student/Teacher guides).
+
+### 2026-07-01 — Build: "Browse the Lexicon" A-Z browser (Find by Lexis) (Claude)
+User: the *Find by Lexis* box used a native `<datalist>`, whose suggestion list caps early ("only
+scrolls to E"). Added a **magnifying-glass "Browse the Lexicon" button** (search icon matching
+Revise/Write) under the search input that opens a full, filterable **A-Z browser** in the drawer.
+- `vysti-builder/static/planner-cards.html` (sandbox/untracked; no `app.py`, no live touch):
+  new `openLexiconBrowser()` / `drawLexBrowse()` / `browseTerm()`; caches `/api/lexicon` (all term
+  strings) in `LEXALL`; renders a sorted list with sticky letter headers (# + A–Z) and a filter box;
+  clicking a term calls `openLex()` and sets the drawer **‹ Back** to return to the browser. New
+  `.lexbrowse` / `.lexbq` / `.lexbletter` / `.lexbterm` styles.
+- Verified in local Docker: 1508 terms, letters # → Z (no E cap), filter works (myth→myth,
+  stichomythia), drill-in opens the entry, Back returns to the list.
+- Kept the existing type-a-term input + datalist as the quick path. `planner-cards.html` is co-edited
+  — additions are localized (Find-by-Lexis panel button; a browser JS block before drawer plumbing; CSS
+  near `.lexsearch`).
 
 <!-- Next agent: add your dated entry below. -->
 <!-- markdownlint-disable-file -->
