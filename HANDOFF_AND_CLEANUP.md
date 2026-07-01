@@ -1170,6 +1170,89 @@ Revise/Write) under the search input that opens a full, filterable **A-Z browser
   — additions are localized (Find-by-Lexis panel button; a browser JS block before drawer plumbing; CSS
   near `.lexsearch`).
 
+### 2026-07-01 — Build: Export (Student/Teacher guides) for authored events (Claude)
+Build sandbox; live app untouched. `myevent.html` only (reuses the existing `/api/plan/{token}` + `/plan/{token}`
+served-page endpoints — no backend change).
+- Ported the pre-made planner's export into the canvas: `buildAuthoredPlanHtml()` + `planSectionsAuthored(teacher)`
+  + `planSheetAuthored()` + `planSyn`/`planBlock`, reading the localStorage **DRAFT** instead of the planner's `sel`.
+  Same designed two-guide document (system fonts, pure-CSS Student/Teacher toggle, `@page{margin:0}`), opened the
+  **Safari-safe** way (sync `window.open("/plan/<token>")` → POST the HTML).
+- **Split (matches pre-made events):** Student = readings+synopsis (Citations parsed), curated **Application** (per the
+  lexis-curation `app`/`appStu`), **Exploration** only if promoted (`expStu`), Key Questions (NO answers),
+  **Performances → their Feats**, Extensions, Continual Goals grouped by category (`GOAL_CATS` map) with sub-goals.
+  Teacher = all of the above **+ KQ answers + Exploration + reading keywords**. Export button (sticky footer) now live.
+- **Verified e2e (Chromium):** full authored event (discovery readings/lexis/KQ + curated lexis app/exp + a Performance
+  with a Feat + a Goal) → export popup on `/plan/<token>`; Student hides KQ answers, shows Application + (promoted)
+  Exploration + the Feat; Teacher shows answers; both sheets; **273 KB PDF renders** (not blank). Screenshot reviewed.
+- **CORE AUTHORING LOOP COMPLETE:** create → build (discover + author + Feat generator + lexis curation) → **export**.
+- **NEXT (optional):** use-case #1 (Feat generator in the curated planner); v2 Feat lesson-goal/continual-goal ties +
+  due date/notes; Performance-level framing already exists. Productionization: drafts are localStorage-only (accounts).
+
+### 2026-07-01 — Build: canvas citation formatting, Browse-the-Lexicon, + feminism content fixes (Claude)
+Build sandbox; live app untouched. `myevent.html` + FE data.
+- **#1 Citation formatting** in canvas reading cards: synopsis now rendered via `planSyn()` (Citations-aware:
+  `.cith` header + hanging-indent `.cite` rows) instead of plain text; clamp switched from `-webkit-line-clamp`
+  (breaks with block children) to `max-height` so "Read more" reveals the formatted Citation block. Verified.
+- **#2 Browse the Lexicon** ported from the pre-made planner into the canvas: Lexis section "+ Browse the Lexicon"
+  → drawer A-Z filterable list of all 1508 terms (`openLexBrowser`/`drawLexBrowse`), click a term → preview
+  (definition/etymology/roots/application/exploration) + "+ Add to event" → adds to `DRAFT.lexis` and opens the
+  curation drawer (`openLexDetail`). Verified (1508 terms, filter, add, curate).
+- **#3 Feminism content:** "The Waltz" (Dorothy Parker, aswl1_e2) was under-tagged (had "femininity" only) → added
+  `feminism, gender, gender roles, the woman question`. **Added "The Catbird Seat"** (James Thurber, aswl1_e4, Short
+  Story) as a NEW FE row w/ gender/feminism/power keywords. Both now surface in discovery for feminism (16→18) + gender.
+  Restart picks up FE data.
+- **OPEN (user pain — "building a feminism lesson isn't easy"):** discovery surfaces readings well but the teacher
+  assembles one-by-one; feminism KQs/extensions are genuinely sparse in the canon. Candidate fixes discussed w/ user:
+  (a) systematic keyword-enrichment pass for high-demand themes (like the Waltz fix, at scale), (b) an "Add all / add
+  these" bulk-import in discovery, (c) author/curate more KQs for thin concepts, (d) a concept "starter kit" scaffold.
+
+### 2026-07-01 — Build: declutter — remove per-section helper/hint text (Claude)
+User: the small descriptive sub-labels are self-explanatory clutter; drop them. Sandbox/untracked,
+no live touch.
+- **`planner-cards.html`:** removed the `<span class="tip">` from `section()` — kills all 7 per-section
+  helper lines at once ("click a card to read the synopsis", "…the excerpt", "term opens the entry · +
+  adds it", etc.); section labels kept. Also removed the two "Other recommendations" `<span
+  class="subnote">` blurbs ("— canonical texts/poems you might also teach (pointers; no Vysti
+  synopsis/excerpt)"), keeping the "Other recommendations" sub-head.
+- **`myevent.html`** (authored-event editor, co-owned by the other agent): removed the
+  `<span class="ph-hint">` from the section header render — drops all field hints ("Core readings
+  students will study", "Supplementary readings", "Vocabulary from the curated Lexicon", etc.) in one
+  edit; labels + Add buttons intact. (Left the `hint:` config values in `SECTIONS` — now unused, harmless.)
+- **LEFT alone (flagged):** the **printed Export guide** still shows terse section descriptors
+  ("Core readings", "Supplementary readings", "Vocabulary to define and synthesize", "Assignments")
+  via `planBlock()` — that's the deliverable doc, not the on-screen UI the user was decluttering. Easy
+  to remove too if wanted (blank the `planBlock` tip args in both files).
+- Verified in local Docker: planner shows 0 section tips / 0 subnotes, myevent shows 0 field hints;
+  all section labels intact.
+
 <!-- Next agent: add your dated entry below. -->
+
+---
+
+## 2026-07-01 — Theory-gap authoring: 25 new Lexicon entries (DRAFTS, awaiting Dr. Seeley sign-off)
+
+Follow-through on the theory-gap audit (`vysti-builder/THEORY_GAP_AUDIT.md`). Editorial edge, per the user:
+**hermeneutics of suspicion (Marx–Nietzsche–Freud, via Jameson) applied to ideology AND to the subject.**
+Identity — feminism/sex/race/gender/**the body** — treated as a *theorised, constructed, embodied* object,
+**NOT identity politics**. Scope: seminal & canonical, college-prep pushed past HS; single entries EXCEPT the
+Frankfurt School (a group entry, like the existing Bloomsbury Group / Harlem Renaissance / Beat Generation).
+
+- **Authored via Workflow** (`lexicon-theory-authoring`, 25 agents, Opus/high-effort, one entry each, matched to the
+  `mimesis` exemplar). All 25 written; **0 duplicates** vs live lexicon; **all ~320 `linked_lexis` refs resolve** to
+  real live terms (validated + dropped-none).
+- **Set:** A/Suspicion — Nietzsche, Barthes, the aura (Benjamin), Althusser, society of the spectacle (Debord),
+  Baudrillard, mourning and melancholia (Freud). B/Frankfurt School — the School (group) + culture industry
+  (Adorno/Horkheimer) + Marcuse. C/Identity & the body — Beauvoir, the madwoman in the attic (Gilbert & Gubar),
+  social reproduction (Federici), double consciousness (Du Bois), Playing in the Dark (Morrison), the repressive
+  hypothesis (Foucault), embodiment (Merleau-Ponty), the carnivalesque (Bakhtin), gender performativity (Butler).
+  D/Apparatus — Fanon, cybernetics (Wiener), the cyborg (Haraway), trauma theory (Caruth/Felman&Laub),
+  reader-response (Iser/Jauss/Fish/Rosenblatt), the implied author (Booth).
+- **Deliverables (in `vysti-builder/`, NOT live):** `theory_drafts.csv` (append-ready, 23-col schema, term_norm +
+  `lex_<slug>_<focus>_1` ids computed, quotes blank, related_events blank/global, active=TRUE) and
+  `THEORY_DRAFTS_REVIEW.md` (readable, grouped A–D).
+- **OPEN / NEXT:** Dr. Seeley reviews entry-by-entry → edits/strikes → on sign-off, append approved rows to root
+  `assignment-lexis.csv` (LIVE — explicit approval + Render deploy required). Verify items noted in the audit:
+  Gates/Signifyin(g) reference may already exist (didn't re-add); cybernetics application should carry an external
+  cybernetics-dictionary link (confirm URL live before deploy). "Schools to rummage later" list recorded in the audit.
 <!-- markdownlint-disable-file -->
 
