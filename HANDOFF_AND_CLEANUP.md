@@ -1324,6 +1324,17 @@ explorations; **etymology where apt, "" where forced**; quotes blank). LIVE depl
   ~40 (each ≈180k subagent tokens). Then §B "likely variants" (canonicalize/link, don't author) + the
   Phase 2–3 opposites/families curation.
 
+### 2026-07-02 — Lexicon: blank 40 redundant etymologies (Claude)
+User flagged "automatic writing" whose etymology just restated its definition. Detected the class
+(etymology with NO etymological markers [from/Greek/Latin/circa/century/derive/origin/year] AND ≥0.65
+word-overlap with the definition) → **blanked 40** etymology cells (only that column; 1583 rows).
+E.g. automatic writing, direct discourse, foil, diegesis, moral relativism, ACLU, queer theory,
+Menippean satire, scientific method, natural law. Real etymologies (with markers) untouched. LIVE
+`d90ec05`, backup `.bak_etyredundant`.
+**Flagged, NOT touched:** ~79 entries hold substantial explanatory PROSE mislabeled as `etymology`
+(e.g. Carl Jung bio, American Holocaust→Stannard, black comedy explainer) — real content in the wrong
+field; a later pass could move it (e.g. into definition/a notes field) rather than blank it.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
