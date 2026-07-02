@@ -1335,6 +1335,24 @@ Menippean satire, scientific method, natural law. Real etymologies (with markers
 (e.g. Carl Jung bio, American Holocaust→Stannard, black comedy explainer) — real content in the wrong
 field; a later pass could move it (e.g. into definition/a notes field) rather than blank it.
 
+### 2026-07-02 — Lexicon: candidate-entry authoring COMPLETE (wave 3, +102) (Claude)
+Final AI-authorable pass over the diacritical candidate gaps. LIVE `e9943fd`. **Lexicon 1533 → 1685
+(+152 new entries this session** across pilot 12 + wave2 38 + wave3 102). All house-voice, fact-
+verified, folded into the symmetric web; 0 non-resolving, 0 dup term/norm/id at every deploy.
+- **Wave 3 (102):** deep critical-theory + poetics — multiplicity, nomadology, desiring-production,
+  the uncanny, estrangement, Übermensch, Name-of-the-Father, mode of production, discursive formation,
+  being-in-the-world, being-toward-death, prosody, synaesthesia, kenning, bathos, mock-heroic,
+  formalism, condensation/displacement, etc. (20 candidates already existed → skipped.)
+- **Brand/hallucination policy honoured:** SKIPPED (deferred to the human PhD) — biographies of real
+  PEOPLE (Sartre, Reagan, FDR, J.P. Morgan, Teddy Roosevelt) and specific HISTORICAL EVENTS/institutions
+  (Panama Canal, Manhattan Project, Gulf War, Credit Mobilier, Crusades, Mexican-American War, …), plus
+  typos/variants. The ~79 human-PhD explanatory-prose "etymology" fields remain untouched (her paid work).
+- **DROPPED by fact-verify (re-author later, small):** death drive (Stekel/Thanatos error), the
+  metaphysical (mis-credited Johnson), envoi (sestina origin). Legit terms — just re-do 3-4 correctly.
+- **REMAINING lexicon work:** §B "likely variants" (304, in CANDIDATE_LEXIS_ENTRIES.md — canonicalize/
+  link, don't author); the 3-4 re-authors; the deferred person/event set (human PhD); and the Phase 2–3
+  **opposites/families** curation to deepen the diacritical web. Backups `.bak_wave2/.bak_wave3` etc.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
