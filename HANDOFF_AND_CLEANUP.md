@@ -1302,6 +1302,28 @@ Sandbox/untracked, no live touch.
 → "Neoclassicism" wasn't auto-mapped, just dropped); those are in the "likely variants" bucket of the
 candidate doc for a future canonicalization/link pass.
 
+### 2026-07-02 — Lexicon: authored 50 new candidate entries (pilot + wave 2) DEPLOYED (Claude)
+Filling the diacritical candidate gaps (from `CANDIDATE_LEXIS_ENTRIES.md`) in the house voice
+(user-approved: plain def + highest-level theory w/ named theorists; imperative applications; Socratic
+explorations; **etymology where apt, "" where forced**; quotes blank). LIVE deploys `f510e90` (12) +
+`f03571c` (38).
+- **Pilot (12):** ritual, ellipsis, gynocentrism, sign, Stoicism, epic, elegy, occupatio, amplification,
+  metatheatre, pastoral, synthesis.
+- **Wave 2 (38, author+fact-verify workflow):** Dadaism, feudalism, fable, monomyth, metafiction,
+  self-reflexivity, stage directions, praeteritio, metanoia, alexandrine, scopophilia, amor fati,
+  immanence, ambivalence, mediation, register, stress, parenthesis, melos, opsis, "r > g", slavery,
+  summary, substitution, intuition, first-person narration, fixed form, endophasia, Moses and the
+  Commandments, Dionysus, Gilded Age, Bill of Rights, discipline, reference, cause, content, exemplification,
+  private. (Triaged out "rhthym"=typo; "Deep Throat" already existed. 0 verify-flagged.)
+- **Assembly method** (repeatable): draft via workflow → apply verify verdicts → generate
+  lexis_id/term_norm (transliterate formula), split application→`_default`/`_options` (". "-joined),
+  exploration similarly (" "-joined), links filtered to real entries + `assign_lexis=linked_lexis`,
+  quotes blank, active=TRUE → append → **re-run Phase 0+1 over the whole file** (integrates + symmetrizes)
+  → validate (0 non-resolving, 0 dup term/norm/id) → deploy. Backups `.bak_newentries`, `.bak_wave2`.
+- **REMAINING: ~159 new-concept candidates** in `CANDIDATE_LEXIS_ENTRIES.md` §A. Continue in waves of
+  ~40 (each ≈180k subagent tokens). Then §B "likely variants" (canonicalize/link, don't author) + the
+  Phase 2–3 opposites/families curation.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
@@ -1376,7 +1398,16 @@ Follow-up review of the 25 theory entries with Dr. Seeley.
   Anxieties of Anachronism"** (South Central Review 9.1, 1992) — tagged `gender performativity`; verified it surfaces.
   (2) Recommended text under Our Town (asal1_e6): **The Things They Carried** (O'Brien, 1990, in-copyright) — tagged
   `trauma theory`; verified it surfaces via the new recommended-scan.
-- **OPEN:** unit tier is uncapped — gender performativity shows 130 texts (3 big units); offered to cap, user hasn't
-  decided. User asked to see it → refresh localhost:8200 (Build sandbox; these CSV/endpoint changes are NOT live).
+- **Capping + curation (later 2026-07-02, Build sandbox):** unit tier capped to 12 (core primary readings first via
+  a primary→further→recommended sort), web capped to 15; nothing exceeds ~27 items. **gender performativity**
+  switched from 3 whole Shakespeare units (130 texts) to the 3 curated disguise/gender plays (Taming of the Shrew,
+  Twelfth Night, The Merchant of Venice): its `related_events` was blanked in the LIVE lexicon (commit 4f263be) and
+  the plays were tagged `gender performativity` in the sandbox PF CSV. **Perf fix:** `match_file` (difflib) was run
+  for every matched reading before capping → a >120s hang for broad-concept terms; now only on the final ~27
+  returned items (0.1s). All 25 terms verified ≤0.34s.
+- **Dedup (done):** `/api/related` now collapses a title appearing in several units into ONE entry, keeping its
+  strongest tier (tagged > unit > web) then best section. Verified: 0 duplicate titles across all 25 terms (e.g. the
+  Summers essay shows once under gender performativity). Further per-term "texts that work" curation left to the
+  user's UI review (the cap makes whole-unit mappings acceptable meanwhile). Refresh localhost:8200 to see it.
 <!-- markdownlint-disable-file -->
 
