@@ -1269,6 +1269,17 @@ Batch of test-drive fixes. Sandbox/untracked, no live-app/lexicon touch.
   dramatic-term family, guaranteed opposite-pairs) need a **curated LIVE-lexicon enrichment pass** on
   `assign_lexis`/`linked_lexis` — proposed as a workflow, pending user go-ahead (live data).
 
+### 2026-07-02 — Build: Further Exploration now searchable + Class-Plan hint removed (Claude)
+Sandbox/untracked, no live touch.
+- Removed the Class Plan panel hint ("Click a card… Save plan… 2-page Student + 4-page Teacher guide").
+- **FE library search:** `/api/library/search` now takes `sec=primary|further` — `further` searches
+  `DB["further-exploration"]` by `title_minor`/`author_name`, returning FE-shaped cards (excerpt, copyright,
+  download, keywords, home event). New **"＋ Add a Further Exploration from the library"** button in the FE
+  section; generalized the search drawer (`openLibrarySearch(sec)`/`runLibrarySearch`/`drawLib`/`toggleLib`)
+  to carry `LIBSEC` and add to the right section (imports render under "↗ Added from other Events"; keyword→
+  Lexis auto-select applies). Fixes the Parker/Thurber friction: from any Event you can now pull "The Waltz",
+  "The Catbird Seat", etc. by title/author. (curl-verified; user to spot-check UI.)
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
