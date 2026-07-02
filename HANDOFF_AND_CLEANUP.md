@@ -1369,6 +1369,20 @@ canonicalize; 3-4 fact-flagged re-authors (death drive, the metaphysical, envoi)
 entries + the ~79 mislabeled-etymology prose → human PhD; re-run this Phase 2+3 pass if many new terms
 are later added.
 
+### 2026-07-02 — Lexicon: junk-entry audit + fix DEPLOYED (Claude)
+User spotted odd related-terms ("a didactic tone", "a particular mood", "a pedagogical tone").
+Audit traced them to **12 malformed entries I created in wave 3 (e9943fd)** — descriptive-phrase
+extractions duplicating an existing concept, plus one typo. LIVE fix `1b1ac23`:
+  a didactic/pedagogical/terse/truculent tone→tone · a particular mood→mood · an appeal to logic→logos
+  · an appeal to emotion→pathos · a hegemon→hegemony · the form of the ode→ode · the epistolary form→
+  epistolary novel · the vertical axis→removed (no target) · initertextuality→intertextuality (typo).
+Deleted the 12 rows, redirected all inbound related-links to the real concept (deduped, self-refs
+dropped). Verified 1673 rows/23 cols, 0 non-resolving, 0 self. Backup `.bak_junkfix`.
+**Lesson:** the wave-authoring pipeline lacked a "is this candidate a real concept vs a malformed
+phrase/dup?" gate — the dead-ref candidate list contained extraction noise. Any future authoring wave
+must screen candidates against existing terms (dup/typo/phrase) BEFORE generating entries.
+Borderline generics kept (device/content/cause/gaps/line length/r>g) — defensible technical concepts.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
