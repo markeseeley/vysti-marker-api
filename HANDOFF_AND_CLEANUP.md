@@ -1225,11 +1225,29 @@ no live touch.
 - Verified in local Docker: planner shows 0 section tips / 0 subnotes, myevent shows 0 field hints;
   all section labels intact.
 
+### 2026-07-02 — Build: "Related Lexis" cross-link chips in the Lexis drawer (Claude)
+Step 1 of the "diacritical" Lexicon web (user-agreed): make each entry's curated related terms
+clickable so the Lexicon reads as a network, not a flat glossary. Sandbox/untracked, no live touch.
+- **`app.py` `lex_payload`** (co-owned by the Primary Focus agent): now also returns
+  `assign_lexis` + `linked_lexis` (parsed lists). One-line-ish addition; `/api/lexis/{term}` already
+  returns `lex_payload` and is article-tolerant.
+- **`planner-cards.html` `openLex`:** new `appendRelatedLexis(l)` renders a **RELATED LEXIS** chip row
+  (source: `assign_lexis` else `linked_lexis`) — drops self-refs + article/plural self-variants, dedupes;
+  each chip → `openRelLex(term, from)` which opens that entry and sets the drawer **‹ Back** to the
+  origin term. Placed **above** "Texts tagged …" (related concepts belong with the concept; matches the
+  live app's "RELATED TERMS"). Reuses existing `.chip`/`.chips` styles.
+- Data backing it: ~1237 entries have `linked_lexis`, ~1208 have `assign_lexis`, ~82% of refs resolve
+  to a real term; non-resolving/variant chips fall back gracefully to openLex's "connective keyword" card.
+- Verified in local Docker: abstraction → chips concreteness/figuration/literality/Modernism/metaphor
+  (self dropped); click → metaphor entry with Back; Back → abstraction.
+- **DEFERRED (next, user-agreed):** inline links in the prose for *distinctive* "node" terms only
+  (theory/jargon, non-common) to avoid over-linking — a curated allow-list, not naïve auto-linking.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
 
-## 2026-07-01 — Theory-gap authoring: 25 new Lexicon entries (DRAFTS, awaiting Dr. Seeley sign-off)
+## 2026-07-01 — Theory-gap authoring: 25 new Lexicon entries (PUBLISHED LIVE ✓ commit f1aecb5)
 
 Follow-through on the theory-gap audit (`vysti-builder/THEORY_GAP_AUDIT.md`). Editorial edge, per the user:
 **hermeneutics of suspicion (Marx–Nietzsche–Freud, via Jameson) applied to ideology AND to the subject.**
@@ -1247,12 +1265,31 @@ Frankfurt School (a group entry, like the existing Bloomsbury Group / Harlem Ren
   hypothesis (Foucault), embodiment (Merleau-Ponty), the carnivalesque (Bakhtin), gender performativity (Butler).
   D/Apparatus — Fanon, cybernetics (Wiener), the cyborg (Haraway), trauma theory (Caruth/Felman&Laub),
   reader-response (Iser/Jauss/Fish/Rosenblatt), the implied author (Booth).
-- **Deliverables (in `vysti-builder/`, NOT live):** `theory_drafts.csv` (append-ready, 23-col schema, term_norm +
-  `lex_<slug>_<focus>_1` ids computed, quotes blank, related_events blank/global, active=TRUE) and
-  `THEORY_DRAFTS_REVIEW.md` (readable, grouped A–D).
-- **OPEN / NEXT:** Dr. Seeley reviews entry-by-entry → edits/strikes → on sign-off, append approved rows to root
-  `assignment-lexis.csv` (LIVE — explicit approval + Render deploy required). Verify items noted in the audit:
-  Gates/Signifyin(g) reference may already exist (didn't re-add); cybernetics application should carry an external
-  cybernetics-dictionary link (confirm URL live before deploy). "Schools to rummage later" list recorded in the audit.
+- **Revisions before publish (per Dr. Seeley):** derivations removed from all 25; etymology (+roots) removed from
+  every person entry and every coined-phrase concept, KEPT only on the 6 where the root illuminates (the aura,
+  mourning and melancholia, cybernetics, the carnivalesque, trauma theory, embodiment); cybernetics application now
+  prompts a search for a "dictionary of cybernetics" (no hard URL); no dedicated Gates entry (covered elsewhere).
+- **PUBLISHED:** all 25 appended to root `assignment-lexis.csv` (1508 → 1533 rows), committed + pushed to `main`
+  (commit **f1aecb5**) → Render auto-deploy. Drafts kept in `vysti-builder/theory_drafts.csv` +
+  `THEORY_DRAFTS_REVIEW.md` for reference.
+- **Deferred (audit):** "Schools to rummage later" list recorded in `THEORY_GAP_AUDIT.md` (Pre-Raphaelites, Fireside
+  Poets, the Inklings, Fugitives/New Critics, Language poets, Oulipo, etc.) — candidate future group entries.
+
+---
+
+## 2026-07-02 — Lexicon browser: article-insensitive sort/search (LIVE deploy commit de035d6)
+
+Problem: "the aura" / "the Apollonian" etc. filed under **T** in the A-Z browser and felt unfindable — user wants to
+search/browse by the key noun ("aura", "Apollonian"). Fix = an article-stripped sort/group key (**strips only a
+leading "the "**, so "a priori" keeps its letter):
+- **LIVE** `student-react/src/components/LexisModal.jsx` (`AzDictionaryView`): sort + letter-group by `sortKey` =
+  term with leading "the " removed. Search was already substring (matches "aura"→"the aura"). Rebuilt React
+  (`assets/student-react/` + 5 stamped HTML) and pushed to `main` (**de035d6**) → Render.
+- **Build sandbox:** same `_sk` key in `myevent.html` + `planner-cards.html` `drawLexBrowse`; and `app.py`
+  `/api/lexis/{term}` made article-tolerant ("aura"→"the aura" and vice-versa). Container restarted; verified
+  `/api/lexis/aura` and `/api/lexis/Apollonian` resolve.
+- **NOTE:** display term keeps its "the" (house style — "the Apollonian"/"the Dionysian"); only sort/search ignore it.
+- **VERIFY WHEN RENDER FINISHES:** new chunk `assets/student-react/chunks/isMobile-peyTvgzV.js` 200s on
+  app.vysti.org (was still 404/deploying at handoff), then confirm searching "aura" surfaces it under A.
 <!-- markdownlint-disable-file -->
 
