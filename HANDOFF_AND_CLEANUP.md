@@ -1243,6 +1243,32 @@ clickable so the Lexicon reads as a network, not a flat glossary. Sandbox/untrac
 - **DEFERRED (next, user-agreed):** inline links in the prose for *distinctive* "node" terms only
   (theory/jargon, non-common) to avoid over-linking — a curated allow-list, not naïve auto-linking.
 
+### 2026-07-02 — Build: Related-Lexis fixes, delete Your Events, back-label uniformity (Claude)
+Batch of test-drive fixes. Sandbox/untracked, no live-app/lexicon touch.
+- **Related Lexis chips reworked** (`planner-cards.html` `appendRelatedLexis`→`fillRelatedLexis`):
+  now UNIONs `assign_lexis`+`linked_lexis` (assign is often just the term itself, so linked carries the
+  real neighbours — this is why **mimesis→diegesis** wasn't showing), and shows ONLY terms that resolve
+  to a real entry (via a cached `LEXSET`), so dead refs like idiom→"idiomatic expressions" no longer
+  render. Chips still appended above "Texts tagged …".
+- **Delete for "Your Events"** (`index.html`): added a `×` (`delEvent`→`VBMyEvents.remove`) to the
+  authored-event cards, mirroring the Your-Plans `×`; made `.cardx` faintly always-visible (opacity .5)
+  for discoverability. (Your Plans already had delete on home cards + rail.)
+- **Back-label uniformity** (`myevent.html`): Lexicon-browser back button "‹ Back to Lexicon" → "‹ Back"
+  to match the pre-made Event drawer.
+**Investigated, NOT bugs / need direction:**
+- **Parker "The Waltz" (aswl1_e2) + Thurber "The Catbird Seat" (aswl1_e4) are already in FE and already
+  tagged** feminism/gender/"the woman question". Friction is cross-event: Taming of the Shrew is `asel1_e1`;
+  those stories are in `aswl1`. The keyword connector + library search already pull cross-event texts —
+  discoverability/"build-by-theme" is the real gap (design Q for the user).
+- **#4 contrast "no checkboxes":** DATA is fine (`/api/lexis/contrast` → 11 application + 5 exploration).
+  Likely the browse-preview (openBrowsedLex is read-only <li>, checkboxes only after Add via openLexDetail)
+  vs the pre-made planner's immediate checkboxes. Awaiting user confirmation of exact view before touching
+  the other agent's `myevent.html`.
+- **#6b opposites/families (Wittgensteinian):** the union fix surfaces much existing linked_lexis (aside→
+  drama/tragedy/comedy/dramatic-irony). Remaining gaps (contrast→"comparison" [data has "compare"], full
+  dramatic-term family, guaranteed opposite-pairs) need a **curated LIVE-lexicon enrichment pass** on
+  `assign_lexis`/`linked_lexis` — proposed as a workflow, pending user go-ahead (live data).
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
