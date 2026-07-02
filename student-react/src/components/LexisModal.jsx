@@ -254,10 +254,15 @@ function AzDictionaryView({
       )
     : azTerms;
 
-  // Group by first letter
+  // Sort/group by the term's KEY word — ignore a leading "the" so "the aura"
+  // files under A (not T) and is findable by its noun, not the article.
+  // (Only "the " is stripped; "a priori" etc. keep their leading letter.)
+  const sortKey = (t) => (t.term || "").replace(/^the\s+/i, "").toLowerCase();
+
+  // Group by first letter of the key word (leading article stripped)
   const groups = {};
-  for (const t of filtered) {
-    const letter = (t.term[0] || "?").toUpperCase();
+  for (const t of [...filtered].sort((a, b) => sortKey(a).localeCompare(sortKey(b)))) {
+    const letter = (sortKey(t)[0] || "?").toUpperCase();
     // Normalize accented first letters to their base (Ü→U)
     const base = letter.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const key = /^[A-Z]$/.test(base) ? base : "#";
