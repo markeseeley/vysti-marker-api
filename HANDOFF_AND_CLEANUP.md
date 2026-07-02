@@ -1353,6 +1353,22 @@ verified, folded into the symmetric web; 0 non-resolving, 0 dup term/norm/id at 
   link, don't author); the 3-4 re-authors; the deferred person/event set (human PhD); and the Phase 2–3
   **opposites/families** curation to deepen the diacritical web. Backups `.bak_wave2/.bak_wave3` etc.
 
+### 2026-07-02 — Lexicon: diacritical web Phase 2+3 (opposites + families) DEPLOYED (Claude)
+The deepening pass, LIVE `126f9fc`. A 31-agent workflow proposed each of the 1685 terms' opposite(s)
++ closest family/neighbour terms; filtered to real entries, merged into the existing web, symmetrized,
+capped 16/term with **opposites prioritized (kept first, never capped, bidirectional).**
+- **291 opposite-pairs** now bidirectional: mimesis↔diegesis, comedy↔tragedy, the Apollonian↔the
+  Dionysian, abstraction↔concreteness, denotation↔connotation, absolutism↔relativism, affective↔
+  intentional fallacy, agency↔determinism, agrarianism↔industrialism, ambiguity↔clarity, …
+- **Families cohere** (aside → soliloquy/monologue/stage directions/fourth wall/stichomythia/apostrophe;
+  denotation → signifier/signified/semantics/Barthes; abjection → Kristeva/uncanny/grotesque/monstrous-
+  feminine). Relations 8.3k→**15,992** (avg **9.5**/term), 76% symmetric, 0 non-resolving, 0 self.
+- Writes both `assign_lexis`+`linked_lexis` → Build chips + live app RELATED TERMS. Backup `.bak_phase23`.
+**Diacritical-lexicon effort COMPLETE for now.** Remaining/optional (logged): §B ~304 variant-refs to
+canonicalize; 3-4 fact-flagged re-authors (death drive, the metaphysical, envoi); deferred person/event
+entries + the ~79 mislabeled-etymology prose → human PhD; re-run this Phase 2+3 pass if many new terms
+are later added.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
