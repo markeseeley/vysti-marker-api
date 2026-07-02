@@ -1280,6 +1280,28 @@ Sandbox/untracked, no live touch.
   Lexis auto-select applies). Fixes the Parker/Thurber friction: from any Event you can now pull "The Waltz",
   "The Catbird Seat", etc. by title/author. (curl-verified; user to spot-check UI.)
 
+### 2026-07-02 — Lexicon: diacritical web Phase 0+1 DEPLOYED + candidate-entries kickoff (Claude)
+**LIVE deploy (user-approved), `1e27075`.** Deterministic enrichment of `assign_lexis`/`linked_lexis`:
+- **Phase 0 clean:** dropped 514 dead refs (no matching entry, e.g. idiom→"idiomatic expressions"),
+  canonicalized survivors to real entry names (article/plural/"the "-tolerant), dropped self-refs,
+  excluded the 1 comma-named entry (unstorable in a comma field).
+- **Phase 1 symmetrize:** every A→B ⇒ B→A (**22%→78% symmetric**, 8,288 relations, soft cap 12 on
+  symmetrized adds; curated sets kept whole). Wrote the identical clean set to BOTH columns so Build
+  chips AND the live app's "RELATED TERMS" match (many entries had assign_lexis=self-only → live app
+  showed nothing; now populated). Verified 0 non-resolving / 0 self / 1533×23 / only 2 cols changed.
+  Backup `assignment-lexis.csv.bak_diacritical`. **Verified live** (mimesis→diegesis on app.vysti.org).
+- **Candidate future entries:** the 514 dropped dead refs = ranked "lexicon gaps" →
+  `vysti-builder/CANDIDATE_LEXIS_ENTRIES.md` (triaged: **210 new-concept candidates** vs 304 likely-
+  variants of existing entries). Top: ritual, ellipsis, gynocentrism, sign, Stoicism, epic, elegy,
+  occupatio, amplification, metatheatre, pastoral, synthesis…
+- **Authoring PILOT running** (workflow): drafting ~12 new entries in the house voice (plain def +
+  highest-level theory w/ named theorists; imperative applications; Socratic explorations) for the
+  user's voice review BEFORE any deploy. If approved, scale to the rest + add opposites/families
+  (Phases 2–3) as a later curated pass.
+**Deterministic Phase-0 note:** it drops derivational variants it can't cleanly map (e.g. "Neoclassical"
+→ "Neoclassicism" wasn't auto-mapped, just dropped); those are in the "likely variants" bucket of the
+candidate doc for a future canonicalization/link pass.
+
 <!-- Next agent: add your dated entry below. -->
 
 ---
@@ -1328,5 +1350,33 @@ leading "the "**, so "a priori" keeps its letter):
 - **NOTE:** display term keeps its "the" (house style — "the Apollonian"/"the Dionysian"); only sort/search ignore it.
 - **VERIFY WHEN RENDER FINISHES:** new chunk `assets/student-react/chunks/isMobile-peyTvgzV.js` 200s on
   app.vysti.org (was still 404/deploying at handoff), then confirm searching "aura" surfaces it under A.
+
+---
+
+## 2026-07-02 — Theory entries: quote normalization, related-texts "Both" engine, unit mapping, 2 additions
+
+Follow-up review of the 25 theory entries with Dr. Seeley.
+
+- **Quote convention (LIVE, commit 1fce00e):** one rule across all 25 — double quotes for direct quotations,
+  minor-text titles, and ironic mentions; NO quotes for terms of art or book titles. 66 single-quote spans → 0,
+  validated content-identical (workflow `lexicon-quote-normalize`, 25 agents). e.g. Benjamin's *optical unconscious*
+  is now an unquoted concept (it is NOT a verbatim quote of that essay, and the familiar Zohn translation says
+  "unconscious optics").
+- **"Related texts" now three-tier ("Both"), Build sandbox only** (`planner-cards.html` + `/api/related`):
+  **tagged** (exact keyword) → **unit** (term's `related_events` home units) → **web** (readings sharing the term's
+  `linked_lexis`, ranked by overlap, capped 40). `/api/related` also now scans the **recommended** canons so a
+  pointer text can surface. Article-tolerant `/api/lexis` lookup + article-insensitive A-Z sort were done 07-01/02.
+- **Term→unit mapping (LIVE, commit e57d367):** `related_events` set on all 25 (engine-neutral — live marker ignores
+  the column, verified). gender performativity → all THREE Shakespeare units (aswl1_e2/aswl2_e2/asel1_e1; boy-actor
+  performativity); madwoman → Jane Eyre (aswl1_e4); double consciousness → Douglass (asal1_e4); Fanon → Cry, The
+  Beloved Country + Julius Caesar; critical-theory cluster → Postmodernism (aswl2_e7). Verified via curl: aura→31
+  postmodern texts, madwoman→27 Jane-Eyre-unit texts, gender performativity→130 Shakespeare-unit texts.
+- **Content additions (Build sandbox CSVs — untracked, no live deploy):**
+  (1) FE across all 3 Shakespeare units: **Claude J. Summers, "Homosexuality and Renaissance Literature, or the
+  Anxieties of Anachronism"** (South Central Review 9.1, 1992) — tagged `gender performativity`; verified it surfaces.
+  (2) Recommended text under Our Town (asal1_e6): **The Things They Carried** (O'Brien, 1990, in-copyright) — tagged
+  `trauma theory`; verified it surfaces via the new recommended-scan.
+- **OPEN:** unit tier is uncapped — gender performativity shows 130 texts (3 big units); offered to cap, user hasn't
+  decided. User asked to see it → refresh localhost:8200 (Build sandbox; these CSV/endpoint changes are NOT live).
 <!-- markdownlint-disable-file -->
 
